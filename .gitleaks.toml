@@ -1,0 +1,12 @@
+[allowlist]
+description = "AgentGuard gitleaks allowlist"
+paths = [
+  '''\.next/''',
+  '''node_modules/''',
+  '''dist/''',
+]
+
+[[allowlist.rules]]
+description = "Public on-chain contract addresses are not secrets"
+id = "generic-api-key"
+paths = ['''packages/common/src/constants/contracts\.ts''']
