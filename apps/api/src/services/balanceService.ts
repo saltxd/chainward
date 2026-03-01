@@ -19,7 +19,7 @@ export class BalanceService {
       SELECT DISTINCT ON (wallet_address, token_address)
         wallet_address, chain, token_address, token_symbol, balance_raw, balance_usd, timestamp
       FROM balance_snapshots
-      WHERE wallet_address = ANY(${wallets})
+      WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
       ORDER BY wallet_address, token_address, timestamp DESC
     `);
 
@@ -47,6 +47,9 @@ export class BalanceService {
     const interval = bucket === '1d' ? '1 day' : '1 hour';
     const defaultFrom = new Date(Date.now() - (bucket === '1d' ? 30 : 7) * 24 * 60 * 60 * 1000);
 
+    const fromStr = (from ?? defaultFrom).toISOString();
+    const toStr = (to ?? new Date()).toISOString();
+
     const result = await this.db.execute(sql`
       SELECT
         time_bucket(${interval}::interval, timestamp) AS bucket,
@@ -56,8 +59,8 @@ export class BalanceService {
         LAST(balance_raw, timestamp) AS balance_raw
       FROM balance_snapshots
       WHERE wallet_address = ${wallet}
-        AND timestamp >= ${from ?? defaultFrom}
-        AND timestamp <= ${to ?? new Date()}
+        AND timestamp >= ${fromStr}::timestamptz
+        AND timestamp <= ${toStr}::timestamptz
       GROUP BY bucket, token_symbol, token_address
       ORDER BY bucket ASC
     `);

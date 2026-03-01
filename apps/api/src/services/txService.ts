@@ -36,7 +36,8 @@ export class TxService {
       return { data: [], pagination: { total: 0, limit, offset, hasMore: false } };
     }
 
-    const conditions = [sql`${transactions.walletAddress} = ANY(${wallets})`];
+    const walletArray = `{${wallets.join(',')}}`;
+    const conditions = [sql`${transactions.walletAddress} = ANY(${walletArray}::text[])`];
 
     if (filter.chain) conditions.push(eq(transactions.chain, filter.chain));
     if (filter.direction) conditions.push(eq(transactions.direction, filter.direction));
@@ -85,6 +86,8 @@ export class TxService {
 
     const interval = bucket === '1d' ? '1 day' : '1 hour';
     const defaultFrom = new Date(Date.now() - (bucket === '1d' ? 30 : 7) * 24 * 60 * 60 * 1000);
+    const fromStr = (from ?? defaultFrom).toISOString();
+    const toStr = (to ?? new Date()).toISOString();
 
     const result = await this.db.execute(sql`
       SELECT
@@ -93,9 +96,9 @@ export class TxService {
         COALESCE(SUM(amount_usd), 0) AS total_volume_usd,
         COALESCE(SUM(gas_cost_usd), 0) AS total_gas_usd
       FROM transactions
-      WHERE wallet_address = ANY(${wallets})
-        AND timestamp >= ${from ?? defaultFrom}
-        AND timestamp <= ${to ?? new Date()}
+      WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
+        AND timestamp >= ${fromStr}::timestamptz
+        AND timestamp <= ${toStr}::timestamptz
       GROUP BY bucket
       ORDER BY bucket ASC
     `);

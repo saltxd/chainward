@@ -22,6 +22,8 @@ export class GasService {
 
     const interval = bucket === '1d' ? '1 day' : '1 hour';
     const defaultFrom = new Date(Date.now() - (bucket === '1d' ? 30 : 7) * 24 * 60 * 60 * 1000);
+    const fromStr = (from ?? defaultFrom).toISOString();
+    const toStr = (to ?? new Date()).toISOString();
 
     const result = await this.db.execute(sql`
       SELECT
@@ -32,10 +34,10 @@ export class GasService {
         COALESCE(MAX(gas_cost_usd), 0) AS max_gas_usd,
         COALESCE(AVG(gas_price_gwei::numeric), 0) AS avg_gas_price_gwei
       FROM transactions
-      WHERE wallet_address = ANY(${wallets})
+      WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
         AND gas_cost_usd IS NOT NULL
-        AND timestamp >= ${from ?? defaultFrom}
-        AND timestamp <= ${to ?? new Date()}
+        AND timestamp >= ${fromStr}::timestamptz
+        AND timestamp <= ${toStr}::timestamptz
       GROUP BY bucket
       ORDER BY bucket ASC
     `);
