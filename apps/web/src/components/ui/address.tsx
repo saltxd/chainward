@@ -27,16 +27,23 @@ export function Address({ address, chain = 'base', className }: AddressProps) {
 
   return (
     <span className={cn('inline-flex items-center gap-1.5', className)}>
-      <a
-        href={explorerUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-mono text-sm text-muted-foreground transition-colors hover:text-foreground"
+      <span
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.open(explorerUrl, '_blank', 'noopener,noreferrer');
+        }}
+        role="link"
+        className="cursor-pointer font-mono text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         {truncated}
-      </a>
+      </span>
       <button
-        onClick={handleCopy}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleCopy();
+        }}
         className="text-xs text-muted-foreground transition-colors hover:text-foreground"
         title="Copy address"
       >

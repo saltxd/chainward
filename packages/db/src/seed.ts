@@ -1,5 +1,5 @@
-import { createDb } from './index.js';
-import { users, agentRegistry } from './schema/index.js';
+import { createDb } from './index';
+import { users, agentRegistry } from './schema/index';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {

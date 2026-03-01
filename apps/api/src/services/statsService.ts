@@ -1,4 +1,4 @@
-import { eq, sql, and, gte, count, sum } from 'drizzle-orm';
+import { eq, sql, and, gte, count, sum, inArray } from 'drizzle-orm';
 import { agentRegistry, transactions, balanceSnapshots } from '@agentguard/db';
 import type { Database } from '@agentguard/db';
 
@@ -36,7 +36,7 @@ export class StatsService {
         .from(transactions)
         .where(
           and(
-            sql`${transactions.walletAddress} = ANY(${wallets})`,
+            inArray(transactions.walletAddress, wallets),
             gte(transactions.timestamp, dayAgo),
           ),
         );
@@ -45,10 +45,11 @@ export class StatsService {
       gasSpend24h = parseFloat(txStats?.totalGas ?? '0');
 
       // Latest balance per wallet (most recent snapshot per wallet)
+      const walletArray = `{${wallets.join(',')}}`;
       const latestBalances = await this.db.execute(sql`
         SELECT DISTINCT ON (wallet_address) wallet_address, balance_usd
         FROM balance_snapshots
-        WHERE wallet_address = ANY(${wallets})
+        WHERE wallet_address = ANY(${walletArray}::text[])
           AND token_address IS NULL
         ORDER BY wallet_address, timestamp DESC
       `);

@@ -1,5 +1,5 @@
 import { pgTable, bigserial, text, timestamp } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { users } from './users';
 
 export const apiKeys = pgTable('api_keys', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
