@@ -5,36 +5,51 @@ const ALCHEMY_NOTIFY_API = 'https://dashboard.alchemy.com/api';
 
 /**
  * Manage Alchemy Address Activity webhook addresses.
- * Uses a single webhook and adds/removes addresses via the Alchemy Notify API.
+ * Adds/removes addresses via the Alchemy Notify API when agents are registered/deleted.
  */
-export class AlchemyWebhookManager {
-  private apiKey: string;
-  private webhookId: string | null = null;
+class AlchemyWebhookManager {
+  private authToken: string | undefined;
+  private webhookId: string | undefined;
 
-  constructor() {
-    this.apiKey = getEnv().ALCHEMY_API_KEY;
+  init() {
+    const env = getEnv();
+    this.authToken = env.ALCHEMY_AUTH_TOKEN;
+    this.webhookId = env.ALCHEMY_WEBHOOK_ID;
+  }
+
+  private isConfigured(): boolean {
+    if (!this.authToken || !this.webhookId) {
+      return false;
+    }
+    return true;
   }
 
   /** Add an address to the Alchemy webhook */
   async addAddress(address: string): Promise<void> {
+    if (!this.isConfigured()) {
+      logger.warn('Alchemy webhook not configured (missing ALCHEMY_AUTH_TOKEN or ALCHEMY_WEBHOOK_ID), skipping addAddress');
+      return;
+    }
+
     try {
-      const webhookId = await this.getOrCreateWebhookId();
       const response = await fetch(`${ALCHEMY_NOTIFY_API}/update-webhook-addresses`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Alchemy-Token': this.apiKey,
+          'X-Alchemy-Token': this.authToken!,
         },
         body: JSON.stringify({
-          webhook_id: webhookId,
-          addresses_to_add: [address],
+          webhook_id: this.webhookId,
+          addresses_to_add: [address.toLowerCase()],
           addresses_to_remove: [],
         }),
       });
 
       if (!response.ok) {
         const text = await response.text();
-        logger.error({ status: response.status, body: text }, 'Failed to add address to webhook');
+        logger.error({ status: response.status, body: text, address }, 'Failed to add address to Alchemy webhook');
+      } else {
+        logger.info({ address }, 'Added address to Alchemy webhook');
       }
     } catch (err) {
       logger.error({ err, address }, 'Error adding address to Alchemy webhook');
@@ -43,52 +58,35 @@ export class AlchemyWebhookManager {
 
   /** Remove an address from the Alchemy webhook */
   async removeAddress(address: string): Promise<void> {
+    if (!this.isConfigured()) {
+      logger.warn('Alchemy webhook not configured, skipping removeAddress');
+      return;
+    }
+
     try {
-      const webhookId = await this.getOrCreateWebhookId();
       const response = await fetch(`${ALCHEMY_NOTIFY_API}/update-webhook-addresses`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Alchemy-Token': this.apiKey,
+          'X-Alchemy-Token': this.authToken!,
         },
         body: JSON.stringify({
-          webhook_id: webhookId,
+          webhook_id: this.webhookId,
           addresses_to_add: [],
-          addresses_to_remove: [address],
+          addresses_to_remove: [address.toLowerCase()],
         }),
       });
 
       if (!response.ok) {
         const text = await response.text();
-        logger.error({ status: response.status, body: text }, 'Failed to remove address from webhook');
+        logger.error({ status: response.status, body: text, address }, 'Failed to remove address from Alchemy webhook');
+      } else {
+        logger.info({ address }, 'Removed address from Alchemy webhook');
       }
     } catch (err) {
       logger.error({ err, address }, 'Error removing address from Alchemy webhook');
     }
   }
-
-  private async getOrCreateWebhookId(): Promise<string> {
-    if (this.webhookId) return this.webhookId;
-
-    // List existing webhooks to find ours
-    const response = await fetch(`${ALCHEMY_NOTIFY_API}/team-webhooks`, {
-      headers: { 'X-Alchemy-Token': this.apiKey },
-    });
-
-    if (response.ok) {
-      const data = (await response.json()) as { data: Array<{ id: string; type: string }> };
-      const existing = data.data?.find(
-        (w: { type: string }) => w.type === 'ADDRESS_ACTIVITY',
-      );
-      if (existing) {
-        this.webhookId = existing.id;
-        return this.webhookId;
-      }
-    }
-
-    // Would create webhook via API - for now, expect manual setup
-    logger.warn('No Alchemy ADDRESS_ACTIVITY webhook found. Create one manually in the Alchemy dashboard.');
-    this.webhookId = 'manual-setup-required';
-    return this.webhookId;
-  }
 }
+
+export const webhookManager = new AlchemyWebhookManager();

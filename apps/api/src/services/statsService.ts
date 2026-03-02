@@ -1,6 +1,9 @@
-import { eq, sql, and, gte, count, sum, inArray } from 'drizzle-orm';
+import { eq, sql, and, gte, count, sum, inArray, notInArray, isNull, or } from 'drizzle-orm';
 import { agentRegistry, transactions, balanceSnapshots } from '@agentguard/db';
 import type { Database } from '@agentguard/db';
+import { SPAM_TOKENS } from '@agentguard/common';
+
+const spamList = [...SPAM_TOKENS];
 
 export class StatsService {
   constructor(private db: Database) {}
@@ -28,6 +31,11 @@ export class StatsService {
     let totalValue = 0;
 
     if (wallets.length > 0) {
+      const spamFilter =
+        spamList.length > 0
+          ? or(isNull(transactions.tokenAddress), notInArray(transactions.tokenAddress, spamList))
+          : undefined;
+
       const [txStats] = await this.db
         .select({
           txCount: count(),
@@ -38,6 +46,7 @@ export class StatsService {
           and(
             inArray(transactions.walletAddress, wallets),
             gte(transactions.timestamp, dayAgo),
+            spamFilter,
           ),
         );
 
@@ -82,6 +91,11 @@ export class StatsService {
     const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+    const spamFilter =
+      spamList.length > 0
+        ? or(isNull(transactions.tokenAddress), notInArray(transactions.tokenAddress, spamList))
+        : undefined;
+
     const [txStats24h] = await this.db
       .select({
         txCount: count(),
@@ -93,6 +107,7 @@ export class StatsService {
         and(
           eq(transactions.walletAddress, agent.walletAddress),
           gte(transactions.timestamp, dayAgo),
+          spamFilter,
         ),
       );
 
@@ -106,6 +121,7 @@ export class StatsService {
         and(
           eq(transactions.walletAddress, agent.walletAddress),
           gte(transactions.timestamp, weekAgo),
+          spamFilter,
         ),
       );
 

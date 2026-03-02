@@ -18,6 +18,8 @@ const envSchema = z.object({
   BASE_RPC_URL: z.string().url(),
   ALCHEMY_API_KEY: z.string(),
   ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().optional(),
+  ALCHEMY_AUTH_TOKEN: z.string().optional(),
+  ALCHEMY_WEBHOOK_ID: z.string().optional(),
 
   // RPC - Solana (Phase 2)
   SOLANA_RPC_URL: z.string().url().optional(),

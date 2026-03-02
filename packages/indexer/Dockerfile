@@ -16,20 +16,12 @@ COPY --from=deps /app/packages/indexer/node_modules ./packages/indexer/node_modu
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY . .
-RUN pnpm --filter @agentguard/common build && \
-    pnpm --filter @agentguard/db build && \
-    pnpm --filter @agentguard/indexer build
+RUN pnpm --filter @agentguard/indexer build && \
+    pnpm --filter @agentguard/indexer deploy /prod --prod
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app/packages/indexer/dist ./packages/indexer/dist
-COPY --from=build /app/packages/indexer/package.json ./packages/indexer/
-COPY --from=build /app/packages/common/dist ./packages/common/dist
-COPY --from=build /app/packages/common/package.json ./packages/common/
-COPY --from=build /app/packages/db/dist ./packages/db/dist
-COPY --from=build /app/packages/db/package.json ./packages/db/
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./
+COPY --from=build /prod .
 
-CMD ["node", "packages/indexer/dist/index.js"]
+CMD ["node", "dist/index.js"]

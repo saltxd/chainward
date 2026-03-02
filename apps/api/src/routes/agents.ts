@@ -7,6 +7,7 @@ import { getDb } from '../lib/db.js';
 import { getQueues } from '../lib/queue.js';
 import { requireAuth } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { webhookManager } from '../lib/alchemy.js';
 
 const agents = new Hono<{ Variables: AppVariables }>();
 
@@ -52,6 +53,11 @@ agents.post('/', async (c) => {
     chain: agent!.chain,
   });
 
+  // Register address with Alchemy webhook for live indexing
+  if (input.chain === 'base') {
+    webhookManager.addAddress(agent!.walletAddress).catch(() => {});
+  }
+
   return c.json({ success: true, data: agent }, 201);
 });
 
@@ -94,7 +100,16 @@ agents.delete('/:id', async (c) => {
   if (Number.isNaN(id)) throw new AppError(400, 'INVALID_ID', 'Agent ID must be a number');
 
   const service = new AgentService(getDb());
+
+  // Fetch agent before deletion to get wallet info
+  const agent = await service.getById(user.id, id);
+
   await service.delete(user.id, id);
+
+  // Remove address from Alchemy webhook
+  if (agent.chain === 'base') {
+    webhookManager.removeAddress(agent.walletAddress).catch(() => {});
+  }
 
   return c.json({ success: true, data: null });
 });

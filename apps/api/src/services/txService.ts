@@ -1,6 +1,9 @@
-import { eq, and, gte, lte, desc, ilike, sql, count } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, ilike, sql, count, notInArray, isNull, or } from 'drizzle-orm';
 import { transactions, agentRegistry } from '@agentguard/db';
 import type { Database } from '@agentguard/db';
+import { SPAM_TOKENS } from '@agentguard/common';
+
+const spamList = [...SPAM_TOKENS];
 
 interface TxFilter {
   walletAddress?: string;
@@ -38,6 +41,10 @@ export class TxService {
 
     const walletArray = `{${wallets.join(',')}}`;
     const conditions = [sql`${transactions.walletAddress} = ANY(${walletArray}::text[])`];
+
+    if (spamList.length > 0) {
+      conditions.push(or(isNull(transactions.tokenAddress), notInArray(transactions.tokenAddress, spamList))!);
+    }
 
     if (filter.chain) conditions.push(eq(transactions.chain, filter.chain));
     if (filter.direction) conditions.push(eq(transactions.direction, filter.direction));
@@ -89,6 +96,11 @@ export class TxService {
     const fromStr = (from ?? defaultFrom).toISOString();
     const toStr = (to ?? new Date()).toISOString();
 
+    const spamExclusion =
+      spamList.length > 0
+        ? sql`AND (token_address IS NULL OR token_address NOT IN (${sql.join(spamList.map((s) => sql`${s}`), sql`, `)}))`
+        : sql``;
+
     const result = await this.db.execute(sql`
       SELECT
         time_bucket(${interval}::interval, timestamp) AS bucket,
@@ -99,6 +111,7 @@ export class TxService {
       WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
         AND timestamp >= ${fromStr}::timestamptz
         AND timestamp <= ${toStr}::timestamptz
+        ${spamExclusion}
       GROUP BY bucket
       ORDER BY bucket ASC
     `);

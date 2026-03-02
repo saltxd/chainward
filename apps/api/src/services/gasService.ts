@@ -1,6 +1,9 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { agentRegistry } from '@agentguard/db';
 import type { Database } from '@agentguard/db';
+import { SPAM_TOKENS } from '@agentguard/common';
+
+const spamList = [...SPAM_TOKENS];
 
 export class GasService {
   constructor(private db: Database) {}
@@ -25,6 +28,11 @@ export class GasService {
     const fromStr = (from ?? defaultFrom).toISOString();
     const toStr = (to ?? new Date()).toISOString();
 
+    const spamExclusion =
+      spamList.length > 0
+        ? sql`AND (token_address IS NULL OR token_address NOT IN (${sql.join(spamList.map((s) => sql`${s}`), sql`, `)}))`
+        : sql``;
+
     const result = await this.db.execute(sql`
       SELECT
         time_bucket(${interval}::interval, timestamp) AS bucket,
@@ -38,6 +46,7 @@ export class GasService {
         AND gas_cost_usd IS NOT NULL
         AND timestamp >= ${fromStr}::timestamptz
         AND timestamp <= ${toStr}::timestamptz
+        ${spamExclusion}
       GROUP BY bucket
       ORDER BY bucket ASC
     `);

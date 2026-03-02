@@ -16,9 +16,11 @@ import { apiKeysRoute } from './routes/apiKeys.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
+import { webhookManager } from './lib/alchemy.js';
 
 // Validate env on startup
 const env = getEnv();
+webhookManager.init();
 
 const app = new Hono();
 

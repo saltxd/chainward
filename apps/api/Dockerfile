@@ -16,21 +16,13 @@ COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY . .
-RUN pnpm --filter @agentguard/common build && \
-    pnpm --filter @agentguard/db build && \
-    pnpm --filter @agentguard/api build
+RUN pnpm --filter @agentguard/api build && \
+    pnpm --filter @agentguard/api deploy /prod --prod
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/apps/api/package.json ./apps/api/
-COPY --from=build /app/packages/common/dist ./packages/common/dist
-COPY --from=build /app/packages/common/package.json ./packages/common/
-COPY --from=build /app/packages/db/dist ./packages/db/dist
-COPY --from=build /app/packages/db/package.json ./packages/db/
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./
+COPY --from=build /prod .
 
 EXPOSE 8000
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["node", "dist/index.js"]
