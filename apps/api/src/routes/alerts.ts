@@ -6,6 +6,7 @@ import { AlertService } from '../services/alertService.js';
 import { getDb } from '../lib/db.js';
 import { getQueues } from '../lib/queue.js';
 import { requireAuth } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const alerts = new Hono<{ Variables: AppVariables }>();
@@ -77,8 +78,8 @@ alerts.delete('/:id', async (c) => {
   return c.json({ success: true, data: null });
 });
 
-// Send a test alert to verify delivery channels
-alerts.post('/:id/test', async (c) => {
+// Send a test alert to verify delivery channels (max 5/min)
+alerts.post('/:id/test', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:alert-test' }), async (c) => {
   const user = c.get('user');
   const id = Number(c.req.param('id'));
   if (Number.isNaN(id)) throw new AppError(400, 'INVALID_ID', 'Alert ID must be a number');

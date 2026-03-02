@@ -1,4 +1,4 @@
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, count, inArray } from 'drizzle-orm';
 import { alertConfigs, alertEvents } from '@chainward/db';
 import type { Database } from '@chainward/db';
 import { AppError } from '../middleware/errorHandler.js';
@@ -120,7 +120,7 @@ export class AlertService {
     const events = await this.db
       .select()
       .from(alertEvents)
-      .where(eq(alertEvents.alertConfigId, configIds[0]!))
+      .where(inArray(alertEvents.alertConfigId, configIds))
       .orderBy(desc(alertEvents.timestamp))
       .limit(limit)
       .offset(offset);
@@ -128,7 +128,7 @@ export class AlertService {
     const [totalResult] = await this.db
       .select({ total: count() })
       .from(alertEvents)
-      .where(eq(alertEvents.alertConfigId, configIds[0]!));
+      .where(inArray(alertEvents.alertConfigId, configIds));
 
     const total = totalResult?.total ?? 0;
 
