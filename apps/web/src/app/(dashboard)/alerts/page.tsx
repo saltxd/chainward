@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { api, type AlertConfig, type AlertEvent, type Agent } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorBanner } from '@/components/ui/error-banner';
 import { cn } from '@/lib/utils';
 
 export default function AlertsPage() {
-  const { data: alertList, loading, refetch } = useApi<AlertConfig[]>(
+  const { data: alertList, loading, error, refetch } = useApi<AlertConfig[]>(
     () => api.getAlerts(),
     [],
   );
@@ -17,6 +18,8 @@ export default function AlertsPage() {
     [],
   );
 
+  const [testError, setTestError] = useState<string | null>(null);
+  const [createAlertError, setCreateAlertError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     walletAddress: '',
@@ -24,18 +27,23 @@ export default function AlertsPage() {
     alertType: 'large_transfer',
     thresholdValue: '500',
     thresholdUnit: 'usd',
-    channels: ['webhook'] as string[],
+    channels: [] as string[],
     webhookUrl: '',
+    slackWebhook: '',
+    discordWebhook: '',
+    lookback: '1h',
+    cooldown: '5m',
   });
   const [creating, setCreating] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
 
   async function handleTestAlert(id: number) {
     setTestingId(id);
+    setTestError(null);
     try {
       await api.testAlert(id);
-    } catch {
-      // error handling
+    } catch (err) {
+      setTestError(err instanceof Error ? err.message : 'Failed to send test alert');
     } finally {
       setTestingId(null);
     }
@@ -44,6 +52,7 @@ export default function AlertsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
+    setCreateAlertError(null);
     try {
       await api.createAlert({
         walletAddress: form.walletAddress,
@@ -52,12 +61,14 @@ export default function AlertsPage() {
         thresholdValue: form.thresholdValue,
         thresholdUnit: form.thresholdUnit,
         channels: form.channels,
-        webhookUrl: form.webhookUrl || undefined,
+        webhookUrl: form.channels.includes('webhook') ? form.webhookUrl || undefined : undefined,
+        slackWebhook: form.channels.includes('slack') ? form.slackWebhook || undefined : undefined,
+        discordWebhook: form.channels.includes('discord') ? form.discordWebhook || undefined : undefined,
       });
       setShowCreate(false);
       refetch();
-    } catch {
-      // error handling
+    } catch (err) {
+      setCreateAlertError(err instanceof Error ? err.message : 'Failed to create alert');
     } finally {
       setCreating(false);
     }
@@ -87,6 +98,10 @@ export default function AlertsPage() {
           Create Alert
         </button>
       </div>
+
+      {error && <ErrorBanner message={error} onRetry={refetch} />}
+      {testError && <ErrorBanner message={testError} />}
+      {createAlertError && <ErrorBanner message={createAlertError} />}
 
       {/* Create form */}
       {showCreate && (
@@ -144,18 +159,96 @@ export default function AlertsPage() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Webhook URL</label>
-              <input
-                value={form.webhookUrl}
-                onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })}
-                placeholder="https://..."
+              <label className="text-sm font-medium">Lookback Window</label>
+              <select
+                value={form.lookback}
+                onChange={(e) => setForm({ ...form, lookback: e.target.value })}
                 className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
+              >
+                <option value="5m">5 minutes</option>
+                <option value="1h">1 hour</option>
+                <option value="6h">6 hours</option>
+                <option value="24h">24 hours</option>
+                <option value="7d">7 days</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Cooldown</label>
+              <select
+                value={form.cooldown}
+                onChange={(e) => setForm({ ...form, cooldown: e.target.value })}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="1m">1 minute</option>
+                <option value="5m">5 minutes</option>
+                <option value="15m">15 minutes</option>
+                <option value="1h">1 hour</option>
+              </select>
             </div>
           </div>
+
+          {/* Delivery channels */}
+          <div className="mt-4">
+            <label className="text-sm font-medium">Delivery Channels</label>
+            <div className="mt-2 flex gap-3">
+              {(['webhook', 'slack', 'discord'] as const).map((channel) => (
+                <label key={channel} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.channels.includes(channel)}
+                    onChange={(e) => {
+                      const channels = e.target.checked
+                        ? [...form.channels, channel]
+                        : form.channels.filter((c) => c !== channel);
+                      setForm({ ...form, channels });
+                    }}
+                    className="rounded border-border"
+                  />
+                  <span className="capitalize">{channel}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {form.channels.includes('webhook') && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">Webhook URL</label>
+                  <input
+                    value={form.webhookUrl}
+                    onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })}
+                    placeholder="https://your-server.com/webhook"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+              {form.channels.includes('slack') && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">Slack Webhook URL</label>
+                  <input
+                    value={form.slackWebhook}
+                    onChange={(e) => setForm({ ...form, slackWebhook: e.target.value })}
+                    placeholder="https://hooks.slack.com/services/..."
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+              {form.channels.includes('discord') && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">Discord Webhook URL</label>
+                  <input
+                    value={form.discordWebhook}
+                    onChange={(e) => setForm({ ...form, discordWebhook: e.target.value })}
+                    placeholder="https://discord.com/api/webhooks/..."
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           <button
             type="submit"
-            disabled={creating}
+            disabled={creating || form.channels.length === 0}
             className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
             {creating ? 'Creating...' : 'Create Alert'}
