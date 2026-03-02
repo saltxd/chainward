@@ -2,11 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { api, type Agent, type AgentStats, type FleetOverview } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { StatCard } from '@/components/ui/stat-card';
 import { Address } from '@/components/ui/address';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorBanner } from '@/components/ui/error-banner';
+import { cn } from '@/lib/utils';
 
 function AgentCard({ agent }: { agent: Agent }) {
   const { data: stats } = useApi<AgentStats>(
@@ -55,34 +58,56 @@ function AgentCard({ agent }: { agent: Agent }) {
 }
 
 export default function AgentsPage() {
-  const { data: overview, loading: overviewLoading } = useApi<FleetOverview>(
+  const searchParams = useSearchParams();
+  const { data: overview, loading: overviewLoading, error: overviewError, refetch: refetchOverview } = useApi<FleetOverview>(
     () => api.getOverview(),
     [],
   );
-  const { data: agents, loading: agentsLoading, refetch } = useApi<Agent[]>(
+  const { data: agents, loading: agentsLoading, error: agentsError, refetch } = useApi<Agent[]>(
     () => api.getAgents(),
     [],
   );
 
-  const [showRegister, setShowRegister] = useState(false);
+  const [showRegister, setShowRegister] = useState(searchParams.get('register') === 'true');
   const [form, setForm] = useState({ chain: 'base', walletAddress: '', agentName: '' });
   const [registering, setRegistering] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
+
+  function validateAddress(address: string): boolean {
+    if (!address.startsWith('0x')) {
+      setAddressError('Address must start with 0x');
+      return false;
+    }
+    if (address.length !== 42) {
+      setAddressError('Address must be 42 characters (0x + 40 hex chars)');
+      return false;
+    }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      setAddressError('Address contains invalid characters');
+      return false;
+    }
+    setAddressError(null);
+    return true;
+  }
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
+    if (!validateAddress(form.walletAddress)) return;
     setRegistering(true);
+    setCreateError(null);
     try {
-      const defaultName = `Agent ${form.walletAddress.slice(0, 6)}...${form.walletAddress.slice(-4)}`;
       await api.createAgent({
         chain: form.chain,
         walletAddress: form.walletAddress,
-        agentName: form.agentName || defaultName,
+        agentName: form.agentName || undefined,
       });
       setShowRegister(false);
       setForm({ chain: 'base', walletAddress: '', agentName: '' });
+      setAddressError(null);
       refetch();
-    } catch {
-      // error handling in future
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to register agent');
     } finally {
       setRegistering(false);
     }
@@ -103,6 +128,15 @@ export default function AgentsPage() {
         </button>
       </div>
 
+      {(overviewError || agentsError) && (
+        <ErrorBanner
+          message={overviewError ?? agentsError ?? ''}
+          onRetry={() => { refetchOverview(); refetch(); }}
+        />
+      )}
+
+      {createError && <ErrorBanner message={createError} />}
+
       {/* Register form */}
       {showRegister && (
         <form onSubmit={handleRegister} className="rounded-lg border border-border bg-card p-6">
@@ -122,19 +156,27 @@ export default function AgentsPage() {
               <label className="text-sm font-medium">Wallet Address</label>
               <input
                 value={form.walletAddress}
-                onChange={(e) => setForm({ ...form, walletAddress: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, walletAddress: e.target.value });
+                  if (addressError) setAddressError(null);
+                }}
                 placeholder="0x..."
                 required
-                className="rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
+                className={cn(
+                  'rounded-lg border bg-background px-3 py-2 font-mono text-sm',
+                  addressError ? 'border-destructive' : 'border-border',
+                )}
               />
+              {addressError && (
+                <p className="text-xs text-destructive">{addressError}</p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Name</label>
+              <label className="text-sm font-medium">Name <span className="font-normal text-muted-foreground">(optional)</span></label>
               <input
                 value={form.agentName}
                 onChange={(e) => setForm({ ...form, agentName: e.target.value })}
-                placeholder="My Trading Agent"
-                required
+                placeholder={form.walletAddress ? `Agent ${form.walletAddress.slice(0, 6)}...${form.walletAddress.slice(-4)}` : 'Optional — auto-generated from address'}
                 className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
               />
             </div>

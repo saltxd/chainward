@@ -5,6 +5,7 @@ import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { api, type Agent, type ApiKey } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
+import { ErrorBanner } from '@/components/ui/error-banner';
 import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
@@ -25,6 +26,7 @@ export default function SettingsPage() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [newRawKey, setNewRawKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
   async function handleSignOut() {
     await signOut();
@@ -34,6 +36,7 @@ export default function SettingsPage() {
   async function handleCreateKey(e: React.FormEvent) {
     e.preventDefault();
     setCreatingKey(true);
+    setKeyError(null);
     try {
       const result = await api.createApiKey({
         name: keyForm.name,
@@ -43,8 +46,8 @@ export default function SettingsPage() {
       setShowCreateKey(false);
       setKeyForm({ name: '', scopes: ['read'] });
       refetchKeys();
-    } catch {
-      // error handling
+    } catch (err) {
+      setKeyError(err instanceof Error ? err.message : 'Failed to create API key');
     } finally {
       setCreatingKey(false);
     }
@@ -78,6 +81,8 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">Account settings and API key management</p>
       </div>
+
+      {keyError && <ErrorBanner message={keyError} />}
 
       <div className="grid gap-6">
         {/* Account info */}

@@ -9,12 +9,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BalanceChart } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
 import { TxTable } from '@/components/dashboard/tx-table';
+import { ErrorBanner } from '@/components/ui/error-banner';
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const agentId = Number(id);
 
-  const { data: agentStats, loading } = useApi<AgentStats>(
+  const { data: agentStats, loading, error, refetch: refetchAgent } = useApi<AgentStats>(
     () => api.getAgentStats(agentId),
     [agentId],
   );
@@ -60,6 +61,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         <Skeleton className="h-64" />
       </div>
     );
+  }
+
+  if (error) {
+    return <ErrorBanner message={error} onRetry={refetchAgent} />;
   }
 
   if (!agentStats) {

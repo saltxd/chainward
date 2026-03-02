@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 interface TxTableProps {
   transactions: Transaction[];
   showWallet?: boolean;
+  onSelectTx?: (tx: Transaction) => void;
 }
 
-export function TxTable({ transactions, showWallet }: TxTableProps) {
+export function TxTable({ transactions, showWallet, onSelectTx }: TxTableProps) {
   if (transactions.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">No transactions yet</p>
@@ -34,7 +35,14 @@ export function TxTable({ transactions, showWallet }: TxTableProps) {
         </thead>
         <tbody>
           {transactions.map((tx, i) => (
-            <tr key={`${tx.txHash}-${i}`} className="border-b border-border/50 last:border-0">
+            <tr
+              key={`${tx.txHash}-${i}`}
+              onClick={() => onSelectTx?.(tx)}
+              className={cn(
+                'border-b border-border/50 last:border-0',
+                onSelectTx && 'cursor-pointer transition-colors hover:bg-muted/50',
+              )}
+            >
               <td className="py-3 pr-4 text-muted-foreground">
                 {new Date(tx.timestamp).toLocaleString(undefined, {
                   month: 'short',
@@ -91,14 +99,9 @@ export function TxTable({ transactions, showWallet }: TxTableProps) {
                 </span>
               </td>
               <td className="py-3">
-                <a
-                  href={`https://basescan.org/tx/${tx.txHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-                >
+                <span className="font-mono text-xs text-muted-foreground">
                   {tx.txHash.slice(0, 10)}...
-                </a>
+                </span>
               </td>
             </tr>
           ))}
