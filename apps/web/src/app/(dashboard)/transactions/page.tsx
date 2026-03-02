@@ -85,15 +85,9 @@ export default function TransactionsPage() {
       ) : (
         <div className="rounded-lg border border-border bg-card p-5">
           <TxTable
-            transactions={(txResponse as { data: Transaction[] } | null)?.data ?? []}
+            transactions={txResponse ?? []}
             showWallet
           />
-          {txResponse && 'pagination' in txResponse && (
-            <p className="mt-4 text-xs text-muted-foreground">
-              Showing {Math.min((txResponse as { pagination: { total: number } }).pagination.total, 50)} of{' '}
-              {(txResponse as { pagination: { total: number } }).pagination.total} transactions
-            </p>
-          )}
         </div>
       )}
     </div>

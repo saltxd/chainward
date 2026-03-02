@@ -1,6 +1,6 @@
 # AgentGuard — Project Status
 
-**Last updated:** 2026-02-28
+**Last updated:** 2026-03-01
 
 ## What Is AgentGuard
 
@@ -20,11 +20,14 @@ The full stack runs locally on Mac via Docker Compose (TimescaleDB + Redis) with
 | **API (Hono)** | Done | 20+ endpoints, 7 service classes, rate limiting |
 | **Web Dashboard (Next.js 15)** | Done | 7 pages, charts, transaction table, agent management |
 | **Agent Registration** | Done | Register Base wallet addresses, CRUD operations |
-| **Transaction Backfill** | Done | Pulls historical txs from Alchemy `getAssetTransfers` |
+| **Transaction Backfill** | Done | Real data: gas from receipts, block timestamps, CoinGecko USD, spam filtering |
 | **Balance Snapshots** | Done | Current balance + historical points for chart |
-| **Stats/Overview** | Done | Fleet-level and per-agent stats with real data |
+| **Stats/Overview** | Done | Fleet-level and per-agent stats with real data, spam-filtered |
 | **Balance History Chart** | Done | Recharts area chart with real data points |
-| **Transaction Table** | Done | Paginated, sortable, shows real on-chain data |
+| **Transaction Table** | Done | Paginated, sortable, shows real on-chain data, spam-filtered |
+| **Gas Analytics** | Done | Real gas_used/gas_price from transaction receipts |
+| **Spam Token Filtering** | Done | Address blocklist + name pattern matching + non-ASCII detection |
+| **USD Price Resolution** | Done | CoinGecko for ETH, stablecoin hardcodes, null for unknown tokens |
 | **API Key System** | Done | Create/revoke keys, SHA-256 hashing, scopes |
 | **SDK** | Done | TypeScript client for programmatic access |
 | **Docker Compose** | Done | TimescaleDB + Redis containers, multi-stage Dockerfiles |
@@ -34,9 +37,6 @@ The full stack runs locally on Mac via Docker Compose (TimescaleDB + Redis) with
 | Feature | Status | What's Needed |
 |---------|--------|---------------|
 | **Alchemy Webhooks (live indexing)** | Scaffolded | Need public URL for webhook endpoint (ngrok or deploy) |
-| **Gas Analytics** | No data | Backfill doesn't fetch tx receipts (no gas_used/gas_price) |
-| **USD Price Resolution** | Hardcoded | CoinGecko integration exists as placeholder; spam tokens show inflated values |
-| **Token Filtering** | Missing | No spam token filtering — scam airdrops show in data |
 | **Alert System** | Scaffolded | Workers built, needs real data flow to trigger |
 | **Alert Delivery** | Scaffolded | Webhook/Slack/Discord delivery workers built, untested |
 | **Balance Polling Worker** | Scaffolded | BullMQ worker exists, not running locally |
@@ -117,7 +117,7 @@ See `.env.example`. Key ones:
 
 ## Known Issues / Bugs Fixed
 
-All fixed as of `4655858`:
+All fixed:
 - Better Auth schema mapping (must pass tables explicitly to drizzle adapter)
 - `trustedOrigins` required for cross-origin auth requests
 - `.js` import extensions break drizzle-kit (stripped in db package)
@@ -125,22 +125,20 @@ All fixed as of `4655858`:
 - `Date` objects in raw SQL crash postgres driver (convert to ISO strings)
 - Next.js proxy needed for same-origin cookies in dev
 - Nested `<a>` tags cause React hydration errors
+- Backfill used random timestamps → now uses real block timestamps
+- Backfill had no gas data → now fetches transaction receipts
+- Spam tokens inflated USD volume ($5M+) → filtered via address list + name patterns
+- Unknown token prices showed inflated values → now null instead of wrong
 
 ## What's Next (Priority Order)
 
-### 1. Fix Data Quality
-- [ ] Fetch transaction receipts for gas data (gas_used, gas_price)
-- [ ] Integrate CoinGecko for real USD prices
-- [ ] Filter known spam/scam tokens
-- [ ] Improve backfill to use real block timestamps instead of random
-
-### 2. Live Indexing
+### 1. Live Indexing
 - [ ] Set up Alchemy webhook (requires public URL — ngrok for dev, or deploy first)
 - [ ] Start the BullMQ indexer worker
 - [ ] Start the balance polling worker
 - [ ] Verify end-to-end: on-chain tx → webhook → worker → database → dashboard
 
-### 3. Deploy to K3s
+### 2. Deploy to K3s
 - [ ] Create Helm chart templates
 - [ ] Set up sealed secrets for API keys
 - [ ] Configure Traefik ingress (agentguard.k3s.nox or similar)
@@ -149,20 +147,20 @@ All fixed as of `4655858`:
 - [ ] Deploy API + worker + web pods
 - [ ] Set up Alchemy webhook pointing to public URL
 
-### 4. Alert System
+### 3. Alert System
 - [ ] Test alert evaluation with real transaction data
 - [ ] Test webhook delivery
 - [ ] Test Slack/Discord delivery
 - [ ] Add "Send Test Alert" button to UI
 
-### 5. Polish
+### 4. Polish
 - [ ] UI improvements (loading states, error messages, empty states)
 - [ ] Transaction detail view
 - [ ] Better agent naming on registration
 - [ ] Settings page (tier display, API key management)
 - [ ] Landing/marketing page
 
-### 6. Production Readiness
+### 5. Production Readiness
 - [ ] CI/CD pipeline (GitHub Actions → ArgoCD)
 - [ ] Monitoring (Prometheus metrics endpoint)
 - [ ] Proper error tracking

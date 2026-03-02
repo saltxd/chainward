@@ -11,9 +11,17 @@ export function BalanceChart({ data }: BalanceChartProps) {
   const chartData = data
     .filter((d) => d.token_symbol === 'ETH' || d.token_address === null)
     .map((d) => ({
-      time: new Date(d.bucket).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      time: new Date(d.bucket).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
       value: parseFloat(d.balance_usd ?? '0'),
     }));
+
+  if (chartData.length < 2) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        Insufficient data for chart — need at least 2 balance snapshots
+      </p>
+    );
+  }
 
   return (
     <ResponsiveContainer width="100%" height={240}>

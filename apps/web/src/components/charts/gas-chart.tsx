@@ -27,7 +27,7 @@ export function GasChart({ data }: GasChartProps) {
           tick={{ fill: '#a1a1aa', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v: number) => `$${v.toFixed(2)}`}
+          tickFormatter={(v: number) => v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`}
         />
         <Tooltip
           contentStyle={{

@@ -22,18 +22,20 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const wallet = agentStats?.agent.walletAddress;
 
   const { data: balanceHistory } = useApi<BalanceHistoryBucket[]>(
-    () =>
-      wallet
-        ? api.getBalanceHistory({ wallet, bucket: '1h' })
-        : Promise.resolve({ data: [] }),
+    () => {
+      if (!wallet) return Promise.resolve({ data: [] as BalanceHistoryBucket[] });
+      const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      return api.getBalanceHistory({ wallet, bucket: '1d', from });
+    },
     [wallet],
   );
 
   const { data: gasData } = useApi<GasBucket[]>(
-    () =>
-      wallet
-        ? api.getGasAnalytics({ wallet, bucket: '1d' })
-        : Promise.resolve({ data: [] }),
+    () => {
+      if (!wallet) return Promise.resolve({ data: [] as GasBucket[] });
+      const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      return api.getGasAnalytics({ wallet, bucket: '1d', from });
+    },
     [wallet],
   );
 
@@ -121,7 +123,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       {/* Transaction table */}
       <div className="rounded-lg border border-border bg-card p-5">
         <h2 className="mb-4 text-lg font-semibold">Recent Transactions</h2>
-        <TxTable transactions={(txResponse as { data: Transaction[] } | null)?.data ?? []} />
+        <TxTable transactions={txResponse ?? []} />
       </div>
     </div>
   );

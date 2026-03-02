@@ -2,11 +2,57 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { api, type Agent, type FleetOverview } from '@/lib/api';
+import { api, type Agent, type AgentStats, type FleetOverview } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { StatCard } from '@/components/ui/stat-card';
 import { Address } from '@/components/ui/address';
 import { Skeleton } from '@/components/ui/skeleton';
+
+function AgentCard({ agent }: { agent: Agent }) {
+  const { data: stats } = useApi<AgentStats>(
+    () => api.getAgentStats(agent.id),
+    [agent.id],
+  );
+
+  return (
+    <Link
+      href={`/agents/${agent.id}`}
+      className="flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50"
+    >
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-3">
+          <span className="font-medium">{agent.agentName ?? 'Unnamed Agent'}</span>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            {agent.chain}
+          </span>
+          {agent.agentFramework && (
+            <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
+              {agent.agentFramework}
+            </span>
+          )}
+        </div>
+        <Address address={agent.walletAddress} chain={agent.chain} />
+      </div>
+      <div className="flex items-center gap-4">
+        {stats ? (
+          <div className="flex gap-4 text-right text-xs text-muted-foreground">
+            <div>
+              <div className="font-medium text-foreground">{stats.stats.txCount24h}</div>
+              <div>24h txs</div>
+            </div>
+            <div>
+              <div className="font-medium text-foreground">{stats.stats.txCount7d}</div>
+              <div>7d txs</div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">Loading...</span>
+        )}
+        <span className="text-sm text-muted-foreground">→</span>
+      </div>
+    </Link>
+  );
+}
 
 export default function AgentsPage() {
   const { data: overview, loading: overviewLoading } = useApi<FleetOverview>(
@@ -26,10 +72,11 @@ export default function AgentsPage() {
     e.preventDefault();
     setRegistering(true);
     try {
+      const defaultName = `Agent ${form.walletAddress.slice(0, 6)}...${form.walletAddress.slice(-4)}`;
       await api.createAgent({
         chain: form.chain,
         walletAddress: form.walletAddress,
-        agentName: form.agentName || undefined,
+        agentName: form.agentName || defaultName,
       });
       setShowRegister(false);
       setForm({ chain: 'base', walletAddress: '', agentName: '' });
@@ -82,11 +129,12 @@ export default function AgentsPage() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Name (optional)</label>
+              <label className="text-sm font-medium">Name</label>
               <input
                 value={form.agentName}
                 onChange={(e) => setForm({ ...form, agentName: e.target.value })}
-                placeholder="My Agent"
+                placeholder="My Trading Agent"
+                required
                 className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
               />
             </div>
@@ -134,27 +182,7 @@ export default function AgentsPage() {
       ) : agents && agents.length > 0 ? (
         <div className="grid gap-3">
           {agents.map((agent) => (
-            <Link
-              key={agent.id}
-              href={`/agents/${agent.id}`}
-              className="flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50"
-            >
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-3">
-                  <span className="font-medium">{agent.agentName ?? 'Unnamed Agent'}</span>
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    {agent.chain}
-                  </span>
-                  {agent.agentFramework && (
-                    <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
-                      {agent.agentFramework}
-                    </span>
-                  )}
-                </div>
-                <Address address={agent.walletAddress} chain={agent.chain} />
-              </div>
-              <span className="text-sm text-muted-foreground">→</span>
-            </Link>
+            <AgentCard key={agent.id} agent={agent} />
           ))}
         </div>
       ) : (

@@ -67,7 +67,9 @@ export function TxTable({ transactions, showWallet }: TxTableProps) {
               )}
               <td className="py-3 pr-4 font-mono text-xs">{tx.tokenSymbol ?? 'ETH'}</td>
               <td className="py-3 pr-4 text-right font-mono text-xs">
-                {tx.amountUsd ? `$${parseFloat(tx.amountUsd).toFixed(2)}` : '-'}
+                {tx.amountUsd
+                  ? `$${parseFloat(tx.amountUsd).toFixed(2)}`
+                  : <span className="text-muted-foreground">no price</span>}
               </td>
               <td className="py-3 pr-4 text-right font-mono text-xs text-muted-foreground">
                 {tx.gasCostUsd ? `$${parseFloat(tx.gasCostUsd).toFixed(4)}` : '-'}
