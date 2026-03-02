@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { api, type Agent, type AgentStats, type FleetOverview } from '@/lib/api';
@@ -58,6 +58,14 @@ function AgentCard({ agent }: { agent: Agent }) {
 }
 
 export default function AgentsPage() {
+  return (
+    <Suspense>
+      <AgentsContent />
+    </Suspense>
+  );
+}
+
+function AgentsContent() {
   const searchParams = useSearchParams();
   const { data: overview, loading: overviewLoading, error: overviewError, refetch: refetchOverview } = useApi<FleetOverview>(
     () => api.getOverview(),
