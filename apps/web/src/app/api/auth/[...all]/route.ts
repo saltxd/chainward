@@ -19,21 +19,26 @@ async function proxyAuth(req: NextRequest) {
     body: req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : undefined,
   });
 
+  // Read full body to ensure proper Content-Length and response completion
+  const body = await res.arrayBuffer();
+
   const responseHeaders = new Headers();
   res.headers.forEach((value, key) => {
-    responseHeaders.append(key, value);
+    // Skip content-encoding since we've already decoded the body
+    if (key.toLowerCase() !== 'content-encoding' && key.toLowerCase() !== 'transfer-encoding') {
+      responseHeaders.set(key, value);
+    }
   });
 
   // Set-Cookie is excluded from Headers iterator — forward explicitly
-  const cookies = res.headers.getSetCookie();
-  const response = new NextResponse(res.body, {
+  for (const cookie of res.headers.getSetCookie()) {
+    responseHeaders.append('Set-Cookie', cookie);
+  }
+
+  return new NextResponse(body, {
     status: res.status,
     headers: responseHeaders,
   });
-  for (const cookie of cookies) {
-    response.headers.append('Set-Cookie', cookie);
-  }
-  return response;
 }
 
 export const GET = proxyAuth;
