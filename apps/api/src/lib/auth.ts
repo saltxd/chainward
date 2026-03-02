@@ -33,6 +33,11 @@ export function getAuth() {
           maxAge: 60 * 5, // 5 minutes
         },
       },
+      advanced: {
+        defaultCookieAttributes: {
+          path: '/',
+        },
+      },
     });
   }
   return _auth;
