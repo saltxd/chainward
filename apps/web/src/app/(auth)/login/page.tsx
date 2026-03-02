@@ -25,7 +25,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push('/agents');
+    router.push('/overview');
   }
 
   return (

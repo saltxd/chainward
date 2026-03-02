@@ -26,7 +26,7 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push('/agents');
+    router.push('/overview');
   }
 
   return (
