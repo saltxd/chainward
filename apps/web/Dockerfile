@@ -14,6 +14,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY . .
+ARG API_INTERNAL_URL=http://api:8000
+ENV API_INTERNAL_URL=${API_INTERNAL_URL}
 RUN pnpm --filter @chainward/common build && \
     pnpm --filter @chainward/web build
 
