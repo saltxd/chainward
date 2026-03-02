@@ -32,7 +32,7 @@ export default function LoginPage() {
     <div className="flex flex-col gap-6">
       <div className="text-center">
         <h1 className="text-2xl font-bold">
-          Agent<span className="text-primary">Guard</span>
+          Chain<span className="text-primary">Ward</span>
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">Sign in to your account</p>
       </div>

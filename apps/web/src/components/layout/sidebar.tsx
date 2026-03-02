@@ -19,7 +19,7 @@ export function Sidebar() {
     <aside className="flex h-screen w-60 flex-col border-r border-border bg-card">
       <div className="flex h-14 items-center px-6">
         <Link href="/agents" className="text-lg font-bold">
-          Agent<span className="text-primary">Guard</span>
+          Chain<span className="text-primary">Ward</span>
         </Link>
       </div>
 
