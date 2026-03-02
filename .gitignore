@@ -29,3 +29,6 @@ pgdata/
 
 # Docker
 redisdata/
+
+# Worktrees
+.worktrees/
