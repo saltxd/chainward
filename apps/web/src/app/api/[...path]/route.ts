@@ -30,13 +30,7 @@ async function proxy(req: NextRequest) {
 
   // Forward Set-Cookie headers (excluded from Headers iterator per spec)
   // Force Path=/ so auth cookies work across all routes
-  const rawCookies = res.headers.getSetCookie();
-  // DEBUG: expose cookie metadata via response header (remove after debugging)
-  responseHeaders.set('X-Debug-Cookies', String(rawCookies.length));
-  if (rawCookies.length > 0) {
-    responseHeaders.set('X-Debug-Cookie-Attrs', rawCookies.map(c => c.replace(/=.+?;/, '=[REDACTED];').substring(0, 120)).join(' | '));
-  }
-  for (const cookie of rawCookies) {
+  for (const cookie of res.headers.getSetCookie()) {
     const withPath = /path=/i.test(cookie)
       ? cookie.replace(/path=\/[^;]*/i, 'Path=/')
       : cookie + '; Path=/';
