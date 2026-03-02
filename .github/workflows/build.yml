@@ -40,6 +40,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - image: chainward-api
@@ -96,9 +97,9 @@ jobs:
           key: ${{ secrets.K3S_SSH_KEY }}
           script: |
             TAG=${{ steps.sha.outputs.short }}
-            kubectl -n chainward set image deployment/api api=${{ env.IMAGE_PREFIX }}/chainward-api:${TAG}
-            kubectl -n chainward set image deployment/web web=${{ env.IMAGE_PREFIX }}/chainward-web:${TAG}
-            kubectl -n chainward set image deployment/indexer indexer=${{ env.IMAGE_PREFIX }}/chainward-indexer:${TAG}
-            kubectl -n chainward rollout status deployment/api --timeout=120s
-            kubectl -n chainward rollout status deployment/web --timeout=120s
-            kubectl -n chainward rollout status deployment/indexer --timeout=120s
+            kubectl -n agentguard set image deployment/api api=${{ env.IMAGE_PREFIX }}/chainward-api:${TAG}
+            kubectl -n agentguard set image deployment/web web=${{ env.IMAGE_PREFIX }}/chainward-web:${TAG}
+            kubectl -n agentguard set image deployment/indexer indexer=${{ env.IMAGE_PREFIX }}/chainward-indexer:${TAG}
+            kubectl -n agentguard rollout status deployment/api --timeout=120s
+            kubectl -n agentguard rollout status deployment/web --timeout=120s
+            kubectl -n agentguard rollout status deployment/indexer --timeout=120s
