@@ -31,9 +31,16 @@ async function proxyAuth(req: NextRequest) {
   });
 
   // Set-Cookie is excluded from Headers iterator — forward explicitly
-  // Also normalize cookie path to / so cookies work across all routes
+  // Ensure cookie path is / so cookies work across all routes (not just /api/auth)
   for (const cookie of res.headers.getSetCookie()) {
-    const normalized = cookie.replace(/Path=\/api\/auth\b/i, 'Path=/');
+    let normalized = cookie;
+    if (/path=/i.test(normalized)) {
+      // Replace any existing path with /
+      normalized = normalized.replace(/path=\/[^;]*/i, 'Path=/');
+    } else {
+      // No path set — browser would default to /api/auth; add explicit Path=/
+      normalized += '; Path=/';
+    }
     responseHeaders.append('Set-Cookie', normalized);
   }
 
