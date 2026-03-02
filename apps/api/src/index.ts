@@ -58,10 +58,10 @@ app.notFound((c) =>
 
 // Start server
 const port = env.PORT;
-logger.info({ port, env: env.NODE_ENV }, 'Starting AgentGuard API');
+logger.info({ port, env: env.NODE_ENV }, 'Starting ChainWard API');
 
 serve({ fetch: app.fetch, port }, (info) => {
-  logger.info(`AgentGuard API running on http://localhost:${info.port}`);
+  logger.info(`ChainWard API running on http://localhost:${info.port}`);
 });
 
 export default app;

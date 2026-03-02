@@ -1,4 +1,4 @@
-import type { Tier } from '@agentguard/common';
+import type { Tier } from '@chainward/common';
 
 /** Hono context variable types for the API */
 export interface AppVariables {

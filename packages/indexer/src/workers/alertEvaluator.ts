@@ -1,6 +1,6 @@
 import { Worker, Queue, type Job } from 'bullmq';
 import { eq, and, desc, sql, gt, lt, isNull, or } from 'drizzle-orm';
-import { alertConfigs, alertEvents, transactions, balanceSnapshots, agentRegistry } from '@agentguard/db';
+import { alertConfigs, alertEvents, transactions, balanceSnapshots, agentRegistry } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';

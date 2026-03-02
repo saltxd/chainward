@@ -1,6 +1,6 @@
 import { eq, and, desc, count } from 'drizzle-orm';
-import { alertConfigs, alertEvents } from '@agentguard/db';
-import type { Database } from '@agentguard/db';
+import { alertConfigs, alertEvents } from '@chainward/db';
+import type { Database } from '@chainward/db';
 import { AppError } from '../middleware/errorHandler.js';
 
 interface CreateAlertInput {

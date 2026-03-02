@@ -1,6 +1,6 @@
 import type { Context, Next } from 'hono';
 import { eq } from 'drizzle-orm';
-import { users } from '@agentguard/db';
+import { users } from '@chainward/db';
 import { ApiKeyService } from '../services/apiKeyService.js';
 import { getDb } from '../lib/db.js';
 import { AppError } from './errorHandler.js';

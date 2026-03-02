@@ -1,6 +1,6 @@
 import { Worker, type Job } from 'bullmq';
 import { eq, and } from 'drizzle-orm';
-import { alertEvents, alertConfigs } from '@agentguard/db';
+import { alertEvents, alertConfigs } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
@@ -265,7 +265,7 @@ async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
         ],
         timestamp: data.timestamp,
         footer: {
-          text: 'AgentGuard Alert',
+          text: 'ChainWard Alert',
         },
       },
     ],
@@ -295,7 +295,7 @@ function buildPayload(data: DeliveryJobData) {
       tx_hash: data.triggerTxHash,
     },
     timestamp: data.timestamp,
-    dashboard_url: `https://app.agentguard.dev/agents`,
+    dashboard_url: `https://app.chainward.ai/agents`,
   };
 }
 

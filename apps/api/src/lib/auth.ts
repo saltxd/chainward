@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { getDb } from './db.js';
 import { getEnv } from '../config.js';
-import * as schema from '@agentguard/db/schema';
+import * as schema from '@chainward/db/schema';
 
 let _auth: ReturnType<typeof betterAuth> | null = null;
 

@@ -1,10 +1,10 @@
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: agentguard
+  name: chainward
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
 spec:
   entryPoints:
     - web

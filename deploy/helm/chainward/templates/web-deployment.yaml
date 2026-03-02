@@ -4,7 +4,7 @@ metadata:
   name: web
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
 spec:
   replicas: {{ .Values.web.replicas }}
@@ -54,7 +54,7 @@ metadata:
   name: web
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
 spec:
   type: ClusterIP

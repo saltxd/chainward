@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  transpilePackages: ['@agentguard/common'],
+  transpilePackages: ['@chainward/common'],
   async rewrites() {
     return [
       {

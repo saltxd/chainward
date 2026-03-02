@@ -16,8 +16,8 @@ COPY --from=deps /app/packages/indexer/node_modules ./packages/indexer/node_modu
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY . .
-RUN pnpm --filter @agentguard/indexer build && \
-    pnpm --filter @agentguard/indexer deploy /prod --prod
+RUN pnpm --filter @chainward/indexer build && \
+    pnpm --filter @chainward/indexer deploy /prod --prod
 
 FROM base AS runner
 WORKDIR /app

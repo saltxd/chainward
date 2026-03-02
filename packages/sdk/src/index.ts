@@ -1,16 +1,16 @@
 /**
- * AgentGuard TypeScript SDK
+ * ChainWard TypeScript SDK
  *
  * @example
  * ```ts
- * import { AgentGuard } from '@agentguard/sdk';
+ * import { ChainWard } from '@chainward/sdk';
  *
- * const ag = new AgentGuard({ apiKey: 'ag_...' });
+ * const ag = new ChainWard({ apiKey: 'ag_...' });
  * const agents = await ag.agents.list();
  * ```
  */
 
-export interface AgentGuardOptions {
+export interface ChainWardOptions {
   apiKey: string;
   baseUrl?: string;
 }
@@ -100,7 +100,7 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export class AgentGuard {
+export class ChainWard {
   private baseUrl: string;
   private apiKey: string;
 
@@ -108,9 +108,9 @@ export class AgentGuard {
   readonly transactions: TransactionsResource;
   readonly alerts: AlertsResource;
 
-  constructor(options: AgentGuardOptions) {
+  constructor(options: ChainWardOptions) {
     this.apiKey = options.apiKey;
-    this.baseUrl = (options.baseUrl ?? 'https://api.agentguard.dev').replace(/\/$/, '');
+    this.baseUrl = (options.baseUrl ?? 'https://api.chainward.ai').replace(/\/$/, '');
 
     this.agents = new AgentsResource(this);
     this.transactions = new TransactionsResource(this);
@@ -133,7 +133,7 @@ export class AgentGuard {
 
     if (!response.ok) {
       const error = data as { error?: { code?: string; message?: string } };
-      throw new AgentGuardError(
+      throw new ChainWardError(
         error.error?.message ?? `HTTP ${response.status}`,
         error.error?.code ?? 'UNKNOWN',
         response.status,
@@ -144,19 +144,19 @@ export class AgentGuard {
   }
 }
 
-export class AgentGuardError extends Error {
+export class ChainWardError extends Error {
   constructor(
     message: string,
     public code: string,
     public status: number,
   ) {
     super(message);
-    this.name = 'AgentGuardError';
+    this.name = 'ChainWardError';
   }
 }
 
 class AgentsResource {
-  constructor(private client: AgentGuard) {}
+  constructor(private client: ChainWard) {}
 
   async register(input: RegisterAgentInput): Promise<ApiResponse<Agent>> {
     return this.client.request('POST', '/api/agents', {
@@ -182,7 +182,7 @@ class AgentsResource {
 }
 
 class TransactionsResource {
-  constructor(private client: AgentGuard) {}
+  constructor(private client: ChainWard) {}
 
   async list(input?: ListTransactionsInput): Promise<PaginatedResponse<Transaction>> {
     const params = new URLSearchParams();
@@ -199,7 +199,7 @@ class TransactionsResource {
 }
 
 class AlertsResource {
-  constructor(private client: AgentGuard) {}
+  constructor(private client: ChainWard) {}
 
   async create(input: CreateAlertInput): Promise<ApiResponse<AlertConfig>> {
     return this.client.request('POST', '/api/alerts', {

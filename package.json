@@ -1,5 +1,5 @@
 {
-  "name": "agentguard",
+  "name": "chainward",
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
@@ -8,11 +8,11 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "db:generate": "pnpm --filter @agentguard/db generate",
-    "db:migrate": "pnpm --filter @agentguard/db migrate",
-    "db:push": "pnpm --filter @agentguard/db push",
-    "db:seed": "pnpm --filter @agentguard/db seed",
-    "db:studio": "pnpm --filter @agentguard/db studio",
+    "db:generate": "pnpm --filter @chainward/db generate",
+    "db:migrate": "pnpm --filter @chainward/db migrate",
+    "db:push": "pnpm --filter @chainward/db push",
+    "db:seed": "pnpm --filter @chainward/db seed",
+    "db:studio": "pnpm --filter @chainward/db studio",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {

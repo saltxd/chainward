@@ -1,7 +1,7 @@
 import { eq, and, gte, lte, desc, ilike, sql, count, notInArray, isNull, or } from 'drizzle-orm';
-import { transactions, agentRegistry } from '@agentguard/db';
-import type { Database } from '@agentguard/db';
-import { SPAM_TOKENS } from '@agentguard/common';
+import { transactions, agentRegistry } from '@chainward/db';
+import type { Database } from '@chainward/db';
+import { SPAM_TOKENS } from '@chainward/common';
 
 const spamList = [...SPAM_TOKENS];
 

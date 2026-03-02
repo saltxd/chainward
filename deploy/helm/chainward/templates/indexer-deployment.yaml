@@ -4,7 +4,7 @@ metadata:
   name: indexer
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: indexer
 spec:
   replicas: {{ .Values.indexer.replicas }}
@@ -28,7 +28,7 @@ spec:
           image: {{ .Values.images.indexer }}
           envFrom:
             - configMapRef:
-                name: agentguard-config
+                name: chainward-config
           env:
             - name: DATABASE_URL
               valueFrom:

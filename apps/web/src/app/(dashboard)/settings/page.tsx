@@ -163,7 +163,7 @@ export default function SettingsPage() {
             </button>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            API keys allow programmatic access to AgentGuard. Keys are shown once at creation.
+            API keys allow programmatic access to ChainWard. Keys are shown once at creation.
           </p>
 
           {/* Create key form */}

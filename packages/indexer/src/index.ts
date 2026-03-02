@@ -9,7 +9,7 @@ import { createAlertDeliveryWorker } from './workers/alertDelivery.js';
 // Validate env on startup
 getEnv();
 
-logger.info('Starting AgentGuard indexer workers');
+logger.info('Starting ChainWard indexer workers');
 
 // Start workers
 const baseIndexer = createBaseIndexerWorker();

@@ -18,7 +18,7 @@ async function seed() {
     .values({
       id: 'demo-user-001',
       name: 'Demo User',
-      email: 'demo@agentguard.dev',
+      email: 'demo@chainward.ai',
       emailVerified: true,
       tier: 'pro',
       agentLimit: 50,

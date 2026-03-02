@@ -1,4 +1,4 @@
-import { createDb, type Database } from '@agentguard/db';
+import { createDb, type Database } from '@chainward/db';
 import { getEnv } from '../config.js';
 
 let _db: Database | null = null;

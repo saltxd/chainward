@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { AGENT_FRAMEWORKS } from '@agentguard/common';
+import { AGENT_FRAMEWORKS } from '@chainward/common';
 import type { AppVariables } from '../types.js';
 import { AgentService } from '../services/agentService.js';
 import { getDb } from '../lib/db.js';

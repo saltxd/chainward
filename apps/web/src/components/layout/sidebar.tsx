@@ -42,7 +42,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-border p-4">
-        <div className="text-xs text-muted-foreground">AgentGuard v0.0.1</div>
+        <div className="text-xs text-muted-foreground">ChainWard v0.0.1</div>
       </div>
     </aside>
   );

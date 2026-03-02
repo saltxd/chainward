@@ -2,7 +2,7 @@ import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import postgres from 'postgres';
-import { isSpamToken } from '@agentguard/common';
+import { isSpamToken } from '@chainward/common';
 
 // Load .env from project root
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -195,7 +195,7 @@ function calcGas(receipt: TxReceipt, ethPrice: number) {
 async function main() {
   const address = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 
-  console.log('=== AgentGuard Backfill (Data Quality Pipeline) ===\n');
+  console.log('=== ChainWard Backfill (Data Quality Pipeline) ===\n');
 
   // 1. Get ETH price
   const ethPrice = await getEthPrice();

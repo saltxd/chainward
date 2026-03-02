@@ -4,7 +4,7 @@ metadata:
   name: api
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 spec:
   replicas: {{ .Values.api.replicas }}
@@ -30,7 +30,7 @@ spec:
             - containerPort: {{ .Values.api.port }}
           envFrom:
             - configMapRef:
-                name: agentguard-config
+                name: chainward-config
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -91,7 +91,7 @@ metadata:
   name: api
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 spec:
   type: ClusterIP

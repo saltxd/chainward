@@ -1,5 +1,5 @@
 {
-  "name": "@agentguard/api",
+  "name": "@chainward/api",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@agentguard/common": "workspace:*",
-    "@agentguard/db": "workspace:*",
+    "@chainward/common": "workspace:*",
+    "@chainward/db": "workspace:*",
     "@hono/node-server": "^1.13.0",
     "better-auth": "^1.2.0",
     "bullmq": "^5.25.0",

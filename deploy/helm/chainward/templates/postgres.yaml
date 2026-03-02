@@ -4,7 +4,7 @@ metadata:
   name: postgres
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
 spec:
   serviceName: postgres
@@ -72,7 +72,7 @@ metadata:
   name: postgres
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
 spec:
   type: ClusterIP

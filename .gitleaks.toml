@@ -1,5 +1,5 @@
 [allowlist]
-description = "AgentGuard gitleaks allowlist"
+description = "ChainWard gitleaks allowlist"
 paths = [
   '''\.next/''',
   '''node_modules/''',

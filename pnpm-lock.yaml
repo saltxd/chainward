@@ -17,10 +17,10 @@ importers:
 
   apps/api:
     dependencies:
-      '@agentguard/common':
+      '@chainward/common':
         specifier: workspace:*
         version: link:../../packages/common
-      '@agentguard/db':
+      '@chainward/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@hono/node-server':
@@ -72,7 +72,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@agentguard/common':
+      '@chainward/common':
         specifier: workspace:*
         version: link:../../packages/common
       '@tailwindcss/postcss':
@@ -140,7 +140,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@agentguard/common':
+      '@chainward/common':
         specifier: workspace:*
         version: link:../common
       drizzle-orm:
@@ -165,10 +165,10 @@ importers:
 
   packages/indexer:
     dependencies:
-      '@agentguard/common':
+      '@chainward/common':
         specifier: workspace:*
         version: link:../common
-      '@agentguard/db':
+      '@chainward/db':
         specifier: workspace:*
         version: link:../db
       bullmq:

@@ -4,13 +4,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: agentguard
+      POSTGRES_USER: chainward
       POSTGRES_PASSWORD: localdev
-      POSTGRES_DB: agentguard
+      POSTGRES_DB: chainward
     volumes:
       - pgdata:/home/postgres/pgdata/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agentguard"]
+      test: ["CMD-SHELL", "pg_isready -U chainward"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -40,7 +40,7 @@ services:
         condition: service_healthy
     env_file: ../.env
     environment:
-      DATABASE_URL: postgresql://agentguard:localdev@postgres:5432/agentguard
+      DATABASE_URL: postgresql://chainward:localdev@postgres:5432/chainward
       REDIS_URL: redis://redis:6379
 
   worker:
@@ -54,7 +54,7 @@ services:
         condition: service_healthy
     env_file: ../.env
     environment:
-      DATABASE_URL: postgresql://agentguard:localdev@postgres:5432/agentguard
+      DATABASE_URL: postgresql://chainward:localdev@postgres:5432/chainward
       REDIS_URL: redis://redis:6379
 
   web:

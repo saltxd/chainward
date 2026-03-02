@@ -1,10 +1,10 @@
-namespace: agentguard
-domain: agentguard.k3s.nox
+namespace: chainward
+domain: chainward.k3s.nox
 
 images:
-  api: ghcr.io/saltxd/agentguard-api:latest
-  web: ghcr.io/saltxd/agentguard-web:latest
-  indexer: ghcr.io/saltxd/agentguard-indexer:latest
+  api: ghcr.io/saltxd/chainward-api:latest
+  web: ghcr.io/saltxd/chainward-web:latest
+  indexer: ghcr.io/saltxd/chainward-indexer:latest
 
 imagePullSecrets:
   - name: ghcr-pull
@@ -12,8 +12,8 @@ imagePullSecrets:
 postgres:
   image: timescale/timescaledb:latest-pg16
   storage: 10Gi
-  user: agentguard
-  database: agentguard
+  user: chainward
+  database: chainward
 
 redis:
   image: redis:7-alpine
@@ -52,4 +52,4 @@ indexer:
       memory: 512Mi
 
 # External secret name (created via kubectl, not managed by Helm)
-externalSecret: agentguard-secrets
+externalSecret: chainward-secrets

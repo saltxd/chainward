@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import type { ApiErrorResponse } from '@agentguard/common';
+import type { ApiErrorResponse } from '@chainward/common';
 import { logger } from '../lib/logger.js';
 
 export class AppError extends Error {

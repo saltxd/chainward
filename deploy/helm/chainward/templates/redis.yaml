@@ -4,7 +4,7 @@ metadata:
   name: redis
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 spec:
   serviceName: redis
@@ -61,7 +61,7 @@ metadata:
   name: redis
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 spec:
   type: ClusterIP

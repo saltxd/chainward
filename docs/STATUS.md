@@ -1,8 +1,8 @@
-# AgentGuard — Project Status
+# ChainWard — Project Status
 
 **Last updated:** 2026-03-01
 
-## What Is AgentGuard
+## What Is ChainWard
 
 Observability and control plane for autonomous AI agents operating on-chain. Connects what an agent thinks (LLM decisions) with what an agent does (blockchain transactions). SaaS product targeting the ~3,000-4,000 teams running on-chain AI agents today.
 
@@ -86,10 +86,10 @@ The full stack runs locally on Mac via Docker Compose (TimescaleDB + Redis) with
 cd deploy && docker compose up -d postgres redis
 
 # Push schema (first time only)
-DATABASE_URL="postgresql://agentguard:localdev@localhost:5432/agentguard" pnpm --filter @agentguard/db push --force
+DATABASE_URL="postgresql://chainward:localdev@localhost:5432/chainward" pnpm --filter @chainward/db push --force
 
 # Set up TimescaleDB hypertables (first time only)
-docker exec deploy-postgres-1 psql -U agentguard -c "
+docker exec deploy-postgres-1 psql -U chainward -c "
 SELECT create_hypertable('transactions', 'timestamp', chunk_time_interval => INTERVAL '1 day', if_not_exists => TRUE);
 SELECT create_hypertable('balance_snapshots', 'timestamp', chunk_time_interval => INTERVAL '1 day', if_not_exists => TRUE);
 SELECT create_hypertable('alert_events', 'timestamp', chunk_time_interval => INTERVAL '7 days', if_not_exists => TRUE);
@@ -97,13 +97,13 @@ SELECT create_hypertable('alert_events', 'timestamp', chunk_time_interval => INT
 
 # Start API
 source .env && export DATABASE_URL REDIS_URL BETTER_AUTH_SECRET BETTER_AUTH_URL BASE_RPC_URL ALCHEMY_API_KEY NODE_ENV PORT CORS_ORIGINS
-pnpm --filter @agentguard/api dev
+pnpm --filter @chainward/api dev
 
 # Start web (separate terminal)
-pnpm --filter @agentguard/web dev
+pnpm --filter @chainward/web dev
 
 # Backfill data for a wallet
-pnpm --filter @agentguard/api exec tsx ../../scripts/backfill.ts
+pnpm --filter @chainward/api exec tsx ../../scripts/backfill.ts
 ```
 
 ## Environment Variables
@@ -141,7 +141,7 @@ All fixed:
 ### 2. Deploy to K3s
 - [ ] Create Helm chart templates
 - [ ] Set up sealed secrets for API keys
-- [ ] Configure Traefik ingress (agentguard.k3s.nox or similar)
+- [ ] Configure Traefik ingress (chainward.k3s.nox or similar)
 - [ ] Deploy TimescaleDB (or use existing postgres)
 - [ ] Deploy Redis (or use existing)
 - [ ] Deploy API + worker + web pods

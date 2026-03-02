@@ -16,8 +16,8 @@ COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY . .
-RUN pnpm --filter @agentguard/api build && \
-    pnpm --filter @agentguard/api deploy /prod --prod
+RUN pnpm --filter @chainward/api build && \
+    pnpm --filter @chainward/api deploy /prod --prod
 
 FROM base AS runner
 WORKDIR /app

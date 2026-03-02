@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { ALERT_TYPES, DELIVERY_CHANNELS } from '@agentguard/common';
+import { ALERT_TYPES, DELIVERY_CHANNELS } from '@chainward/common';
 import type { AppVariables } from '../types.js';
 import { AlertService } from '../services/alertService.js';
 import { getDb } from '../lib/db.js';

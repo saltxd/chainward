@@ -1,5 +1,5 @@
 {
-  "name": "@agentguard/web",
+  "name": "@chainward/web",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "clean": "rm -rf .next dist"
   },
   "dependencies": {
-    "@agentguard/common": "workspace:*",
+    "@chainward/common": "workspace:*",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

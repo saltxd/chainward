@@ -4,10 +4,10 @@ metadata:
   name: db-init-sql
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
 data:
   01-schema.sql: |
-    -- Users (Better Auth core + AgentGuard extensions)
+    -- Users (Better Auth core + ChainWard extensions)
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -308,7 +308,7 @@ metadata:
   name: db-init
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "agentguard.labels" . | nindent 4 }}
+    {{- include "chainward.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "0"

@@ -1,7 +1,7 @@
 import { randomBytes, createHash } from 'node:crypto';
 import { eq, and, desc } from 'drizzle-orm';
-import { apiKeys } from '@agentguard/db';
-import type { Database } from '@agentguard/db';
+import { apiKeys } from '@chainward/db';
+import type { Database } from '@chainward/db';
 import { AppError } from '../middleware/errorHandler.js';
 
 const KEY_PREFIX = 'ag_';

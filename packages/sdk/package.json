@@ -1,7 +1,7 @@
 {
-  "name": "@agentguard/sdk",
+  "name": "@chainward/sdk",
   "version": "0.0.1",
-  "description": "AgentGuard TypeScript SDK for programmatic access to the AgentGuard API",
+  "description": "ChainWard TypeScript SDK for programmatic access to the ChainWard API",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

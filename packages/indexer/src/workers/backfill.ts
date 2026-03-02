@@ -1,5 +1,5 @@
 import { formatEther, formatUnits } from 'viem';
-import { transactions } from '@agentguard/db';
+import { transactions } from '@chainward/db';
 import { getBaseClient } from '../lib/viem.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';

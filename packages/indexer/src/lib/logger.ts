@@ -7,5 +7,5 @@ export const logger = pino({
     getEnv().NODE_ENV === 'development'
       ? { target: 'pino-pretty', options: { colorize: true } }
       : undefined,
-  base: { service: 'agentguard-indexer' },
+  base: { service: 'chainward-indexer' },
 });

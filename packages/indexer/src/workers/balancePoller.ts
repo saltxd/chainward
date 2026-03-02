@@ -1,8 +1,8 @@
 import { Worker, type Job } from 'bullmq';
 import { eq } from 'drizzle-orm';
 import { erc20Abi, formatEther, formatUnits, type Address } from 'viem';
-import { agentRegistry, balanceSnapshots } from '@agentguard/db';
-import { TRACKED_TOKENS } from '@agentguard/common';
+import { agentRegistry, balanceSnapshots } from '@chainward/db';
+import { TRACKED_TOKENS } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { getBaseClient } from '../lib/viem.js';

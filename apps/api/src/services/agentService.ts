@@ -1,10 +1,10 @@
 import { eq, and, count } from 'drizzle-orm';
-import { agentRegistry } from '@agentguard/db';
-import { validateAddress } from '@agentguard/common';
-import { TIER_LIMITS } from '@agentguard/common';
-import type { CreateAgentInput, UpdateAgentInput } from '@agentguard/common';
-import type { Tier } from '@agentguard/common';
-import type { Database } from '@agentguard/db';
+import { agentRegistry } from '@chainward/db';
+import { validateAddress } from '@chainward/common';
+import { TIER_LIMITS } from '@chainward/common';
+import type { CreateAgentInput, UpdateAgentInput } from '@chainward/common';
+import type { Tier } from '@chainward/common';
+import type { Database } from '@chainward/db';
 import { AppError } from '../middleware/errorHandler.js';
 
 export class AgentService {

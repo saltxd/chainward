@@ -1,5 +1,5 @@
 {
-  "name": "@agentguard/indexer",
+  "name": "@chainward/indexer",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@agentguard/db": "workspace:*",
-    "@agentguard/common": "workspace:*",
+    "@chainward/db": "workspace:*",
+    "@chainward/common": "workspace:*",
     "bullmq": "^5.25.0",
     "ioredis": "^5.4.0",
     "drizzle-orm": "^0.45.0",
