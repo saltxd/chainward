@@ -24,10 +24,16 @@ async function proxyAuth(req: NextRequest) {
     responseHeaders.append(key, value);
   });
 
-  return new NextResponse(res.body, {
+  // Set-Cookie is excluded from Headers iterator — forward explicitly
+  const cookies = res.headers.getSetCookie();
+  const response = new NextResponse(res.body, {
     status: res.status,
     headers: responseHeaders,
   });
+  for (const cookie of cookies) {
+    response.headers.append('Set-Cookie', cookie);
+  }
+  return response;
 }
 
 export const GET = proxyAuth;
