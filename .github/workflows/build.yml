@@ -79,27 +79,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
-    name: Deploy to K3s
-    needs: docker
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Extract short SHA
-        id: sha
-        run: echo "short=$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.K3S_HOST }}
-          username: ${{ secrets.K3S_USER }}
-          key: ${{ secrets.K3S_SSH_KEY }}
-          script: |
-            TAG=${{ steps.sha.outputs.short }}
-            kubectl -n agentguard set image deployment/api api=${{ env.IMAGE_PREFIX }}/chainward-api:${TAG}
-            kubectl -n agentguard set image deployment/web web=${{ env.IMAGE_PREFIX }}/chainward-web:${TAG}
-            kubectl -n agentguard set image deployment/indexer indexer=${{ env.IMAGE_PREFIX }}/chainward-indexer:${TAG}
-            kubectl -n agentguard rollout status deployment/api --timeout=120s
-            kubectl -n agentguard rollout status deployment/web --timeout=120s
-            kubectl -n agentguard rollout status deployment/indexer --timeout=120s
+  # Deploy is manual for now — K3s is on a private network.
+  # After images push, deploy from any machine with kubectl access:
+  #   TAG=$(git rev-parse --short HEAD)
+  #   kubectl -n agentguard set image deployment/api api=ghcr.io/saltxd/chainward-api:$TAG
+  #   kubectl -n agentguard set image deployment/web web=ghcr.io/saltxd/chainward-web:$TAG
+  #   kubectl -n agentguard set image deployment/indexer indexer=ghcr.io/saltxd/chainward-indexer:$TAG
