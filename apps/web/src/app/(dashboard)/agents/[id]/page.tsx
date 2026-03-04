@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState, useRef, useEffect } from 'react';
 import { api, type AgentStats, type Transaction, type BalanceHistoryBucket, type GasBucket } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { Address } from '@/components/ui/address';
@@ -72,13 +72,66 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const { agent, stats } = agentStats;
+  const [editing, setEditing] = useState(false);
+  const [nameValue, setNameValue] = useState(agent.agentName ?? '');
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  async function saveName() {
+    const trimmed = nameValue.trim();
+    if (!trimmed || trimmed === agent.agentName) {
+      setEditing(false);
+      setNameValue(agent.agentName ?? '');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.updateAgent(agentId, { agentName: trimmed });
+      refetchAgent();
+      setEditing(false);
+    } catch {
+      setNameValue(agent.agentName ?? '');
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">{agent.agentName ?? 'Unnamed Agent'}</h1>
+          {editing ? (
+            <input
+              ref={inputRef}
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveName();
+                if (e.key === 'Escape') { setEditing(false); setNameValue(agent.agentName ?? ''); }
+              }}
+              disabled={saving}
+              className="rounded-lg border border-border bg-card px-3 py-1 text-2xl font-bold outline-none focus:border-primary"
+              placeholder="Agent name"
+            />
+          ) : (
+            <button
+              onClick={() => { setNameValue(agent.agentName ?? ''); setEditing(true); }}
+              className="group flex items-center gap-2 text-2xl font-bold hover:text-primary transition-colors"
+              title="Click to rename"
+            >
+              {agent.agentName ?? 'Unnamed Agent'}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-0 group-hover:opacity-60 transition-opacity">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              </svg>
+            </button>
+          )}
           <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
             {agent.chain}
           </span>
