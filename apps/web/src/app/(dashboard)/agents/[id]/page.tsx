@@ -48,6 +48,15 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     [wallet],
   );
 
+  const [editing, setEditing] = useState(false);
+  const [nameValue, setNameValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -72,20 +81,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const { agent, stats } = agentStats;
-  const [editing, setEditing] = useState(false);
-  const [nameValue, setNameValue] = useState(agent.agentName ?? '');
-  const [saving, setSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editing) inputRef.current?.focus();
-  }, [editing]);
 
   async function saveName() {
     const trimmed = nameValue.trim();
     if (!trimmed || trimmed === agent.agentName) {
       setEditing(false);
-      setNameValue(agent.agentName ?? '');
       return;
     }
     setSaving(true);
@@ -94,7 +94,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       refetchAgent();
       setEditing(false);
     } catch {
-      setNameValue(agent.agentName ?? '');
       setEditing(false);
     } finally {
       setSaving(false);
@@ -114,7 +113,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               onBlur={saveName}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') saveName();
-                if (e.key === 'Escape') { setEditing(false); setNameValue(agent.agentName ?? ''); }
+                if (e.key === 'Escape') setEditing(false);
               }}
               disabled={saving}
               className="rounded-lg border border-border bg-card px-3 py-1 text-2xl font-bold outline-none focus:border-primary"
