@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { ALERT_TYPES, DELIVERY_CHANNELS } from '@chainward/common';
 import type { AppVariables } from '../types.js';
+import { eq, and } from 'drizzle-orm';
+import { alertEvents, agentRegistry } from '@chainward/db';
 import { AlertService } from '../services/alertService.js';
 import { getDb } from '../lib/db.js';
 import { getQueues } from '../lib/queue.js';
@@ -27,7 +29,7 @@ const createAlertSchema = z.object({
   lookbackWindow: z.string().optional(),
   channels: z.array(z.enum(DELIVERY_CHANNELS)).min(1),
   webhookUrl: safeWebhookUrl.optional(),
-  slackWebhook: safeWebhookUrl.optional(),
+  telegramChatId: z.string().optional(),
   discordWebhook: safeWebhookUrl.optional(),
   cooldown: z.string().optional(),
 });
@@ -38,7 +40,7 @@ const updateAlertSchema = z.object({
   lookbackWindow: z.string().optional(),
   channels: z.array(z.enum(DELIVERY_CHANNELS)).optional(),
   webhookUrl: safeWebhookUrl.optional(),
-  slackWebhook: safeWebhookUrl.optional(),
+  telegramChatId: z.string().optional(),
   discordWebhook: safeWebhookUrl.optional(),
   enabled: z.boolean().optional(),
   cooldown: z.string().optional(),
@@ -95,26 +97,60 @@ alerts.post('/:id/test', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:alert-te
   const alert = alertList.find((a) => a.id === id);
   if (!alert) throw new AppError(404, 'ALERT_NOT_FOUND', 'Alert not found');
 
-  // Push a test alert to the delivery queue
+  const db = getDb();
+
+  // Look up agent name for the wallet
+  const agents = await db
+    .select({ agentName: agentRegistry.agentName })
+    .from(agentRegistry)
+    .where(
+      and(
+        eq(agentRegistry.walletAddress, alert.walletAddress),
+        eq(agentRegistry.userId, user.id),
+      ),
+    )
+    .limit(1);
+  const agentName = agents[0]?.agentName ?? null;
+
+  const title = `[TEST] ${alert.alertType} alert for ${alert.walletAddress.slice(0, 10)}...`;
+  const description = 'This is a test alert to verify your delivery channels are configured correctly.';
+  const now = new Date();
+
+  // Insert alert_events row so delivery worker can find and update it
+  await db.insert(alertEvents).values({
+    timestamp: now,
+    alertConfigId: alert.id,
+    walletAddress: alert.walletAddress,
+    chain: alert.chain,
+    alertType: alert.alertType,
+    severity: 'info',
+    title,
+    description,
+    triggerValue: alert.thresholdValue ?? null,
+    triggerTxHash: null,
+    delivered: false,
+  });
+
+  // Push to delivery queue
   const queues = getQueues();
   await queues.alertDeliver.add('deliver', {
     alertConfigId: alert.id,
     alertType: alert.alertType,
     severity: 'info',
-    title: `[TEST] ${alert.alertType} alert for ${alert.walletAddress.slice(0, 10)}...`,
-    description: 'This is a test alert to verify your delivery channels are configured correctly.',
+    title,
+    description,
     triggerValue: alert.thresholdValue ? parseFloat(alert.thresholdValue) : null,
     triggerTxHash: null,
     agent: {
-      name: null,
+      name: agentName,
       wallet: alert.walletAddress,
       chain: alert.chain,
     },
     channels: alert.channels,
     webhookUrl: alert.webhookUrl,
-    slackWebhook: alert.slackWebhook,
+    telegramChatId: alert.telegramChatId,
     discordWebhook: alert.discordWebhook,
-    timestamp: new Date().toISOString(),
+    timestamp: now.toISOString(),
   });
 
   return c.json({ success: true, data: { message: 'Test alert queued for delivery' } });

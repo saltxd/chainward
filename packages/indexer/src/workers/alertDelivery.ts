@@ -1,7 +1,8 @@
 import { Worker, type Job } from 'bullmq';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { lookup } from 'node:dns/promises';
 import { alertEvents, alertConfigs } from '@chainward/db';
+import { getExplorerTxUrl, type SupportedChain } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
@@ -21,7 +22,7 @@ interface DeliveryJobData {
   };
   channels: string[];
   webhookUrl: string | null;
-  slackWebhook: string | null;
+  telegramChatId: string | null;
   discordWebhook: string | null;
   timestamp: string;
 }
@@ -68,10 +69,10 @@ async function deliverAlert(data: DeliveryJobData) {
             deliveredChannels.push('webhook');
           }
           break;
-        case 'slack':
-          if (data.slackWebhook) {
-            await deliverSlack(data, data.slackWebhook);
-            deliveredChannels.push('slack');
+        case 'telegram':
+          if (data.telegramChatId) {
+            await deliverTelegram(data, data.telegramChatId);
+            deliveredChannels.push('telegram');
           }
           break;
         case 'discord':
@@ -104,7 +105,7 @@ async function deliverAlert(data: DeliveryJobData) {
         eq(alertEvents.alertType, data.alertType),
       ),
     )
-    .orderBy(alertEvents.timestamp)
+    .orderBy(desc(alertEvents.timestamp))
     .limit(1);
 
   if (events.length > 0) {
@@ -147,76 +148,50 @@ async function deliverWebhook(data: DeliveryJobData, url: string) {
   });
 }
 
-/** Deliver via Slack webhook using Block Kit format */
-async function deliverSlack(data: DeliveryJobData, webhookUrl: string) {
-  await validateDeliveryUrl(webhookUrl);
+/** Deliver via Telegram Bot API using HTML parse mode */
+async function deliverTelegram(data: DeliveryJobData, chatId: string) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    throw new Error('TELEGRAM_BOT_TOKEN environment variable is not set');
+  }
+
   const severityEmoji =
-    data.severity === 'critical' ? ':rotating_light:' :
-    data.severity === 'warning' ? ':warning:' : ':information_source:';
+    data.severity === 'critical' ? '\u{1F6A8}' :
+    data.severity === 'warning' ? '\u26A0\uFE0F' : '\u2139\uFE0F';
 
-  const payload = {
-    blocks: [
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: `${severityEmoji} ${data.title}`,
-          emoji: true,
-        },
-      },
-      {
-        type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text: `*Agent:*\n${data.agent.name ?? data.agent.wallet.slice(0, 10) + '...'}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Chain:*\n${data.agent.chain}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Type:*\n${data.alertType}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Severity:*\n${data.severity}`,
-          },
-        ],
-      },
-      ...(data.description
-        ? [
-            {
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: data.description,
-              },
-            },
-          ]
-        : []),
-      ...(data.triggerTxHash
-        ? [
-            {
-              type: 'context',
-              elements: [
-                {
-                  type: 'mrkdwn',
-                  text: `Tx: \`${data.triggerTxHash.slice(0, 20)}...\``,
-                },
-              ],
-            },
-          ]
-        : []),
-    ],
-  };
+  const agentDisplay = data.agent.name ?? `${data.agent.wallet.slice(0, 10)}...`;
+  const txLine = data.triggerTxHash
+    ? `\n<b>Tx:</b> <a href="${getExplorerTxUrl(data.agent.chain as SupportedChain, data.triggerTxHash)}">${data.triggerTxHash.slice(0, 16)}...</a>`
+    : '';
 
-  await retryFetch(webhookUrl, {
+  const text = [
+    `${severityEmoji} <b>${escapeHtml(data.title)}</b>`,
+    '',
+    `<b>Agent:</b> ${escapeHtml(agentDisplay)}`,
+    `<b>Chain:</b> ${data.agent.chain}`,
+    `<b>Type:</b> ${data.alertType}`,
+    `<b>Severity:</b> ${data.severity}`,
+    ...(data.description ? ['', escapeHtml(data.description)] : []),
+    txLine,
+    '',
+    `<a href="https://chainward.ai/alerts">View in ChainWard</a>`,
+  ].join('\n');
+
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  await retryFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+    }),
   });
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /** Deliver via Discord webhook using embed format */
@@ -224,12 +199,24 @@ async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
   await validateDeliveryUrl(webhookUrl);
   const color =
     data.severity === 'critical' ? 0xd32f2f :
-    data.severity === 'warning' ? 0xf59e0b : 0x1b5e20;
+    data.severity === 'warning' ? 0xf59e0b : 0x4ade80;
+
+  const txField = data.triggerTxHash
+    ? (() => {
+        const txUrl = getExplorerTxUrl(data.agent.chain as SupportedChain, data.triggerTxHash);
+        return [{
+          name: 'Transaction',
+          value: `[\`${data.triggerTxHash.slice(0, 16)}...\`](${txUrl})`,
+          inline: false,
+        }];
+      })()
+    : [];
 
   const payload = {
     embeds: [
       {
         title: data.title,
+        url: 'https://chainward.ai/alerts',
         description: data.description ?? undefined,
         color,
         fields: [
@@ -257,15 +244,7 @@ async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
                 },
               ]
             : []),
-          ...(data.triggerTxHash
-            ? [
-                {
-                  name: 'Transaction',
-                  value: `\`${data.triggerTxHash.slice(0, 20)}...\``,
-                  inline: false,
-                },
-              ]
-            : []),
+          ...txField,
         ],
         timestamp: data.timestamp,
         footer: {
@@ -305,7 +284,7 @@ function buildPayload(data: DeliveryJobData) {
 
 /** Known-safe webhook domains (skip DNS resolution check) */
 const ALLOWED_WEBHOOK_HOSTS = new Set([
-  'hooks.slack.com',
+  'api.telegram.org',
   'discord.com',
   'discordapp.com',
 ]);

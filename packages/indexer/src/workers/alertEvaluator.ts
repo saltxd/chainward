@@ -448,7 +448,7 @@ async function fireAlert(
     },
     channels: config.channels,
     webhookUrl: config.webhookUrl,
-    slackWebhook: config.slackWebhook,
+    telegramChatId: config.telegramChatId,
     discordWebhook: config.discordWebhook,
     timestamp: now.toISOString(),
   });
