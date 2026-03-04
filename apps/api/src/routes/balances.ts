@@ -18,10 +18,6 @@ balances.get('/history', async (c) => {
   const user = c.get('user');
   const query = c.req.query();
 
-  if (!query.wallet) {
-    return c.json({ success: false, error: { code: 'MISSING_PARAM', message: 'wallet is required' } }, 400);
-  }
-
   const service = new BalanceService(getDb());
   const data = await service.getHistory(
     user.id,

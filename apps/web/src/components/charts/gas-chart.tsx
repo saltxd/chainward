@@ -30,6 +30,7 @@ export function GasChart({ data }: GasChartProps) {
           tickFormatter={(v: number) => v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`}
         />
         <Tooltip
+          cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
           contentStyle={{
             backgroundColor: '#111827',
             border: '1px solid #27272a',
@@ -42,7 +43,7 @@ export function GasChart({ data }: GasChartProps) {
             name === 'gas' ? 'Gas Spend' : 'Tx Count',
           ]}
         />
-        <Bar dataKey="gas" fill="#1B5E20" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="gas" fill="#4ade80" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

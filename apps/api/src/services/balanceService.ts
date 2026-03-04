@@ -28,21 +28,34 @@ export class BalanceService {
 
   async getHistory(
     userId: string,
-    wallet: string,
+    wallet?: string,
     from?: Date,
     to?: Date,
     bucket = '1h',
   ) {
-    // Verify user owns this wallet
-    const [agent] = await this.db
-      .select()
-      .from(agentRegistry)
-      .where(
-        and(eq(agentRegistry.walletAddress, wallet), eq(agentRegistry.userId, userId)),
-      )
-      .limit(1);
+    // Get wallets to query
+    let wallets: string[];
+    if (wallet) {
+      // Verify user owns this wallet
+      const [agent] = await this.db
+        .select()
+        .from(agentRegistry)
+        .where(
+          and(eq(agentRegistry.walletAddress, wallet), eq(agentRegistry.userId, userId)),
+        )
+        .limit(1);
 
-    if (!agent) return [];
+      if (!agent) return [];
+      wallets = [wallet];
+    } else {
+      const agents = await this.db
+        .select({ walletAddress: agentRegistry.walletAddress })
+        .from(agentRegistry)
+        .where(eq(agentRegistry.userId, userId));
+
+      wallets = agents.map((a) => a.walletAddress);
+      if (wallets.length === 0) return [];
+    }
 
     const interval = bucket === '1d' ? '1 day' : '1 hour';
     const defaultFrom = new Date(Date.now() - (bucket === '1d' ? 30 : 7) * 24 * 60 * 60 * 1000);
@@ -58,7 +71,7 @@ export class BalanceService {
         LAST(balance_usd, timestamp) AS balance_usd,
         LAST(balance_raw, timestamp) AS balance_raw
       FROM balance_snapshots
-      WHERE wallet_address = ${wallet}
+      WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
         AND timestamp >= ${fromStr}::timestamptz
         AND timestamp <= ${toStr}::timestamptz
       GROUP BY bucket, token_symbol, token_address

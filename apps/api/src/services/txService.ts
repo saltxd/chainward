@@ -110,7 +110,7 @@ export class TxService {
         COALESCE(SUM(amount_usd), 0) AS total_volume_usd,
         COALESCE(SUM(gas_cost_usd), 0) AS total_gas_usd
       FROM transactions
-      WHERE wallet_address = ANY(${wallets}::text[])
+      WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
         AND timestamp >= ${fromStr}::timestamptz
         AND timestamp <= ${toStr}::timestamptz
         ${spamExclusion}
