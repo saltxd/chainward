@@ -2,7 +2,7 @@
 
 import { useSession, logout } from '@/lib/auth-client';
 import { useDisconnect } from 'wagmi';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 const pageTitles: Record<string, string> = {
   '/overview': 'Overview',
@@ -13,7 +13,6 @@ const pageTitles: Record<string, string> = {
 };
 
 export function Header() {
-  const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
   const { disconnect } = useDisconnect();
@@ -26,9 +25,10 @@ export function Header() {
     : null;
 
   async function handleDisconnect() {
-    await logout();
-    disconnect();
-    router.push('/login');
+    try { await logout(); } catch {}
+    try { disconnect(); } catch {}
+    // Hard redirect to fully reset wagmi/RainbowKit client state
+    window.location.href = '/login';
   }
 
   return (
