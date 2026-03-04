@@ -1,5 +1,6 @@
 namespace: chainward
 domain: chainward.k3s.nox
+publicDomain: chainward.ai
 
 images:
   api: ghcr.io/saltxd/chainward-api:latest

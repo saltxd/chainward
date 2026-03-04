@@ -9,5 +9,5 @@ data:
   NODE_ENV: "production"
   PORT: "{{ .Values.api.port }}"
   REDIS_URL: "redis://redis:6379"
-  CORS_ORIGINS: "http://{{ .Values.domain }}"
+  CORS_ORIGINS: "http://{{ .Values.domain }}{{ if .Values.publicDomain }},https://{{ .Values.publicDomain }}{{ end }}"
   API_INTERNAL_URL: "http://api:{{ .Values.api.port }}"
