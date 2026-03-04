@@ -1,6 +1,7 @@
 'use client';
 
-import { useSession, signOut } from '@/lib/auth-client';
+import { useSession, logout } from '@/lib/auth-client';
+import { useDisconnect } from 'wagmi';
 import { usePathname, useRouter } from 'next/navigation';
 
 const pageTitles: Record<string, string> = {
@@ -15,11 +16,18 @@ export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { disconnect } = useDisconnect();
 
   const title = Object.entries(pageTitles).find(([path]) => pathname.startsWith(path))?.[1] ?? '';
 
-  async function handleSignOut() {
-    await signOut();
+  const walletAddress = session?.user?.walletAddress;
+  const truncated = walletAddress
+    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+    : null;
+
+  async function handleDisconnect() {
+    await logout();
+    disconnect();
     router.push('/login');
   }
 
@@ -27,14 +35,14 @@ export function Header() {
     <header className="flex h-14 items-center justify-between border-b border-border px-6">
       <h1 className="text-sm font-medium">{title}</h1>
       <div className="flex items-center gap-4">
-        {session?.user?.email && (
-          <span className="text-sm text-muted-foreground">{session.user.email}</span>
+        {truncated && (
+          <span className="font-mono text-sm text-muted-foreground">{truncated}</span>
         )}
         <button
-          onClick={handleSignOut}
+          onClick={handleDisconnect}
           className="text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          Sign Out
+          Disconnect
         </button>
       </div>
     </header>

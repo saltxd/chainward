@@ -12,14 +12,12 @@ const db = createDb(DATABASE_URL);
 async function seed() {
   console.log('Seeding database...');
 
-  // Create a demo user
   const [demoUser] = await db
     .insert(users)
     .values({
       id: 'demo-user-001',
-      name: 'Demo User',
-      email: 'demo@chainward.ai',
-      emailVerified: true,
+      walletAddress: '0x3cAc468EF749d75af4a864903a17D0870f38CBfA',
+      displayName: 'Demo User',
       tier: 'pro',
       agentLimit: 50,
       eventLimit: 1_000_000,
@@ -35,7 +33,6 @@ async function seed() {
 
   const userId = demoUser.id;
 
-  // Register some demo agents
   await db.insert(agentRegistry).values([
     {
       chain: 'base',

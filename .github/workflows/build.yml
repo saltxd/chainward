@@ -82,6 +82,6 @@ jobs:
   # Deploy is manual for now — K3s is on a private network.
   # After images push, deploy from any machine with kubectl access:
   #   TAG=$(git rev-parse --short HEAD)
-  #   kubectl -n agentguard set image deployment/api api=ghcr.io/saltxd/chainward-api:$TAG
-  #   kubectl -n agentguard set image deployment/web web=ghcr.io/saltxd/chainward-web:$TAG
-  #   kubectl -n agentguard set image deployment/indexer indexer=ghcr.io/saltxd/chainward-indexer:$TAG
+  #   kubectl -n chainward set image deployment/api api=ghcr.io/saltxd/chainward-api:$TAG
+  #   kubectl -n chainward set image deployment/web web=ghcr.io/saltxd/chainward-web:$TAG
+  #   kubectl -n chainward set image deployment/indexer indexer=ghcr.io/saltxd/chainward-indexer:$TAG

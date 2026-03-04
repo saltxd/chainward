@@ -39,7 +39,7 @@ export default function LandingPage() {
             Sign in
           </Link>
           <Link
-            href="/register"
+            href="/login"
             className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
           >
             Get started
@@ -71,7 +71,7 @@ export default function LandingPage() {
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            href="/register"
+            href="/login"
             className="group relative inline-flex items-center gap-2 rounded-lg bg-[#1B5E20] px-8 py-3.5 text-sm font-semibold text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_30px_rgba(74,222,128,0.2)]"
           >
             Start monitoring free
@@ -204,7 +204,7 @@ export default function LandingPage() {
           </p>
           <div className="relative mt-8">
             <Link
-              href="/register"
+              href="/login"
               className="inline-flex items-center gap-2 rounded-lg bg-[#4ade80] px-8 py-3.5 text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e] hover:shadow-[0_0_40px_rgba(74,222,128,0.3)]"
             >
               Start monitoring free

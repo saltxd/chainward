@@ -1,44 +1,27 @@
-import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { getDb } from './db.js';
+import { SignJWT, jwtVerify } from 'jose';
 import { getEnv } from '../config.js';
-import * as schema from '@chainward/db/schema';
 
-let _auth: ReturnType<typeof betterAuth> | null = null;
+export const COOKIE_NAME = 'chainward-session';
 
-export function getAuth() {
-  if (!_auth) {
-    const env = getEnv();
-    const db = getDb();
+function getSecret() {
+  return new TextEncoder().encode(getEnv().JWT_SECRET);
+}
 
-    _auth = betterAuth({
-      database: drizzleAdapter(db, {
-        provider: 'pg',
-        schema: {
-          user: schema.users,
-          session: schema.sessions,
-          account: schema.accounts,
-          verification: schema.verifications,
-        },
-      }),
-      secret: env.BETTER_AUTH_SECRET,
-      baseURL: env.BETTER_AUTH_URL,
-      trustedOrigins: env.CORS_ORIGINS.split(','),
-      emailAndPassword: {
-        enabled: true,
-      },
-      session: {
-        cookieCache: {
-          enabled: true,
-          maxAge: 60 * 5, // 5 minutes
-        },
-      },
-      advanced: {
-        defaultCookieAttributes: {
-          path: '/',
-        },
-      },
-    });
+export async function signJwt(userId: string, address: string): Promise<string> {
+  return new SignJWT({ address })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(userId)
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(getSecret());
+}
+
+export async function verifyJwt(token: string): Promise<{ sub: string; address: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSecret());
+    if (!payload.sub || !payload.address) return null;
+    return { sub: payload.sub, address: payload.address as string };
+  } catch {
+    return null;
   }
-  return _auth;
 }

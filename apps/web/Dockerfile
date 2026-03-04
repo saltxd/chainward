@@ -16,6 +16,8 @@ COPY --from=deps /app/packages/common/node_modules ./packages/common/node_module
 COPY . .
 ARG API_INTERNAL_URL=http://api:8000
 ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+ARG NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=""
+ENV NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}
 RUN pnpm --filter @chainward/common build && \
     pnpm --filter @chainward/web build
 

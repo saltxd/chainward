@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession, signOut } from '@/lib/auth-client';
+import { useSession, logout } from '@/lib/auth-client';
+import { useDisconnect } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { api, type Agent, type ApiKey } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
@@ -17,8 +18,10 @@ export default function SettingsPage() {
     [],
   );
 
+  const { disconnect } = useDisconnect();
+
   const user = session?.user;
-  const tier = (user as Record<string, unknown> | undefined)?.tier as string | undefined ?? 'free';
+  const tier = user?.tier ?? 'free';
   const agentLimit = tier === 'free' ? 3 : tier === 'starter' ? 10 : tier === 'pro' ? 50 : 'unlimited';
 
   const [showCreateKey, setShowCreateKey] = useState(false);
@@ -28,8 +31,9 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
 
-  async function handleSignOut() {
-    await signOut();
+  async function handleDisconnect() {
+    await logout();
+    disconnect();
     router.push('/login');
   }
 
@@ -90,19 +94,19 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold">Account</h2>
           <div className="mt-4 space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Email</span>
-              <span>{user?.email ?? '-'}</span>
+              <span className="text-muted-foreground">Wallet</span>
+              <span className="font-mono">{user?.walletAddress ?? '-'}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Name</span>
-              <span>{user?.name ?? '-'}</span>
+              <span className="text-muted-foreground">Display Name</span>
+              <span>{user?.displayName ?? '-'}</span>
             </div>
           </div>
           <button
-            onClick={handleSignOut}
+            onClick={handleDisconnect}
             className="mt-4 rounded-lg border border-destructive/50 px-3 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10"
           >
-            Sign Out
+            Disconnect
           </button>
         </div>
 

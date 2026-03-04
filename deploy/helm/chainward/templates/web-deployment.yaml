@@ -33,6 +33,12 @@ spec:
               value: "http://api:{{ .Values.api.port }}"
             - name: HOSTNAME
               value: "0.0.0.0"
+            - name: NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: WALLETCONNECT_PROJECT_ID
+                  optional: true
           readinessProbe:
             httpGet:
               path: /

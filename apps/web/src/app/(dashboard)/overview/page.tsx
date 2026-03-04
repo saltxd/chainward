@@ -9,6 +9,7 @@ import { VolumeChart } from '@/components/charts/volume-chart';
 import { BalanceChart } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { OnboardingBanner } from '@/components/onboarding-banner';
 import { cn } from '@/lib/utils';
 
 export default function OverviewPage() {
@@ -47,6 +48,8 @@ export default function OverviewPage() {
       </div>
 
       {overviewError && <ErrorBanner message={overviewError} onRetry={() => window.location.reload()} />}
+
+      {overview && overview.agents.total === 0 && <OnboardingBanner />}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -4,8 +4,7 @@ const dashboardRoutes = ['/overview', '/agents', '/transactions', '/alerts', '/s
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = request.cookies.has('better-auth.session_token')
-    || request.cookies.has('__Secure-better-auth.session_token');
+  const hasSession = request.cookies.has('chainward-session');
 
   // Authenticated user on landing page → redirect to dashboard
   if (pathname === '/' && hasSession) {

@@ -4,13 +4,8 @@ import type { Tier } from '@chainward/common';
 export interface AppVariables {
   user: {
     id: string;
-    email: string;
-    name: string;
+    walletAddress: string;
+    displayName: string | null;
     tier: Tier;
-  };
-  session: {
-    id: string;
-    userId: string;
-    expiresAt: Date;
   };
 }
