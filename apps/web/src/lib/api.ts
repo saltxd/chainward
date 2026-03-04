@@ -209,7 +209,11 @@ export interface AlertConfig {
   thresholdValue: string | null;
   thresholdUnit: string | null;
   channels: string[];
+  webhookUrl: string | null;
+  telegramChatId: string | null;
+  discordWebhook: string | null;
   enabled: boolean;
+  cooldown: string | null;
   createdAt: string;
 }
 
@@ -221,12 +225,15 @@ export interface CreateAlertBody {
   thresholdUnit?: string;
   channels: string[];
   webhookUrl?: string;
-  slackWebhook?: string;
+  telegramChatId?: string;
   discordWebhook?: string;
 }
 
 export interface AlertEvent {
   timestamp: string;
+  alertConfigId: number;
+  walletAddress: string;
+  chain: string;
   alertType: string;
   severity: string;
   title: string;
@@ -234,6 +241,8 @@ export interface AlertEvent {
   triggerValue: string | null;
   triggerTxHash: string | null;
   delivered: boolean;
+  deliveryChannel: string | null;
+  deliveryError: string | null;
 }
 
 export interface AlertEventsResponse {

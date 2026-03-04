@@ -143,7 +143,7 @@ data:
       lookback_window INTERVAL,
       channels TEXT[] NOT NULL DEFAULT '{webhook}',
       webhook_url TEXT,
-      slack_webhook TEXT,
+      telegram_chat_id TEXT,
       discord_webhook TEXT,
       enabled BOOLEAN NOT NULL DEFAULT true,
       cooldown INTERVAL NOT NULL DEFAULT '5 minutes',

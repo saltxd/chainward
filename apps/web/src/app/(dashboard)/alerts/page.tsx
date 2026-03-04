@@ -1,11 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { api, type AlertConfig, type AlertEvent, type Agent } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { useToast } from '@/components/ui/toast';
+import { AlertCard } from '@/components/dashboard/alert-card';
 import { cn } from '@/lib/utils';
+
+/* ── Alert type config ── */
+
+const ALERT_TYPE_CONFIG: Record<string, { label: string; hasThreshold: boolean; defaultUnit: string }> = {
+  large_transfer: { label: 'Large Transfer', hasThreshold: true, defaultUnit: 'usd' },
+  balance_drop: { label: 'Balance Drop', hasThreshold: true, defaultUnit: 'percentage' },
+  gas_spike: { label: 'Gas Spike', hasThreshold: true, defaultUnit: 'usd' },
+  failed_tx: { label: 'Failed Transaction', hasThreshold: false, defaultUnit: 'usd' },
+  inactivity: { label: 'Inactivity', hasThreshold: false, defaultUnit: 'usd' },
+  new_contract: { label: 'New Contract', hasThreshold: false, defaultUnit: 'usd' },
+};
+
+/* ── URL validation ── */
+
+const DISCORD_WEBHOOK_RE = /^https:\/\/discord\.com\/api\/webhooks\/\d+\/.+$/;
+const TELEGRAM_CHAT_ID_RE = /^-?\d+$/;
+
+function validateWebhookUrls(channels: string[], webhookUrl: string, telegramChatId: string, discordWebhook: string) {
+  const errors: Record<string, string> = {};
+  if (channels.includes('discord') && discordWebhook && !DISCORD_WEBHOOK_RE.test(discordWebhook)) {
+    errors.discordWebhook = 'Must be a valid Discord webhook URL';
+  }
+  if (channels.includes('telegram') && telegramChatId && !TELEGRAM_CHAT_ID_RE.test(telegramChatId)) {
+    errors.telegramChatId = 'Must be a numeric chat ID';
+  }
+  if (channels.includes('webhook') && webhookUrl && !webhookUrl.startsWith('https://')) {
+    errors.webhookUrl = 'Must be an HTTPS URL';
+  }
+  return errors;
+}
+
+/* ── Explorer URL helper ── */
+
+const EXPLORER_BASE: Record<string, string> = {
+  base: 'https://basescan.org/tx/',
+  solana: 'https://solscan.io/tx/',
+};
+
+function txUrl(chain: string, hash: string): string {
+  return `${EXPLORER_BASE[chain] ?? EXPLORER_BASE.base}${hash}`;
+}
+
+/* ── Alert type labels ── */
+
+const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(ALERT_TYPE_CONFIG).map(([k, v]) => [k, v.label]),
+);
+
+/* ── Channel colors for history ── */
+
+const CHANNEL_BADGE: Record<string, string> = {
+  discord: 'bg-[#5865f2]/20 text-[#5865f2]',
+  telegram: 'bg-[#26a5e4]/20 text-[#26a5e4]',
+  webhook: 'bg-muted text-muted-foreground',
+};
 
 export default function AlertsPage() {
   const { data: alertList, loading, error, refetch } = useApi<AlertConfig[]>(
@@ -13,13 +70,23 @@ export default function AlertsPage() {
     [],
   );
   const { data: agents } = useApi<Agent[]>(() => api.getAgents(), []);
-  const { data: eventsResponse } = useApi(
+  const { data: eventsResponse, loading: eventsLoading } = useApi<AlertEvent[]>(
     () => api.getAlertEvents({ limit: '20' }),
     [],
   );
+  const { toast } = useToast();
 
-  const [testError, setTestError] = useState<string | null>(null);
-  const [createAlertError, setCreateAlertError] = useState<string | null>(null);
+  // Agent name lookup map
+  const agentNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (agents) {
+      for (const a of agents) {
+        if (a.agentName) map.set(a.walletAddress, a.agentName);
+      }
+    }
+    return map;
+  }, [agents]);
+
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     walletAddress: '',
@@ -29,21 +96,27 @@ export default function AlertsPage() {
     thresholdUnit: 'usd',
     channels: [] as string[],
     webhookUrl: '',
-    slackWebhook: '',
+    telegramChatId: '',
     discordWebhook: '',
     lookback: '1h',
     cooldown: '5m',
   });
   const [creating, setCreating] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  // Form validation
+  const urlErrors = validateWebhookUrls(form.channels, form.webhookUrl, form.telegramChatId, form.discordWebhook);
+  const hasUrlErrors = Object.keys(urlErrors).length > 0;
+  const currentTypeConfig = ALERT_TYPE_CONFIG[form.alertType];
 
   async function handleTestAlert(id: number) {
     setTestingId(id);
-    setTestError(null);
     try {
       await api.testAlert(id);
+      toast('Test alert sent', 'success');
     } catch (err) {
-      setTestError(err instanceof Error ? err.message : 'Failed to send test alert');
+      toast(err instanceof Error ? err.message : 'Failed to send test alert', 'error');
     } finally {
       setTestingId(null);
     }
@@ -52,36 +125,48 @@ export default function AlertsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
-    setCreateAlertError(null);
     try {
       await api.createAlert({
         walletAddress: form.walletAddress,
         chain: form.chain,
         alertType: form.alertType,
-        thresholdValue: form.thresholdValue,
-        thresholdUnit: form.thresholdUnit,
+        ...(currentTypeConfig?.hasThreshold && {
+          thresholdValue: form.thresholdValue,
+          thresholdUnit: form.thresholdUnit,
+        }),
         channels: form.channels,
         webhookUrl: form.channels.includes('webhook') ? form.webhookUrl || undefined : undefined,
-        slackWebhook: form.channels.includes('slack') ? form.slackWebhook || undefined : undefined,
+        telegramChatId: form.channels.includes('telegram') ? form.telegramChatId || undefined : undefined,
         discordWebhook: form.channels.includes('discord') ? form.discordWebhook || undefined : undefined,
       });
       setShowCreate(false);
+      toast('Alert created', 'success');
       refetch();
     } catch (err) {
-      setCreateAlertError(err instanceof Error ? err.message : 'Failed to create alert');
+      toast(err instanceof Error ? err.message : 'Failed to create alert', 'error');
     } finally {
       setCreating(false);
     }
   }
 
   async function toggleAlert(alert: AlertConfig) {
-    await api.updateAlert(alert.id, { enabled: !alert.enabled });
-    refetch();
+    try {
+      await api.updateAlert(alert.id, { enabled: !alert.enabled });
+      toast(alert.enabled ? 'Alert disabled' : 'Alert enabled', 'info');
+      refetch();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Failed to toggle alert', 'error');
+    }
   }
 
   async function deleteAlert(id: number) {
-    await api.deleteAlert(id);
-    refetch();
+    try {
+      await api.deleteAlert(id);
+      toast('Alert deleted', 'info');
+      refetch();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Failed to delete alert', 'error');
+    }
   }
 
   return (
@@ -95,13 +180,11 @@ export default function AlertsPage() {
           onClick={() => setShowCreate(!showCreate)}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          Create Alert
+          {showCreate ? 'Cancel' : 'Create Alert'}
         </button>
       </div>
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
-      {testError && <ErrorBanner message={testError} />}
-      {createAlertError && <ErrorBanner message={createAlertError} />}
 
       {/* Create form */}
       {showCreate && (
@@ -127,37 +210,45 @@ export default function AlertsPage() {
               <label className="text-sm font-medium">Alert Type</label>
               <select
                 value={form.alertType}
-                onChange={(e) => setForm({ ...form, alertType: e.target.value })}
+                onChange={(e) => {
+                  const alertType = e.target.value;
+                  const cfg = ALERT_TYPE_CONFIG[alertType];
+                  setForm({
+                    ...form,
+                    alertType,
+                    thresholdUnit: cfg?.defaultUnit ?? 'usd',
+                    thresholdValue: cfg?.hasThreshold ? form.thresholdValue : '',
+                  });
+                }}
                 className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="large_transfer">Large Transfer</option>
-                <option value="balance_drop">Balance Drop</option>
-                <option value="gas_spike">Gas Spike</option>
-                <option value="failed_tx">Failed Transaction</option>
-                <option value="inactivity">Inactivity</option>
-                <option value="new_contract">New Contract</option>
+                {Object.entries(ALERT_TYPE_CONFIG).map(([val, cfg]) => (
+                  <option key={val} value={val}>{cfg.label}</option>
+                ))}
               </select>
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Threshold</label>
-              <div className="flex gap-2">
-                <input
-                  value={form.thresholdValue}
-                  onChange={(e) => setForm({ ...form, thresholdValue: e.target.value })}
-                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  placeholder="500"
-                />
-                <select
-                  value={form.thresholdUnit}
-                  onChange={(e) => setForm({ ...form, thresholdUnit: e.target.value })}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="usd">USD</option>
-                  <option value="native">Native</option>
-                  <option value="percentage">%</option>
-                </select>
+            {currentTypeConfig?.hasThreshold && (
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Threshold</label>
+                <div className="flex gap-2">
+                  <input
+                    value={form.thresholdValue}
+                    onChange={(e) => setForm({ ...form, thresholdValue: e.target.value })}
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    placeholder="500"
+                  />
+                  <select
+                    value={form.thresholdUnit}
+                    onChange={(e) => setForm({ ...form, thresholdUnit: e.target.value })}
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="usd">USD</option>
+                    <option value="native">Native</option>
+                    <option value="percentage">%</option>
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Lookback Window</label>
               <select
@@ -191,7 +282,7 @@ export default function AlertsPage() {
           <div className="mt-4">
             <label className="text-sm font-medium">Delivery Channels</label>
             <div className="mt-2 flex gap-3">
-              {(['webhook', 'slack', 'discord'] as const).map((channel) => (
+              {(['webhook', 'telegram', 'discord'] as const).map((channel) => (
                 <label key={channel} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -217,19 +308,31 @@ export default function AlertsPage() {
                     value={form.webhookUrl}
                     onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })}
                     placeholder="https://your-server.com/webhook"
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    className={cn(
+                      'rounded-lg border bg-background px-3 py-2 text-sm',
+                      urlErrors.webhookUrl ? 'border-destructive' : 'border-border',
+                    )}
                   />
+                  {urlErrors.webhookUrl && (
+                    <span className="text-xs text-destructive">{urlErrors.webhookUrl}</span>
+                  )}
                 </div>
               )}
-              {form.channels.includes('slack') && (
+              {form.channels.includes('telegram') && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-muted-foreground">Slack Webhook URL</label>
+                  <label className="text-xs text-muted-foreground">Telegram Chat ID</label>
                   <input
-                    value={form.slackWebhook}
-                    onChange={(e) => setForm({ ...form, slackWebhook: e.target.value })}
-                    placeholder="https://hooks.slack.com/services/..."
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    value={form.telegramChatId}
+                    onChange={(e) => setForm({ ...form, telegramChatId: e.target.value })}
+                    placeholder="Chat ID (e.g. 123456789)"
+                    className={cn(
+                      'rounded-lg border bg-background px-3 py-2 text-sm',
+                      urlErrors.telegramChatId ? 'border-destructive' : 'border-border',
+                    )}
                   />
+                  {urlErrors.telegramChatId && (
+                    <span className="text-xs text-destructive">{urlErrors.telegramChatId}</span>
+                  )}
                 </div>
               )}
               {form.channels.includes('discord') && (
@@ -239,8 +342,14 @@ export default function AlertsPage() {
                     value={form.discordWebhook}
                     onChange={(e) => setForm({ ...form, discordWebhook: e.target.value })}
                     placeholder="https://discord.com/api/webhooks/..."
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    className={cn(
+                      'rounded-lg border bg-background px-3 py-2 text-sm',
+                      urlErrors.discordWebhook ? 'border-destructive' : 'border-border',
+                    )}
                   />
+                  {urlErrors.discordWebhook && (
+                    <span className="text-xs text-destructive">{urlErrors.discordWebhook}</span>
+                  )}
                 </div>
               )}
             </div>
@@ -248,7 +357,7 @@ export default function AlertsPage() {
 
           <button
             type="submit"
-            disabled={creating || form.channels.length === 0}
+            disabled={creating || form.channels.length === 0 || hasUrlErrors}
             className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
             {creating ? 'Creating...' : 'Create Alert'}
@@ -259,57 +368,25 @@ export default function AlertsPage() {
       {/* Alert list */}
       {loading ? (
         <div className="space-y-3">
-          <Skeleton className="h-16" />
-          <Skeleton className="h-16" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
         </div>
       ) : alertList && alertList.length > 0 ? (
         <div className="space-y-3">
           {alertList.map((alert) => (
-            <div
+            <AlertCard
               key={alert.id}
-              className="flex items-center justify-between rounded-lg border border-border bg-card p-4"
-            >
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{alert.alertType}</span>
-                  <span className="text-xs text-muted-foreground">{alert.chain}</span>
-                </div>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {alert.walletAddress.slice(0, 10)}...{alert.walletAddress.slice(-4)}
-                </span>
-                {alert.thresholdValue && (
-                  <span className="text-xs text-muted-foreground">
-                    Threshold: {alert.thresholdValue} {alert.thresholdUnit}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleTestAlert(alert.id)}
-                  disabled={testingId === alert.id}
-                  className="rounded-lg border border-border px-3 py-1 text-xs transition-colors hover:bg-muted disabled:opacity-50"
-                >
-                  {testingId === alert.id ? 'Sending...' : 'Test'}
-                </button>
-                <button
-                  onClick={() => toggleAlert(alert)}
-                  className={cn(
-                    'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                    alert.enabled
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-muted text-muted-foreground',
-                  )}
-                >
-                  {alert.enabled ? 'Enabled' : 'Disabled'}
-                </button>
-                <button
-                  onClick={() => deleteAlert(alert.id)}
-                  className="text-xs text-destructive transition-colors hover:text-destructive/80"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
+              alert={alert}
+              agentName={agentNameMap.get(alert.walletAddress) ?? null}
+              onTest={handleTestAlert}
+              onToggle={toggleAlert}
+              onDelete={deleteAlert}
+              onUpdated={refetch}
+              isTesting={testingId === alert.id}
+              isEditing={editingId === alert.id}
+              onEditStart={() => setEditingId(alert.id)}
+              onEditCancel={() => setEditingId(null)}
+            />
           ))}
         </div>
       ) : (
@@ -321,30 +398,67 @@ export default function AlertsPage() {
       {/* Alert history */}
       <div>
         <h2 className="mb-3 text-lg font-semibold">Alert History</h2>
-        {eventsResponse && 'data' in eventsResponse && (eventsResponse as { data: AlertEvent[] }).data.length > 0 ? (
+        {eventsLoading ? (
           <div className="space-y-2">
-            {(eventsResponse as { data: AlertEvent[] }).data.map((event, i) => (
+            <Skeleton className="h-14" />
+            <Skeleton className="h-14" />
+            <Skeleton className="h-14" />
+          </div>
+        ) : eventsResponse && eventsResponse.length > 0 ? (
+          <div className="space-y-2">
+            {eventsResponse.map((event, i) => (
               <div
-                key={i}
+                key={`${event.alertConfigId}-${event.timestamp}-${i}`}
                 className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
               >
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">{event.title}</span>
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-primary">
+                      {TYPE_LABELS[event.alertType] ?? event.alertType}
+                    </span>
+                    <span className="truncate text-sm font-medium">{event.title}</span>
+                  </div>
                   {event.description && (
-                    <span className="text-xs text-muted-foreground">{event.description}</span>
+                    <span className="truncate text-xs text-muted-foreground">{event.description}</span>
+                  )}
+                  {event.triggerTxHash && (
+                    <a
+                      href={txUrl(event.chain, event.triggerTxHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs text-primary hover:underline"
+                    >
+                      {event.triggerTxHash.slice(0, 16)}...
+                    </a>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
+                  {/* Delivery channel badges */}
+                  {event.deliveryChannel && event.deliveryChannel.split(',').map((ch) => (
+                    <span
+                      key={ch}
+                      className={cn(
+                        'rounded px-1.5 py-0.5 text-xs capitalize',
+                        CHANNEL_BADGE[ch.trim()] ?? 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {ch.trim()}
+                    </span>
+                  ))}
+                  {/* Delivery status */}
                   <span
                     className={cn(
                       'rounded px-1.5 py-0.5 text-xs',
                       event.delivered
                         ? 'bg-[#4ade80]/20 text-[#4ade80]'
-                        : 'bg-yellow-500/20 text-yellow-400',
+                        : event.deliveryError
+                          ? 'bg-destructive/20 text-destructive'
+                          : 'bg-yellow-500/20 text-yellow-400',
                     )}
                   >
-                    {event.delivered ? 'Delivered' : 'Pending'}
+                    {event.delivered ? 'Delivered' : event.deliveryError ? 'Failed' : 'Pending'}
                   </span>
+                  {/* Severity */}
                   <span
                     className={cn(
                       'rounded px-1.5 py-0.5 text-xs',

@@ -12,7 +12,7 @@ interface CreateAlertInput {
   lookbackWindow?: string;
   channels: string[];
   webhookUrl?: string;
-  slackWebhook?: string;
+  telegramChatId?: string;
   discordWebhook?: string;
   cooldown?: string;
 }
@@ -23,7 +23,7 @@ interface UpdateAlertInput {
   lookbackWindow?: string;
   channels?: string[];
   webhookUrl?: string;
-  slackWebhook?: string;
+  telegramChatId?: string;
   discordWebhook?: string;
   enabled?: boolean;
   cooldown?: string;
@@ -61,7 +61,7 @@ export class AlertService {
         lookbackWindow: input.lookbackWindow ?? null,
         channels: input.channels,
         webhookUrl: input.webhookUrl ?? null,
-        slackWebhook: input.slackWebhook ?? null,
+        telegramChatId: input.telegramChatId ?? null,
         discordWebhook: input.discordWebhook ?? null,
         cooldown: input.cooldown ?? '5 minutes',
       })
@@ -95,7 +95,7 @@ export class AlertService {
         ...(input.lookbackWindow !== undefined && { lookbackWindow: input.lookbackWindow }),
         ...(input.channels !== undefined && { channels: input.channels }),
         ...(input.webhookUrl !== undefined && { webhookUrl: input.webhookUrl }),
-        ...(input.slackWebhook !== undefined && { slackWebhook: input.slackWebhook }),
+        ...(input.telegramChatId !== undefined && { telegramChatId: input.telegramChatId }),
         ...(input.discordWebhook !== undefined && { discordWebhook: input.discordWebhook }),
         ...(input.enabled !== undefined && { enabled: input.enabled }),
         ...(input.cooldown !== undefined && { cooldown: input.cooldown }),

@@ -129,7 +129,7 @@ export default async function LandingPage() {
             </div>
             <div className="h-px w-full bg-[#1a1a2e] md:h-16 md:w-px" />
             <p className="text-center text-[#a1a1aa] md:text-left">
-              Get notified via Discord, Slack, or webhook within seconds of on-chain activity.
+              Get notified via Discord, Telegram, or webhook within seconds of on-chain activity.
               No more manual block explorer checks that don&apos;t scale.
             </p>
           </div>

@@ -16,7 +16,7 @@ export const alertConfigs = pgTable(
     lookbackWindow: interval('lookback_window'),
     channels: text('channels').array().notNull().default(['webhook']),
     webhookUrl: text('webhook_url'),
-    slackWebhook: text('slack_webhook'),
+    telegramChatId: text('telegram_chat_id'),
     discordWebhook: text('discord_webhook'),
     enabled: boolean('enabled').notNull().default(true),
     cooldown: interval('cooldown').notNull().default('5 minutes'),

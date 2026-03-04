@@ -51,8 +51,8 @@ const channels = [
     desc: 'Send alerts to a Discord channel via webhook URL. Alerts appear as rich embeds with transaction details.',
   },
   {
-    name: 'Slack Webhook',
-    desc: 'Post alerts to a Slack channel. Uses Slack\'s incoming webhook format.',
+    name: 'Telegram',
+    desc: 'Send alerts to a Telegram chat via Bot API. Provide your chat ID.',
   },
   {
     name: 'Custom Webhook',

@@ -2,7 +2,7 @@ import { lookup } from 'node:dns/promises';
 
 /** Known-safe webhook domains (skip DNS resolution check) */
 const ALLOWED_WEBHOOK_HOSTS = new Set([
-  'hooks.slack.com',
+  'api.telegram.org',
   'discord.com',
   'discordapp.com',
 ]);

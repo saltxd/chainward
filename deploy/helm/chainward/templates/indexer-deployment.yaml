@@ -45,5 +45,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.externalSecret }}
                   key: BASE_RPC_URL
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: TELEGRAM_BOT_TOKEN
+                  optional: true
           resources:
             {{- toYaml .Values.indexer.resources | nindent 12 }}

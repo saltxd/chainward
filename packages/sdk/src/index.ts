@@ -80,7 +80,7 @@ export interface CreateAlertInput {
   thresholdUnit?: string;
   channels: string[];
   webhookUrl?: string;
-  slackWebhook?: string;
+  telegramChatId?: string;
   discordWebhook?: string;
 }
 
@@ -210,7 +210,7 @@ class AlertsResource {
       thresholdUnit: input.thresholdUnit ?? 'usd',
       channels: input.channels,
       webhookUrl: input.webhookUrl,
-      slackWebhook: input.slackWebhook,
+      telegramChatId: input.telegramChatId,
       discordWebhook: input.discordWebhook,
     });
   }

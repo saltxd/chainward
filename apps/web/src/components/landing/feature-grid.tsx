@@ -24,7 +24,7 @@ export function FeatureGrid() {
         </svg>
       ),
       title: 'Smart alerts',
-      desc: 'Large transfers, gas spikes, failed txs, balance drops, inactivity. Discord, Slack, or webhook.',
+      desc: 'Large transfers, gas spikes, failed txs, balance drops, inactivity. Discord, Telegram, or webhook.',
     },
     {
       icon: (

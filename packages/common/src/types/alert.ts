@@ -13,7 +13,7 @@ export type AlertType = (typeof ALERT_TYPES)[number];
 export const ALERT_SEVERITIES = ['info', 'warning', 'critical'] as const;
 export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
 
-export const DELIVERY_CHANNELS = ['webhook', 'slack', 'discord'] as const;
+export const DELIVERY_CHANNELS = ['webhook', 'telegram', 'discord'] as const;
 export type DeliveryChannel = (typeof DELIVERY_CHANNELS)[number];
 
 export interface AlertConfig {
@@ -27,7 +27,7 @@ export interface AlertConfig {
   lookbackWindow: string | null; // interval string
   channels: DeliveryChannel[];
   webhookUrl: string | null;
-  slackWebhook: string | null;
+  telegramChatId: string | null;
   discordWebhook: string | null;
   enabled: boolean;
   cooldown: string; // interval string
@@ -45,7 +45,7 @@ export interface CreateAlertInput {
   lookbackWindow?: string;
   channels: DeliveryChannel[];
   webhookUrl?: string;
-  slackWebhook?: string;
+  telegramChatId?: string;
   discordWebhook?: string;
   cooldown?: string;
 }
