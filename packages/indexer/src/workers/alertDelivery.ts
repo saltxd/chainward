@@ -1,5 +1,6 @@
 import { Worker, type Job } from 'bullmq';
 import { eq, and } from 'drizzle-orm';
+import { lookup } from 'node:dns/promises';
 import { alertEvents, alertConfigs } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
@@ -136,6 +137,7 @@ async function deliverAlert(data: DeliveryJobData) {
 
 /** Deliver via generic webhook (POST JSON) with retry */
 async function deliverWebhook(data: DeliveryJobData, url: string) {
+  await validateDeliveryUrl(url);
   const payload = buildPayload(data);
 
   await retryFetch(url, {
@@ -147,6 +149,7 @@ async function deliverWebhook(data: DeliveryJobData, url: string) {
 
 /** Deliver via Slack webhook using Block Kit format */
 async function deliverSlack(data: DeliveryJobData, webhookUrl: string) {
+  await validateDeliveryUrl(webhookUrl);
   const severityEmoji =
     data.severity === 'critical' ? ':rotating_light:' :
     data.severity === 'warning' ? ':warning:' : ':information_source:';
@@ -218,6 +221,7 @@ async function deliverSlack(data: DeliveryJobData, webhookUrl: string) {
 
 /** Deliver via Discord webhook using embed format */
 async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
+  await validateDeliveryUrl(webhookUrl);
   const color =
     data.severity === 'critical' ? 0xd32f2f :
     data.severity === 'warning' ? 0xf59e0b : 0x1b5e20;
@@ -297,6 +301,68 @@ function buildPayload(data: DeliveryJobData) {
     timestamp: data.timestamp,
     dashboard_url: `https://app.chainward.ai/agents`,
   };
+}
+
+/** Known-safe webhook domains (skip DNS resolution check) */
+const ALLOWED_WEBHOOK_HOSTS = new Set([
+  'hooks.slack.com',
+  'discord.com',
+  'discordapp.com',
+]);
+
+/** Private/reserved IPv4 ranges */
+const PRIVATE_RANGES = [
+  { start: '10.0.0.0', end: '10.255.255.255' },
+  { start: '172.16.0.0', end: '172.31.255.255' },
+  { start: '192.168.0.0', end: '192.168.255.255' },
+  { start: '127.0.0.0', end: '127.255.255.255' },
+  { start: '169.254.0.0', end: '169.254.255.255' },
+  { start: '0.0.0.0', end: '0.255.255.255' },
+];
+
+function ipToNum(ip: string): number {
+  return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+}
+
+function isPrivateIp(ip: string): boolean {
+  if (ip === '::1' || ip === '::' || ip.startsWith('fc') || ip.startsWith('fd') || ip.startsWith('fe80')) {
+    return true;
+  }
+  const num = ipToNum(ip);
+  return PRIVATE_RANGES.some((r) => num >= ipToNum(r.start) && num <= ipToNum(r.end));
+}
+
+/**
+ * Validate a webhook URL at delivery time by resolving DNS and checking
+ * the resolved IP isn't private. Prevents SSRF via DNS rebinding.
+ */
+async function validateDeliveryUrl(urlStr: string): Promise<void> {
+  const url = new URL(urlStr);
+  const hostname = url.hostname.toLowerCase();
+
+  if (url.protocol !== 'https:') {
+    throw new Error('Webhook URL must use HTTPS');
+  }
+
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
+    throw new Error('Webhook URL cannot point to localhost');
+  }
+
+  // Skip DNS check for known-safe hosts
+  if (ALLOWED_WEBHOOK_HOSTS.has(hostname)) return;
+
+  // Skip DNS check for raw IPs but validate they're not private
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+    if (isPrivateIp(hostname)) {
+      throw new Error('Webhook URL cannot point to private IP addresses');
+    }
+    return;
+  }
+
+  const result = await lookup(hostname);
+  if (isPrivateIp(result.address)) {
+    throw new Error('Webhook URL resolves to a private IP address');
+  }
 }
 
 /** Fetch with retry and exponential backoff */

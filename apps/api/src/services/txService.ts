@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, ilike, sql, count, notInArray, isNull, or } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, ilike, sql, count, inArray, notInArray, isNull, or } from 'drizzle-orm';
 import { transactions, agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
 import { SPAM_TOKENS } from '@chainward/common';
@@ -39,8 +39,7 @@ export class TxService {
       return { data: [], pagination: { total: 0, limit, offset, hasMore: false } };
     }
 
-    const walletArray = `{${wallets.join(',')}}`;
-    const conditions = [sql`${transactions.walletAddress} = ANY(${walletArray}::text[])`];
+    const conditions = [inArray(transactions.walletAddress, wallets)];
 
     if (spamList.length > 0) {
       conditions.push(or(isNull(transactions.tokenAddress), notInArray(transactions.tokenAddress, spamList))!);
@@ -52,7 +51,10 @@ export class TxService {
     if (filter.status) conditions.push(eq(transactions.status, filter.status));
     if (filter.from) conditions.push(gte(transactions.timestamp, filter.from));
     if (filter.to) conditions.push(lte(transactions.timestamp, filter.to));
-    if (filter.search) conditions.push(ilike(transactions.txHash, `%${filter.search}%`));
+    if (filter.search) {
+      const escaped = filter.search.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+      conditions.push(ilike(transactions.txHash, `%${escaped}%`));
+    }
 
     const where = and(...conditions);
 
@@ -108,7 +110,7 @@ export class TxService {
         COALESCE(SUM(amount_usd), 0) AS total_volume_usd,
         COALESCE(SUM(gas_cost_usd), 0) AS total_gas_usd
       FROM transactions
-      WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
+      WHERE wallet_address = ANY(${wallets}::text[])
         AND timestamp >= ${fromStr}::timestamptz
         AND timestamp <= ${toStr}::timestamptz
         ${spamExclusion}

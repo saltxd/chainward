@@ -8,9 +8,15 @@ import { getQueues } from '../lib/queue.js';
 import { requireAuth } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { validateWebhookUrl } from '../lib/validateUrl.js';
 
 const alerts = new Hono<{ Variables: AppVariables }>();
 alerts.use('*', requireAuth);
+
+const safeWebhookUrl = z.string().url().refine(
+  (url) => validateWebhookUrl(url) === null,
+  { message: 'Webhook URL must be HTTPS and point to a public domain' },
+);
 
 const createAlertSchema = z.object({
   walletAddress: z.string().min(1),
@@ -20,9 +26,9 @@ const createAlertSchema = z.object({
   thresholdUnit: z.enum(['usd', 'native', 'percentage']).optional(),
   lookbackWindow: z.string().optional(),
   channels: z.array(z.enum(DELIVERY_CHANNELS)).min(1),
-  webhookUrl: z.string().url().optional(),
-  slackWebhook: z.string().url().optional(),
-  discordWebhook: z.string().url().optional(),
+  webhookUrl: safeWebhookUrl.optional(),
+  slackWebhook: safeWebhookUrl.optional(),
+  discordWebhook: safeWebhookUrl.optional(),
   cooldown: z.string().optional(),
 });
 
@@ -31,9 +37,9 @@ const updateAlertSchema = z.object({
   thresholdUnit: z.enum(['usd', 'native', 'percentage']).optional(),
   lookbackWindow: z.string().optional(),
   channels: z.array(z.enum(DELIVERY_CHANNELS)).optional(),
-  webhookUrl: z.string().url().optional(),
-  slackWebhook: z.string().url().optional(),
-  discordWebhook: z.string().url().optional(),
+  webhookUrl: safeWebhookUrl.optional(),
+  slackWebhook: safeWebhookUrl.optional(),
+  discordWebhook: safeWebhookUrl.optional(),
   enabled: z.boolean().optional(),
   cooldown: z.string().optional(),
 });

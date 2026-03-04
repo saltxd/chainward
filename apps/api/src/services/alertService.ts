@@ -1,5 +1,5 @@
 import { eq, and, desc, count, inArray } from 'drizzle-orm';
-import { alertConfigs, alertEvents } from '@chainward/db';
+import { alertConfigs, alertEvents, agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -33,6 +33,22 @@ export class AlertService {
   constructor(private db: Database) {}
 
   async create(userId: string, input: CreateAlertInput) {
+    // Verify user owns an agent with this wallet
+    const [agent] = await this.db
+      .select({ id: agentRegistry.id })
+      .from(agentRegistry)
+      .where(
+        and(
+          eq(agentRegistry.userId, userId),
+          eq(agentRegistry.walletAddress, input.walletAddress),
+        ),
+      )
+      .limit(1);
+
+    if (!agent) {
+      throw new AppError(403, 'FORBIDDEN', 'You can only create alerts for wallets you have registered as agents');
+    }
+
     const [alert] = await this.db
       .insert(alertConfigs)
       .values({

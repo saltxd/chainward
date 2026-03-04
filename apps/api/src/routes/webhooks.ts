@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import crypto from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { getEnv } from '../config.js';
 import { getQueues } from '../lib/queue.js';
 import { logger } from '../lib/logger.js';
@@ -15,29 +15,23 @@ webhooks.post('/alchemy', async (c) => {
   const env = getEnv();
   const signingKey = env.ALCHEMY_WEBHOOK_SIGNING_KEY;
 
-  // Verify signature if signing key is configured
-  if (signingKey) {
-    const signature = c.req.header('x-alchemy-signature');
-    if (!signature) {
-      throw new AppError(401, 'MISSING_SIGNATURE', 'Missing webhook signature');
-    }
-
-    const rawBody = await c.req.text();
-    const hmac = crypto.createHmac('sha256', signingKey);
-    hmac.update(rawBody);
-    const expectedSignature = hmac.digest('hex');
-
-    if (signature !== expectedSignature) {
-      throw new AppError(401, 'INVALID_SIGNATURE', 'Invalid webhook signature');
-    }
-
-    // Re-parse the body since we consumed it
-    const body = JSON.parse(rawBody) as AlchemyWebhookPayload;
-    await processWebhookPayload(body);
-  } else {
-    const body = (await c.req.json()) as AlchemyWebhookPayload;
-    await processWebhookPayload(body);
+  // Verify webhook signature (required — app won't start without signing key)
+  const signature = c.req.header('x-alchemy-signature');
+  if (!signature) {
+    throw new AppError(401, 'MISSING_SIGNATURE', 'Missing webhook signature');
   }
+
+  const rawBody = await c.req.text();
+  const expectedSignature = createHmac('sha256', signingKey).update(rawBody).digest('hex');
+
+  const sigBuf = Buffer.from(signature, 'hex');
+  const expBuf = Buffer.from(expectedSignature, 'hex');
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+    throw new AppError(401, 'INVALID_SIGNATURE', 'Invalid webhook signature');
+  }
+
+  const body = JSON.parse(rawBody) as AlchemyWebhookPayload;
+  await processWebhookPayload(body);
 
   return c.json({ success: true });
 });

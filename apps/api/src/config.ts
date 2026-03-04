@@ -8,7 +8,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   BASE_RPC_URL: z.string().url(),
   ALCHEMY_API_KEY: z.string(),
-  ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().optional(),
+  ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().min(1),
   ALCHEMY_AUTH_TOKEN: z.string().optional(),
   ALCHEMY_WEBHOOK_ID: z.string().optional(),
   SOLANA_RPC_URL: z.string().url().optional(),

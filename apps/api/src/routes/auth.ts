@@ -6,26 +6,37 @@ import { getRedis } from '../lib/redis.js';
 import { users } from '@chainward/db';
 import { signJwt, verifyJwt, COOKIE_NAME } from '../lib/auth.js';
 import { getEnv } from '../config.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 
 const auth = new Hono();
 
-// GET /api/auth/nonce
-auth.get('/nonce', async (c) => {
+// GET /api/auth/nonce (10/min per client)
+auth.get('/nonce', rateLimit({ max: 10, windowSec: 60, prefix: 'rl:auth-nonce' }), async (c) => {
   const nonce = crypto.randomUUID().replace(/-/g, '');
   const redis = getRedis();
   await redis.set(`siwe:nonce:${nonce}`, '1', 'EX', 300); // 5 min TTL
   return c.json({ nonce });
 });
 
-// POST /api/auth/verify
-auth.post('/verify', async (c) => {
-  const { message, signature } = await c.req.json<{ message: string; signature: string }>();
+// POST /api/auth/verify (5/min per client)
+auth.post('/verify', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:auth-verify' }), async (c) => {
+  let body: { message?: string; signature?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid request body' }, 400);
+  }
+
+  const { message, signature } = body;
+  if (!message || !signature) {
+    return c.json({ error: 'Missing message or signature' }, 400);
+  }
 
   let siweMessage: SiweMessage;
   try {
     siweMessage = new SiweMessage(message);
-  } catch (e) {
-    return c.json({ error: `Invalid SIWE message: ${e instanceof Error ? e.message : String(e)}` }, 400);
+  } catch {
+    return c.json({ error: 'Invalid SIWE message' }, 400);
   }
 
   const result = await siweMessage.verify({ signature });
