@@ -1,8 +1,12 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { ActivityFeed } from '@/components/landing/activity-feed';
 import { FeatureGrid } from '@/components/landing/feature-grid';
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const cookieStore = await cookies();
+  const isAuthenticated = cookieStore.has('chainward-session');
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050508]">
       {/* Subtle grid background */}
@@ -32,18 +36,21 @@ export default function LandingPage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-md px-4 py-2 text-sm text-[#a1a1aa] transition-colors hover:text-white"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
-          >
-            Get started
-          </Link>
+          {isAuthenticated ? (
+            <Link
+              href="/overview"
+              className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
+            >
+              Dashboard &rarr;
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
+            >
+              Connect Wallet
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -86,10 +93,10 @@ export default function LandingPage() {
             </svg>
           </Link>
           <a
-            href="https://docs.chainward.ai"
+            href="#features"
             className="inline-flex items-center gap-2 rounded-lg border border-[#27272a] px-8 py-3.5 text-sm font-medium text-[#a1a1aa] transition-all hover:border-[#3f3f46] hover:text-white"
           >
-            Read the docs
+            Learn more &darr;
           </a>
         </div>
 
@@ -114,35 +121,23 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-px overflow-hidden rounded-xl border border-[#1a1a2e] bg-[#1a1a2e] md:grid-cols-3">
-          {[
-            {
-              stat: '$2.1M+',
-              label: 'Lost to agent errors in 2025',
-              desc: 'Unchecked agents executing bad trades, infinite loops, and failed transactions.',
-            },
-            {
-              stat: '47%',
-              label: 'Of agent operators lack monitoring',
-              desc: 'Most teams rely on manual block explorer checks. That doesn\'t scale.',
-            },
-            {
-              stat: '<30s',
-              label: 'ChainWard alert latency',
-              desc: 'Get notified via Discord, Slack, or webhook within seconds of on-chain activity.',
-            },
-          ].map((item) => (
-            <div key={item.stat} className="bg-[#0a0a0f] p-8">
-              <div className="text-3xl font-bold text-[#4ade80]">{item.stat}</div>
-              <div className="mt-2 text-sm font-medium text-white">{item.label}</div>
-              <p className="mt-2 text-sm text-[#71717a]">{item.desc}</p>
+        <div className="mt-12 overflow-hidden rounded-xl border border-[#1a1a2e] bg-[#0a0a0f] p-8 md:p-10">
+          <div className="flex flex-col items-center gap-6 md:flex-row md:gap-10">
+            <div className="shrink-0 text-center">
+              <div className="text-4xl font-bold text-[#4ade80]">&lt;30s</div>
+              <div className="mt-1 text-sm text-[#71717a]">Alert latency</div>
             </div>
-          ))}
+            <div className="h-px w-full bg-[#1a1a2e] md:h-16 md:w-px" />
+            <p className="text-center text-[#a1a1aa] md:text-left">
+              Get notified via Discord, Slack, or webhook within seconds of on-chain activity.
+              No more manual block explorer checks that don&apos;t scale.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 pt-32 md:pt-40">
+      <section id="features" className="relative z-10 mx-auto max-w-5xl scroll-mt-20 px-6 pt-32 md:pt-40">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
             Built for agent operators
@@ -226,12 +221,13 @@ export default function LandingPage() {
                 <path d="M8 5L11 6.75V10.25L8 12L5 10.25V6.75L8 5Z" fill="#4ade80" />
               </svg>
             </div>
-            ChainWard
+            <span>&copy; 2026 ChainWard</span>
           </div>
-          <div className="flex gap-6 text-sm text-[#71717a]">
-            <a href="https://docs.chainward.ai" className="hover:text-white transition-colors">Docs</a>
-            <a href="https://twitter.com/chainward_ai" className="hover:text-white transition-colors">Twitter</a>
-            <a href="mailto:hello@chainward.ai" className="hover:text-white transition-colors">Contact</a>
+          <div className="flex items-center gap-6 text-sm text-[#71717a]">
+            <Link href="/docs" className="transition-colors hover:text-white">Docs</Link>
+            <a href="https://x.com/chainwardai" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">Twitter</a>
+            <a href="mailto:hello@chainward.ai" className="transition-colors hover:text-white">Contact</a>
+            <span className="text-[#4ade80]/60">Built on Base</span>
           </div>
         </div>
       </footer>

@@ -28,7 +28,7 @@ export function Header() {
     try { await logout(); } catch {}
     try { disconnect(); } catch {}
     // Hard redirect to fully reset wagmi/RainbowKit client state
-    window.location.href = '/login';
+    window.location.href = '/';
   }
 
   return (
