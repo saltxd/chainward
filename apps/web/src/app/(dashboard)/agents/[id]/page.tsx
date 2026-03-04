@@ -25,8 +25,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const { data: balanceHistory } = useApi<BalanceHistoryBucket[]>(
     () => {
       if (!wallet) return Promise.resolve({ data: [] as BalanceHistoryBucket[] });
-      const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      return api.getBalanceHistory({ wallet, bucket: '1d', from });
+      const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      return api.getBalanceHistory({ wallet, bucket: '1h', from });
     },
     [wallet],
   );
