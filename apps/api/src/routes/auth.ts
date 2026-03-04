@@ -136,9 +136,11 @@ auth.get('/session', async (c) => {
 
 // POST /api/auth/logout
 auth.post('/logout', (c) => {
+  const env = getEnv();
+  const isSecure = env.NODE_ENV === 'production';
   c.header(
     'Set-Cookie',
-    `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0`,
+    `${COOKIE_NAME}=; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=0`,
   );
   return c.json({ success: true });
 });
