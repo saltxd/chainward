@@ -11,7 +11,7 @@ const auth = new Hono();
 
 // GET /api/auth/nonce
 auth.get('/nonce', async (c) => {
-  const nonce = crypto.randomUUID();
+  const nonce = crypto.randomUUID().replace(/-/g, '');
   const redis = getRedis();
   await redis.set(`siwe:nonce:${nonce}`, '1', 'EX', 300); // 5 min TTL
   return c.json({ nonce });
@@ -21,7 +21,13 @@ auth.get('/nonce', async (c) => {
 auth.post('/verify', async (c) => {
   const { message, signature } = await c.req.json<{ message: string; signature: string }>();
 
-  const siweMessage = new SiweMessage(message);
+  let siweMessage: SiweMessage;
+  try {
+    siweMessage = new SiweMessage(message);
+  } catch (e) {
+    return c.json({ error: `Invalid SIWE message: ${e instanceof Error ? e.message : String(e)}` }, 400);
+  }
+
   const result = await siweMessage.verify({ signature });
 
   if (!result.success) {
