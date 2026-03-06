@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-agent
+  namespace: chainward
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: chainward
+        app.kubernetes.io/component: test-agent
+    spec:
+      restartPolicy: OnFailure
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: test-agent
+          image: ghcr.io/saltxd/chainward-agent:latest
+          env:
+            - name: MAX_CYCLES
+              value: "10"
+            - name: CDP_API_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: test-agent-secrets
+                  key: CDP_API_KEY_ID
+            - name: CDP_API_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: test-agent-secrets
+                  key: CDP_API_KEY_SECRET
+            - name: CDP_WALLET_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: test-agent-secrets
+                  key: CDP_WALLET_SECRET
+            - name: NETWORK_ID
+              value: "base-mainnet"
+            - name: ADDRESS
+              value: "0xAf09B7fa44058D40738DaBEbD4f014ac3aBf9A53"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
