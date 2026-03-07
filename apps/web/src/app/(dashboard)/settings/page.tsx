@@ -93,18 +93,18 @@ export default function SettingsPage() {
         <div className="rounded-lg border border-border bg-card p-6">
           <h2 className="text-lg font-semibold">Account</h2>
           <div className="mt-4 space-y-3">
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between">
               <span className="text-muted-foreground">Wallet</span>
-              <span className="font-mono">{user?.walletAddress ?? '-'}</span>
+              <span className="truncate font-mono">{user?.walletAddress ?? '-'}</span>
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between">
               <span className="text-muted-foreground">Display Name</span>
               <span>{user?.displayName ?? '-'}</span>
             </div>
           </div>
           <button
             onClick={handleDisconnect}
-            className="mt-4 rounded-lg border border-destructive/50 px-3 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10"
+            className="mt-4 min-h-[44px] rounded-lg border border-destructive/50 px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
           >
             Disconnect
           </button>
@@ -236,16 +236,16 @@ export default function SettingsPage() {
                 {apiKeys.map((key) => (
                   <div
                     key={key.id}
-                    className="flex items-center justify-between rounded-lg border border-border bg-background p-3"
+                    className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium">{key.name}</span>
                         <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                           {key.keyPrefix}...
                         </code>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {key.scopes.map((scope) => (
                           <span
                             key={scope}
@@ -266,7 +266,7 @@ export default function SettingsPage() {
                     </div>
                     <button
                       onClick={() => handleRevokeKey(key.id)}
-                      className="text-xs text-destructive transition-colors hover:text-destructive/80"
+                      className="min-h-[44px] self-start rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive transition-colors hover:text-destructive/80 sm:self-auto sm:border-0 sm:p-0"
                     >
                       Revoke
                     </button>

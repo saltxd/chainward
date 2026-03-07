@@ -78,7 +78,7 @@ const examplePayload = `{
 
 export default function AlertTypesPage() {
   return (
-    <article className="max-w-3xl">
+    <article className="max-w-none md:max-w-3xl">
       <h1 className="text-2xl font-bold text-white">Alert Types</h1>
       <p className="mt-2 text-[#a1a1aa]">
         ChainWard supports 6 alert types covering common failure modes for on-chain AI agents.

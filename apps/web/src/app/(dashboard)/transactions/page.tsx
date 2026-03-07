@@ -78,17 +78,17 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
         <input
           placeholder="Search by tx hash..."
           value={filters.search}
           onChange={(e) => handleFilterChange({ search: e.target.value })}
-          className="rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm placeholder:text-muted-foreground"
+          className="min-h-[44px] rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm placeholder:text-muted-foreground"
         />
         <select
           value={filters.direction}
           onChange={(e) => handleFilterChange({ direction: e.target.value })}
-          className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          className="min-h-[44px] rounded-lg border border-border bg-card px-3 py-2 text-sm"
         >
           <option value="">All directions</option>
           <option value="in">Incoming</option>
@@ -98,7 +98,7 @@ export default function TransactionsPage() {
         <select
           value={filters.type}
           onChange={(e) => handleFilterChange({ type: e.target.value })}
-          className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          className="min-h-[44px] rounded-lg border border-border bg-card px-3 py-2 text-sm"
         >
           <option value="">All types</option>
           <option value="transfer">Transfer</option>
@@ -117,7 +117,7 @@ export default function TransactionsPage() {
 
           {/* Pagination */}
           {pagination && pagination.total > 0 && (
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+            <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
                 Showing {rangeStart}–{rangeEnd} of {pagination.total.toLocaleString()} transactions
               </p>
@@ -125,14 +125,14 @@ export default function TransactionsPage() {
                 <button
                   onClick={() => setPage((p) => p - 1)}
                   disabled={page === 0}
-                  className="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-muted disabled:opacity-50"
+                  className="min-h-[44px] flex-1 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 sm:flex-none"
                 >
                   ← Prev
                 </button>
                 <button
                   onClick={() => setPage((p) => p + 1)}
                   disabled={!pagination.hasMore}
-                  className="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-muted disabled:opacity-50"
+                  className="min-h-[44px] flex-1 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 sm:flex-none"
                 >
                   Next →
                 </button>

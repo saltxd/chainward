@@ -2,7 +2,7 @@ export const metadata = { title: 'Getting Started — ChainWard Docs' };
 
 export default function DocsPage() {
   return (
-    <article className="prose-invert max-w-3xl">
+    <article className="prose-invert max-w-none md:max-w-3xl">
       <h1 className="text-2xl font-bold text-white">Getting Started</h1>
       <p className="mt-2 text-[#a1a1aa]">
         Get up and running with ChainWard in under 2 minutes. Monitor any Base wallet address in real time.

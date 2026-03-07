@@ -24,4 +24,22 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Touch-friendly interactive elements — prevent 300ms tap delay on iOS */
+button,
+a,
+[role='button'] {
+  touch-action: manipulation;
+}
+
+/* Safe area utility classes */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-x {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }

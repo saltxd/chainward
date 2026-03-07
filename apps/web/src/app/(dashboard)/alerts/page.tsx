@@ -171,14 +171,14 @@ export default function AlertsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Alerts</h1>
           <p className="text-sm text-muted-foreground">Configure notifications for agent activity</p>
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="min-h-[44px] shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           {showCreate ? 'Cancel' : 'Create Alert'}
         </button>
@@ -409,10 +409,10 @@ export default function AlertsPage() {
             {eventsResponse.map((event, i) => (
               <div
                 key={`${event.alertConfigId}-${event.timestamp}-${i}`}
-                className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
+                className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="flex flex-col gap-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-primary">
                       {TYPE_LABELS[event.alertType] ?? event.alertType}
                     </span>
@@ -432,8 +432,7 @@ export default function AlertsPage() {
                     </a>
                   )}
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {/* Delivery channel badges */}
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                   {event.deliveryChannel && event.deliveryChannel.split(',').map((ch) => (
                     <span
                       key={ch}
@@ -445,7 +444,6 @@ export default function AlertsPage() {
                       {ch.trim()}
                     </span>
                   ))}
-                  {/* Delivery status */}
                   <span
                     className={cn(
                       'rounded px-1.5 py-0.5 text-xs',
@@ -458,7 +456,6 @@ export default function AlertsPage() {
                   >
                     {event.delivered ? 'Delivered' : event.deliveryError ? 'Failed' : 'Pending'}
                   </span>
-                  {/* Severity */}
                   <span
                     className={cn(
                       'rounded px-1.5 py-0.5 text-xs',

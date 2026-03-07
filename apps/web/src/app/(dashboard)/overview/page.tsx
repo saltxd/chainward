@@ -52,7 +52,7 @@ export default function OverviewPage() {
       {overview && overview.agents.total === 0 && <OnboardingBanner />}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
         {overviewLoading ? (
           <>
             <Skeleton className="h-24" />

@@ -208,7 +208,7 @@ const endpoints = [
 
 export default function ApiReferencePage() {
   return (
-    <article className="max-w-3xl">
+    <article className="max-w-none md:max-w-3xl">
       <h1 className="text-2xl font-bold text-white">API Reference</h1>
       <p className="mt-2 text-[#a1a1aa]">
         Programmatic access to ChainWard. All endpoints require authentication.
