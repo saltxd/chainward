@@ -235,6 +235,12 @@ export default async function LandingPage() {
               <li className="text-[#a1a1aa]">90-day history</li>
               <li className="text-[#a1a1aa]">All channels + webhook</li>
               <li className="text-[#a1a1aa]">Email support</li>
+              <li className="flex items-center gap-1.5 text-[#4ade80]">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                API access
+              </li>
             </ul>
             <Link
               href="/login"
@@ -259,6 +265,12 @@ export default async function LandingPage() {
               <li className="text-[#a1a1aa]">Unlimited history</li>
               <li className="text-[#a1a1aa]">All channels + webhook</li>
               <li className="text-[#a1a1aa]">Dedicated support</li>
+              <li className="flex items-center gap-1.5 text-[#4ade80]">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                API access
+              </li>
             </ul>
             <Link
               href="/login"

@@ -5,14 +5,14 @@ import type { AppVariables } from '../types.js';
 import { AgentService } from '../services/agentService.js';
 import { getDb } from '../lib/db.js';
 import { getQueues } from '../lib/queue.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { webhookManager } from '../lib/alchemy.js';
 
 const agents = new Hono<{ Variables: AppVariables }>();
 
 // All routes require auth
-agents.use('*', requireAuth);
+agents.use('*', requireApiKeyOrSession());
 
 const createAgentSchema = z.object({
   chain: z.enum(['base', 'solana']),

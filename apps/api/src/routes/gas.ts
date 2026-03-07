@@ -2,10 +2,10 @@ import { Hono } from 'hono';
 import type { AppVariables } from '../types.js';
 import { GasService } from '../services/gasService.js';
 import { getDb } from '../lib/db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 
 const gas = new Hono<{ Variables: AppVariables }>();
-gas.use('*', requireAuth);
+gas.use('*', requireApiKeyOrSession());
 
 gas.get('/analytics', async (c) => {
   const user = c.get('user');

@@ -7,13 +7,13 @@ import { alertEvents, agentRegistry } from '@chainward/db';
 import { AlertService } from '../services/alertService.js';
 import { getDb } from '../lib/db.js';
 import { getQueues } from '../lib/queue.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { validateWebhookUrl } from '../lib/validateUrl.js';
 
 const alerts = new Hono<{ Variables: AppVariables }>();
-alerts.use('*', requireAuth);
+alerts.use('*', requireApiKeyOrSession());
 
 const safeWebhookUrl = z.string().url().refine(
   (url) => validateWebhookUrl(url) === null,

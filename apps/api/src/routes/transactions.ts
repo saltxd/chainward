@@ -2,10 +2,10 @@ import { Hono } from 'hono';
 import type { AppVariables } from '../types.js';
 import { TxService } from '../services/txService.js';
 import { getDb } from '../lib/db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 
 const txRoutes = new Hono<{ Variables: AppVariables }>();
-txRoutes.use('*', requireAuth);
+txRoutes.use('*', requireApiKeyOrSession());
 
 txRoutes.get('/', async (c) => {
   const user = c.get('user');

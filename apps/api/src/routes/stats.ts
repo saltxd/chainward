@@ -2,11 +2,11 @@ import { Hono } from 'hono';
 import type { AppVariables } from '../types.js';
 import { StatsService } from '../services/statsService.js';
 import { getDb } from '../lib/db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const stats = new Hono<{ Variables: AppVariables }>();
-stats.use('*', requireAuth);
+stats.use('*', requireApiKeyOrSession());
 
 stats.get('/overview', async (c) => {
   const user = c.get('user');
