@@ -43,7 +43,8 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **API Docs** | Done | `/docs/api` — 18 grouped endpoints, SDK examples, Bearer auth |
 | **elizaOS Plugin** | Done | `@chainward/elizaos-plugin@0.1.0` — published to npm, 6 actions, auto-registration on startup |
 | **elizaOS Registry PR** | Pending | PR #287 submitted to `elizaos-plugins/registry` |
-| **Integrations Section** | Done | "Works with" row on landing page: elizaOS (live), AgentKit + Virtuals (soon) |
+| **AgentKit Plugin** | Done | `@chainward/agentkit-plugin@0.1.0` — published to npm, 6 actions, ActionProvider with CreateAction decorators |
+| **Integrations Section** | Done | "Works with" row on landing page: elizaOS (live), AgentKit (live), Virtuals (soon) |
 | **Pricing Page** | Done | Free / Pro ($49) / Team ($199) tiers. "API access" on Pro + Team. All free during beta. |
 | **GTM Plan** | Done | 5-agent research sprint: content strategy, outreach playbook, community intel, partnerships, competitive moat. See `docs/plans/2026-03-06-gtm-bull-rush.md`. |
 | **Helm Chart** | Done | Full K3s deployment (API, web, indexer, postgres, redis) |
@@ -118,14 +119,14 @@ Transaction indexed → alert-evaluate queue → evaluator worker checks configs
 - [x] `npm publish` SDK + elizaOS plugin (`@chainward/sdk@0.1.0`, `@chainward/elizaos-plugin@0.1.0`)
 - [x] Submit PR to elizaOS plugin registry (PR #287)
 - [x] Rename GitHub repo `agentguard` → `chainward`
-- [ ] Start AgentKit action provider (TypeScript, 2-3 weeks)
+- [x] Build + publish AgentKit action provider (`@chainward/agentkit-plugin@0.1.0`)
 - [ ] Execute GTM content calendar — Day 1 tweet from @salt_cx
 - [ ] Send first 3 outreach DMs (Rxbt, Austin Griffith, Jack Dishman)
 - [ ] Post in CDP Discord, Virtuals Discord, Base Discord
 - [ ] Register Basename + apply for Base Builder Grant
 
 ### Short-Term (Weeks 2-4)
-- [ ] Ship AgentKit action provider PR to coinbase/agentkit
+- [ ] Submit AgentKit action provider PR to coinbase/agentkit (currently standalone npm package)
 - [ ] Build Virtuals GAME SDK monitoring worker
 - [ ] Publish long-form "I Monitored My AI Agent for 2 Weeks" article
 - [ ] Agent health scoring (composite metric: uptime, gas efficiency, tx success rate)
