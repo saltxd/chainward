@@ -142,7 +142,6 @@ Coinbase closed our account immediately after KYC verification — triggered by 
 - [ ] Send first 3 outreach DMs (Rxbt, Austin Griffith, Jack Dishman)
 - [ ] Post in CDP Discord, Virtuals Discord, Base Discord
 - [x] Register Basename (`chainward.base.eth`)
-- [ ] Apply for Base Builder Grant
 
 ### Short-Term (Weeks 2-4)
 - [ ] Deploy swap-agent v2 to K3s (Dockerfile ready, needs Job manifest)

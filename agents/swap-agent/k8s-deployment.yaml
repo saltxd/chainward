@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swap-agent
+  namespace: chainward
+  labels:
+    app.kubernetes.io/name: chainward
+    app.kubernetes.io/component: swap-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: swap-agent
+  template:
+    metadata:
+      labels:
+        app: swap-agent
+        app.kubernetes.io/name: chainward
+        app.kubernetes.io/component: swap-agent
+    spec:
+      containers:
+        - name: swap-agent
+          image: ghcr.io/saltxd/chainward-swap-agent:3ed4b0c
+          env:
+            - name: PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: swap-agent-secrets
+                  key: PRIVATE_KEY
+            - name: RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chainward-secrets
+                  key: BASE_RPC_URL
+            - name: MAX_CYCLES
+              value: "0"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      imagePullSecrets:
+        - name: ghcr-pull
+      restartPolicy: Always
