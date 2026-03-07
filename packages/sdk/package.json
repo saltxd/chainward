@@ -1,7 +1,7 @@
 {
   "name": "@chainward/sdk",
-  "version": "0.0.1",
-  "description": "ChainWard TypeScript SDK for programmatic access to the ChainWard API",
+  "version": "0.1.0",
+  "description": "ChainWard TypeScript SDK — programmatic access to agent monitoring & alerts on Base",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,6 +11,9 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "typecheck": "tsc --noEmit",
@@ -19,5 +22,20 @@
   "devDependencies": {
     "tsup": "^8.3.0",
     "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "chainward",
+    "agent",
+    "monitoring",
+    "wallet",
+    "base",
+    "alerts",
+    "sdk"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/saltxd/agentguard.git",
+    "directory": "packages/sdk"
   }
 }
