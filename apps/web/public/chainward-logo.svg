@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400" role="img" aria-labelledby="title desc">
+  <title>ChainWard logo</title>
+  <desc>Simple developer-tool logo with dark rounded square, green shield outline, and CW monogram.</desc>
+
+  <rect x="24" y="24" width="352" height="352" rx="88" fill="#0a0a0a"/>
+
+  <!-- Shield / ward outline -->
+  <path d="M200 78
+           C242 104 278 110 304 114
+           C304 210 279 284 200 332
+           C121 284 96 210 96 114
+           C122 110 158 104 200 78Z"
+        fill="none"
+        stroke="#4ade80"
+        stroke-width="14"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+        opacity="0.94"/>
+
+  <!-- CW monogram -->
+  <path d="M177 146
+           C148 146 127 167 127 197
+           C127 227 148 248 177 248
+           C193 248 207 242 217 232"
+        fill="none"
+        stroke="#4ade80"
+        stroke-width="20"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <path d="M180 174
+           L196 248
+           L220 196
+           L244 248
+           L260 174"
+        fill="none"
+        stroke="#4ade80"
+        stroke-width="18"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

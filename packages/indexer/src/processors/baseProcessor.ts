@@ -126,8 +126,11 @@ export async function processWebhookTx(
     } else if (data.category === 'external' || data.category === 'internal') {
       tokenSymbol = 'ETH';
       tokenDecimals = 18;
-      amountRaw = tx.value.toString();
-      const amount = parseFloat(formatEther(tx.value));
+      // Use Alchemy's per-activity value (already in ETH decimal), not tx.value
+      // which is the top-level tx value and is 0 for internal transfers (e.g. ETH
+      // received back from a swap router).
+      const amount = data.value ?? 0;
+      amountRaw = BigInt(Math.round(amount * 1e18)).toString();
       if (ethPrice) amountUsd = (amount * ethPrice).toFixed(6);
     }
 
