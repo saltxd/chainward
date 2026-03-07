@@ -3,6 +3,20 @@
 import type { Transaction } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+function formatTxType(txType: string | null, methodName?: string | null): string {
+  if (methodName) {
+    const name = methodName.toLowerCase();
+    if (name.includes('swap')) return 'Swap';
+    if (name.includes('approve')) return 'Approval';
+    if (name.includes('transfer')) return 'Transfer';
+    if (name.includes('deposit') || name.includes('wrap')) return 'Deposit';
+    if (name.includes('withdraw') || name.includes('unwrap')) return 'Withdraw';
+  }
+  if (txType === 'contract_call') return 'Contract Call';
+  if (txType === 'transfer') return 'Transfer';
+  return txType ?? 'Unknown';
+}
+
 interface TxTableProps {
   transactions: Transaction[];
   showWallet?: boolean;
@@ -53,7 +67,7 @@ export function TxTable({ transactions, showWallet, onSelectTx }: TxTableProps) 
               </td>
               <td className="py-3 pr-4">
                 <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                  {tx.txType ?? 'unknown'}
+                  {formatTxType(tx.txType, tx.methodName)}
                 </span>
               </td>
               <td className="py-3 pr-4">
@@ -75,9 +89,9 @@ export function TxTable({ transactions, showWallet, onSelectTx }: TxTableProps) 
               )}
               <td className="py-3 pr-4 font-mono text-xs">{tx.tokenSymbol ?? 'ETH'}</td>
               <td className="py-3 pr-4 text-right font-mono text-xs">
-                {tx.amountUsd
+                {tx.amountUsd && parseFloat(tx.amountUsd) > 0.005
                   ? `$${parseFloat(tx.amountUsd).toFixed(2)}`
-                  : <span className="text-muted-foreground">no price</span>}
+                  : <span className="text-muted-foreground">&mdash;</span>}
               </td>
               <td className="py-3 pr-4 text-right font-mono text-xs text-muted-foreground">
                 {tx.gasCostUsd ? `$${parseFloat(tx.gasCostUsd).toFixed(4)}` : '-'}

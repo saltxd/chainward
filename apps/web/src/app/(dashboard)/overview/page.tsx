@@ -155,7 +155,9 @@ export default function OverviewPage() {
                     </td>
                     <td className="py-2.5 pr-4 font-mono text-xs">{tx.tokenSymbol ?? 'ETH'}</td>
                     <td className="py-2.5 pr-4 text-right font-mono text-xs">
-                      {tx.amountUsd ? `$${parseFloat(tx.amountUsd).toFixed(2)}` : '-'}
+                      {tx.amountUsd && parseFloat(tx.amountUsd) > 0.005
+                        ? `$${parseFloat(tx.amountUsd).toFixed(2)}`
+                        : <span className="text-muted-foreground">&mdash;</span>}
                     </td>
                     <td className="py-2.5 pr-4 text-right font-mono text-xs text-muted-foreground">
                       {tx.gasCostUsd ? `$${parseFloat(tx.gasCostUsd).toFixed(4)}` : '-'}

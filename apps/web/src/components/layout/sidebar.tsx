@@ -17,7 +17,9 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r border-border bg-card">
-      <div className="flex h-14 items-center px-6">
+      <div className="flex h-14 items-center gap-2 px-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/chainward-logo.svg" alt="" className="h-6 w-6" />
         <Link href="/overview" className="text-lg font-bold">
           Chain<span className="text-primary">Ward</span>
         </Link>

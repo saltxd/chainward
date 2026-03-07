@@ -25,12 +25,8 @@ export default async function LandingPage() {
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 md:px-12">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#1B5E20]">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" stroke="#4ade80" strokeWidth="1.5" fill="none" />
-              <path d="M8 5L11 6.75V10.25L8 12L5 10.25V6.75L8 5Z" fill="#4ade80" />
-            </svg>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/chainward-logo.svg" alt="ChainWard" className="h-8 w-8" />
           <span className="text-lg font-semibold tracking-tight text-white">
             Chain<span className="text-[#4ade80]">Ward</span>
           </span>
@@ -186,6 +182,102 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="relative z-10 mx-auto max-w-5xl scroll-mt-20 px-6 pt-32 md:pt-40">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+            Simple, transparent pricing
+          </h2>
+        </div>
+
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
+          {/* Free */}
+          <div className="flex flex-col rounded-xl border border-[#1a1a2e] bg-[#0a0a0f] p-8">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-white">Free</h3>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-white">$0</span>
+                <span className="text-sm text-[#71717a]">/mo</span>
+              </div>
+            </div>
+            <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
+              <li className="text-[#a1a1aa]">3 agents</li>
+              <li className="text-[#a1a1aa]">5-min polling</li>
+              <li className="text-[#a1a1aa]">7-day history</li>
+              <li className="text-[#a1a1aa]">Discord &amp; Telegram</li>
+              <li className="text-[#a1a1aa]">Community</li>
+              <li className="text-[#71717a]">&mdash;</li>
+              <li className="text-[#71717a]">&mdash;</li>
+            </ul>
+            <Link
+              href="/login"
+              className="block rounded-lg bg-[#1B5E20] px-6 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-[#2E7D32]"
+            >
+              Start free
+            </Link>
+          </div>
+
+          {/* Pro */}
+          <div className="relative flex flex-col rounded-xl border border-[#4ade80]/30 bg-[#0a0a0f] p-8">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#4ade80] px-3 py-0.5 text-xs font-semibold text-[#050508]">
+              Most Popular
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-white">Pro</h3>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-white">$49</span>
+                <span className="text-sm text-[#71717a]">/mo</span>
+              </div>
+            </div>
+            <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
+              <li className="text-[#a1a1aa]">25 agents</li>
+              <li className="text-[#a1a1aa]">1-min polling</li>
+              <li className="text-[#a1a1aa]">90-day history</li>
+              <li className="text-[#a1a1aa]">All channels + webhook</li>
+              <li className="text-[#a1a1aa]">Email support</li>
+              <li className="text-[#4ade80]">&#10003; API access</li>
+              <li className="text-[#71717a]">&mdash;</li>
+            </ul>
+            <Link
+              href="/login"
+              className="block rounded-lg bg-[#4ade80] px-6 py-2.5 text-center text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e]"
+            >
+              Start free
+            </Link>
+          </div>
+
+          {/* Team */}
+          <div className="flex flex-col rounded-xl border border-[#1a1a2e] bg-[#0a0a0f] p-8">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-white">Team</h3>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-white">$199</span>
+                <span className="text-sm text-[#71717a]">/mo</span>
+              </div>
+            </div>
+            <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
+              <li className="text-[#a1a1aa]">100 agents</li>
+              <li className="text-[#a1a1aa]">30-sec polling</li>
+              <li className="text-[#a1a1aa]">Unlimited history</li>
+              <li className="text-[#a1a1aa]">Priority alerts</li>
+              <li className="text-[#a1a1aa]">Dedicated support</li>
+              <li className="text-[#4ade80]">&#10003; API access</li>
+              <li className="text-[#4ade80]">&#10003; Custom integrations</li>
+            </ul>
+            <Link
+              href="/login"
+              className="block rounded-lg bg-[#1B5E20] px-6 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-[#2E7D32]"
+            >
+              Start free
+            </Link>
+          </div>
+        </div>
+
+        <p className="mt-6 text-center text-sm text-[#71717a]">
+          All plans free during beta
+        </p>
+      </section>
+
       {/* CTA */}
       <section className="relative z-10 mx-auto max-w-5xl px-6 pb-20 pt-32 md:pb-32 md:pt-40">
         <div className="relative overflow-hidden rounded-2xl border border-[#1B5E20]/30 bg-gradient-to-b from-[#0a0f0a] to-[#050508] p-12 text-center md:p-16">
@@ -215,12 +307,8 @@ export default async function LandingPage() {
       <footer className="relative z-10 border-t border-[#1a1a2e] px-6 py-8 md:px-12">
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center gap-2 text-sm text-[#71717a]">
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-[#1B5E20]">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" stroke="#4ade80" strokeWidth="1.5" fill="none" />
-                <path d="M8 5L11 6.75V10.25L8 12L5 10.25V6.75L8 5Z" fill="#4ade80" />
-              </svg>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/chainward-logo.svg" alt="ChainWard" className="h-5 w-5" />
             <span>&copy; 2026 ChainWard</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-[#71717a]">
