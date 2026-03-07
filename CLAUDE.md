@@ -12,13 +12,14 @@ Onchain agent monitoring SaaS. Tracks transactions, balances, and gas for AI age
 - **Auth:** SIWE (Sign In With Ethereum) + JWT in HTTP-only cookies
 - **Wallet UI:** RainbowKit v2 + wagmi v2
 - **Shared types/utils:** `packages/common/`
-- **SDK:** `packages/sdk/`
+- **SDK:** `packages/sdk/` — TypeScript client, Bearer auth via `ag_` keys
+- **elizaOS Plugin:** `packages/elizaos-plugin/` — 6 actions, auto-registration on init
 
 ## Commands
 
 ```bash
 pnpm install          # Install dependencies
-pnpm typecheck        # Typecheck all 6 packages
+pnpm typecheck        # Typecheck all 8 packages
 pnpm build            # Build all packages
 pnpm dev              # Dev servers (api + web)
 ```
@@ -55,6 +56,7 @@ Balance snapshots taken on agent registration + periodic polling.
 - **API proxy (not rewrites)** for cookie forwarding — `apps/web/src/app/api/[...path]/route.ts`
 - **Brand color:** `#4ade80` (green)
 - **No shadcn** — custom UI components in `apps/web/src/components/ui/`
+- **API auth:** All data routes accept both `Bearer ag_` API keys AND session cookies via `requireApiKeyOrSession()` middleware
 
 ## Key Gotchas
 
@@ -62,7 +64,8 @@ Balance snapshots taken on agent registration + periodic polling.
 - Recharts BarChart tooltip cursor needs `cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}` on dark themes
 - Agent detail balance chart uses `1h` buckets (new agents need this); Overview uses `1d`
 - SIWE nonces must be alphanumeric (strip hyphens from UUID)
-- `TELEGRAM_BOT_TOKEN` env var needed for Telegram delivery (not yet configured in K8s secret)
+- `TELEGRAM_BOT_TOKEN` env var needed for Telegram delivery
+- elizaOS plugin uses `@elizaos/core@1.7.2` — Action handlers return `ActionResult`, examples use `name` (not `user`), `actions` array (not `action` string)
 
 ## Project Status
 

@@ -1,6 +1,6 @@
 # ChainWard — Project Status
 
-**Last updated:** 2026-03-04
+**Last updated:** 2026-03-07
 
 ## What Is ChainWard
 
@@ -13,13 +13,13 @@ Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents o
 
 ## Current State: Live & Functional
 
-Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes real Base mainnet transactions in real time. Alert pipeline delivers to Discord and Telegram. Two agents registered and actively monitored.
+Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes real Base mainnet transactions in real time. Alert pipeline delivers to Discord and Telegram. Two agents registered and actively monitored. Public API with key-based auth live. elizaOS plugin built and ready for npm publish.
 
 ### What Works
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Monorepo (Turborepo)** | Done | 6 packages (`@chainward/*`), all build clean |
+| **Monorepo (Turborepo)** | Done | 8 packages (`@chainward/*`), all build clean |
 | **Database (TimescaleDB)** | Done | 10 tables, 3 hypertables, compression + retention |
 | **Auth (SIWE + JWT)** | Done | Wallet sign-in via RainbowKit, JWT sessions in HTTP-only cookies |
 | **API (Hono)** | Done | 20+ endpoints, 7 service classes, rate limiting |
@@ -38,8 +38,12 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **Spam Token Filtering** | Done | Address blocklist + name pattern matching + NULL-safe SQL |
 | **Charts** | Done | Balance, Volume, Gas charts with brand-green (#4ade80), dark theme tooltips |
 | **Toast Notifications** | Done | Success/error/info toasts for transient operations |
-| **API Key System** | Done | Create/revoke keys, SHA-256 hashing, scopes |
+| **API Key Auth** | Done | Create/revoke keys, SHA-256 hashing, scopes. All data routes accept `Bearer ag_` keys. |
 | **SDK** | Done | `@chainward/sdk` TypeScript client |
+| **API Docs** | Done | `/docs/api` — 18 grouped endpoints, SDK examples, Bearer auth |
+| **elizaOS Plugin** | Done | `@chainward/elizaos-plugin` — 6 actions, auto-registration on startup. Pending npm publish + registry PR. |
+| **Pricing Page** | Done | Free / Pro ($49) / Team ($199) tiers. "API access" on Pro + Team. All free during beta. |
+| **GTM Plan** | Done | 5-agent research sprint: content strategy, outreach playbook, community intel, partnerships, competitive moat. See `docs/plans/2026-03-06-gtm-bull-rush.md`. |
 | **Helm Chart** | Done | Full K3s deployment (API, web, indexer, postgres, redis) |
 | **CI/CD** | Done | GitHub Actions: typecheck → build → push GHCR, manual K3s deploy |
 | **Cloudflared Tunnel** | Done | Public access via Cloudflare tunnel (chainward.ai + api.chainward.ai) |
@@ -98,18 +102,34 @@ Transaction indexed → alert-evaluate queue → evaluator worker checks configs
 | `packages/indexer/src/workers/baseIndexer.ts` | Processes Alchemy webhooks, inserts txs |
 | `packages/db/src/schema/` | Drizzle ORM schema definitions |
 | `packages/common/src/` | Shared types, constants, chain utils |
+| `packages/sdk/src/index.ts` | TypeScript SDK — typed API client with Bearer auth |
+| `packages/elizaos-plugin/src/index.ts` | elizaOS plugin — 6 actions, auto-register on init |
+| `apps/api/src/middleware/apiKeyAuth.ts` | API key + session dual auth middleware |
+| `apps/api/src/services/apiKeyService.ts` | API key generation, validation, revocation |
+| `apps/web/src/app/docs/api/page.tsx` | Public API reference (18 endpoints, SDK examples) |
 | `deploy/helm/chainward/` | Helm chart for K3s deployment |
+| `docs/plans/2026-03-06-gtm-bull-rush.md` | GTM execution plan (30-day action checklist) |
 
 ## What's Next
 
-### Immediate
-- [ ] Verify alert delivery e2e (do a swap, confirm Discord embed arrives)
-- [ ] Set up Telegram bot via @BotFather, add TELEGRAM_BOT_TOKEN to K8s secret
-- [ ] Share landing page in Base builder communities
+### Immediate (GTM Week 1)
+- [ ] `npm publish` the elizaOS plugin (`@chainward/elizaos-plugin`)
+- [ ] Submit PR to elizaOS plugin registry (`elizaos-plugins/registry`)
+- [ ] Start AgentKit action provider (TypeScript, 2-3 weeks)
+- [ ] Execute GTM content calendar — Day 1 tweet from @salt_cx
+- [ ] Send first 3 outreach DMs (Rxbt, Austin Griffith, Jack Dishman)
+- [ ] Post in CDP Discord, Virtuals Discord, Base Discord
+- [ ] Register Basename + apply for Base Builder Grant
+
+### Short-Term (Weeks 2-4)
+- [ ] Ship AgentKit action provider PR to coinbase/agentkit
+- [ ] Build Virtuals GAME SDK monitoring worker
+- [ ] Publish long-form "I Monitored My AI Agent for 2 Weeks" article
+- [ ] Agent health scoring (composite metric: uptime, gas efficiency, tx success rate)
+- [ ] Email alert delivery channel
+- [ ] Begin Stripe billing integration
 
 ### Future
-- [ ] Solana chain support
-- [ ] Email alert delivery channel
-- [ ] Billing/Stripe integration
+- [ ] Ethereum mainnet + Arbitrum/Optimism chain support
 - [ ] ArgoCD for GitOps deployment
 - [ ] Alchemy webhook auto-registration (see `docs/plans/2026-03-02-live-indexing-design.md`)
