@@ -18,12 +18,8 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
       <nav className="border-b border-[#1a1a2e] px-6 py-4">
         <div className="mx-auto flex max-w-6xl items-center gap-4">
           <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-white">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-[#1B5E20]">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" stroke="#4ade80" strokeWidth="1.5" fill="none" />
-                <path d="M8 5L11 6.75V10.25L8 12L5 10.25V6.75L8 5Z" fill="#4ade80" />
-              </svg>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/chainward-logo.svg" alt="ChainWard" className="h-6 w-6" />
             ChainWard
           </Link>
           <span className="text-[#3f3f46]">/</span>
