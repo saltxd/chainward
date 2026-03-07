@@ -202,10 +202,10 @@ export default async function LandingPage() {
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
               <li className="text-[#a1a1aa]">3 agents</li>
-              <li className="text-[#a1a1aa]">5-min polling</li>
+              <li className="text-[#a1a1aa]">Real-time alerts</li>
               <li className="text-[#a1a1aa]">7-day history</li>
               <li className="text-[#a1a1aa]">Discord &amp; Telegram</li>
-              <li className="text-[#a1a1aa]">Community</li>
+              <li className="text-[#a1a1aa]">Docs</li>
               <li className="text-[#71717a]">&mdash;</li>
               <li className="text-[#71717a]">&mdash;</li>
             </ul>
@@ -231,12 +231,10 @@ export default async function LandingPage() {
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
               <li className="text-[#a1a1aa]">25 agents</li>
-              <li className="text-[#a1a1aa]">1-min polling</li>
+              <li className="text-[#a1a1aa]">Real-time alerts</li>
               <li className="text-[#a1a1aa]">90-day history</li>
               <li className="text-[#a1a1aa]">All channels + webhook</li>
               <li className="text-[#a1a1aa]">Email support</li>
-              <li className="text-[#4ade80]">&#10003; API access</li>
-              <li className="text-[#71717a]">&mdash;</li>
             </ul>
             <Link
               href="/login"
@@ -257,12 +255,10 @@ export default async function LandingPage() {
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
               <li className="text-[#a1a1aa]">100 agents</li>
-              <li className="text-[#a1a1aa]">30-sec polling</li>
-              <li className="text-[#a1a1aa]">Unlimited history</li>
               <li className="text-[#a1a1aa]">Priority alerts</li>
+              <li className="text-[#a1a1aa]">Unlimited history</li>
+              <li className="text-[#a1a1aa]">All channels + webhook</li>
               <li className="text-[#a1a1aa]">Dedicated support</li>
-              <li className="text-[#4ade80]">&#10003; API access</li>
-              <li className="text-[#4ade80]">&#10003; Custom integrations</li>
             </ul>
             <Link
               href="/login"
