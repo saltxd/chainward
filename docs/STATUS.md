@@ -9,7 +9,7 @@ Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents o
 **Domain:** chainward.ai
 **API:** api.chainward.ai
 **Internal:** chainward.k3s.nox
-**GitHub:** github.com/saltxd/agentguard (repo name not yet renamed)
+**GitHub:** github.com/saltxd/chainward
 
 ## Current State: Live & Functional
 

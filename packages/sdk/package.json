@@ -35,7 +35,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/saltxd/agentguard.git",
+    "url": "https://github.com/saltxd/chainward.git",
     "directory": "packages/sdk"
   }
 }
