@@ -13,7 +13,7 @@ Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents o
 
 ## Current State: Live & Functional
 
-Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes real Base mainnet transactions in real time. Alert pipeline delivers to Discord and Telegram. Two agents registered and actively monitored. Public API with key-based auth live. SDK and elizaOS plugin published to npm. Registry PR submitted to elizaOS.
+Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes real Base mainnet transactions in real time. Alert pipeline delivers to Discord and Telegram. Public API with key-based auth live. SDK and elizaOS plugin published to npm. Registry PR submitted to elizaOS. Basename `chainward.base.eth` registered. Swap agent v2 rewrote in TypeScript+viem after Coinbase closed our CDP account (no Coinbase dependency anywhere in the stack).
 
 ### What Works
 
@@ -52,6 +52,8 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **Cloudflared Tunnel** | Done | Public access via Cloudflare tunnel (chainward.ai + api.chainward.ai) |
 | **Security Hardening** | Done | CSP headers, auth rate limiting, input validation, XSS prevention |
 | **Onboarding** | Done | Banner prompts new users to monitor their connected wallet |
+| **Swap Agent v2** | Done | TypeScript + viem, no CDP dependency. Aerodrome Router swaps on Base. |
+| **Basename** | Done | `chainward.base.eth` registered on Base |
 
 ### Alert Pipeline (end-to-end)
 
@@ -111,7 +113,23 @@ Transaction indexed → alert-evaluate queue → evaluator worker checks configs
 | `apps/api/src/services/apiKeyService.ts` | API key generation, validation, revocation |
 | `apps/web/src/app/docs/api/page.tsx` | Public API reference (18 endpoints, SDK examples) |
 | `deploy/helm/chainward/` | Helm chart for K3s deployment |
+| `agents/swap-agent/src/index.ts` | Swap agent v2 — TypeScript + viem, Aerodrome Router swaps |
 | `docs/plans/2026-03-06-gtm-bull-rush.md` | GTM execution plan (30-day action checklist) |
+
+### Swap Agent v2 (agents/swap-agent/)
+
+Autonomous swap agent rewritten in TypeScript + viem after Coinbase closed the CDP account. No CDP dependency — signs transactions directly with a raw private key via Aerodrome Router on Base.
+
+- **Wallet:** `0x670d6fB01E1F220fc93F8615f694327589EdF8Eb`
+- **Stack:** TypeScript + viem + Aerodrome Router (direct contract calls)
+- **Behavior:** ETH→USDC swap, wait 2-3min, USDC→ETH swap-back, sleep 1-2h
+- **Signing:** Raw private key in `PRIVATE_KEY` env var — no CDP, no Coinbase
+- **Old agent:** `agents/test-agent/` (Python + CDP SDK) — defunct, Coinbase account closed
+- **Registered in ChainWard:** Agent #6 (framework: "custom")
+
+### Coinbase Account Closure (2026-03-07)
+
+Coinbase closed our account immediately after KYC verification — triggered by bot activity. This revoked access to CDP Portal, API keys, and the CDP Server Wallet (`0xAf09...`). **Impact on ChainWard: zero.** ChainWard has no Coinbase dependency — it uses Alchemy (separate company) for webhooks and Base is a public L2. The only casualty was the old Python test agent which used CDP SDK for transaction signing. Replaced same day with TypeScript+viem swap agent that signs with a raw private key.
 
 ## What's Next
 
@@ -123,10 +141,11 @@ Transaction indexed → alert-evaluate queue → evaluator worker checks configs
 - [ ] Execute GTM content calendar — Day 1 tweet from @salt_cx
 - [ ] Send first 3 outreach DMs (Rxbt, Austin Griffith, Jack Dishman)
 - [ ] Post in CDP Discord, Virtuals Discord, Base Discord
-- [ ] Register Basename + apply for Base Builder Grant
+- [x] Register Basename (`chainward.base.eth`)
+- [ ] Apply for Base Builder Grant
 
 ### Short-Term (Weeks 2-4)
-- [ ] Submit AgentKit action provider PR to coinbase/agentkit (currently standalone npm package)
+- [ ] Deploy swap-agent v2 to K3s (Dockerfile ready, needs Job manifest)
 - [ ] Build Virtuals GAME SDK monitoring worker
 - [ ] Publish long-form "I Monitored My AI Agent for 2 Weeks" article
 - [ ] Agent health scoring (composite metric: uptime, gas efficiency, tx success rate)
