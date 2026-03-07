@@ -23,7 +23,7 @@ interface AssetTransfer {
   };
   metadata: {
     blockTimestamp: string;
-  };
+  } | null;
 }
 
 /**
@@ -81,7 +81,14 @@ export async function backfillAgent(walletAddress: string, chain: string) {
   for (const transfer of unique) {
     try {
       const blockNumber = parseInt(transfer.blockNum, 16);
-      const timestamp = new Date(transfer.metadata.blockTimestamp);
+      let timestamp: Date;
+      if (transfer.metadata?.blockTimestamp) {
+        timestamp = new Date(transfer.metadata.blockTimestamp);
+      } else {
+        // Fallback: fetch block timestamp from RPC
+        const block = await client.getBlock({ blockNumber: BigInt(blockNumber) });
+        timestamp = new Date(Number(block.timestamp) * 1000);
+      }
 
       const fromLower = transfer.from?.toLowerCase();
       const toLower = transfer.to?.toLowerCase();
