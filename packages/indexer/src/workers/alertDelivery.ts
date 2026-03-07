@@ -216,7 +216,6 @@ async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
     embeds: [
       {
         title: data.title,
-        url: 'https://chainward.ai/alerts',
         description: data.description ?? undefined,
         color,
         fields: [
@@ -245,6 +244,11 @@ async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
               ]
             : []),
           ...txField,
+          {
+            name: '\u200B',
+            value: '[View in ChainWard](https://chainward.ai/alerts)',
+            inline: false,
+          },
         ],
         timestamp: data.timestamp,
         footer: {

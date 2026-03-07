@@ -114,6 +114,7 @@ alerts.post('/:id/test', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:alert-te
 
   const title = `[TEST] ${alert.alertType} alert for ${alert.walletAddress.slice(0, 10)}...`;
   const description = 'This is a test alert to verify your delivery channels are configured correctly.';
+  const sampleTxHash = '0x' + 'a1b2c3d4e5f6'.repeat(11).slice(0, 64);
   const now = new Date();
 
   // Insert alert_events row so delivery worker can find and update it
@@ -127,7 +128,7 @@ alerts.post('/:id/test', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:alert-te
     title,
     description,
     triggerValue: alert.thresholdValue ?? null,
-    triggerTxHash: null,
+    triggerTxHash: sampleTxHash,
     delivered: false,
   });
 
@@ -140,7 +141,7 @@ alerts.post('/:id/test', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:alert-te
     title,
     description,
     triggerValue: alert.thresholdValue ? parseFloat(alert.thresholdValue) : null,
-    triggerTxHash: null,
+    triggerTxHash: sampleTxHash,
     agent: {
       name: agentName,
       wallet: alert.walletAddress,
