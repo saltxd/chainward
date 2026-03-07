@@ -51,7 +51,7 @@ export async function backfillAgent(walletAddress: string, chain: string) {
   const outgoing = await fetchAssetTransfers(env.BASE_RPC_URL, {
     fromBlock: `0x${fromBlock.toString(16)}`,
     fromAddress: walletAddress,
-    category: ['external', 'erc20', 'internal'],
+    category: ['external', 'erc20'],
     maxCount: '0x3e8', // 1000
   });
 
@@ -59,7 +59,7 @@ export async function backfillAgent(walletAddress: string, chain: string) {
   const incoming = await fetchAssetTransfers(env.BASE_RPC_URL, {
     fromBlock: `0x${fromBlock.toString(16)}`,
     toAddress: walletAddress,
-    category: ['external', 'erc20', 'internal'],
+    category: ['external', 'erc20'],
     maxCount: '0x3e8',
   });
 
@@ -208,11 +208,16 @@ async function fetchAssetTransfers(
       }),
     });
 
-    if (!response.ok) return null;
-
     const data = (await response.json()) as {
       result?: { transfers: AssetTransfer[] };
+      error?: { code: number; message: string };
     };
+
+    if (!response.ok || data.error) {
+      logger.error({ status: response.status, error: data.error, params }, 'Alchemy getAssetTransfers failed');
+      return null;
+    }
+
     return data.result?.transfers ?? null;
   } catch (err) {
     logger.error({ err }, 'Failed to fetch asset transfers');
