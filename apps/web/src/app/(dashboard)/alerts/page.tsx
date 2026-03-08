@@ -11,13 +11,14 @@ import { cn } from '@/lib/utils';
 
 /* ── Alert type config ── */
 
-const ALERT_TYPE_CONFIG: Record<string, { label: string; hasThreshold: boolean; defaultUnit: string }> = {
+const ALERT_TYPE_CONFIG: Record<string, { label: string; hasThreshold: boolean; defaultUnit: string; thresholdLabel?: string }> = {
   large_transfer: { label: 'Large Transfer', hasThreshold: true, defaultUnit: 'usd' },
   balance_drop: { label: 'Balance Drop', hasThreshold: true, defaultUnit: 'percentage' },
   gas_spike: { label: 'Gas Spike', hasThreshold: true, defaultUnit: 'usd' },
   failed_tx: { label: 'Failed Transaction', hasThreshold: false, defaultUnit: 'usd' },
   inactivity: { label: 'Inactivity', hasThreshold: false, defaultUnit: 'usd' },
   new_contract: { label: 'New Contract', hasThreshold: false, defaultUnit: 'usd' },
+  idle_balance: { label: 'Idle Balance', hasThreshold: true, defaultUnit: 'usd', thresholdLabel: 'Min Balance (USD)' },
 };
 
 /* ── URL validation ── */
@@ -229,38 +230,59 @@ export default function AlertsPage() {
             </div>
             {currentTypeConfig?.hasThreshold && (
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Threshold</label>
+                <label className="text-sm font-medium">{currentTypeConfig.thresholdLabel ?? 'Threshold'}</label>
                 <div className="flex gap-2">
                   <input
                     value={form.thresholdValue}
                     onChange={(e) => setForm({ ...form, thresholdValue: e.target.value })}
                     className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    placeholder="500"
+                    placeholder={form.alertType === 'idle_balance' ? '50' : '500'}
                   />
-                  <select
-                    value={form.thresholdUnit}
-                    onChange={(e) => setForm({ ...form, thresholdUnit: e.target.value })}
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="usd">USD</option>
-                    <option value="native">Native</option>
-                    <option value="percentage">%</option>
-                  </select>
+                  {form.alertType !== 'idle_balance' && (
+                    <select
+                      value={form.thresholdUnit}
+                      onChange={(e) => setForm({ ...form, thresholdUnit: e.target.value })}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="usd">USD</option>
+                      <option value="native">Native</option>
+                      <option value="percentage">%</option>
+                    </select>
+                  )}
                 </div>
+                {form.alertType === 'idle_balance' && (
+                  <p className="text-xs text-muted-foreground">
+                    Fires when balance stays above this amount with no outgoing transactions for the lookback duration
+                  </p>
+                )}
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Lookback Window</label>
+              <label className="text-sm font-medium">
+                {form.alertType === 'idle_balance' ? 'Idle Duration' : 'Lookback Window'}
+              </label>
               <select
                 value={form.lookback}
                 onChange={(e) => setForm({ ...form, lookback: e.target.value })}
                 className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="5m">5 minutes</option>
-                <option value="1h">1 hour</option>
-                <option value="6h">6 hours</option>
-                <option value="24h">24 hours</option>
-                <option value="7d">7 days</option>
+                {form.alertType === 'idle_balance' ? (
+                  <>
+                    <option value="6h">6 hours</option>
+                    <option value="12h">12 hours</option>
+                    <option value="24h">24 hours</option>
+                    <option value="48h">48 hours</option>
+                    <option value="7d">7 days</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="5m">5 minutes</option>
+                    <option value="1h">1 hour</option>
+                    <option value="6h">6 hours</option>
+                    <option value="24h">24 hours</option>
+                    <option value="7d">7 days</option>
+                  </>
+                )}
               </select>
             </div>
             <div className="flex flex-col gap-2">

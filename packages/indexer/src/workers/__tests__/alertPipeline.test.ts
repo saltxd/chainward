@@ -357,6 +357,67 @@ describe('Alert Evaluation Logic', () => {
       expect(severity).toBe('warning');
     });
   });
+
+  // -----------------------------------------------------------------------
+  // 7. Idle Balance
+  // -----------------------------------------------------------------------
+  describe('idle_balance', () => {
+    it('fires when balance > minBalance AND no outgoing tx in idle duration', () => {
+      const totalBalanceUsd = 150;
+      const minBalanceUsd = 50;
+      const recentOutgoingTxs: unknown[] = []; // no outgoing txs
+      const balanceAboveMin = totalBalanceUsd >= minBalanceUsd;
+      const noRecentOutgoing = recentOutgoingTxs.length === 0;
+      expect(balanceAboveMin && noRecentOutgoing).toBe(true);
+    });
+
+    it('does NOT fire when balance < minBalance', () => {
+      const totalBalanceUsd = 30;
+      const minBalanceUsd = 50;
+      expect(totalBalanceUsd >= minBalanceUsd).toBe(false);
+    });
+
+    it('does NOT fire when there are recent outgoing txs', () => {
+      const totalBalanceUsd = 150;
+      const minBalanceUsd = 50;
+      const recentOutgoingTxs = [{ txHash: '0xrecent' }];
+      const balanceAboveMin = totalBalanceUsd >= minBalanceUsd;
+      const noRecentOutgoing = recentOutgoingTxs.length === 0;
+      expect(balanceAboveMin && noRecentOutgoing).toBe(false);
+    });
+
+    it('sets severity to critical when balance >= 5x minBalance', () => {
+      const totalBalanceUsd = 300;
+      const minBalanceUsd = 50;
+      const severity = totalBalanceUsd >= minBalanceUsd * 5 ? 'critical' : 'warning';
+      expect(severity).toBe('critical');
+    });
+
+    it('sets severity to warning when balance < 5x minBalance', () => {
+      const totalBalanceUsd = 150;
+      const minBalanceUsd = 50;
+      const severity = totalBalanceUsd >= minBalanceUsd * 5 ? 'critical' : 'warning';
+      expect(severity).toBe('warning');
+    });
+
+    it('formats title with balance amount', () => {
+      const totalBalanceUsd = 1234.56;
+      const title = `Idle balance: $${totalBalanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sitting unused`;
+      expect(title).toBe('Idle balance: $1,234.56 sitting unused');
+    });
+
+    it('includes idle hours and token breakdown in description', () => {
+      const totalBalanceUsd = 150;
+      const minBalanceUsd = 50;
+      const idleHours = 24;
+      const hoursIdle = 36;
+      const tokenBalances = ['ETH: $100.00', 'USDC: $50.00'];
+      const description = `$${totalBalanceUsd.toFixed(2)} idle for ${hoursIdle}h (threshold: $${minBalanceUsd.toFixed(2)}, ${idleHours}h). Balances: ${tokenBalances.join(', ')}`;
+      expect(description).toContain('$150.00 idle for 36h');
+      expect(description).toContain('ETH: $100.00');
+      expect(description).toContain('USDC: $50.00');
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -463,6 +524,10 @@ describe('Delivery Formatting', () => {
 
     it('formats inactivity as hours', () => {
       expect(formatTriggerValue('inactivity', 48)).toBe('48h');
+    });
+
+    it('formats idle_balance as USD', () => {
+      expect(formatTriggerValue('idle_balance', 150.75)).toBe('$150.75');
     });
 
     it('formats zero correctly', () => {
@@ -796,7 +861,7 @@ describe('Discord Webhook Integration', () => {
     expect(response.ok).toBe(true);
   });
 
-  it.skipIf(!webhookUrl)('delivers all 6 alert type embeds to Discord', async () => {
+  it.skipIf(!webhookUrl)('delivers all 7 alert type embeds to Discord', async () => {
     const alerts = [
       {
         title: 'Large transfer detected: $500.00',
@@ -804,6 +869,7 @@ describe('Discord Webhook Integration', () => {
         color: 0xf59e0b,
         type: 'large_transfer',
         value: '$500.00',
+        fieldName: 'Value',
         severity: 'warning',
       },
       {
@@ -812,6 +878,7 @@ describe('Discord Webhook Integration', () => {
         color: 0xf59e0b,
         type: 'gas_spike',
         value: '$2.50',
+        fieldName: 'Value',
         severity: 'warning',
       },
       {
@@ -820,6 +887,7 @@ describe('Discord Webhook Integration', () => {
         color: 0xd32f2f,
         type: 'failed_tx',
         value: null,
+        fieldName: 'Value',
         severity: 'critical',
       },
       {
@@ -828,6 +896,7 @@ describe('Discord Webhook Integration', () => {
         color: 0xf59e0b,
         type: 'new_contract',
         value: null,
+        fieldName: 'Value',
         severity: 'warning',
       },
       {
@@ -836,6 +905,7 @@ describe('Discord Webhook Integration', () => {
         color: 0xf59e0b,
         type: 'balance_drop',
         value: '35.2%',
+        fieldName: 'Value',
         severity: 'warning',
       },
       {
@@ -844,6 +914,16 @@ describe('Discord Webhook Integration', () => {
         color: 0xf59e0b,
         type: 'inactivity',
         value: '72h',
+        fieldName: 'Value',
+        severity: 'warning',
+      },
+      {
+        title: 'Idle balance: $847.20 sitting unused',
+        description: '$847.20 idle for 48h (threshold: $50.00, 24h). Balances: ETH: $647.20, USDC: $200.00',
+        color: 0xf59e0b,
+        type: 'idle_balance',
+        value: '$847.20',
+        fieldName: 'Balance',
         severity: 'warning',
       },
     ];
@@ -858,7 +938,7 @@ describe('Discord Webhook Integration', () => {
             { name: 'Agent', value: 'Swap Agent v2', inline: true },
             { name: 'Chain', value: 'base', inline: true },
             { name: 'Type', value: alert.type, inline: true },
-            ...(alert.value ? [{ name: 'Value', value: alert.value, inline: true }] : []),
+            ...(alert.value ? [{ name: alert.fieldName ?? 'Value', value: alert.value, inline: true }] : []),
             {
               name: '\u200B',
               value: '[View in ChainWard](https://chainward.ai/alerts)',

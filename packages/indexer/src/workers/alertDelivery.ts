@@ -170,7 +170,7 @@ async function deliverTelegram(data: DeliveryJobData, chatId: string) {
     `<b>Agent:</b> ${escapeHtml(agentDisplay)}`,
     `<b>Chain:</b> ${data.agent.chain}`,
     `<b>Type:</b> ${data.alertType}`,
-    ...(data.triggerValue !== null ? [`<b>Value:</b> ${formatTriggerValue(data.alertType, data.triggerValue)}`] : []),
+    ...(data.triggerValue !== null ? [`<b>${triggerFieldName(data.alertType)}:</b> ${formatTriggerValue(data.alertType, data.triggerValue)}`] : []),
     ...(data.description ? ['', escapeHtml(data.description)] : []),
     txLine,
     '',
@@ -237,7 +237,7 @@ async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
           ...(data.triggerValue !== null
             ? [
                 {
-                  name: 'Value',
+                  name: triggerFieldName(data.alertType),
                   value: formatTriggerValue(data.alertType, data.triggerValue),
                   inline: true,
                 },
@@ -270,6 +270,12 @@ function formatTriggerValue(alertType: string, value: number): string {
   if (alertType === 'balance_drop') return `${value.toFixed(1)}%`;
   if (alertType === 'inactivity') return `${value}h`;
   return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Field label override per alert type (default: "Value") */
+function triggerFieldName(alertType: string): string {
+  if (alertType === 'idle_balance') return 'Balance';
+  return 'Value';
 }
 
 /** Build the standard alert payload for webhook delivery */

@@ -175,6 +175,7 @@ async function evaluateScheduledAlerts() {
         or(
           eq(alertConfigs.alertType, 'balance_drop'),
           eq(alertConfigs.alertType, 'inactivity'),
+          eq(alertConfigs.alertType, 'idle_balance'),
         ),
       ),
     );
@@ -196,6 +197,8 @@ async function evaluateScheduledAlerts() {
         result = await evaluateBalanceDrop(config);
       } else if (config.alertType === 'inactivity') {
         result = await evaluateInactivity(config);
+      } else if (config.alertType === 'idle_balance') {
+        result = await evaluateIdleBalance(config);
       } else {
         continue;
       }
@@ -406,6 +409,117 @@ async function evaluateInactivity(
       ? `No transactions since ${lastTxTime.toISOString()} (${hoursInactive}h ago, threshold: ${lookbackMs / (1000 * 60 * 60)}h)`
       : `No transactions found for wallet ${config.walletAddress.slice(0, 10)}...`,
     triggerValue: hoursInactive,
+    triggerTxHash: null,
+  };
+}
+
+/**
+ * Evaluate idle_balance alert.
+ *
+ * Fires when:
+ *  1. Current balance (sum of latest snapshots) > minBalance (thresholdValue, USD)
+ *  2. No *outgoing* transactions in the last idleDuration (lookbackWindow)
+ *
+ * The thresholdValue stores the minimum balance in USD.
+ * The lookbackWindow stores the idle duration (e.g. "24 hours").
+ */
+async function evaluateIdleBalance(
+  config: typeof alertConfigs.$inferSelect,
+): Promise<AlertTriggerResult> {
+  const db = getDb();
+  const minBalanceUsd = config.thresholdValue ? parseFloat(config.thresholdValue) : 50;
+  const idleDurationMs = parseLookback(config.lookbackWindow ?? '24 hours');
+  const idleCutoff = new Date(Date.now() - idleDurationMs);
+  const idleHours = idleDurationMs / (1000 * 60 * 60);
+
+  // 1. Get the most recent balance snapshot per token for this wallet
+  //    We group manually — take all snapshots, dedupe by tokenSymbol keeping latest
+  const allSnapshots = await db
+    .select({
+      tokenSymbol: balanceSnapshots.tokenSymbol,
+      balanceUsd: balanceSnapshots.balanceUsd,
+      timestamp: balanceSnapshots.timestamp,
+    })
+    .from(balanceSnapshots)
+    .where(
+      and(
+        eq(balanceSnapshots.walletAddress, config.walletAddress),
+        eq(balanceSnapshots.chain, config.chain),
+      ),
+    )
+    .orderBy(desc(balanceSnapshots.timestamp))
+    .limit(20); // recent snapshots across all tokens
+
+  // Dedupe: keep latest per tokenSymbol
+  const latestByToken = new Map<string, { balanceUsd: string | null; tokenSymbol: string | null }>();
+  for (const s of allSnapshots) {
+    const key = s.tokenSymbol ?? '__native__';
+    if (!latestByToken.has(key)) {
+      latestByToken.set(key, s);
+    }
+  }
+
+  let totalBalanceUsd = 0;
+  const tokenBalances: string[] = [];
+  for (const [, snap] of latestByToken) {
+    const val = snap.balanceUsd ? parseFloat(snap.balanceUsd) : 0;
+    if (val > 0) {
+      totalBalanceUsd += val;
+      tokenBalances.push(`${snap.tokenSymbol ?? 'ETH'}: $${val.toFixed(2)}`);
+    }
+  }
+
+  // If balance is below threshold, don't fire
+  if (totalBalanceUsd < minBalanceUsd) {
+    return { triggered: false, severity: 'info', title: '', description: '', triggerValue: null, triggerTxHash: null };
+  }
+
+  // 2. Check for any outgoing transactions since the idle cutoff
+  const recentOutgoing = await db
+    .select({ txHash: transactions.txHash })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.walletAddress, config.walletAddress),
+        eq(transactions.chain, config.chain),
+        eq(transactions.direction, 'out'),
+        gt(transactions.timestamp, idleCutoff),
+      ),
+    )
+    .limit(1);
+
+  // If there are recent outgoing txs, the balance isn't "idle"
+  if (recentOutgoing.length > 0) {
+    return { triggered: false, severity: 'info', title: '', description: '', triggerValue: null, triggerTxHash: null };
+  }
+
+  // 3. Get last outgoing tx time for the description
+  const lastOutgoing = await db
+    .select({ timestamp: transactions.timestamp })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.walletAddress, config.walletAddress),
+        eq(transactions.chain, config.chain),
+        eq(transactions.direction, 'out'),
+      ),
+    )
+    .orderBy(desc(transactions.timestamp))
+    .limit(1);
+
+  const lastOutTime = lastOutgoing[0]?.timestamp;
+  const hoursIdle = lastOutTime
+    ? Math.round((Date.now() - lastOutTime.getTime()) / (1000 * 60 * 60))
+    : null;
+
+  return {
+    triggered: true,
+    severity: totalBalanceUsd >= minBalanceUsd * 5 ? 'critical' : 'warning',
+    title: `Idle balance: $${totalBalanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sitting unused`,
+    description: hoursIdle !== null
+      ? `$${totalBalanceUsd.toFixed(2)} idle for ${hoursIdle}h (threshold: $${minBalanceUsd.toFixed(2)}, ${idleHours}h). Balances: ${tokenBalances.join(', ')}`
+      : `$${totalBalanceUsd.toFixed(2)} with no outgoing transactions. Balances: ${tokenBalances.join(', ')}`,
+    triggerValue: totalBalanceUsd,
     triggerTxHash: null,
   };
 }

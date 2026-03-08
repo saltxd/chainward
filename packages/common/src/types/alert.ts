@@ -7,6 +7,7 @@ export const ALERT_TYPES = [
   'failed_tx',
   'inactivity',
   'new_contract',
+  'idle_balance',
 ] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
 
