@@ -43,6 +43,13 @@ const alertTypes = [
     defaultThreshold: 'Any new contract',
     unit: 'N/A',
   },
+  {
+    type: 'idle_balance',
+    name: 'Idle Balance',
+    desc: 'Triggers when token balance stays above a USD threshold with no outgoing transactions for a specified duration. Detects unused capital sitting in agent wallets.',
+    defaultThreshold: '$50 for 24 hours',
+    unit: 'USD + Duration',
+  },
 ];
 
 const channels = [
@@ -81,7 +88,7 @@ export default function AlertTypesPage() {
     <article className="max-w-none md:max-w-3xl">
       <h1 className="text-2xl font-bold text-white">Alert Types</h1>
       <p className="mt-2 text-[#a1a1aa]">
-        ChainWard supports 6 alert types covering common failure modes for on-chain AI agents.
+        ChainWard supports 7 alert types covering common failure modes for on-chain AI agents.
         Each alert can be delivered through multiple channels.
       </p>
 

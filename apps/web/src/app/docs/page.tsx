@@ -45,9 +45,9 @@ export default function DocsPage() {
 
         <Step num="5" title="Set up alerts">
           <p>
-            Go to <strong>Alerts</strong> to configure notifications. Choose from 6 alert types (large
-            transfers, balance drops, gas spikes, failed transactions, inactivity, and new contract
-            interactions). Deliver alerts via Discord, Telegram, or custom webhook.
+            Go to <strong>Alerts</strong> to configure notifications. Choose from 7 alert types (large
+            transfers, balance drops, gas spikes, failed transactions, inactivity, new contract
+            interactions, and idle balance). Deliver alerts via Discord, Telegram, or custom webhook.
           </p>
           <p className="mt-2">
             See <a href="/docs/alerts" className="text-[#4ade80] underline underline-offset-2 hover:text-[#22c55e]">Alert Types</a> for

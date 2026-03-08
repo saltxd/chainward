@@ -7,6 +7,7 @@ const navItems = [
   { href: '/docs', label: 'Getting Started' },
   { href: '/docs/api', label: 'API Reference' },
   { href: '/docs/alerts', label: 'Alert Types' },
+  { href: '/docs/cli', label: 'CLI' },
 ];
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
