@@ -1,6 +1,6 @@
 {
   "name": "@chainward/virtuals-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ChainWard plugin for Virtuals GAME SDK — real-time monitoring & alerts for AI agent wallets on Base",
   "type": "module",
   "main": "./dist/index.js",

@@ -214,7 +214,7 @@ export default async function LandingPage() {
             <span className="rounded bg-[#4ade80]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#4ade80]">LIVE</span>
           </a>
           <a
-            href="https://docs.cdp.coinbase.com/agentkit"
+            href="https://www.npmjs.com/package/@chainward/agentkit-plugin"
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center gap-2.5 rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] px-5 py-3 transition-all hover:border-[#4ade80]/30"
