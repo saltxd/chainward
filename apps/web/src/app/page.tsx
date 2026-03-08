@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { ActivityFeed } from '@/components/landing/activity-feed';
 import { FeatureGrid } from '@/components/landing/feature-grid';
+import { CliTerminal } from '@/components/landing/cli-terminal';
 
 export default async function LandingPage() {
   const cookieStore = await cookies();
@@ -144,6 +145,29 @@ export default async function LandingPage() {
         </div>
         <div className="mt-12">
           <FeatureGrid />
+        </div>
+      </section>
+
+      {/* CLI / Developer section */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 pt-32 md:pt-40">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+            Monitor from your terminal
+          </h2>
+          <p className="mt-3 text-[#71717a]">
+            One install. Full visibility.
+          </p>
+        </div>
+        <div className="mx-auto mt-10 max-w-2xl">
+          <CliTerminal />
+          <div className="mt-4 text-center">
+            <Link
+              href="/docs/cli"
+              className="inline-flex items-center gap-1.5 text-sm text-[#4ade80] transition-colors hover:text-[#22c55e]"
+            >
+              View CLI docs &rarr;
+            </Link>
+          </div>
         </div>
       </section>
 
