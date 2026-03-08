@@ -311,6 +311,22 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  packages/virtuals-plugin:
+    dependencies:
+      '@chainward/sdk':
+        specifier: ^0.1.0
+        version: 0.1.0
+    devDependencies:
+      '@virtuals-protocol/game':
+        specifier: ^0.1.14
+        version: 0.1.14
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(@swc/core@1.15.18)(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
 packages:
 
   '@adraffy/ens-normalize@1.10.1':
@@ -2421,6 +2437,9 @@ packages:
     resolution: {integrity: sha512-lW3MuIcdIeHKX81DzhTnw68YJdL1ial05exiuvTLJMdHXQLKcVB93AncLPajMM6mUhaVVx5ALZzNHMTrq/U9Hg==}
     peerDependencies:
       '@vanilla-extract/css': ^1.0.0
+
+  '@virtuals-protocol/game@0.1.14':
+    resolution: {integrity: sha512-Y6QPVEcUFrk6aYijmV4pBsWhb4Xag0cAnQ+7fcz0qBIO1UNqZdFpVA0ezfEnjNcZuM5ypqc9dGPHbkNJ7qhhVA==}
 
   '@vitest/expect@4.0.18':
     resolution: {integrity: sha512-8sCWUyckXXYvx4opfzVY03EOiYVxyNrHS5QxX3DAIi5dpJAAkyJezHCP77VMX4HKA2LDT/Jpfo8i2r5BE3GnQQ==}
@@ -7594,6 +7613,13 @@ snapshots:
   '@vanilla-extract/sprinkles@1.6.4(@vanilla-extract/css@1.17.3)':
     dependencies:
       '@vanilla-extract/css': 1.17.3
+
+  '@virtuals-protocol/game@0.1.14':
+    dependencies:
+      axios: 1.13.6
+      dotenv: 16.6.1
+    transitivePeerDependencies:
+      - debug
 
   '@vitest/expect@4.0.18':
     dependencies:
