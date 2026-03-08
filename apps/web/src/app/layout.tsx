@@ -7,7 +7,10 @@ export const metadata: Metadata = {
     'Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents on Base. See everything your agents do on-chain.',
   metadataBase: new URL('https://chainward.ai'),
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico', sizes: '32x32' },
+      { url: '/chainward-logo-128.png', sizes: '128x128', type: 'image/png' },
+    ],
     apple: '/chainward-logo-180.png',
   },
   openGraph: {

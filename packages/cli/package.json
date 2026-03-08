@@ -1,6 +1,6 @@
 {
   "name": "@chainward/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ChainWard CLI — monitor agent wallets from the terminal",
   "type": "module",
   "bin": {

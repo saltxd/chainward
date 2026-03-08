@@ -1,4 +1,6 @@
-export const metadata = { title: 'CLI — ChainWard Docs' };
+'use client';
+
+import { useState } from 'react';
 
 const commands = [
   {
@@ -42,6 +44,30 @@ const commands = [
   },
 ];
 
+function CodeBlock({ children, color = 'text-[#e4e4e7]' }: { children: string; color?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = () => {
+    navigator.clipboard.writeText(children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="group relative">
+      <pre className={`overflow-x-auto rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] px-5 py-4 font-mono text-sm ${color}`}>
+        {children}
+      </pre>
+      <button
+        onClick={copy}
+        className="absolute right-2.5 top-2.5 rounded-md border border-[#1a1a2e] bg-[#0a0a0f] px-2 py-1 text-xs text-[#71717a] opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
+      >
+        {copied ? 'Copied!' : 'Copy'}
+      </button>
+    </div>
+  );
+}
+
 export default function CliDocsPage() {
   return (
     <article className="prose-invert max-w-none md:max-w-3xl">
@@ -53,24 +79,39 @@ export default function CliDocsPage() {
       {/* Install */}
       <div className="mt-10">
         <h2 className="text-lg font-semibold text-white">Install</h2>
-        <pre className="mt-3 overflow-x-auto rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] px-5 py-4 font-mono text-sm text-[#e4e4e7]">
-          npm i -g @chainward/cli
-        </pre>
+        <div className="mt-3">
+          <CodeBlock>npm i -g @chainward/cli</CodeBlock>
+        </div>
       </div>
 
       {/* Authentication */}
       <div className="mt-10">
         <h2 className="text-lg font-semibold text-white">Authentication</h2>
-        <pre className="mt-3 overflow-x-auto rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] px-5 py-4 font-mono text-sm text-[#e4e4e7]">
-          chainward login
-        </pre>
+        <div className="mt-3">
+          <CodeBlock>chainward login</CodeBlock>
+        </div>
         <p className="mt-3 text-sm text-[#a1a1aa]">
-          Get your API key at{' '}
-          <a href="/settings" className="text-[#4ade80] underline underline-offset-2 hover:text-[#22c55e]">
-            chainward.ai &rarr; Settings &rarr; Generate Key
-          </a>
-          . Keys start with <code className="rounded bg-[#1a1a2e] px-1.5 py-0.5 text-xs text-[#4ade80]">ag_</code> and
-          are stored locally at <code className="rounded bg-[#1a1a2e] px-1.5 py-0.5 text-xs text-[#a1a1aa]">~/.chainward/config.json</code>.
+          You&apos;ll need an API key. If you don&apos;t have one:
+        </p>
+        <ol className="mt-2 space-y-1 text-sm text-[#a1a1aa]">
+          <li>
+            1. Go to{' '}
+            <a href="https://chainward.ai" className="text-[#4ade80] underline underline-offset-2 hover:text-[#22c55e]">
+              chainward.ai
+            </a>
+          </li>
+          <li>2. Connect your wallet</li>
+          <li>
+            3. Go to{' '}
+            <a href="/settings" className="text-[#4ade80] underline underline-offset-2 hover:text-[#22c55e]">
+              Settings
+            </a>
+            {' '}&rarr; Generate Key
+          </li>
+          <li>4. Paste the <code className="rounded bg-[#1a1a2e] px-1.5 py-0.5 text-xs text-[#4ade80]">ag_</code> key when prompted</li>
+        </ol>
+        <p className="mt-3 text-xs text-[#71717a]">
+          Keys are stored locally at <code className="rounded bg-[#1a1a2e] px-1.5 py-0.5 text-xs text-[#71717a]">~/.chainward/config.json</code>.
         </p>
       </div>
 
@@ -80,9 +121,7 @@ export default function CliDocsPage() {
         <div className="mt-6 space-y-8">
           {commands.map((cmd) => (
             <div key={cmd.name}>
-              <pre className="overflow-x-auto rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] px-5 py-4 font-mono text-sm text-[#4ade80]">
-                {cmd.name}
-              </pre>
+              <CodeBlock color="text-[#4ade80]">{cmd.name}</CodeBlock>
               <p className="mt-2 text-sm text-[#a1a1aa]">{cmd.desc}</p>
               {cmd.flags && (
                 <div className="mt-2 space-y-1">

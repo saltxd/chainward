@@ -52,53 +52,53 @@ export function CliTerminal() {
         <span className="ml-2 font-mono text-xs text-[#71717a]">terminal</span>
       </div>
 
-      {/* Lines */}
+      {/* Lines — all rendered for stable height, visibility toggled */}
       <div className="px-4 py-3 font-mono text-xs leading-relaxed md:text-sm md:leading-relaxed">
-        {LINES.slice(0, visibleCount).map((line, i) => (
-          <div
-            key={line.id}
-            className="transition-all duration-400"
-            style={{
-              opacity: i < visibleCount ? 1 : 0,
-              transform: i < visibleCount ? 'translateY(0)' : 'translateY(6px)',
-            }}
-          >
-            {line.type === 'command' && (
-              <div className="py-0.5">
-                <span className="text-[#4ade80]">$</span>{' '}
-                <span className="text-[#e4e4e7]">{line.text}</span>
-              </div>
-            )}
-            {line.type === 'output' && (
-              <div className="py-0.5 text-[#71717a]">{line.text}</div>
-            )}
-            {line.type === 'status' && (
-              <div className="mt-1 flex items-center gap-2 py-0.5 text-[#4ade80]">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#4ade80]" />
-                </span>
-                {line.text}
-              </div>
-            )}
-            {line.type === 'feed' && (
-              <div className="flex items-center gap-2 py-0.5">
-                <span className="text-[#d4d4d8]">{line.text}</span>
-                {line.highlight && (
-                  <span className="text-[#4ade80]">{line.highlight}</span>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
+        {LINES.map((line, i) => {
+          const visible = i < visibleCount;
+          return (
+            <div
+              key={line.id}
+              className="transition-opacity duration-500"
+              style={{ opacity: visible ? 1 : 0 }}
+            >
+              {line.type === 'command' && (
+                <div className="py-0.5">
+                  <span className="text-[#4ade80]">$</span>{' '}
+                  <span className="text-[#e4e4e7]">{line.text}</span>
+                </div>
+              )}
+              {line.type === 'output' && (
+                <div className="py-0.5 text-[#71717a]">{line.text}</div>
+              )}
+              {line.type === 'status' && (
+                <div className="mt-1 flex items-center gap-2 py-0.5 text-[#4ade80]">
+                  {visible && (
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#4ade80]" />
+                    </span>
+                  )}
+                  {line.text}
+                </div>
+              )}
+              {line.type === 'feed' && (
+                <div className="flex items-center gap-2 py-0.5">
+                  <span className="text-[#d4d4d8]">{line.text}</span>
+                  {line.highlight && (
+                    <span className="text-[#4ade80]">{line.highlight}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Blinking cursor */}
-        {visibleCount >= LINES.length && (
-          <div className="py-0.5">
-            <span className="text-[#4ade80]">$</span>{' '}
-            <span className="animate-pulse text-[#4ade80]">_</span>
-          </div>
-        )}
+        <div className="py-0.5" style={{ opacity: visibleCount >= LINES.length ? 1 : 0 }}>
+          <span className="text-[#4ade80]">$</span>{' '}
+          <span className="animate-pulse text-[#4ade80]">_</span>
+        </div>
       </div>
 
       {/* Bottom fade */}
