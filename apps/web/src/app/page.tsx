@@ -205,7 +205,7 @@ export default async function LandingPage() {
         </div>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-8">
           <a
-            href="https://elizaos.ai"
+            href="https://www.npmjs.com/package/@chainward/elizaos-plugin"
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center gap-2.5 rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] px-5 py-3 transition-all hover:border-[#4ade80]/30"
