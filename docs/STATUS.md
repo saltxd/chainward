@@ -19,7 +19,7 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Monorepo (Turborepo)** | Done | 8 packages (`@chainward/*`), all build clean |
+| **Monorepo (Turborepo)** | Done | 9 packages (`@chainward/*`), all build clean |
 | **Database (TimescaleDB)** | Done | 10 tables, 3 hypertables, compression + retention |
 | **Auth (SIWE + JWT)** | Done | Wallet sign-in via RainbowKit, JWT sessions in HTTP-only cookies |
 | **API (Hono)** | Done | 20+ endpoints, 7 service classes, rate limiting |
@@ -32,7 +32,7 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **Transaction Indexing** | Done | Real-time + backfill, gas from receipts, block timestamps, CoinGecko USD |
 | **Balance Snapshots** | Done | Current balance + historical points for chart (hourly on agent, daily on overview) |
 | **Stats/Overview** | Done | Fleet-level and per-agent stats with real data, spam-filtered |
-| **Alert System** | Done | 6 alert types, 3 delivery channels (webhook/Telegram/Discord) |
+| **Alert System** | Done | 7 alert types, 3 delivery channels (webhook/Telegram/Discord) |
 | **Alert UI** | Done | AlertCard component, inline edit, toast notifications, form validation |
 | **Alert History** | Done | Event list with type badges, clickable tx hashes, delivery status |
 | **Spam Token Filtering** | Done | Address blocklist + name pattern matching + NULL-safe SQL |
@@ -44,6 +44,7 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **elizaOS Plugin** | Done | `@chainward/elizaos-plugin@0.1.0` — published to npm, 6 actions, auto-registration on startup |
 | **elizaOS Registry PR** | Pending | PR #287 submitted to `elizaos-plugins/registry` |
 | **AgentKit Plugin** | Done | `@chainward/agentkit-plugin@0.1.0` — published to npm, 6 actions, ActionProvider with CreateAction decorators |
+| **CLI** | Done | `@chainward/cli` — 9 commands: login, status, agents, txs, alerts, watch. Interactive prompts, colored tables, live feed. |
 | **Integrations Section** | Done | "Works with" row on landing page: elizaOS (live), AgentKit (live), Virtuals (soon) |
 | **Pricing Page** | Done | Free / Pro ($49) / Team ($199) tiers. "API access" on Pro + Team. All free during beta. |
 | **GTM Plan** | Done | 5-agent research sprint: content strategy, outreach playbook, community intel, partnerships, competitive moat. See `docs/plans/2026-03-06-gtm-bull-rush.md`. |
@@ -65,7 +66,7 @@ Transaction indexed → alert-evaluate queue → evaluator worker checks configs
 ```
 
 - **Tx-triggered types:** large_transfer, gas_spike, failed_tx, new_contract
-- **Scheduled types (every 5min):** balance_drop, inactivity
+- **Scheduled types (every 5min):** balance_drop, inactivity, idle_balance
 - **Delivery channels:** Discord (rich embeds with Basescan links), Telegram (HTML messages via Bot API), Webhook (POST JSON)
 - **Test alerts:** POST `/api/alerts/:id/test` — creates real alert_event, looks up agent name, delivers to configured channels
 
@@ -113,6 +114,7 @@ Transaction indexed → alert-evaluate queue → evaluator worker checks configs
 | `apps/api/src/services/apiKeyService.ts` | API key generation, validation, revocation |
 | `apps/web/src/app/docs/api/page.tsx` | Public API reference (18 endpoints, SDK examples) |
 | `deploy/helm/chainward/` | Helm chart for K3s deployment |
+| `packages/cli/src/index.ts` | CLI entry point — commander setup, 9 commands |
 | `agents/swap-agent/src/index.ts` | Swap agent v2 — TypeScript + viem, Aerodrome Router swaps |
 | `docs/plans/2026-03-06-gtm-bull-rush.md` | GTM execution plan (30-day action checklist) |
 

@@ -13,13 +13,14 @@ Onchain agent monitoring SaaS. Tracks transactions, balances, and gas for AI age
 - **Wallet UI:** RainbowKit v2 + wagmi v2
 - **Shared types/utils:** `packages/common/`
 - **SDK:** `packages/sdk/` — TypeScript client, Bearer auth via `ag_` keys
+- **CLI:** `packages/cli/` — `chainward` command (login, status, agents, txs, alerts, watch)
 - **elizaOS Plugin:** `packages/elizaos-plugin/` — 6 actions, auto-registration on init
 
 ## Commands
 
 ```bash
 pnpm install          # Install dependencies
-pnpm typecheck        # Typecheck all 8 packages
+pnpm typecheck        # Typecheck all 9 packages
 pnpm build            # Build all packages
 pnpm dev              # Dev servers (api + web)
 ```
