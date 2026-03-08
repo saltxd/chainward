@@ -126,6 +126,28 @@ async function evaluateTxAlerts(data: TxAlertJobData) {
       const result = await evaluateCondition(config, data);
 
       if (result.triggered) {
+        // Deduplicate: skip if this exact (alertConfig, txHash) already fired
+        if (result.triggerTxHash) {
+          const existing = await db
+            .select({ alertConfigId: alertEvents.alertConfigId })
+            .from(alertEvents)
+            .where(
+              and(
+                eq(alertEvents.alertConfigId, config.id),
+                eq(alertEvents.triggerTxHash, result.triggerTxHash),
+              ),
+            )
+            .limit(1);
+
+          if (existing.length > 0) {
+            logger.debug(
+              { txHash: result.triggerTxHash, alertId: config.id },
+              'Duplicate alert prevented — already fired for this tx',
+            );
+            continue;
+          }
+        }
+
         await fireAlert(config, result);
       }
     } catch (err) {
@@ -204,8 +226,8 @@ async function evaluateCondition(
       return {
         triggered,
         severity: amountUsd >= threshold * 5 ? 'critical' : 'warning',
-        title: `Large transfer detected: $${amountUsd.toFixed(2)}`,
-        description: `Transaction ${data.txHash.slice(0, 10)}... moved $${amountUsd.toFixed(2)} (threshold: $${threshold.toFixed(2)})`,
+        title: `Large transfer detected: $${amountUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        description: `Transaction ${data.txHash.slice(0, 10)}... moved $${amountUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${threshold > 0 ? ` (threshold: $${threshold.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : ''}`,
         triggerValue: amountUsd,
         triggerTxHash: data.txHash,
       };
@@ -218,7 +240,7 @@ async function evaluateCondition(
         triggered,
         severity: gasCost >= threshold * 3 ? 'critical' : 'warning',
         title: `Gas spike: $${gasCost.toFixed(4)}`,
-        description: `Transaction ${data.txHash.slice(0, 10)}... cost $${gasCost.toFixed(4)} in gas (threshold: $${threshold.toFixed(2)})`,
+        description: `Transaction ${data.txHash.slice(0, 10)}... cost $${gasCost.toFixed(4)} in gas${threshold > 0 ? ` (threshold: $${threshold.toFixed(2)})` : ''}`,
         triggerValue: gasCost,
         triggerTxHash: data.txHash,
       };

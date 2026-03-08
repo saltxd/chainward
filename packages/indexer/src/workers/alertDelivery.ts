@@ -170,7 +170,7 @@ async function deliverTelegram(data: DeliveryJobData, chatId: string) {
     `<b>Agent:</b> ${escapeHtml(agentDisplay)}`,
     `<b>Chain:</b> ${data.agent.chain}`,
     `<b>Type:</b> ${data.alertType}`,
-    `<b>Severity:</b> ${data.severity}`,
+    ...(data.triggerValue !== null ? [`<b>Value:</b> ${formatTriggerValue(data.alertType, data.triggerValue)}`] : []),
     ...(data.description ? ['', escapeHtml(data.description)] : []),
     txLine,
     '',
@@ -237,8 +237,8 @@ async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
           ...(data.triggerValue !== null
             ? [
                 {
-                  name: 'Trigger Value',
-                  value: String(data.triggerValue),
+                  name: 'Value',
+                  value: formatTriggerValue(data.alertType, data.triggerValue),
                   inline: true,
                 },
               ]
@@ -263,6 +263,13 @@ async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+}
+
+/** Format trigger value based on alert type */
+function formatTriggerValue(alertType: string, value: number): string {
+  if (alertType === 'balance_drop') return `${value.toFixed(1)}%`;
+  if (alertType === 'inactivity') return `${value}h`;
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /** Build the standard alert payload for webhook delivery */
