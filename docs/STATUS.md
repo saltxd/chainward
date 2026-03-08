@@ -44,8 +44,9 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **elizaOS Plugin** | Done | `@chainward/elizaos-plugin@0.1.0` — published to npm, 6 actions, auto-registration on startup |
 | **elizaOS Registry PR** | Pending | PR #287 submitted to `elizaos-plugins/registry` |
 | **AgentKit Plugin** | Done | `@chainward/agentkit-plugin@0.1.0` — published to npm, 6 actions, ActionProvider with CreateAction decorators |
+| **Virtuals GAME Plugin** | Done | `@chainward/virtuals-plugin@0.1.0` — published to npm, 6 GameFunctions + GameWorker for GAME SDK agents |
 | **CLI** | Done | `@chainward/cli` — 9 commands: login, status, agents, txs, alerts, watch. Interactive prompts, colored tables, live feed. |
-| **Integrations Section** | Done | "Works with" row on landing page: elizaOS (live), AgentKit (live), Virtuals (soon) |
+| **Integrations Section** | Done | "Works with" row on landing page: elizaOS (live), AgentKit (live), Virtuals GAME (live) |
 | **Pricing Page** | Done | Free / Pro ($49) / Team ($199) tiers. "API access" on Pro + Team. All free during beta. |
 | **GTM Plan** | Done | 5-agent research sprint: content strategy, outreach playbook, community intel, partnerships, competitive moat. See `docs/plans/2026-03-06-gtm-bull-rush.md`. |
 | **Helm Chart** | Done | Full K3s deployment (API, web, indexer, postgres, redis) |

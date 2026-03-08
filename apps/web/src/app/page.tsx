@@ -222,10 +222,15 @@ export default async function LandingPage() {
             <span className="text-sm font-medium text-[#a1a1aa] transition-colors group-hover:text-white">Coinbase AgentKit</span>
             <span className="rounded bg-[#4ade80]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#4ade80]">LIVE</span>
           </a>
-          <div className="flex items-center gap-2.5 rounded-lg border border-[#1a1a2e]/50 bg-[#0a0a0f]/50 px-5 py-3">
-            <span className="text-sm font-medium text-[#52525b]">Virtuals GAME</span>
-            <span className="rounded bg-[#27272a] px-1.5 py-0.5 text-[10px] font-semibold text-[#71717a]">SOON</span>
-          </div>
+          <a
+            href="https://www.npmjs.com/package/@chainward/virtuals-plugin"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-2.5 rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] px-5 py-3 transition-all hover:border-[#4ade80]/30"
+          >
+            <span className="text-sm font-medium text-[#a1a1aa] transition-colors group-hover:text-white">Virtuals GAME</span>
+            <span className="rounded bg-[#4ade80]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#4ade80]">LIVE</span>
+          </a>
         </div>
       </section>
 

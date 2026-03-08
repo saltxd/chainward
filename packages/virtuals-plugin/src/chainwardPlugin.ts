@@ -253,7 +253,7 @@ export class ChainwardPlugin {
     return new GameFunction({
       name: "chainward_create_alert",
       description:
-        "Create a monitoring alert for a wallet on ChainWard. Alert types: large_transfer, gas_spike, failed_tx, new_contract, balance_drop, inactivity. Delivery via Discord, Telegram, or webhook.",
+        "Create a monitoring alert for a wallet on ChainWard. Alert types: large_transfer, gas_spike, failed_tx, new_contract, balance_drop, inactivity, idle_balance. Delivery via Discord, Telegram, or webhook.",
       args: [
         {
           name: "wallet",
@@ -262,7 +262,7 @@ export class ChainwardPlugin {
         {
           name: "type",
           description:
-            "Alert type: large_transfer, gas_spike, failed_tx, new_contract, balance_drop, or inactivity",
+            "Alert type: large_transfer, gas_spike, failed_tx, new_contract, balance_drop, inactivity, or idle_balance",
         },
         {
           name: "threshold",
