@@ -1,7 +1,7 @@
 import { Worker, type Job } from 'bullmq';
 import { eq, and, desc } from 'drizzle-orm';
 import { lookup } from 'node:dns/promises';
-import { alertEvents, alertConfigs } from '@chainward/db';
+import { alertEvents, alertConfigs, agentRegistry } from '@chainward/db';
 import { getExplorerTxUrl, type SupportedChain } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
@@ -30,11 +30,21 @@ interface DeliveryJobData {
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
+interface RateLimitJobData {
+  type: 'rate-limit';
+  walletAddress: string;
+  chain: string;
+}
+
 export function createAlertDeliveryWorker() {
-  const worker = new Worker<DeliveryJobData>(
+  const worker = new Worker<DeliveryJobData | RateLimitJobData>(
     'alert-deliver',
-    async (job: Job<DeliveryJobData>) => {
-      await deliverAlert(job.data);
+    async (job: Job<DeliveryJobData | RateLimitJobData>) => {
+      if ('type' in job.data && job.data.type === 'rate-limit') {
+        await handleRateLimitAlert(job.data as RateLimitJobData);
+        return;
+      }
+      await deliverAlert(job.data as DeliveryJobData);
     },
     {
       connection: getRedis(),
@@ -43,7 +53,7 @@ export function createAlertDeliveryWorker() {
   );
 
   worker.on('completed', (job) => {
-    logger.debug({ jobId: job.id, alertType: job.data.alertType }, 'Alert delivery completed');
+    logger.debug({ jobId: job.id }, 'Alert delivery completed');
   });
 
   worker.on('failed', (job, err) => {
@@ -52,6 +62,76 @@ export function createAlertDeliveryWorker() {
 
   logger.info('Alert delivery worker started');
   return worker;
+}
+
+async function handleRateLimitAlert(data: RateLimitJobData) {
+  const db = getDb();
+
+  // Find the agent and its owner's alert configs to get delivery channels
+  const [agent] = await db
+    .select()
+    .from(agentRegistry)
+    .where(eq(agentRegistry.walletAddress, data.walletAddress))
+    .limit(1);
+
+  if (!agent) {
+    logger.warn({ address: data.walletAddress }, 'Rate-limit alert: agent not found');
+    return;
+  }
+
+  // Find any alert config for this user to get their delivery channels
+  const configs = await db
+    .select()
+    .from(alertConfigs)
+    .where(eq(alertConfigs.userId, agent.userId))
+    .limit(1);
+
+  const agentLabel = agent.agentName ?? `${data.walletAddress.slice(0, 8)}...`;
+  const message = `⚠️ High transaction volume detected on ${agentLabel}. Indexing paused for 5 minutes to protect resources. This address is generating >10 transactions per minute.`;
+
+  logger.info({ address: data.walletAddress, agent: agentLabel }, 'Sending rate-limit alert');
+
+  // If the user has any alert configs, use the first one's channels
+  const config = configs[0];
+  if (config) {
+    if (config.discordWebhook) {
+      try {
+        await fetch(config.discordWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [{
+              title: '⚠️ Indexing Paused — High Volume',
+              description: `**${agentLabel}** is generating >10 transactions/minute. Indexing paused for 5 minutes.`,
+              color: 0xfbbf24, // amber
+              footer: { text: 'ChainWard Rate Limiter' },
+              timestamp: new Date().toISOString(),
+            }],
+          }),
+        });
+      } catch (err) {
+        logger.error({ err }, 'Failed to send rate-limit Discord alert');
+      }
+    }
+    if (config.telegramChatId) {
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      if (token) {
+        try {
+          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: config.telegramChatId,
+              text: message,
+              parse_mode: 'HTML',
+            }),
+          });
+        } catch (err) {
+          logger.error({ err }, 'Failed to send rate-limit Telegram alert');
+        }
+      }
+    }
+  }
 }
 
 async function deliverAlert(data: DeliveryJobData) {
@@ -295,7 +375,7 @@ function buildPayload(data: DeliveryJobData) {
       tx_hash: data.triggerTxHash,
     },
     timestamp: data.timestamp,
-    dashboard_url: `https://app.chainward.ai/agents`,
+    dashboard_url: `https://chainward.ai/agents`,
   };
 }
 

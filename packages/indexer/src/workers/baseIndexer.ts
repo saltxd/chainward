@@ -6,6 +6,7 @@ import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { processWebhookTx } from '../processors/baseProcessor.js';
 import { backfillAgent } from './backfill.js';
+import { isAddressPaused, recordAndCheck } from '../lib/rateLimiter.js';
 
 interface WebhookJobData {
   type: 'webhook' | 'backfill';
@@ -82,7 +83,26 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
 
   for (const tx of processed) {
     try {
+      // Rate limit check — skip if address is paused
+      if (await isAddressPaused(redis, tx.walletAddress)) {
+        logger.debug({ address: tx.walletAddress, txHash: tx.txHash }, 'Skipping rate-limited address');
+        continue;
+      }
+
       await db.insert(transactions).values(tx).onConflictDoNothing();
+
+      // Record tx and check if we just hit the rate limit
+      const justPaused = await recordAndCheck(redis, tx.walletAddress);
+      if (justPaused) {
+        // Send rate-limit alert to the user via the alert delivery queue
+        const alertDeliveryQueue = new Queue('alert-deliver', { connection: redis });
+        await alertDeliveryQueue.add('rate-limit-warning', {
+          type: 'rate-limit',
+          walletAddress: tx.walletAddress,
+          chain: tx.chain,
+        });
+        await alertDeliveryQueue.close();
+      }
 
       // Dispatch alert evaluation for this transaction
       await alertQueue.add('tx-alert', {

@@ -80,14 +80,14 @@ export async function listAgents() {
 }
 
 export async function addAgent(address: string, options: { name?: string }) {
+  const body: Record<string, unknown> = {
+    walletAddress: address,
+    chain: 'base',
+  };
+  if (options.name) body.agentName = options.name;
+
   try {
     const spinner = ora('Registering agent...').start();
-
-    const body: Record<string, string> = {
-      walletAddress: address,
-      chain: 'base',
-    };
-    if (options.name) body.agentName = options.name;
 
     const res = await api<Agent>('/api/agents', {
       method: 'POST',
@@ -98,6 +98,34 @@ export async function addAgent(address: string, options: { name?: string }) {
       `Agent registered. Monitoring started for ${brand(res.data.agentName ?? shortAddr(address))} on Base.`,
     );
   } catch (err) {
+    // Handle contract warning — ask user to confirm
+    const { ApiError } = await import('../client.js');
+    if (err instanceof ApiError && err.code === 'CONTRACT_WARNING') {
+      const spinner2 = ora();
+      spinner2.warn(err.message);
+
+      const ok = await confirm({
+        message: 'Register this contract address anyway?',
+        default: false,
+      });
+
+      if (!ok) {
+        console.log(chalk.dim('  Cancelled.'));
+        return;
+      }
+
+      const retrySpinner = ora('Registering agent...').start();
+      body.confirmContract = true;
+      const res = await api<Agent>('/api/agents', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      retrySpinner.succeed(
+        `Agent registered. Monitoring started for ${brand(res.data.agentName ?? shortAddr(address))} on Base.`,
+      );
+      return;
+    }
+
     handleError(err);
   }
 }

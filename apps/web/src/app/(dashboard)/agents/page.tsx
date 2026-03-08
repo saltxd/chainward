@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { api, type Agent, type AgentStats, type FleetOverview } from '@/lib/api';
+import { api, ApiError, type Agent, type AgentStats, type FleetOverview } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { StatCard } from '@/components/ui/stat-card';
 import { Address } from '@/components/ui/address';
@@ -99,23 +99,32 @@ function AgentsContent() {
     return true;
   }
 
-  async function handleRegister(e: React.FormEvent) {
+  const [contractWarning, setContractWarning] = useState(false);
+
+  async function handleRegister(e: React.FormEvent, confirmContract = false) {
     e.preventDefault();
     if (!validateAddress(form.walletAddress)) return;
     setRegistering(true);
     setCreateError(null);
+    setContractWarning(false);
     try {
       await api.createAgent({
         chain: form.chain,
         walletAddress: form.walletAddress,
         agentName: form.agentName || undefined,
+        confirmContract: confirmContract || undefined,
       });
       setShowRegister(false);
       setForm({ chain: 'base', walletAddress: '', agentName: '' });
       setAddressError(null);
       refetch();
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to register agent');
+      if (err instanceof ApiError && err.code === 'CONTRACT_WARNING') {
+        setContractWarning(true);
+        setCreateError(err.message);
+      } else {
+        setCreateError(err instanceof Error ? err.message : 'Failed to register agent');
+      }
     } finally {
       setRegistering(false);
     }
@@ -143,7 +152,21 @@ function AgentsContent() {
         />
       )}
 
-      {createError && <ErrorBanner message={createError} />}
+      {createError && (
+        <div>
+          <ErrorBanner message={createError} />
+          {contractWarning && (
+            <button
+              type="button"
+              onClick={(e) => handleRegister(e as unknown as React.FormEvent, true)}
+              disabled={registering}
+              className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              {registering ? 'Registering...' : 'Register anyway'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Register form */}
       {showRegister && (

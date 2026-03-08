@@ -31,8 +31,11 @@ export class TxService {
       .from(agentRegistry)
       .where(eq(agentRegistry.userId, userId));
 
+    // Find matching wallet — case-insensitive lookup against user's registered agents
     const wallets = filter.walletAddress
-      ? [filter.walletAddress]
+      ? agents
+          .filter((a) => a.walletAddress.toLowerCase() === filter.walletAddress!.toLowerCase())
+          .map((a) => a.walletAddress)
       : agents.map((a) => a.walletAddress);
 
     if (wallets.length === 0) {
@@ -90,7 +93,9 @@ export class TxService {
       .from(agentRegistry)
       .where(eq(agentRegistry.userId, userId));
 
-    const wallets = wallet ? [wallet] : agents.map((a) => a.walletAddress);
+    const wallets = wallet
+      ? agents.filter((a) => a.walletAddress.toLowerCase() === wallet.toLowerCase()).map((a) => a.walletAddress)
+      : agents.map((a) => a.walletAddress);
     if (wallets.length === 0) return [];
 
     const interval = bucket === '1d' ? '1 day' : '1 hour';

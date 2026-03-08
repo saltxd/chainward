@@ -4,12 +4,39 @@ import { ActivityFeed } from '@/components/landing/activity-feed';
 import { FeatureGrid } from '@/components/landing/feature-grid';
 import { CliTerminal } from '@/components/landing/cli-terminal';
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'ChainWard',
+  description:
+    'Real-time AI agent wallet monitoring for Base. Transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API.',
+  url: 'https://chainward.ai',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Web, CLI (macOS, Linux, Windows)',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+    description: 'Free during beta — 3 agents, real-time alerts, Discord & Telegram',
+  },
+  creator: {
+    '@type': 'Organization',
+    name: 'ChainWard',
+    url: 'https://chainward.ai',
+  },
+};
+
 export default async function LandingPage() {
   const cookieStore = await cookies();
   const isAuthenticated = cookieStore.has('chainward-session');
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050508]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       {/* Subtle grid background */}
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.03]"
@@ -69,8 +96,8 @@ export default async function LandingPage() {
         </h1>
 
         <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-[#a1a1aa] md:text-lg">
-          Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents
-          operating on Base. Know what your agents are doing before it costs you.
+          AI agent wallet monitoring for Base chain. Real-time transaction indexing,
+          agent transaction alerts, and gas analytics. Know what your agents are doing before it costs you.
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -126,7 +153,7 @@ export default async function LandingPage() {
             </div>
             <div className="h-px w-full bg-[#1a1a2e] md:h-16 md:w-px" />
             <p className="text-center text-[#a1a1aa] md:text-left">
-              Get notified via Discord, Telegram, or webhook within seconds of on-chain activity.
+              Discord alerts for crypto agents, Telegram notifications, or custom webhooks — delivered within seconds of on-chain activity.
               No more manual block explorer checks that don&apos;t scale.
             </p>
           </div>
@@ -225,7 +252,7 @@ export default async function LandingPage() {
             {
               step: '03',
               title: 'Set up alerts',
-              desc: 'Get notified on large transfers, gas spikes, failed txs, or inactivity via Discord or webhook.',
+              desc: 'Get notified on large transfers, gas spikes, failed txs, or inactivity via Discord, Telegram, or webhook.',
             },
           ].map((item) => (
             <div key={item.step} className="relative">
@@ -260,7 +287,7 @@ export default async function LandingPage() {
               <li className="text-[#a1a1aa]">Real-time alerts</li>
               <li className="text-[#a1a1aa]">7-day history</li>
               <li className="text-[#a1a1aa]">Discord &amp; Telegram</li>
-              <li className="text-[#a1a1aa]">Docs</li>
+              <li className="text-[#a1a1aa]">Community support</li>
               <li className="text-[#71717a]">&mdash;</li>
               <li className="text-[#71717a]">&mdash;</li>
             </ul>
@@ -364,6 +391,17 @@ export default async function LandingPage() {
             </Link>
           </div>
         </div>
+      </section>
+
+      {/* SEO summary — real HTML text for crawlers */}
+      <section className="relative z-10 mx-auto max-w-3xl px-6 pb-16 pt-8 text-center">
+        <p className="text-sm leading-relaxed text-[#52525b]">
+          ChainWard provides AI agent wallet monitoring and Base chain monitoring for autonomous agents.
+          Track every transaction, set up agent transaction alerts, and receive Discord alerts for crypto agents
+          or Telegram notifications in real time. Supports 7 alert types including large transfers, gas spikes,
+          failed transactions, balance drops, and inactivity detection. Available as a web dashboard, REST API,
+          TypeScript SDK, and CLI. Free during beta.
+        </p>
       </section>
 
       {/* Footer */}

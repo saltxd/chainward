@@ -1,4 +1,12 @@
-export const metadata = { title: 'API Reference — ChainWard Docs' };
+export const metadata = {
+  title: 'API Reference',
+  description: 'ChainWard REST API reference. Endpoints for managing agents, transactions, alerts, balances, and gas analytics. TypeScript SDK included.',
+  openGraph: {
+    title: 'API Reference — ChainWard Docs',
+    description: 'ChainWard REST API reference for AI agent wallet monitoring on Base.',
+    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+  },
+};
 
 const endpoints = [
   {

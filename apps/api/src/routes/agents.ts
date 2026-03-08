@@ -8,6 +8,8 @@ import { getQueues } from '../lib/queue.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { webhookManager } from '../lib/alchemy.js';
+import { checkAddressType } from '../lib/contractCheck.js';
+import { logger } from '../lib/logger.js';
 
 const agents = new Hono<{ Variables: AppVariables }>();
 
@@ -20,6 +22,7 @@ const createAgentSchema = z.object({
   agentName: z.string().optional(),
   agentFramework: z.enum(AGENT_FRAMEWORKS).optional(),
   tags: z.array(z.string()).optional(),
+  confirmContract: z.boolean().optional(),
 });
 
 const updateAgentSchema = z.object({
@@ -32,6 +35,24 @@ agents.post('/', async (c) => {
   const user = c.get('user');
   const body = await c.req.json();
   const input = createAgentSchema.parse(body);
+
+  // Contract detection — warn on non-wallet contracts
+  if (input.chain === 'base' && !input.confirmContract) {
+    const { isContract, isKnownWallet } = await checkAddressType(input.walletAddress);
+    if (isContract && !isKnownWallet) {
+      logger.warn(
+        { address: input.walletAddress, userId: user.id },
+        'User registering non-wallet contract address',
+      );
+      return c.json({
+        success: false,
+        error: {
+          code: 'CONTRACT_WARNING',
+          message: 'This looks like a token contract, not an agent wallet. Monitoring it may generate very high transaction volume. Are you sure?',
+        },
+      }, 422);
+    }
+  }
 
   const service = new AgentService(getDb());
   const agent = await service.create(user.id, user.tier ?? 'free', input);

@@ -1,5 +1,14 @@
 const API_BASE = '';
 
+class ApiError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+  }
+}
+
 async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -13,11 +22,15 @@ async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error?.message ?? 'Request failed');
+    const code = data.error?.code ?? 'UNKNOWN';
+    const message = data.error?.message ?? 'Request failed';
+    throw new ApiError(message, code);
   }
 
   return data as T;
 }
+
+export { ApiError };
 
 export const api = {
   // Stats
@@ -137,6 +150,7 @@ export interface CreateAgentBody {
   agentName?: string;
   agentFramework?: string;
   tags?: string[];
+  confirmContract?: boolean;
 }
 
 export interface UpdateAgentBody {

@@ -2,10 +2,25 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ChainWard — AI Agent Monitoring for Base',
+  title: {
+    default: 'ChainWard — Real-time monitoring for AI agent wallets on Base',
+    template: '%s | ChainWard',
+  },
   description:
-    'Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents on Base. See everything your agents do on-chain.',
+    'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API. Free during beta.',
   metadataBase: new URL('https://chainward.ai'),
+  alternates: { canonical: '/' },
+  robots: { index: true, follow: true },
+  keywords: [
+    'AI agent monitoring',
+    'Base chain monitoring',
+    'agent wallet tracker',
+    'crypto agent alerts',
+    'Discord alerts crypto',
+    'onchain agent monitoring',
+    'autonomous agent monitoring',
+    'Base blockchain',
+  ],
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '32x32' },
@@ -14,9 +29,9 @@ export const metadata: Metadata = {
     apple: '/chainward-logo-180.png',
   },
   openGraph: {
-    title: 'ChainWard — AI Agent Monitoring for Base',
+    title: 'ChainWard — Real-time monitoring for AI agent wallets on Base',
     description:
-      'Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents on Base.',
+      'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API. Free during beta.',
     siteName: 'ChainWard',
     url: 'https://chainward.ai',
     type: 'website',
@@ -25,9 +40,9 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     site: '@chainwardai',
-    title: 'ChainWard — AI Agent Monitoring for Base',
+    title: 'ChainWard — Real-time monitoring for AI agent wallets on Base',
     description:
-      'Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents on Base.',
+      'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API. Free during beta.',
     images: ['/chainward-og.png'],
   },
 };
@@ -36,6 +51,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  themeColor: '#050508',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

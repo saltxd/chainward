@@ -1,5 +1,10 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /overview
+Disallow: /agents
+Disallow: /transactions
+Disallow: /alerts
+Disallow: /settings
 
 Sitemap: https://chainward.ai/sitemap.xml
