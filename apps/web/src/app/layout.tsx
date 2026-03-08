@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description:
     'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API. Free during beta.',
   metadataBase: new URL('https://chainward.ai'),
-  alternates: { canonical: '/' },
+  alternates: { canonical: 'https://chainward.ai/' },
   robots: { index: true, follow: true },
   keywords: [
     'AI agent monitoring',
