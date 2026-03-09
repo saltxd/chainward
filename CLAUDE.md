@@ -49,6 +49,18 @@ Alchemy webhook → API /api/webhooks/alchemy → BullMQ (base-tx-process)
 
 Balance snapshots taken on agent registration + periodic polling.
 
+## Provider Abstraction
+
+RPC and webhook functionality is abstracted behind provider interfaces:
+
+- **Interfaces:** `ChainDataProvider` + `WebhookProvider` in `packages/common/src/providers/types.ts`
+- **Factory:** `apps/api/src/providers/index.ts` — reads `CHAIN_PROVIDER` env var (default: `alchemy`)
+- **Alchemy impl:** `apps/api/src/providers/alchemy/` — webhook management, signature verification, RPC wrappers
+- **Indexer impl:** `packages/indexer/src/lib/chainDataProvider.ts` — lightweight provider for backfill
+- **Switching guide:** `docs/PROVIDER-SWITCHING.md`
+- **Standard RPC** calls (eth_getBalance, getTransaction, etc.) go through viem — not abstracted, just change `BASE_RPC_URL`
+- To add a provider: create adapter files + register in factory + update env vars
+
 ## Critical Patterns
 
 - **PostgreSQL arrays in Drizzle `sql` templates:** `${`{${arr.join(',')}}`}::text[]` — NOT `${arr}::text[]`

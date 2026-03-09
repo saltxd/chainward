@@ -56,6 +56,7 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **Onboarding** | Done | Banner prompts new users to monitor their connected wallet |
 | **Swap Agent v2** | Done | TypeScript + viem, no CDP dependency. Aerodrome Router swaps on Base. |
 | **Basename** | Done | `chainward.base.eth` registered on Base |
+| **Provider Abstraction** | Done | Provider abstraction layer (Alchemy default, swappable via `CHAIN_PROVIDER` env var) |
 
 ### Alert Pipeline (end-to-end)
 
