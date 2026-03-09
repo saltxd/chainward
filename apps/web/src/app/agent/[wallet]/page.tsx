@@ -17,6 +17,7 @@ import { BalanceChart } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
 import { TxTable } from '@/components/dashboard/tx-table';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { PublicHeader } from '@/components/layout/public-header';
 
 /** Map snake_case rows from the raw SQL response to camelCase Transaction objects */
 function mapTx(row: Record<string, unknown>): Transaction {
@@ -113,6 +114,8 @@ export default function PublicAgentPage({
   });
 
   return (
+    <div className="min-h-screen">
+      <PublicHeader />
     <div className="mx-auto max-w-4xl px-4 py-12">
       {/* Agent Header */}
       <div className="mb-8">
@@ -194,6 +197,7 @@ export default function PublicAgentPage({
       <p className="mt-8 text-center text-xs text-muted-foreground/60">
         Powered by Chain<span className="text-[#4ade80]/60">Ward</span> &mdash; Datadog for on-chain agents
       </p>
+    </div>
     </div>
   );
 }

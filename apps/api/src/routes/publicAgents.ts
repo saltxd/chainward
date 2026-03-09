@@ -27,6 +27,7 @@ publicAgents.get('/:wallet', async (c) => {
   const db = getDb();
 
   // 1. Fetch agent — must exist AND be public
+  // Use lower() because DB may store EIP-55 checksummed (mixed-case) addresses
   const [agent] = await db
     .select({
       walletAddress: agentRegistry.walletAddress,
@@ -36,7 +37,7 @@ publicAgents.get('/:wallet', async (c) => {
       createdAt: agentRegistry.createdAt,
     })
     .from(agentRegistry)
-    .where(and(eq(agentRegistry.walletAddress, wallet), eq(agentRegistry.isPublic, true)))
+    .where(and(sql`lower(${agentRegistry.walletAddress}) = ${wallet}`, eq(agentRegistry.isPublic, true)))
     .limit(1);
 
   if (!agent) {
@@ -63,7 +64,7 @@ publicAgents.get('/:wallet', async (c) => {
     .from(transactions)
     .where(
       and(
-        eq(transactions.walletAddress, wallet),
+        sql`lower(${transactions.walletAddress}) = ${wallet}`,
         gte(transactions.timestamp, dayAgo),
         spamFilter,
       ),
@@ -78,7 +79,7 @@ publicAgents.get('/:wallet', async (c) => {
     .from(transactions)
     .where(
       and(
-        eq(transactions.walletAddress, wallet),
+        sql`lower(${transactions.walletAddress}) = ${wallet}`,
         gte(transactions.timestamp, weekAgo),
         spamFilter,
       ),
@@ -91,7 +92,7 @@ publicAgents.get('/:wallet', async (c) => {
       last(balance_usd, timestamp) AS balance_usd,
       last(balance_raw, timestamp) AS balance_raw
     FROM balance_snapshots
-    WHERE wallet_address = ${wallet} AND timestamp >= ${weekAgo}
+    WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${weekAgo}
     GROUP BY bucket, token_symbol, token_address
     ORDER BY bucket ASC
   `);
@@ -103,7 +104,7 @@ publicAgents.get('/:wallet', async (c) => {
       coalesce(sum(gas_cost_usd), 0) AS total_gas_usd,
       coalesce(avg(gas_cost_usd), 0) AS avg_gas_usd
     FROM transactions
-    WHERE wallet_address = ${wallet} AND timestamp >= ${thirtyDaysAgo}
+    WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${thirtyDaysAgo}
     GROUP BY bucket ORDER BY bucket ASC
   `);
 
@@ -112,7 +113,7 @@ publicAgents.get('/:wallet', async (c) => {
     SELECT timestamp, chain, tx_hash, block_number, wallet_address, direction,
       counterparty, token_symbol, amount_usd, gas_cost_usd, tx_type,
       method_name, status
-    FROM transactions WHERE wallet_address = ${wallet}
+    FROM transactions WHERE lower(wallet_address) = ${wallet}
     ORDER BY timestamp DESC LIMIT 20
   `);
 

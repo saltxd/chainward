@@ -7,6 +7,7 @@ import { useApi } from '@/hooks/use-api';
 import { StatCard } from '@/components/ui/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { PublicHeader } from '@/components/layout/public-header';
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -124,6 +125,8 @@ export default function WalletLookupResultPage({
   const cta = getCtaContent(data);
 
   return (
+    <div className="min-h-screen">
+      <PublicHeader />
     <div className="mx-auto max-w-4xl px-4 py-12">
       {/* Header */}
       <div className="mb-8">
@@ -272,6 +275,7 @@ export default function WalletLookupResultPage({
       <p className="mt-8 text-center text-xs text-muted-foreground/60">
         Powered by Chain<span className="text-[#4ade80]/60">Ward</span> &mdash; Datadog for on-chain agents
       </p>
+    </div>
     </div>
   );
 }

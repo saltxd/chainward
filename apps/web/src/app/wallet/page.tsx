@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PublicHeader } from '@/components/layout/public-header';
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
 
@@ -25,7 +26,9 @@ export default function WalletLookupPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4">
+    <div className="min-h-screen">
+      <PublicHeader />
+    <div className="flex flex-1 flex-col items-center justify-center px-4 pt-24">
       <div className="w-full max-w-lg text-center">
         <h1 className="text-3xl font-bold">Wallet Lookup</h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -62,6 +65,7 @@ export default function WalletLookupPage() {
       <p className="mt-12 text-center text-xs text-muted-foreground/60">
         Powered by Chain<span className="text-[#4ade80]/60">Ward</span> &mdash; Datadog for on-chain agents
       </p>
+    </div>
     </div>
   );
 }
