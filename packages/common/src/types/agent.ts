@@ -50,4 +50,5 @@ export interface UpdateAgentInput {
   agentName?: string;
   agentFramework?: AgentFramework;
   tags?: string[];
+  isPublic?: boolean;
 }

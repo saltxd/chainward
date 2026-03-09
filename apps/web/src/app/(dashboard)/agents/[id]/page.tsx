@@ -10,6 +10,7 @@ import { BalanceChart } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
 import { TxTable } from '@/components/dashboard/tx-table';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { cn } from '@/lib/utils';
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -141,6 +142,35 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
         <Address address={agent.walletAddress} chain={agent.chain} className="mt-1" />
+      </div>
+
+      {/* Public page toggle */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-card px-5 py-3">
+        <div>
+          <p className="text-sm font-medium">Public Status Page</p>
+          <p className="text-xs text-muted-foreground">
+            {agent.isPublic
+              ? <>Live at <a href={`/agent/${agent.walletAddress}`} target="_blank" rel="noopener noreferrer" className="text-[#4ade80] hover:underline">chainward.ai/agent/{agent.walletAddress.slice(0, 8)}...</a></>
+              : 'Share a read-only dashboard of this agent'}
+          </p>
+        </div>
+        <button
+          onClick={async () => {
+            await api.updateAgent(agentId, { isPublic: !agent.isPublic });
+            refetchAgent();
+          }}
+          className={cn(
+            'relative h-6 w-11 rounded-full transition-colors',
+            agent.isPublic ? 'bg-[#4ade80]' : 'bg-muted',
+          )}
+        >
+          <span
+            className={cn(
+              'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform',
+              agent.isPublic && 'translate-x-5',
+            )}
+          />
+        </button>
       </div>
 
       {/* Stats row */}

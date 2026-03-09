@@ -29,6 +29,7 @@ const updateAgentSchema = z.object({
   agentName: z.string().optional(),
   agentFramework: z.enum(AGENT_FRAMEWORKS).optional(),
   tags: z.array(z.string()).optional(),
+  isPublic: z.boolean().optional(),
 });
 
 agents.post('/', async (c) => {

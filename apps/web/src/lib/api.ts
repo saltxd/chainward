@@ -126,6 +126,7 @@ export interface Agent {
   agentFramework: string | null;
   registrySource: string;
   isSafe: boolean;
+  isPublic: boolean;
   confidence: number;
   tags: string[] | null;
   userId: string;
@@ -157,6 +158,7 @@ export interface UpdateAgentBody {
   agentName?: string;
   agentFramework?: string;
   tags?: string[];
+  isPublic?: boolean;
 }
 
 export interface Transaction {
@@ -312,7 +314,29 @@ export interface WalletLookupResult {
   cachedAt: string;
 }
 
+export interface PublicAgentData {
+  agent: {
+    walletAddress: string;
+    agentName: string | null;
+    agentFramework: string | null;
+    chain: string;
+    createdAt: string;
+  };
+  stats: {
+    txCount24h: number;
+    gasSpend24h: number;
+    volume24h: number;
+    txCount7d: number;
+    gasSpend7d: number;
+  };
+  balanceHistory: BalanceHistoryBucket[];
+  gasHistory: GasBucket[];
+  recentTxs: Transaction[];
+}
+
 export const publicApi = {
   lookupWallet: (address: string) =>
     fetchApi<{ success: true; data: WalletLookupResult }>(`/api/wallets/${address}`),
+  getPublicAgent: (wallet: string) =>
+    fetchApi<{ success: true; data: PublicAgentData }>(`/api/public/agents/${wallet}`),
 };

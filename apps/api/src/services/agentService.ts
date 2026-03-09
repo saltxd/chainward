@@ -97,6 +97,7 @@ export class AgentService {
         ...(input.agentName !== undefined && { agentName: input.agentName }),
         ...(input.agentFramework !== undefined && { agentFramework: input.agentFramework }),
         ...(input.tags !== undefined && { tags: input.tags }),
+        ...(input.isPublic !== undefined && { isPublic: input.isPublic }),
         updatedAt: new Date(),
       })
       .where(and(eq(agentRegistry.id, id), eq(agentRegistry.userId, userId)))
