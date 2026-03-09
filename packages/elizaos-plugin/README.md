@@ -62,8 +62,6 @@ Delivery via **Discord**, **Telegram**, or **webhook**.
 - [ChainWard](https://chainward.ai) — Dashboard & docs
 - [API Reference](https://chainward.ai/docs/api) — Full endpoint documentation
 - [@chainward/sdk](https://www.npmjs.com/package/@chainward/sdk) — TypeScript SDK
-- [GitHub](https://github.com/saltxd/chainward) — Source code
-
 ## License
 
 MIT

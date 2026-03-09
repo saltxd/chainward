@@ -1,6 +1,6 @@
 {
   "name": "@chainward/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ChainWard TypeScript SDK — programmatic access to agent monitoring & alerts on Base",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,9 +33,5 @@
     "sdk"
   ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/saltxd/chainward.git",
-    "directory": "packages/sdk"
-  }
+  "homepage": "https://chainward.ai"
 }
