@@ -284,3 +284,35 @@ export interface CreateApiKeyBody {
   scopes?: string[];
   expiresAt?: string;
 }
+
+// ── Wallet Lookup (public) ──────────────────────────────────────────────────
+
+export interface LookupTokenBalance {
+  contractAddress: string; // 'native' for ETH, hex address for ERC-20
+  tokenBalance: string;    // hex string (use BigInt to parse)
+  error: string | null;
+}
+
+export interface LookupTransaction {
+  hash: string;
+  blockNum: string; // hex
+  from: string;
+  to: string | null;
+  value: number | null;
+  asset: string | null;
+  category: string; // 'external' | 'erc20'
+  direction: 'inbound' | 'outbound';
+}
+
+export interface WalletLookupResult {
+  address: string;
+  chain: string;
+  balances: LookupTokenBalance[];
+  transactions: LookupTransaction[];
+  cachedAt: string;
+}
+
+export const publicApi = {
+  lookupWallet: (address: string) =>
+    fetchApi<{ success: true; data: WalletLookupResult }>(`/api/wallets/${address}`),
+};
