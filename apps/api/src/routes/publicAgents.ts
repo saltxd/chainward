@@ -49,6 +49,10 @@ publicAgents.get('/:wallet', async (c) => {
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
+  // ISO strings for raw SQL (postgres driver can't serialize Date objects in sql``)
+  const weekAgoIso = weekAgo.toISOString();
+  const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
+
   const spamFilter =
     spamList.length > 0
       ? or(isNull(transactions.tokenAddress), notInArray(transactions.tokenAddress, spamList))
@@ -92,7 +96,7 @@ publicAgents.get('/:wallet', async (c) => {
       last(balance_usd, timestamp) AS balance_usd,
       last(balance_raw, timestamp) AS balance_raw
     FROM balance_snapshots
-    WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${weekAgo}
+    WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${weekAgoIso}::timestamptz
     GROUP BY bucket, token_symbol, token_address
     ORDER BY bucket ASC
   `);
@@ -104,7 +108,7 @@ publicAgents.get('/:wallet', async (c) => {
       coalesce(sum(gas_cost_usd), 0) AS total_gas_usd,
       coalesce(avg(gas_cost_usd), 0) AS avg_gas_usd
     FROM transactions
-    WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${thirtyDaysAgo}
+    WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${thirtyDaysAgoIso}::timestamptz
     GROUP BY bucket ORDER BY bucket ASC
   `);
 
