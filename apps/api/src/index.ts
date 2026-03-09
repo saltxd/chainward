@@ -18,11 +18,11 @@ import { publicAgents } from './routes/publicAgents.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
-import { webhookManager } from './lib/alchemy.js';
+import { getWebhookProvider } from './providers/index.js';
 
 // Validate env on startup
 const env = getEnv();
-webhookManager.init();
+getWebhookProvider().init();
 
 const app = new Hono();
 

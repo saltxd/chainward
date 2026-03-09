@@ -7,7 +7,7 @@ import { getDb } from '../lib/db.js';
 import { getQueues } from '../lib/queue.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { webhookManager } from '../lib/alchemy.js';
+import { getWebhookProvider } from '../providers/index.js';
 import { checkAddressType } from '../lib/contractCheck.js';
 import { logger } from '../lib/logger.js';
 
@@ -77,7 +77,7 @@ agents.post('/', async (c) => {
 
   // Register address with Alchemy webhook for live indexing
   if (input.chain === 'base') {
-    webhookManager.addAddress(agent!.walletAddress).catch(() => {});
+    getWebhookProvider().addAddress(agent!.walletAddress).catch(() => {});
   }
 
   return c.json({ success: true, data: agent }, 201);
@@ -130,7 +130,7 @@ agents.delete('/:id', async (c) => {
 
   // Remove address from Alchemy webhook
   if (agent.chain === 'base') {
-    webhookManager.removeAddress(agent.walletAddress).catch(() => {});
+    getWebhookProvider().removeAddress(agent.walletAddress).catch(() => {});
   }
 
   return c.json({ success: true, data: null });
