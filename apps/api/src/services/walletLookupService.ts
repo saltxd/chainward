@@ -140,10 +140,10 @@ export class WalletLookupService {
     direction: 'inbound' | 'outbound',
   ): Promise<LookupTransaction[]> {
     const params: Record<string, unknown> = {
-      category: ['external', 'internal', 'erc20', 'erc721', 'erc1155'],
+      category: ['external', 'erc20'],
       maxCount: `0x${TRANSFER_PAGE_SIZE.toString(16)}`,
       order: 'desc',
-      withMetadata: false,
+      withMetadata: true,
     };
 
     if (direction === 'inbound') {
