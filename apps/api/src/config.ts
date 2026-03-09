@@ -11,6 +11,7 @@ const envSchema = z.object({
   ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().min(1),
   ALCHEMY_AUTH_TOKEN: z.string().optional(),
   ALCHEMY_WEBHOOK_ID: z.string().optional(),
+  CHAIN_PROVIDER: z.enum(['alchemy']).default('alchemy'),
   SOLANA_RPC_URL: z.string().url().optional(),
   HELIUS_API_KEY: z.string().optional(),
   COINGECKO_API_KEY: z.string().optional(),
