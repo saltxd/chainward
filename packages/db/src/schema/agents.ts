@@ -15,6 +15,7 @@ export const agentRegistry = pgTable(
     safeModules: text('safe_modules').array(),
     confidence: real('confidence').notNull().default(1.0),
     tags: text('tags').array(),
+    isPublic: boolean('is_public').notNull().default(false),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
