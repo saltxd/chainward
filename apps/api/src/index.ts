@@ -13,6 +13,7 @@ import { balances } from './routes/balances.js';
 import { gas } from './routes/gas.js';
 import { alerts } from './routes/alerts.js';
 import { apiKeysRoute } from './routes/apiKeys.js';
+import { wallets } from './routes/wallets.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
@@ -60,6 +61,7 @@ app.route('/api/balances', balances);
 app.route('/api/gas', gas);
 app.route('/api/alerts', alerts);
 app.route('/api/keys', apiKeysRoute);
+app.route('/api/wallets', wallets);
 
 // 404 handler
 app.notFound((c) =>
