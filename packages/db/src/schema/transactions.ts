@@ -1,4 +1,5 @@
-import { pgTable, text, bigint, numeric, smallint, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, bigint, numeric, smallint, timestamp, index, jsonb, boolean } from 'drizzle-orm/pg-core';
+import { agentRegistry } from './agents';
 
 /**
  * Transactions table — will be converted to a TimescaleDB hypertable via raw SQL migration.
@@ -28,7 +29,11 @@ export const transactions = pgTable(
     methodId: text('method_id'),
     methodName: text('method_name'),
     contractAddress: text('contract_address'),
+    protocolName: text('protocol_name'),
     status: text('status').notNull().default('confirmed'),
+    isAgentInteraction: boolean('is_agent_interaction').default(false),
+    counterpartyAgentId: bigint('counterparty_agent_id', { mode: 'number' })
+      .references(() => agentRegistry.id),
     rawData: jsonb('raw_data'),
     ingestedAt: timestamp('ingested_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -4,3 +4,6 @@ export * from './transactions';
 export * from './balances';
 export * from './alerts';
 export * from './apiKeys';
+export * from './knownContracts';
+export * from './agentHealth';
+export * from './protocolStats';

@@ -1,8 +1,10 @@
 import { formatEther, formatUnits, type TransactionReceipt, type Address } from 'viem';
 import { getBaseClient } from '../lib/viem.js';
 import { resolveToken } from './tokenResolver.js';
+import { resolveProtocol } from './protocolResolver.js';
 import { getEthPrice, getUsdPrice } from './priceResolver.js';
 import { decodeMethod, classifyTxType } from './decoder.js';
+import { resolveAgentByAddress } from './agentResolver.js';
 import { logger } from '../lib/logger.js';
 
 export interface ProcessedTransaction {
@@ -26,6 +28,9 @@ export interface ProcessedTransaction {
   methodId: string | null;
   methodName: string | null;
   contractAddress: string | null;
+  protocolName: string | null;
+  isAgentInteraction: boolean;
+  counterpartyAgentId: number | null;
   status: string;
   rawData: Record<string, unknown> | null;
 }
@@ -136,6 +141,12 @@ export async function processWebhookTx(
 
     const counterparty = direction === 'out' ? data.toAddress : data.fromAddress;
 
+    // Resolve protocol name from known_contracts
+    const protocolName = tx.to ? await resolveProtocol(tx.to, 'base') : null;
+
+    // Agent-to-agent interaction detection
+    const counterpartyAgent = counterparty ? await resolveAgentByAddress(counterparty) : null;
+
     results.push({
       timestamp,
       chain: 'base',
@@ -157,6 +168,9 @@ export async function processWebhookTx(
       methodId: decoded?.methodId ?? null,
       methodName: decoded?.methodName ?? null,
       contractAddress: tx.to ?? null,
+      protocolName,
+      isAgentInteraction: counterpartyAgent !== null,
+      counterpartyAgentId: counterpartyAgent?.id ?? null,
       status: receipt.status === 'success' ? 'confirmed' : 'failed',
       rawData: null,
     });
