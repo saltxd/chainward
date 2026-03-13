@@ -199,6 +199,11 @@ async function deliverAlert(data: DeliveryJobData) {
     },
     'Alert delivery complete',
   );
+
+  // If ALL channels failed, throw so BullMQ retries the job
+  if (deliveredChannels.length === 0 && errors.length > 0) {
+    throw new Error(`All delivery channels failed: ${errors.join('; ')}`);
+  }
 }
 
 /** Deliver via generic webhook (POST JSON) with retry */
