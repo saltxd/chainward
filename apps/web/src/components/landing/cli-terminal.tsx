@@ -9,7 +9,7 @@ interface Line {
   highlight?: string;
 }
 
-const LINES: Line[] = [
+const HUMAN_LINES: Line[] = [
   { id: 1, type: 'command', text: 'npm i -g @chainward/cli' },
   { id: 2, type: 'command', text: 'chainward login' },
   { id: 3, type: 'output', text: 'Logged in. 1 agent found.' },
@@ -25,12 +25,23 @@ const LINES: Line[] = [
   },
 ];
 
-export function CliTerminal() {
+const AGENT_LINES: Line[] = [
+  { id: 1, type: 'command', text: 'clawhub install chainward' },
+  { id: 2, type: 'output', text: 'Installed chainward@1.0.0' },
+  { id: 3, type: 'output', text: '' },
+  { id: 4, type: 'output', text: 'Use ChainWard to monitor AI agent wallets on Base.' },
+  { id: 5, type: 'output', text: 'Real-time tx indexing, alerts, and health scores.' },
+  { id: 6, type: 'output', text: '' },
+  { id: 7, type: 'output', text: 'Skill: https://clawhub.ai/skills/chainward' },
+];
+
+function TerminalLines({ lines }: { lines: Line[] }) {
   const [visibleCount, setVisibleCount] = useState(0);
 
   useEffect(() => {
+    setVisibleCount(0);
     const timers: NodeJS.Timeout[] = [];
-    LINES.forEach((_, i) => {
+    lines.forEach((_, i) => {
       timers.push(
         setTimeout(() => {
           setVisibleCount((c) => Math.max(c, i + 1));
@@ -38,68 +49,98 @@ export function CliTerminal() {
       );
     });
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [lines]);
+
+  return (
+    <div className="px-4 py-3 font-mono text-xs leading-relaxed md:text-sm md:leading-relaxed">
+      {lines.map((line, i) => {
+        const visible = i < visibleCount;
+        return (
+          <div
+            key={line.id}
+            className="transition-opacity duration-500"
+            style={{ opacity: visible ? 1 : 0 }}
+          >
+            {line.type === 'command' && (
+              <div className="py-0.5">
+                <span className="text-[#4ade80]">$</span>{' '}
+                <span className="text-[#e4e4e7]">{line.text}</span>
+              </div>
+            )}
+            {line.type === 'output' && (
+              <div className="py-0.5 text-[#71717a]">{line.text || '\u00A0'}</div>
+            )}
+            {line.type === 'status' && (
+              <div className="mt-1 flex items-center gap-2 py-0.5 text-[#4ade80]">
+                {visible && (
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#4ade80]" />
+                  </span>
+                )}
+                {line.text}
+              </div>
+            )}
+            {line.type === 'feed' && (
+              <div className="flex items-center gap-2 py-0.5">
+                <span className="text-[#d4d4d8]">{line.text}</span>
+                {line.highlight && (
+                  <span className="text-[#4ade80]">{line.highlight}</span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Blinking cursor */}
+      <div className="py-0.5" style={{ opacity: visibleCount >= lines.length ? 1 : 0 }}>
+        <span className="text-[#4ade80]">$</span>{' '}
+        <span className="animate-pulse text-[#4ade80]">_</span>
+      </div>
+    </div>
+  );
+}
+
+export function CliTerminal() {
+  const [tab, setTab] = useState<'humans' | 'agents'>('humans');
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-[#1a1a2e] bg-[#0a0a0f]">
-      {/* Terminal header */}
+      {/* Terminal header with tabs */}
       <div className="flex items-center gap-2 border-b border-[#1a1a2e] px-4 py-2.5">
         <div className="flex gap-1.5">
           <div className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
           <div className="h-2.5 w-2.5 rounded-full bg-[#ffbd2e]" />
           <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
         </div>
-        <span className="ml-2 font-mono text-xs text-[#71717a]">terminal</span>
-      </div>
-
-      {/* Lines — all rendered for stable height, visibility toggled */}
-      <div className="px-4 py-3 font-mono text-xs leading-relaxed md:text-sm md:leading-relaxed">
-        {LINES.map((line, i) => {
-          const visible = i < visibleCount;
-          return (
-            <div
-              key={line.id}
-              className="transition-opacity duration-500"
-              style={{ opacity: visible ? 1 : 0 }}
-            >
-              {line.type === 'command' && (
-                <div className="py-0.5">
-                  <span className="text-[#4ade80]">$</span>{' '}
-                  <span className="text-[#e4e4e7]">{line.text}</span>
-                </div>
-              )}
-              {line.type === 'output' && (
-                <div className="py-0.5 text-[#71717a]">{line.text}</div>
-              )}
-              {line.type === 'status' && (
-                <div className="mt-1 flex items-center gap-2 py-0.5 text-[#4ade80]">
-                  {visible && (
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
-                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#4ade80]" />
-                    </span>
-                  )}
-                  {line.text}
-                </div>
-              )}
-              {line.type === 'feed' && (
-                <div className="flex items-center gap-2 py-0.5">
-                  <span className="text-[#d4d4d8]">{line.text}</span>
-                  {line.highlight && (
-                    <span className="text-[#4ade80]">{line.highlight}</span>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Blinking cursor */}
-        <div className="py-0.5" style={{ opacity: visibleCount >= LINES.length ? 1 : 0 }}>
-          <span className="text-[#4ade80]">$</span>{' '}
-          <span className="animate-pulse text-[#4ade80]">_</span>
+        <div className="ml-4 flex gap-1">
+          <button
+            type="button"
+            onClick={() => setTab('humans')}
+            className={`rounded-md px-3 py-1 font-mono text-xs transition-colors ${
+              tab === 'humans'
+                ? 'bg-[#1a1a2e] text-white'
+                : 'text-[#52525b] hover:text-[#a1a1aa]'
+            }`}
+          >
+            FOR HUMANS
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('agents')}
+            className={`rounded-md px-3 py-1 font-mono text-xs transition-colors ${
+              tab === 'agents'
+                ? 'bg-[#1a1a2e] text-white'
+                : 'text-[#52525b] hover:text-[#a1a1aa]'
+            }`}
+          >
+            FOR AI AGENTS
+          </button>
         </div>
       </div>
+
+      <TerminalLines lines={tab === 'humans' ? HUMAN_LINES : AGENT_LINES} />
 
       {/* Bottom fade */}
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[#0a0a0f] to-transparent" />
