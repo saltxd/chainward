@@ -6,6 +6,7 @@ import { createBalancePollerWorker, setupBalancePolling } from './workers/balanc
 import { createAlertEvaluatorWorker, setupAlertSchedule } from './workers/alertEvaluator.js';
 import { createAlertDeliveryWorker } from './workers/alertDelivery.js';
 import { createIntelligenceWorker, setupIntelligenceSchedule } from './workers/intelligence.js';
+import { createRegistryScoutWorker, setupRegistryScoutSchedule } from './workers/registryScout.js';
 
 // Validate env on startup
 getEnv();
@@ -18,12 +19,14 @@ const balancePoller = createBalancePollerWorker();
 const alertEvaluator = createAlertEvaluatorWorker();
 const alertDelivery = createAlertDeliveryWorker();
 const intelligence = createIntelligenceWorker();
+const registryScout = createRegistryScoutWorker();
 
 // Set up repeatable jobs
 const redis = getRedis();
 await setupBalancePolling(redis);
 await setupAlertSchedule(redis);
 await setupIntelligenceSchedule(redis);
+await setupRegistryScoutSchedule(redis);
 
 // Graceful shutdown
 async function shutdown(signal: string) {
@@ -34,6 +37,7 @@ async function shutdown(signal: string) {
     alertEvaluator.close(),
     alertDelivery.close(),
     intelligence.close(),
+    registryScout.close(),
   ]);
   process.exit(0);
 }
