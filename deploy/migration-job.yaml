@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: chainward-migrate
+  namespace: chainward
+  labels:
+    app.kubernetes.io/name: chainward
+    app.kubernetes.io/component: migration
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: chainward
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: timescale/timescaledb:latest-pg16
+          command: ["bash", "/scripts/run-migrations.sh"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chainward-secrets
+                  key: DATABASE_URL
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: base-schema
+              mountPath: /base-schema
+            - name: migrations
+              mountPath: /migrations
+      volumes:
+        - name: scripts
+          configMap:
+            name: migration-runner
+            defaultMode: 0755
+        - name: base-schema
+          configMap:
+            name: chainward-base-schema
+        - name: migrations
+          configMap:
+            name: chainward-migrations

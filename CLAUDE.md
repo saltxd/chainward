@@ -27,14 +27,24 @@ pnpm dev              # Dev servers (api + web)
 
 ## Deployment
 
-K3s cluster, namespace `chainward`. Manual deploy after CI:
+K3s cluster, namespace `chainward`. **Always use the deploy script** — never run `kubectl set image` manually:
 
 ```bash
-TAG=$(git rev-parse --short HEAD)
-kubectl -n chainward set image deployment/api api=ghcr.io/saltxd/chainward-api:$TAG
-kubectl -n chainward set image deployment/web web=ghcr.io/saltxd/chainward-web:$TAG
-kubectl -n chainward set image deployment/indexer indexer=ghcr.io/saltxd/chainward-indexer:$TAG
+./deploy/deploy.sh                    # deploy current HEAD (migrate + rollout + verify)
+./deploy/deploy.sh --tag abc1234      # deploy specific tag
+./deploy/deploy.sh --migrate-only     # apply pending DB migrations only
+./deploy/deploy.sh --skip-migrate     # skip migrations, just roll out images
+./deploy/deploy.sh --dry-run          # preview what would happen
 ```
+
+The deploy script:
+1. Verifies all 3 images exist in GHCR
+2. Creates ConfigMaps from migration SQL files in the repo
+3. Runs a K8s migration Job (tracked via `schema_migrations` table)
+4. Rolls out api, web, indexer deployments
+5. Waits for rollouts and verifies health endpoints
+
+**DB migrations:** Add new `.sql` files to `packages/db/src/migrations/` with numeric prefix (e.g., `0007_description.sql`). The migration runner applies them in order and tracks completion. Use `IF NOT EXISTS` / `IF EXISTS` for idempotency.
 
 **Deploy ALL THREE when shared packages (db, common) change.** The indexer especially must stay in sync with the DB schema — a stale indexer will crash on missing columns.
 
