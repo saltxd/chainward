@@ -25,6 +25,7 @@ interface OverviewData {
   gasBurned7d: { eth: number; usd: number };
   totalPortfolioValue: number;
   activeAgents24h: number;
+  activeAgents7d: number;
   totalAgents: number;
   updatedAt: string;
 }
@@ -469,8 +470,8 @@ export function ObservatoryPage() {
             loading={loading}
           />
           <StatCard
-            label="Active Agents"
-            value={`${overview?.activeAgents24h ?? 0} / ${overview?.totalAgents ?? 0}`}
+            label="Active Agents (7d)"
+            value={`${overview?.activeAgents7d ?? 0} / ${overview?.totalAgents ?? 0}`}
             loading={loading}
           />
         </section>

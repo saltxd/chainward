@@ -58,6 +58,7 @@ export class ObservatoryService {
           gasBurned30d: { eth: 0, usd: 0 },
           totalPortfolioValue: 0,
           activeAgents24h: 0,
+          activeAgents7d: 0,
           totalAgents: 0,
           updatedAt: new Date().toISOString(),
         };
@@ -82,7 +83,8 @@ export class ObservatoryService {
           COALESCE(SUM(gas_cost_usd)    FILTER (WHERE timestamp >= ${weekAgo}::timestamptz), 0) AS gas_usd_7d,
           COALESCE(SUM(gas_cost_native), 0) AS gas_eth_30d,
           COALESCE(SUM(gas_cost_usd),    0) AS gas_usd_30d,
-          COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= ${dayAgo}::timestamptz) AS active_24h
+          COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= ${dayAgo}::timestamptz) AS active_24h,
+          COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= ${weekAgo}::timestamptz) AS active_7d
         FROM transactions
         WHERE wallet_address = ANY(${walletArray}::text[])
           AND timestamp >= ${monthAgo}::timestamptz
@@ -115,6 +117,7 @@ export class ObservatoryService {
         gasBurned30d: { eth: parseFloat(s.gas_eth_30d ?? '0'), usd: parseFloat(s.gas_usd_30d ?? '0') },
         totalPortfolioValue,
         activeAgents24h: parseInt(s.active_24h ?? '0', 10),
+        activeAgents7d: parseInt(s.active_7d ?? '0', 10),
         totalAgents: agentsTracked,
         updatedAt: now.toISOString(),
       };
