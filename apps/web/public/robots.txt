@@ -1,5 +1,9 @@
 User-agent: *
 Allow: /
+Allow: /base
+Allow: /wallet
+Allow: /docs
+Allow: /agent/
 Disallow: /api/
 Disallow: /overview
 Disallow: /agents

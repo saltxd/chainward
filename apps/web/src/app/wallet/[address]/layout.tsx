@@ -55,6 +55,7 @@ export async function generateMetadata({
     return {
       title,
       description,
+      alternates: { canonical: `https://chainward.ai/wallet/${address}` },
       openGraph: {
         title,
         description,
@@ -72,17 +73,18 @@ export async function generateMetadata({
       },
     };
   } catch {
-    return fallbackMetadata(truncated);
+    return fallbackMetadata(truncated, address);
   }
 }
 
-function fallbackMetadata(truncated: string): Metadata {
+function fallbackMetadata(truncated: string, address?: string): Metadata {
   const title = `${truncated} — Wallet Activity on Base`;
   const description = `View live on-chain activity for ${truncated} on Base`;
 
   return {
     title,
     description,
+    ...(address && { alternates: { canonical: `https://chainward.ai/wallet/${address}` } }),
     openGraph: {
       title,
       description,
