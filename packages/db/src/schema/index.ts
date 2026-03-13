@@ -7,3 +7,4 @@ export * from './apiKeys';
 export * from './knownContracts';
 export * from './agentHealth';
 export * from './protocolStats';
+export * from './observatoryCandidates';
