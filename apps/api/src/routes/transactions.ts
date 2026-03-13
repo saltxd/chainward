@@ -32,13 +32,15 @@ txRoutes.get('/stats', async (c) => {
   const user = c.get('user');
   const query = c.req.query();
 
+  const bucket = query.bucket === '1d' ? '1d' : '1h';
+
   const service = new TxService(getDb());
   const data = await service.getVolumeStats(
     user.id,
     query.wallet,
     query.from ? new Date(query.from) : undefined,
     query.to ? new Date(query.to) : undefined,
-    query.bucket ?? '1h',
+    bucket,
   );
 
   return c.json({ success: true, data });

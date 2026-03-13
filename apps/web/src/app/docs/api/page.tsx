@@ -1,6 +1,7 @@
 export const metadata = {
   title: 'API Reference',
   description: 'ChainWard REST API reference. Endpoints for managing agents, transactions, alerts, balances, and gas analytics. TypeScript SDK included.',
+  alternates: { canonical: 'https://chainward.ai/docs/api' },
   openGraph: {
     title: 'API Reference — ChainWard Docs',
     description: 'ChainWard REST API reference for AI agent wallet monitoring on Base.',

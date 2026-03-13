@@ -29,7 +29,11 @@ export function rateLimit(options: RateLimitOptions) {
       identifier = authHeader.slice('Bearer '.length, 'Bearer '.length + 11); // ag_ + first 8
     } else {
       const user = c.get('user' as never) as { id: string } | undefined;
-      identifier = user?.id ?? c.req.header('x-forwarded-for') ?? 'anonymous';
+      // Use CF-Connecting-IP (set by Cloudflare, not spoofable) for unauthenticated requests.
+      // Falls back to rightmost X-Forwarded-For IP, then 'anonymous'.
+      const cfIp = c.req.header('cf-connecting-ip');
+      const xffIp = c.req.header('x-forwarded-for')?.split(',').pop()?.trim();
+      identifier = user?.id ?? cfIp ?? xffIp ?? 'anonymous';
     }
 
     const key = `${prefix}:${identifier}`;
