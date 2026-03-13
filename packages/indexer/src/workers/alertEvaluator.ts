@@ -581,6 +581,9 @@ async function fireAlert(
     telegramChatId: config.telegramChatId,
     discordWebhook: config.discordWebhook,
     timestamp: claimed.eventTimestamp,
+  }, {
+    attempts: 4,
+    backoff: { type: 'exponential', delay: 30_000 },
   });
   await deliverQueue.close();
 
