@@ -12,6 +12,9 @@ const TOKEN_TO_COINGECKO: Record<string, string> = {
   USDT: 'tether',
   DAI: 'dai',
   VIRTUAL: 'virtual-protocol',
+  CBBTC: 'coinbase-wrapped-btc',
+  AERO: 'aerodrome-finance',
+  WSTETH: 'wrapped-steth',
 };
 
 /** Get current USD price for a token symbol */

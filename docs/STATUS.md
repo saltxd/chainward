@@ -1,6 +1,6 @@
 # ChainWard — Project Status
 
-**Last updated:** 2026-03-07
+**Last updated:** 2026-03-09
 
 ## What Is ChainWard
 
@@ -57,6 +57,7 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **Swap Agent v2** | Done | TypeScript + viem, no CDP dependency. Aerodrome Router swaps on Base. |
 | **Basename** | Done | `chainward.base.eth` registered on Base |
 | **Provider Abstraction** | Done | Provider abstraction layer (Alchemy default, swappable via `CHAIN_PROVIDER` env var) |
+| **Base Agent Observatory** | Done | Public `/base` page — 39 tracked agent wallets, live feed, leaderboard, trend charts, 5 cached API endpoints |
 
 ### Alert Pipeline (end-to-end)
 
@@ -119,6 +120,11 @@ Transaction indexed → alert-evaluate queue → evaluator worker checks configs
 | `packages/cli/src/index.ts` | CLI entry point — commander setup, 9 commands |
 | `agents/swap-agent/src/index.ts` | Swap agent v2 — TypeScript + viem, Aerodrome Router swaps |
 | `docs/plans/2026-03-06-gtm-bull-rush.md` | GTM execution plan (30-day action checklist) |
+| `apps/api/src/services/observatoryService.ts` | Observatory service — 5 cached aggregate queries |
+| `apps/api/src/routes/observatory.ts` | Observatory API — 5 public GET endpoints, no auth |
+| `apps/web/src/app/base/page.tsx` | Observatory page — SEO metadata + JSON-LD |
+| `apps/web/src/app/base/observatory-page.tsx` | Observatory UI — stat cards, charts, feed, leaderboard |
+| `packages/db/seeds/observatory-agents.ts` | Seed 39 verified agent wallets for observatory |
 
 ### Swap Agent v2 (agents/swap-agent/)
 

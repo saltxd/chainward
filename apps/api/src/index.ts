@@ -15,6 +15,7 @@ import { alerts } from './routes/alerts.js';
 import { apiKeysRoute } from './routes/apiKeys.js';
 import { wallets } from './routes/wallets.js';
 import { publicAgents } from './routes/publicAgents.js';
+import { observatory } from './routes/observatory.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
@@ -64,6 +65,7 @@ app.route('/api/alerts', alerts);
 app.route('/api/keys', apiKeysRoute);
 app.route('/api/wallets', wallets);
 app.route('/api/public/agents', publicAgents);
+app.route('/api/observatory', observatory);
 
 // 404 handler
 app.notFound((c) =>
