@@ -1,14 +1,15 @@
 import { formatEther, formatUnits } from 'viem';
 import type { TransferRecord } from '@chainward/common';
-import { transactions } from '@chainward/db';
 import { getBaseClient } from '../lib/viem.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { IndexerAlchemyProvider } from '../lib/chainDataProvider.js';
 import { resolveToken } from '../processors/tokenResolver.js';
+import { resolveProtocol } from '../processors/protocolResolver.js';
 import { getEthPrice, getUsdPrice } from '../processors/priceResolver.js';
 import { decodeMethod, classifyTxType } from '../processors/decoder.js';
 import { getEnv } from '../config.js';
+import { insertTransactionIfNew } from '../lib/transactionStore.js';
 
 /**
  * Backfill the last 30 days of transactions for a wallet using alchemy_getAssetTransfers.
@@ -138,35 +139,35 @@ export async function backfillAgent(walletAddress: string, chain: string) {
         }
       }
 
-      await db
-        .insert(transactions)
-        .values({
-          timestamp,
-          chain: 'base',
-          txHash: transfer.hash,
-          blockNumber,
-          walletAddress,
-          direction,
-          counterparty: direction === 'out' ? transfer.to : transfer.from,
-          tokenAddress,
-          tokenSymbol,
-          tokenDecimals,
-          amountRaw,
-          amountUsd,
-          gasUsed,
-          gasPriceGwei,
-          gasCostNative,
-          gasCostUsd,
-          txType,
-          methodId,
-          methodName,
-          contractAddress: direction === 'out' ? transfer.to : null,
-          status: 'confirmed',
-          rawData: null,
-        })
-        .onConflictDoNothing();
+      const inserted = await insertTransactionIfNew(db, {
+        timestamp,
+        chain: 'base',
+        txHash: transfer.hash,
+        blockNumber,
+        walletAddress,
+        direction,
+        counterparty: direction === 'out' ? transfer.to : transfer.from,
+        tokenAddress,
+        tokenSymbol,
+        tokenDecimals,
+        amountRaw,
+        amountUsd,
+        gasUsed,
+        gasPriceGwei,
+        gasCostNative,
+        gasCostUsd,
+        txType,
+        methodId,
+        methodName,
+        contractAddress: direction === 'out' ? transfer.to : null,
+        protocolName: transfer.to ? await resolveProtocol(transfer.to, 'base') : null,
+        status: 'confirmed',
+        rawData: null,
+      });
 
-      totalInserted++;
+      if (inserted) {
+        totalInserted++;
+      }
     } catch (err) {
       logger.warn({ err, txHash: transfer.hash }, 'Failed to process backfill transfer');
     }
@@ -179,4 +180,3 @@ export async function backfillAgent(walletAddress: string, chain: string) {
 
   logger.info({ walletAddress, totalInserted }, 'Backfill complete');
 }
-

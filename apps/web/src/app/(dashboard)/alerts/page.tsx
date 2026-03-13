@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api, type AlertConfig, type AlertEvent, type Agent } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +21,56 @@ const ALERT_TYPE_CONFIG: Record<string, { label: string; hasThreshold: boolean; 
   new_contract: { label: 'New Contract', hasThreshold: false, defaultUnit: 'usd' },
   idle_balance: { label: 'Idle Balance', hasThreshold: true, defaultUnit: 'usd', thresholdLabel: 'Min Balance (USD)' },
 };
+
+type AlertPresetKey = 'failed_tx' | 'gas_spike' | 'inactivity';
+
+const ALERT_PRESETS: Record<AlertPresetKey, {
+  label: string;
+  description: string;
+  alertType: AlertPresetKey;
+  thresholdValue?: string;
+  thresholdUnit?: string;
+  lookback: string;
+  cooldown: string;
+}> = {
+  failed_tx: {
+    label: 'Failed Transaction',
+    description: 'Catch reverted transactions as soon as an agent fails.',
+    alertType: 'failed_tx',
+    lookback: '1h',
+    cooldown: '1m',
+  },
+  gas_spike: {
+    label: 'Gas Spike',
+    description: 'Get warned when a wallet pays unusually high gas.',
+    alertType: 'gas_spike',
+    thresholdValue: '25',
+    thresholdUnit: 'usd',
+    lookback: '1h',
+    cooldown: '5m',
+  },
+  inactivity: {
+    label: 'Inactivity',
+    description: 'Get nudged when an agent stops doing anything on-chain.',
+    alertType: 'inactivity',
+    lookback: '24h',
+    cooldown: '1h',
+  },
+};
+
+function getPresetFormPatch(presetKey: AlertPresetKey, walletAddress?: string) {
+  const preset = ALERT_PRESETS[presetKey];
+  const config = ALERT_TYPE_CONFIG[preset.alertType]!;
+
+  return {
+    ...(walletAddress ? { walletAddress } : {}),
+    alertType: preset.alertType,
+    thresholdValue: config.hasThreshold ? (preset.thresholdValue ?? '500') : '',
+    thresholdUnit: preset.thresholdUnit ?? config.defaultUnit,
+    lookback: preset.lookback,
+    cooldown: preset.cooldown,
+  };
+}
 
 /* ── URL validation ── */
 
@@ -66,6 +117,7 @@ const CHANNEL_BADGE: Record<string, string> = {
 };
 
 export default function AlertsPage() {
+  const searchParams = useSearchParams();
   const { data: alertList, loading, error, refetch } = useApi<AlertConfig[]>(
     () => api.getAlerts(),
     [],
@@ -105,11 +157,40 @@ export default function AlertsPage() {
   const [creating, setCreating] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [didApplyQueryPreset, setDidApplyQueryPreset] = useState(false);
 
   // Form validation
   const urlErrors = validateWebhookUrls(form.channels, form.webhookUrl, form.telegramChatId, form.discordWebhook);
   const hasUrlErrors = Object.keys(urlErrors).length > 0;
   const currentTypeConfig = ALERT_TYPE_CONFIG[form.alertType];
+  const defaultWallet = form.walletAddress || agents?.[0]?.walletAddress || '';
+
+  function applyPreset(presetKey: AlertPresetKey, walletAddress = defaultWallet) {
+    setShowCreate(true);
+    setForm((current) => ({
+      ...current,
+      ...getPresetFormPatch(presetKey, walletAddress || undefined),
+    }));
+  }
+
+  useEffect(() => {
+    if (didApplyQueryPreset || !agents) return;
+
+    const presetParam = searchParams.get('preset');
+    const walletParam = searchParams.get('wallet');
+    const matchedWallet = walletParam
+      ? agents.find((agent) => agent.walletAddress.toLowerCase() === walletParam.toLowerCase())?.walletAddress
+      : undefined;
+    const presetKey: AlertPresetKey = presetParam === 'gas_spike' || presetParam === 'inactivity'
+      ? presetParam
+      : 'failed_tx';
+
+    if (presetParam || matchedWallet) {
+      applyPreset(presetKey, matchedWallet ?? agents[0]?.walletAddress ?? '');
+    }
+
+    setDidApplyQueryPreset(true);
+  }, [agents, didApplyQueryPreset, searchParams]);
 
   async function handleTestAlert(id: number) {
     setTestingId(id);
@@ -135,10 +216,12 @@ export default function AlertsPage() {
           thresholdValue: form.thresholdValue,
           thresholdUnit: form.thresholdUnit,
         }),
+        lookbackWindow: form.lookback,
         channels: form.channels,
         webhookUrl: form.channels.includes('webhook') ? form.webhookUrl || undefined : undefined,
         telegramChatId: form.channels.includes('telegram') ? form.telegramChatId || undefined : undefined,
         discordWebhook: form.channels.includes('discord') ? form.discordWebhook || undefined : undefined,
+        cooldown: form.cooldown,
       });
       setShowCreate(false);
       toast('Alert created', 'success');
@@ -190,6 +273,31 @@ export default function AlertsPage() {
       {/* Create form */}
       {showCreate && (
         <form onSubmit={handleCreate} className="rounded-lg border border-border bg-card p-6">
+          <div className="mb-5">
+            <p className="text-sm font-medium">Start from a recommended preset</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(Object.entries(ALERT_PRESETS) as [AlertPresetKey, typeof ALERT_PRESETS.failed_tx][]).map(([key, preset]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => applyPreset(key)}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-xs transition-colors',
+                    form.alertType === preset.alertType
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                  )}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {ALERT_PRESETS[(form.alertType in ALERT_PRESETS ? form.alertType : 'failed_tx') as AlertPresetKey]?.description
+                ?? 'Choose a preset, then pick a delivery channel to finish setup.'}
+            </p>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Agent Wallet</label>
@@ -321,6 +429,9 @@ export default function AlertsPage() {
                 </label>
               ))}
             </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Choose at least one delivery channel to activate this alert.
+            </p>
 
             <div className="mt-3 space-y-3">
               {form.channels.includes('webhook') && (
@@ -414,6 +525,23 @@ export default function AlertsPage() {
       ) : (
         <div className="rounded-lg border border-border bg-card p-8 text-center">
           <p className="text-muted-foreground">No alerts configured.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Start with a recommended preset, then choose where the notifications should go.
+          </p>
+          {agents && agents.length > 0 && (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {(Object.entries(ALERT_PRESETS) as [AlertPresetKey, typeof ALERT_PRESETS.failed_tx][]).map(([key, preset]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => applyPreset(key, agents[0]!.walletAddress)}
+                  className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -239,10 +239,12 @@ export interface CreateAlertBody {
   alertType: string;
   thresholdValue?: string;
   thresholdUnit?: string;
+  lookbackWindow?: string;
   channels: string[];
   webhookUrl?: string;
   telegramChatId?: string;
   discordWebhook?: string;
+  cooldown?: string;
 }
 
 export interface AlertEvent {

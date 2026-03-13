@@ -1,12 +1,13 @@
 import { Worker, Queue, type Job } from 'bullmq';
 import { eq } from 'drizzle-orm';
-import { transactions, agentRegistry } from '@chainward/db';
+import { agentRegistry } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { processWebhookTx } from '../processors/baseProcessor.js';
 import { backfillAgent } from './backfill.js';
 import { isAddressPaused, recordAndCheck } from '../lib/rateLimiter.js';
+import { insertTransactionIfNew } from '../lib/transactionStore.js';
 
 interface WebhookJobData {
   type: 'webhook' | 'backfill';
@@ -80,6 +81,7 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
   // Insert transactions and trigger alert evaluation
   const redis = getRedis();
   const alertQueue = new Queue('alert-evaluate', { connection: redis });
+  let insertedCount = 0;
 
   for (const tx of processed) {
     try {
@@ -89,7 +91,16 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
         continue;
       }
 
-      await db.insert(transactions).values(tx).onConflictDoNothing();
+      const inserted = await insertTransactionIfNew(db, tx);
+      if (!inserted) {
+        logger.debug(
+          { walletAddress: tx.walletAddress, txHash: tx.txHash },
+          'Skipping duplicate transaction insert',
+        );
+        continue;
+      }
+
+      insertedCount++;
 
       // Record tx and check if we just hit the rate limit
       const justPaused = await recordAndCheck(redis, tx.walletAddress);
@@ -125,7 +136,7 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
   await alertQueue.close();
 
   logger.info(
-    { txHash: job.data.txHash, inserted: processed.length },
+    { txHash: job.data.txHash, inserted: insertedCount, processed: processed.length },
     'Processed webhook transaction',
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api, ApiError, type Agent, type AgentStats, type FleetOverview } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { StatCard } from '@/components/ui/stat-card';
@@ -66,6 +66,7 @@ export default function AgentsPage() {
 }
 
 function AgentsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { data: overview, loading: overviewLoading, error: overviewError, refetch: refetchOverview } = useApi<FleetOverview>(
     () => api.getOverview(),
@@ -108,15 +109,28 @@ function AgentsContent() {
     setCreateError(null);
     setContractWarning(false);
     try {
-      await api.createAgent({
+      const created = await api.createAgent({
         chain: form.chain,
         walletAddress: form.walletAddress,
         agentName: form.agentName || undefined,
         confirmContract: confirmContract || undefined,
       });
+
+      const shouldGuideToFirstAlert = (agents?.length ?? 0) === 0;
       setShowRegister(false);
       setForm({ chain: 'base', walletAddress: '', agentName: '' });
       setAddressError(null);
+
+      if (shouldGuideToFirstAlert) {
+        const params = new URLSearchParams({
+          wallet: created.data.walletAddress,
+          preset: 'failed_tx',
+          source: 'first-agent',
+        });
+        router.push(`/alerts?${params.toString()}`);
+        return;
+      }
+
       refetch();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'CONTRACT_WARNING') {

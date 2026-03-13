@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { use, useState, useRef, useEffect } from 'react';
 import { api, type AgentStats, type Transaction, type BalanceHistoryBucket, type GasBucket } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
@@ -142,6 +143,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
         <Address address={agent.walletAddress} chain={agent.chain} className="mt-1" />
+        <div className="mt-3">
+          <Link
+            href={`/alerts?wallet=${encodeURIComponent(agent.walletAddress)}&preset=failed_tx&source=agent-detail`}
+            className="inline-flex items-center gap-2 rounded-lg border border-primary/30 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+          >
+            Create failed-tx alert
+          </Link>
+        </div>
       </div>
 
       {/* Public page toggle */}

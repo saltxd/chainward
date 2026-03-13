@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
 import { SPAM_TOKENS } from '@chainward/common';
@@ -20,7 +20,12 @@ export class GasService {
       .from(agentRegistry)
       .where(eq(agentRegistry.userId, userId));
 
-    const wallets = wallet ? [wallet] : agents.map((a) => a.walletAddress);
+    const wallets = wallet
+      ? agents
+          .filter((a) => a.walletAddress.toLowerCase() === wallet.toLowerCase())
+          .map((a) => a.walletAddress)
+      : agents.map((a) => a.walletAddress);
+
     if (wallets.length === 0) return [];
 
     const interval = bucket === '1d' ? '1 day' : '1 hour';

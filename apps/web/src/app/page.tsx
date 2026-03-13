@@ -3,13 +3,14 @@ import { cookies } from 'next/headers';
 import { ActivityFeed } from '@/components/landing/activity-feed';
 import { FeatureGrid } from '@/components/landing/feature-grid';
 import { CliTerminal } from '@/components/landing/cli-terminal';
+import { ObservatoryStats } from '@/components/landing/observatory-stats';
 
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   name: 'ChainWard',
   description:
-    'Real-time AI agent wallet monitoring for Base. Transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API.',
+    'Real-time monitoring and alerts for on-chain agent wallets on Base. Cross-framework visibility, gas analytics, and operator-focused notifications.',
   url: 'https://chainward.ai',
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Web, CLI (macOS, Linux, Windows)',
@@ -17,7 +18,7 @@ const jsonLd = {
     '@type': 'Offer',
     price: '0',
     priceCurrency: 'USD',
-    description: 'Free during beta — 3 agents, real-time alerts, Discord & Telegram',
+    description: 'Free during beta with founder-supported setup for early Base agent teams.',
   },
   creator: {
     '@type': 'Organization',
@@ -60,6 +61,12 @@ export default async function LandingPage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/base"
+            className="hidden px-3 py-2 text-sm font-medium text-[#a1a1aa] transition-colors hover:text-white sm:block"
+          >
+            Observatory
+          </Link>
           {isAuthenticated ? (
             <Link
               href="/overview"
@@ -72,7 +79,7 @@ export default async function LandingPage() {
               href="/login"
               className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
             >
-              Connect Wallet
+              Join Beta
             </Link>
           )}
         </div>
@@ -89,15 +96,15 @@ export default async function LandingPage() {
         </div>
 
         <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-[1.1] tracking-tight text-white md:text-6xl lg:text-7xl">
-          See everything your agents do{' '}
+          Real-time monitoring and alerts for{' '}
           <span className="bg-gradient-to-r from-[#4ade80] to-[#22c55e] bg-clip-text text-transparent">
-            on-chain
+            Base agent wallets
           </span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-[#a1a1aa] md:text-lg">
-          AI agent wallet monitoring for Base chain. Real-time transaction indexing,
-          agent transaction alerts, and gas analytics. Know what your agents are doing before it costs you.
+          Base-first AgentOps for small teams running on-chain agents. Track wallet activity,
+          catch failed transactions, and understand gas and balance behavior before an issue turns into a loss.
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -105,7 +112,7 @@ export default async function LandingPage() {
             href="/login"
             className="group relative inline-flex items-center gap-2 rounded-lg bg-[#1B5E20] px-8 py-3.5 text-sm font-semibold text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_30px_rgba(74,222,128,0.2)]"
           >
-            Start monitoring free
+            Start Beta Setup
             <svg
               className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
               fill="none"
@@ -116,13 +123,17 @@ export default async function LandingPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </Link>
-          <a
-            href="#features"
+          <Link
+            href="/base"
             className="inline-flex items-center gap-2 rounded-lg border border-[#27272a] px-8 py-3.5 text-sm font-medium text-[#a1a1aa] transition-all hover:border-[#3f3f46] hover:text-white"
           >
-            Learn more &darr;
-          </a>
+            See Live Observatory &rarr;
+          </Link>
         </div>
+
+        <p className="mt-4 text-sm text-[#71717a]">
+          Founder-supported beta for early Base agent teams.
+        </p>
 
         {/* Live activity feed */}
         <div className="mx-auto mt-16 max-w-3xl md:mt-20">
@@ -234,19 +245,22 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* Live Observatory Stats */}
+      <ObservatoryStats />
+
       {/* Wallet Lookup CTA */}
       <section className="relative z-10 mx-auto max-w-3xl px-6 pt-32 text-center md:pt-40">
         <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-          Look up any wallet on Base
+          Research a wallet before you add it
         </h2>
         <p className="mt-3 text-[#71717a]">
-          Paste an address and see transaction history, balances, and gas spend — no signup required.
+          Inspect recent Base activity, balances, and gas spend before you promote a wallet into your monitored fleet.
         </p>
         <Link
           href="/wallet"
           className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[#4ade80]/30 px-6 py-2.5 text-sm font-semibold text-[#4ade80] transition-all hover:bg-[#4ade80]/10"
         >
-          Try Wallet Lookup
+          Open Wallet Research
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
@@ -275,8 +289,8 @@ export default async function LandingPage() {
             },
             {
               step: '03',
-              title: 'Set up alerts',
-              desc: 'Get notified on large transfers, gas spikes, failed txs, or inactivity via Discord, Telegram, or webhook.',
+              title: 'Set up the first alert',
+              desc: 'Start with a recommended failed-tx, gas-spike, or inactivity alert and route it to Discord, Telegram, or webhook.',
             },
           ].map((item) => (
             <div key={item.step} className="relative">
@@ -319,7 +333,7 @@ export default async function LandingPage() {
               href="/login"
               className="block rounded-lg bg-[#1B5E20] px-6 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-[#2E7D32]"
             >
-              Start free
+              Join beta
             </Link>
           </div>
 
@@ -352,7 +366,7 @@ export default async function LandingPage() {
               href="/login"
               className="block rounded-lg bg-[#4ade80] px-6 py-2.5 text-center text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e]"
             >
-              Start free
+              Join beta
             </Link>
           </div>
 
@@ -382,7 +396,7 @@ export default async function LandingPage() {
               href="/login"
               className="block rounded-lg bg-[#1B5E20] px-6 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-[#2E7D32]"
             >
-              Start free
+              Join beta
             </Link>
           </div>
         </div>
@@ -397,18 +411,17 @@ export default async function LandingPage() {
         <div className="relative overflow-hidden rounded-2xl border border-[#1B5E20]/30 bg-gradient-to-b from-[#0a0f0a] to-[#050508] p-12 text-center md:p-16">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(27,94,32,0.15),_transparent_70%)]" />
           <h2 className="relative text-2xl font-bold text-white md:text-4xl">
-            Stop flying blind
+            Run your agents with an ops layer
           </h2>
           <p className="relative mx-auto mt-4 max-w-md text-[#a1a1aa]">
-            Join teams monitoring their AI agents on Base with ChainWard.
-            Free tier includes 3 agents with full alerting.
+            Join the beta for Base-first agent teams and get help setting up your first monitored wallet and alert flow.
           </p>
           <div className="relative mt-8">
             <Link
               href="/login"
               className="inline-flex items-center gap-2 rounded-lg bg-[#4ade80] px-8 py-3.5 text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e] hover:shadow-[0_0_40px_rgba(74,222,128,0.3)]"
             >
-              Start monitoring free
+              Join Beta
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
@@ -420,11 +433,9 @@ export default async function LandingPage() {
       {/* SEO summary — real HTML text for crawlers */}
       <section className="relative z-10 mx-auto max-w-3xl px-6 pb-16 pt-8 text-center">
         <p className="text-sm leading-relaxed text-[#52525b]">
-          ChainWard provides AI agent wallet monitoring and Base chain monitoring for autonomous agents.
-          Track every transaction, set up agent transaction alerts, and receive Discord alerts for crypto agents
-          or Telegram notifications in real time. Supports 7 alert types including large transfers, gas spikes,
-          failed transactions, balance drops, and inactivity detection. Available as a web dashboard, REST API,
-          TypeScript SDK, and CLI. Free during beta.
+          ChainWard is a Base-first operations dashboard for teams running on-chain agents. Monitor agent wallets,
+          route failed-transaction and gas-spike alerts to Discord, Telegram, or webhooks, and track recent wallet
+          behavior through the web app, API, TypeScript SDK, and CLI. Free during beta.
         </p>
       </section>
 
@@ -437,6 +448,7 @@ export default async function LandingPage() {
             <span>&copy; 2026 ChainWard</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-[#71717a]">
+            <Link href="/base" className="transition-colors hover:text-white">Observatory</Link>
             <Link href="/docs" className="transition-colors hover:text-white">Docs</Link>
             <a href="https://x.com/chainwardai" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">Twitter</a>
             <a href="mailto:hello@chainward.ai" className="transition-colors hover:text-white">Contact</a>

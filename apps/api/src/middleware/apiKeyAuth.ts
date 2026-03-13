@@ -6,6 +6,10 @@ import { getDb } from '../lib/db.js';
 import { AppError } from './errorHandler.js';
 import { verifyJwt, COOKIE_NAME } from '../lib/auth.js';
 
+function inferRequiredScope(method: string): string {
+  return ['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase()) ? 'read' : 'write';
+}
+
 /**
  * Middleware that authenticates via API key (Bearer token) OR session.
  * API key takes priority if both are present.
@@ -13,6 +17,7 @@ import { verifyJwt, COOKIE_NAME } from '../lib/auth.js';
  */
 export function requireApiKeyOrSession(requiredScope?: string) {
   return async (c: Context, next: Next) => {
+    const scopeToEnforce = requiredScope ?? inferRequiredScope(c.req.method);
     const authHeader = c.req.header('Authorization');
 
     if (authHeader?.startsWith('Bearer ag_')) {
@@ -27,8 +32,8 @@ export function requireApiKeyOrSession(requiredScope?: string) {
       }
 
       // Check scope if required
-      if (requiredScope && !result.scopes.includes(requiredScope) && !result.scopes.includes('admin')) {
-        throw new AppError(403, 'INSUFFICIENT_SCOPE', `API key lacks required scope: ${requiredScope}`);
+      if (!result.scopes.includes(scopeToEnforce) && !result.scopes.includes('admin')) {
+        throw new AppError(403, 'INSUFFICIENT_SCOPE', `API key lacks required scope: ${scopeToEnforce}`);
       }
 
       // Load user details
