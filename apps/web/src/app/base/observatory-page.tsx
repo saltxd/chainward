@@ -747,7 +747,7 @@ export function ObservatoryPage() {
             <Link href="/" className="text-gray-400 transition-colors hover:text-white">
               ChainWard
             </Link>{' '}
-            - Datadog for on-chain agents
+            - AgentOps for Base
           </p>
         </div>
       </footer>

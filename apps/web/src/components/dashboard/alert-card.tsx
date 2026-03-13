@@ -18,6 +18,7 @@ const ALERT_TYPE_LABELS: Record<string, string> = {
   failed_tx: 'Failed Tx',
   inactivity: 'Inactivity',
   new_contract: 'New Contract',
+  idle_balance: 'Idle Balance',
 };
 
 function formatThreshold(value: string | null, unit: string | null): string | null {

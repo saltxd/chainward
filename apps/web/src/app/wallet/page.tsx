@@ -63,7 +63,7 @@ export default function WalletLookupPage() {
       </div>
 
       <p className="mt-12 text-center text-xs text-muted-foreground/60">
-        Powered by Chain<span className="text-[#4ade80]/60">Ward</span> &mdash; Datadog for on-chain agents
+        Powered by Chain<span className="text-[#4ade80]/60">Ward</span> &mdash; AgentOps for Base
       </p>
     </div>
     </div>
