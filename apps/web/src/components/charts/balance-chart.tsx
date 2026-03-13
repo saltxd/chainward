@@ -8,11 +8,18 @@ interface BalanceChartProps {
 }
 
 export function BalanceChart({ data }: BalanceChartProps) {
-  const chartData = data
-    .filter((d) => d.token_symbol === 'ETH' || d.token_address === null)
-    .map((d) => ({
-      time: new Date(d.bucket).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      value: parseFloat(d.balance_usd ?? '0'),
+  // Sum all token balances per time bucket
+  const bucketMap = new Map<string, number>();
+  for (const d of data) {
+    const key = d.bucket;
+    bucketMap.set(key, (bucketMap.get(key) ?? 0) + parseFloat(d.balance_usd ?? '0'));
+  }
+
+  const chartData = Array.from(bucketMap.entries())
+    .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+    .map(([bucket, value]) => ({
+      time: new Date(bucket).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      value,
     }));
 
   if (chartData.length < 2) {
