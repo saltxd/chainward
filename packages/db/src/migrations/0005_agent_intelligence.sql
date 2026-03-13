@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS daily_agent_health (
   PRIMARY KEY (agent_id, date)
 );
 
-CREATE INDEX idx_health_date ON daily_agent_health (date);
-CREATE INDEX idx_health_score ON daily_agent_health (date, score DESC);
+CREATE INDEX IF NOT EXISTS idx_health_date ON daily_agent_health (date);
+CREATE INDEX IF NOT EXISTS idx_health_score ON daily_agent_health (date, score DESC);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 2. Weekly Protocol Stats
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS weekly_protocol_stats (
   PRIMARY KEY (week_start, protocol)
 );
 
-CREATE INDEX idx_protocol_stats_week ON weekly_protocol_stats (week_start);
+CREATE INDEX IF NOT EXISTS idx_protocol_stats_week ON weekly_protocol_stats (week_start);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 3. Agent-to-Agent Interaction Detection

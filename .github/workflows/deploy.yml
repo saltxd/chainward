@@ -1,0 +1,77 @@
+name: Deploy Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to deploy (default: short SHA of latest main commit)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  verify-and-guide:
+    name: Verify Images & Generate Deploy Commands
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "short=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify all images exist
+        run: |
+          TAG="${{ steps.tag.outputs.short }}"
+          echo "## Image Verification for tag: $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          ALL_OK=true
+          for svc in api web indexer; do
+            IMAGE="${{ env.IMAGE_PREFIX }}/chainward-${svc}:${TAG}"
+            if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+              echo "- :white_check_mark: \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- :x: \`$IMAGE\` — **NOT FOUND**" >> "$GITHUB_STEP_SUMMARY"
+              ALL_OK=false
+            fi
+          done
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if $ALL_OK; then
+            echo "### Deploy Commands" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "All images verified. Run from a machine with kubectl access:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+            echo "cd $(pwd) && ./deploy/deploy.sh --tag $TAG" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Or migrate only:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+            echo "./deploy/deploy.sh --migrate-only" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo ":warning: **Some images are missing.** Wait for the Build & Push workflow to complete." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
