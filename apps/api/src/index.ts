@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { bodyLimit } from 'hono/body-limit';
 import { serve } from '@hono/node-server';
 import { getEnv } from './config.js';
 import { health } from './routes/health.js';
@@ -48,6 +49,9 @@ app.use('*', async (c, next) => {
 
 // Error handler
 app.onError(handleError);
+
+// Request body size limit (1MB)
+app.use('*', bodyLimit({ maxSize: 1024 * 1024 }));
 
 // Rate limiting on API routes (100 req/min per client)
 app.use('/api/*', rateLimit({ max: 100, windowSec: 60, prefix: 'rl:api' }));

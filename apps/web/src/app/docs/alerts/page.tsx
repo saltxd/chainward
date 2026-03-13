@@ -1,6 +1,7 @@
 export const metadata = {
   title: 'Alert Types',
   description: '7 alert types for AI agent wallets: large transfers, gas spikes, failed transactions, balance drops, new contracts, inactivity, and idle balance. Delivered via Discord, Telegram, or webhook.',
+  alternates: { canonical: 'https://chainward.ai/docs/alerts' },
   openGraph: {
     title: 'Alert Types — ChainWard Docs',
     description: '7 alert types for AI agent wallets delivered via Discord, Telegram, or webhook.',

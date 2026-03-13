@@ -17,6 +17,7 @@ balances.get('/latest', async (c) => {
 balances.get('/history', async (c) => {
   const user = c.get('user');
   const query = c.req.query();
+  const bucket = query.bucket === '1d' ? '1d' : '1h';
 
   const service = new BalanceService(getDb());
   const data = await service.getHistory(
@@ -24,7 +25,7 @@ balances.get('/history', async (c) => {
     query.wallet,
     query.from ? new Date(query.from) : undefined,
     query.to ? new Date(query.to) : undefined,
-    query.bucket ?? '1h',
+    bucket,
   );
 
   return c.json({ success: true, data });

@@ -6,37 +6,25 @@ import { getRedis } from '../lib/redis.js';
 const health = new Hono();
 
 health.get('/', async (c) => {
-  const checks: Record<string, { status: string; latencyMs?: number }> = {};
+  let dbOk = false;
+  let redisOk = false;
 
-  // Check database
   try {
-    const start = performance.now();
     const db = getDb();
     await db.execute(sql`SELECT 1`);
-    checks.database = { status: 'ok', latencyMs: Math.round(performance.now() - start) };
-  } catch {
-    checks.database = { status: 'error' };
-  }
+    dbOk = true;
+  } catch { /* unhealthy */ }
 
-  // Check Redis
   try {
-    const start = performance.now();
     const redis = getRedis();
     await redis.ping();
-    checks.redis = { status: 'ok', latencyMs: Math.round(performance.now() - start) };
-  } catch {
-    checks.redis = { status: 'error' };
-  }
+    redisOk = true;
+  } catch { /* unhealthy */ }
 
-  const allHealthy = Object.values(checks).every((check) => check.status === 'ok');
+  const allHealthy = dbOk && redisOk;
 
   return c.json(
-    {
-      status: allHealthy ? 'healthy' : 'degraded',
-      version: '0.0.1',
-      timestamp: new Date().toISOString(),
-      checks,
-    },
+    { status: allHealthy ? 'healthy' : 'degraded' },
     allHealthy ? 200 : 503,
   );
 });

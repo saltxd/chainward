@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'Base Agent Observatory — Live AI Agent Activity on Base',
   description:
     'Track AI agent activity on Base in real time. Transaction volumes, gas analytics, and agent leaderboards. Monitoring autonomous agents on Base chain.',
+  alternates: { canonical: 'https://chainward.ai/base' },
   keywords: [
     'AI agent monitoring Base',
     'agent wallet analytics',

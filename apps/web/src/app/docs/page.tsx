@@ -1,6 +1,7 @@
 export const metadata = {
   title: 'Getting Started',
   description: 'Set up AI agent wallet monitoring on Base in under 2 minutes. Connect your wallet, register agent addresses, and configure real-time transaction alerts.',
+  alternates: { canonical: 'https://chainward.ai/docs' },
   openGraph: {
     title: 'Getting Started — ChainWard Docs',
     description: 'Set up AI agent wallet monitoring on Base in under 2 minutes.',
