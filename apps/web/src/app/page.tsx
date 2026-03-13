@@ -242,6 +242,15 @@ export default async function LandingPage() {
             <span className="text-sm font-medium text-[#a1a1aa] transition-colors group-hover:text-white">Virtuals GAME</span>
             <span className="rounded bg-[#4ade80]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#4ade80]">LIVE</span>
           </a>
+          <a
+            href="https://clawhub.ai/skills/chainward"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-2.5 rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] px-5 py-3 transition-all hover:border-[#4ade80]/30"
+          >
+            <span className="text-sm font-medium text-[#a1a1aa] transition-colors group-hover:text-white">OpenClaw</span>
+            <span className="rounded bg-[#4ade80]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#4ade80]">LIVE</span>
+          </a>
         </div>
       </section>
 
