@@ -7,6 +7,7 @@ interface ObservatoryOverview {
   agentsTracked: number;
   transactions24h: number;
   activeAgents24h: number;
+  activeAgents7d: number;
   gasBurned24h: { eth: number; usd: number };
 }
 
@@ -28,7 +29,7 @@ export function ObservatoryStats() {
   const stats = [
     { label: 'Agents Tracked', value: String(data.agentsTracked) },
     { label: '24h Transactions', value: String(data.transactions24h) },
-    { label: 'Active Now', value: String(data.activeAgents24h) },
+    { label: 'Active (7d)', value: String(data.activeAgents7d ?? data.activeAgents24h) },
     {
       label: '24h Gas Burned',
       value:
