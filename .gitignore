@@ -36,3 +36,8 @@ redisdata/
 
 # Worktrees
 .worktrees/
+
+# Internal planning docs (private)
+docs/plans/
+docs/research/
+codex/
