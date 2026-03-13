@@ -1,5 +1,5 @@
 import { Worker, Queue, type Job } from 'bullmq';
-import { eq, and, desc, sql, gt, lt, isNull, or } from 'drizzle-orm';
+import { eq, and, desc, sql, gt, lt, or } from 'drizzle-orm';
 import { alertConfigs, alertEvents, transactions, balanceSnapshots, agentRegistry } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
@@ -31,6 +31,10 @@ interface AlertTriggerResult {
   description: string;
   triggerValue: number | null;
   triggerTxHash: string | null;
+}
+
+interface ClaimedAlertEvent {
+  eventTimestamp: string;
 }
 
 export function createAlertEvaluatorWorker() {
@@ -531,29 +535,18 @@ async function fireAlert(
 ) {
   const db = getDb();
   const redis = getRedis();
-
-  const now = new Date();
-
-  // Create alert event
-  await db.insert(alertEvents).values({
-    timestamp: now,
-    alertConfigId: config.id,
-    walletAddress: config.walletAddress,
-    chain: config.chain,
-    alertType: config.alertType,
-    severity: result.severity,
-    title: result.title,
-    description: result.description,
-    triggerValue: result.triggerValue?.toString() ?? null,
-    triggerTxHash: result.triggerTxHash,
-    delivered: false,
-  });
-
-  // Update lastTriggered on the config
-  await db
-    .update(alertConfigs)
-    .set({ lastTriggered: now, updatedAt: now })
-    .where(eq(alertConfigs.id, config.id));
+  const claimed = await claimAlertEvent(config, result);
+  if (!claimed) {
+    logger.debug(
+      {
+        alertId: config.id,
+        alertType: config.alertType,
+        triggerTxHash: result.triggerTxHash ?? undefined,
+      },
+      'Alert skipped after atomic dedupe/cooldown check',
+    );
+    return;
+  }
 
   // Get agent name for the delivery payload
   const agents = await db
@@ -577,6 +570,7 @@ async function fireAlert(
     description: result.description,
     triggerValue: result.triggerValue,
     triggerTxHash: result.triggerTxHash,
+    eventTimestamp: claimed.eventTimestamp,
     agent: {
       name: agents[0]?.agentName ?? null,
       wallet: config.walletAddress,
@@ -586,7 +580,7 @@ async function fireAlert(
     webhookUrl: config.webhookUrl,
     telegramChatId: config.telegramChatId,
     discordWebhook: config.discordWebhook,
-    timestamp: now.toISOString(),
+    timestamp: claimed.eventTimestamp,
   });
   await deliverQueue.close();
 
@@ -596,9 +590,85 @@ async function fireAlert(
       alertType: config.alertType,
       severity: result.severity,
       title: result.title,
+      eventTimestamp: claimed.eventTimestamp,
     },
     'Alert fired',
   );
+}
+
+async function claimAlertEvent(
+  config: typeof alertConfigs.$inferSelect,
+  result: AlertTriggerResult,
+): Promise<ClaimedAlertEvent | null> {
+  const db = getDb();
+  const now = new Date();
+
+  return db.transaction(async (trx) => {
+    const rows = await trx.execute<{
+      enabled: boolean;
+      cooldown: string;
+      last_triggered: Date | null;
+    }>(sql`
+      SELECT
+        enabled,
+        cooldown::text AS cooldown,
+        last_triggered
+      FROM alert_configs
+      WHERE id = ${config.id}
+      FOR UPDATE
+    `);
+
+    const locked = rows[0];
+    if (!locked?.enabled) {
+      return null;
+    }
+
+    if (locked.last_triggered) {
+      const cooldownMs = parseCooldown(locked.cooldown);
+      const elapsed = now.getTime() - new Date(locked.last_triggered).getTime();
+      if (elapsed < cooldownMs) {
+        return null;
+      }
+    }
+
+    if (result.triggerTxHash) {
+      const duplicate = await trx.execute(sql`
+        SELECT 1
+        FROM alert_events
+        WHERE alert_config_id = ${config.id}
+          AND trigger_tx_hash = ${result.triggerTxHash}
+        LIMIT 1
+      `);
+
+      if (duplicate.length > 0) {
+        return null;
+      }
+    }
+
+    const [event] = await trx
+      .insert(alertEvents)
+      .values({
+        timestamp: now,
+        alertConfigId: config.id,
+        walletAddress: config.walletAddress,
+        chain: config.chain,
+        alertType: config.alertType,
+        severity: result.severity,
+        title: result.title,
+        description: result.description,
+        triggerValue: result.triggerValue?.toString() ?? null,
+        triggerTxHash: result.triggerTxHash,
+        delivered: false,
+      })
+      .returning({ timestamp: alertEvents.timestamp });
+
+    await trx
+      .update(alertConfigs)
+      .set({ lastTriggered: event!.timestamp, updatedAt: now })
+      .where(eq(alertConfigs.id, config.id));
+
+    return { eventTimestamp: event!.timestamp.toISOString() };
+  });
 }
 
 /** Parse a PostgreSQL interval string to milliseconds */

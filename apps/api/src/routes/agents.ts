@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { and, count, eq } from 'drizzle-orm';
+import { agentRegistry } from '@chainward/db';
 import { AGENT_FRAMEWORKS } from '@chainward/common';
 import type { AppVariables } from '../types.js';
 import { AgentService } from '../services/agentService.js';
@@ -121,16 +123,29 @@ agents.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'));
   if (Number.isNaN(id)) throw new AppError(400, 'INVALID_ID', 'Agent ID must be a number');
 
-  const service = new AgentService(getDb());
+  const db = getDb();
+  const service = new AgentService(db);
 
   // Fetch agent before deletion to get wallet info
   const agent = await service.getById(user.id, id);
 
   await service.delete(user.id, id);
 
-  // Remove address from Alchemy webhook
+  // Only remove the webhook subscription when no one else is monitoring this wallet.
   if (agent.chain === 'base') {
-    getWebhookProvider().removeAddress(agent.walletAddress).catch(() => {});
+    const [remaining] = await db
+      .select({ total: count() })
+      .from(agentRegistry)
+      .where(
+        and(
+          eq(agentRegistry.chain, agent.chain),
+          eq(agentRegistry.walletAddress, agent.walletAddress),
+        ),
+      );
+
+    if ((remaining?.total ?? 0) === 0) {
+      getWebhookProvider().removeAddress(agent.walletAddress).catch(() => {});
+    }
   }
 
   return c.json({ success: true, data: null });
