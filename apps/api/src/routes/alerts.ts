@@ -118,19 +118,22 @@ alerts.post('/:id/test', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:alert-te
   const now = new Date();
 
   // Insert alert_events row so delivery worker can find and update it
-  await db.insert(alertEvents).values({
-    timestamp: now,
-    alertConfigId: alert.id,
-    walletAddress: alert.walletAddress,
-    chain: alert.chain,
-    alertType: alert.alertType,
-    severity: 'info',
-    title,
-    description,
-    triggerValue: alert.thresholdValue ?? null,
-    triggerTxHash: sampleTxHash,
-    delivered: false,
-  });
+  const [event] = await db
+    .insert(alertEvents)
+    .values({
+      timestamp: now,
+      alertConfigId: alert.id,
+      walletAddress: alert.walletAddress,
+      chain: alert.chain,
+      alertType: alert.alertType,
+      severity: 'info',
+      title,
+      description,
+      triggerValue: alert.thresholdValue ?? null,
+      triggerTxHash: sampleTxHash,
+      delivered: false,
+    })
+    .returning({ timestamp: alertEvents.timestamp });
 
   // Push to delivery queue
   const queues = getQueues();
@@ -142,6 +145,7 @@ alerts.post('/:id/test', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:alert-te
     description,
     triggerValue: alert.thresholdValue ? parseFloat(alert.thresholdValue) : null,
     triggerTxHash: sampleTxHash,
+    eventTimestamp: event!.timestamp.toISOString(),
     agent: {
       name: agentName,
       wallet: alert.walletAddress,

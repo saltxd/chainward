@@ -4,9 +4,9 @@ import { transactions, type Database } from '@chainward/db';
 export type TransactionInsert = typeof transactions.$inferInsert;
 
 /**
- * Timescale hypertables make simple unique constraints awkward here, so use a
- * narrow advisory lock plus a null-safe fingerprint check to keep inserts and
- * alert dispatch idempotent under webhook retries and overlapping backfills.
+ * Serialize inserts for a single (txHash, wallet) pair so retries and
+ * overlapping backfills do not race each other while the DB unique constraint
+ * also guards against any duplicate rows that slip past application logic.
  */
 export async function insertTransactionIfNew(db: Database, tx: TransactionInsert): Promise<boolean> {
   return db.transaction(async (trx) => {
@@ -39,7 +39,21 @@ export async function insertTransactionIfNew(db: Database, tx: TransactionInsert
       return false;
     }
 
-    await trx.insert(transactions).values(tx);
-    return true;
+    try {
+      await trx.insert(transactions).values(tx);
+      return true;
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        return false;
+      }
+      throw err;
+    }
   });
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+
+  const code = 'code' in err ? String((err as { code?: unknown }).code ?? '') : '';
+  return code === '23505';
 }

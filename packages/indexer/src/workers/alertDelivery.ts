@@ -1,5 +1,5 @@
 import { Worker, type Job } from 'bullmq';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { lookup } from 'node:dns/promises';
 import { alertEvents, alertConfigs, agentRegistry } from '@chainward/db';
 import { getExplorerTxUrl, type SupportedChain } from '@chainward/common';
@@ -15,6 +15,7 @@ interface DeliveryJobData {
   description: string | null;
   triggerValue: number | null;
   triggerTxHash: string | null;
+  eventTimestamp: string;
   agent: {
     name: string | null;
     wallet: string;
@@ -171,44 +172,28 @@ async function deliverAlert(data: DeliveryJobData) {
     }
   }
 
-  // Update the most recent alert event for this config
+  // Update the exact alert event row that was queued for delivery.
   const delivered = deliveredChannels.length > 0;
   const deliveryError = errors.length > 0 ? errors.join('; ') : null;
 
-  // Find the matching alert event by config + timestamp
-  const events = await db
-    .select()
-    .from(alertEvents)
+  await db
+    .update(alertEvents)
+    .set({
+      delivered,
+      deliveryChannel: deliveredChannels.join(',') || null,
+      deliveryError,
+    })
     .where(
       and(
         eq(alertEvents.alertConfigId, data.alertConfigId),
-        eq(alertEvents.alertType, data.alertType),
+        eq(alertEvents.timestamp, new Date(data.eventTimestamp)),
       ),
-    )
-    .orderBy(desc(alertEvents.timestamp))
-    .limit(1);
-
-  if (events.length > 0) {
-    const event = events[0]!;
-    // Update using a raw condition on the composite key (timestamp + alertConfigId)
-    await db
-      .update(alertEvents)
-      .set({
-        delivered,
-        deliveryChannel: deliveredChannels.join(',') || null,
-        deliveryError,
-      })
-      .where(
-        and(
-          eq(alertEvents.alertConfigId, event.alertConfigId),
-          eq(alertEvents.timestamp, event.timestamp),
-        ),
-      );
-  }
+    );
 
   logger.info(
     {
       alertConfigId: data.alertConfigId,
+      eventTimestamp: data.eventTimestamp,
       delivered: deliveredChannels,
       errors: errors.length > 0 ? errors : undefined,
     },
