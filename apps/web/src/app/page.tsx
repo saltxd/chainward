@@ -449,6 +449,7 @@ export default async function LandingPage() {
           </div>
           <div className="flex items-center gap-6 text-sm text-[#71717a]">
             <Link href="/base" className="transition-colors hover:text-white">Observatory</Link>
+            <Link href="/wallet" className="transition-colors hover:text-white">Wallet Lookup</Link>
             <Link href="/docs" className="transition-colors hover:text-white">Docs</Link>
             <a href="https://x.com/chainwardai" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">Twitter</a>
             <a href="mailto:hello@chainward.ai" className="transition-colors hover:text-white">Contact</a>
