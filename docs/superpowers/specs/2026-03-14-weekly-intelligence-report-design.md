@@ -28,13 +28,17 @@ A weekly automated report system that:
 ### Data Flow
 
 ```
-BullMQ cron (Sunday noon UTC)
-  → ReportGenerator: query observatory data for past 7 days
-  → Compute week-over-week deltas (compare with prior report)
+BullMQ cron (Monday 06:00 UTC — after ISO week ends Sunday midnight)
+  → ReportGenerator: query observatory data for the completed ISO week (Mon 00:00 → Sun 23:59:59)
+  → Compute week-over-week deltas (compare with prior report, null if first report)
   → Store structured report in weekly_reports table
   → Generate thread text from report data
-  → Report available at /reports/weekly/[id]
+  → Report available at /reports/weekly/latest and /reports/weekly/[number]
 ```
+
+### Week Boundaries
+
+Reports use **ISO weeks** (Monday 00:00 UTC through Sunday 23:59:59 UTC). The generation job runs Monday at 06:00 UTC, giving a buffer after the week closes. This aligns with the existing `weekly_protocol_stats` aggregation which also uses ISO weeks.
 
 ### Database
 
@@ -54,41 +58,45 @@ CREATE TABLE weekly_reports (
 CREATE INDEX idx_weekly_reports_number ON weekly_reports(report_number DESC);
 ```
 
+**Report number assignment:** `SELECT COALESCE(MAX(report_number), 0) + 1 FROM weekly_reports` at generation time.
+
+**Drizzle schema file:** `packages/db/src/schema/weeklyReports.ts` — export from `packages/db/src/schema/index.ts`. The `report_data` column uses `jsonb('report_data').$type<WeeklyReportData>()`.
+
 **`report_data` JSONB structure:**
 
 ```typescript
 interface WeeklyReportData {
-  // Summary stats
+  // Summary stats (all monetary values in USD only — no ETH conversion needed)
   totalTransactions: number;
-  totalTransactionsDelta: number; // vs prior week, percentage
-  totalValueEth: string;
-  totalValueUsd: string;
-  totalValueDelta: number;
-  totalGasEth: string;
-  totalGasUsd: string;
-  totalGasDelta: number;
+  totalTransactionsDelta: number | null; // null on first report
+  totalValueUsd: string; // sum of amount_usd from transactions
+  totalValueDelta: number | null;
+  totalGasEth: string; // sum of gas_cost_native
+  totalGasUsd: string; // sum of gas_cost_usd
+  totalGasDelta: number | null;
   activeAgentCount: number;
-  activeAgentCountDelta: number;
+  activeAgentCountDelta: number | null;
 
   // Highlights
   mostActiveAgent: {
     name: string;
     wallet: string;
     txCount: number;
-    description: string;
   };
   biggestMover: {
     name: string;
     wallet: string;
-    metric: string; // e.g. "largest single tx" or "biggest balance change"
-    value: string;
+    type: 'largest_tx' | 'balance_change';
+    valueUsd: string;
+    // Template-generated description, e.g.:
+    //   largest_tx: "Executed a $4,200 transaction on Aerodrome"
+    //   balance_change: "Balance changed by -$1,800 over the week"
     description: string;
   };
   gasEfficiencyLeader: {
     name: string;
     wallet: string;
-    avgGasPerTx: string;
-    description: string;
+    avgGasPerTxEth: string;
   };
 
   // Sections
@@ -109,21 +117,33 @@ interface WeeklyReportData {
     name: string;
     wallet: string;
     txCount: number;
-    totalValueEth: string;
+    totalValueUsd: string;
   }>;
   anomalies: Array<{
-    type: string; // "inactivity" | "spike" | "balance_drop" | "new_agent"
+    type: 'inactivity' | 'spike' | 'balance_drop' | 'new_agent';
     agent: string;
     description: string;
   }>;
 }
 ```
 
+### Biggest Mover Selection Logic
+
+Compare two candidates:
+1. **Largest single transaction** — highest `amount_usd` in the week across observatory agents
+2. **Largest balance change** — greatest absolute difference between first and last `balance_snapshots` entry in the week
+
+Pick whichever has the higher USD magnitude. Generate description from template:
+- `largest_tx`: `"Executed a ${formatUsd(valueUsd)} transaction${protocol ? ' on ' + protocol : ''}"`
+- `balance_change`: `"Balance changed by ${sign}${formatUsd(valueUsd)} over the week"`
+
 ### API Endpoints
 
-**`GET /api/reports/weekly`** — latest report (public, no auth)
-**`GET /api/reports/weekly/:id`** — specific report by number (public, no auth)
-**`GET /api/reports/weekly/list`** — paginated report archive (public, no auth)
+**`GET /api/reports/weekly/latest`** — latest report (public, no auth)
+**`GET /api/reports/weekly/:number`** — specific report by number (public, no auth)
+**`GET /api/reports/weekly`** — paginated report archive, `?page=1&limit=10` (public, no auth)
+
+Routes registered in this order in Hono: `/latest` first, then `/:number`. No ambiguity.
 
 Rate limited at 60/min (same as observatory).
 
@@ -132,77 +152,91 @@ Rate limited at 60/min (same as observatory).
 **Location:** `packages/indexer/src/workers/reportGenerator.ts`
 
 New BullMQ worker with a single repeatable job:
-- Cron: `0 12 * * 0` (Sunday noon UTC)
-- Queries: Reuse observatory service queries scoped to the 7-day window
-- Delta computation: Load prior report from `weekly_reports`, compute percentage changes
+- Cron: `0 6 * * 1` (Monday 06:00 UTC — after ISO week ends)
+- Queries scoped to observatory agents only: `WHERE agent_registry.is_observatory = true`
+- Delta computation: Load prior report from `weekly_reports`, compute percentage changes. If no prior report exists, all delta fields are `null`.
 - Agent names: Join against `agent_registry` for display names
-- A2A data: Query `is_agent_to_agent` column on transactions (already populated by intelligence pipeline)
-- Protocol data: Query `weekly_protocol_stats` table (already populated by intelligence worker)
+- A2A data: Query `is_agent_interaction` column on transactions (populated by intelligence pipeline's `agentResolver`)
+- Protocol data: Query `transactions` table directly, grouped by decoded protocol, filtered to observatory wallets only. Do NOT reuse `weekly_protocol_stats` (which includes non-observatory agents).
 
-**Key queries needed:**
-1. Total tx count + value for observatory agents in date range
-2. Total gas consumed in date range
-3. Count of distinct active agents (had ≥1 tx)
-4. Top N agents by tx count
-5. Largest single transaction
-6. Largest balance change (compare first and last balance snapshot in range)
-7. Lowest avg gas per tx (gas efficiency)
-8. A2A transaction count + top pairs
-9. Protocol breakdown from `weekly_protocol_stats`
-10. Anomaly detection: agents with 0 txs that had txs last week (went silent), agents with >3x normal activity (spike)
+**Key queries:**
+1. Total tx count + `SUM(amount_usd)` for observatory agents in ISO week
+2. `SUM(gas_cost_native)` + `SUM(gas_cost_usd)` in ISO week
+3. `COUNT(DISTINCT wallet_address)` with ≥1 tx
+4. Top 10 agents by tx count, joined with `agent_registry` for names
+5. Single transaction with highest `amount_usd` (for biggestMover candidate 1)
+6. Greatest absolute balance delta: compare earliest and latest `balance_snapshots` per agent in the week (for biggestMover candidate 2)
+7. Agent with lowest `SUM(gas_cost_native) / COUNT(*)` having ≥3 txs (gas efficiency)
+8. `COUNT(*) WHERE is_agent_interaction = true`, top pairs by `(from_address, to_address)` grouping
+9. Protocol breakdown: `GROUP BY` decoded contract/protocol on transactions for observatory wallets
+10. Anomaly detection (see below)
+
+### Anomaly Detection
+
+**Inactivity:** Agents that had ≥1 tx in the prior week but 0 txs this week. Skip if no prior report exists.
+
+**Spike:** Agents whose tx count this week is ≥3x their average weekly tx count over the prior 4 weeks. Skip if fewer than 3 prior weekly reports exist (insufficient baseline).
+
+**Balance drop:** Agents whose balance decreased by >50% during the week (compare first and last snapshot).
+
+**New agent:** Any agent added to the observatory during this week (check `created_at` on `agent_registry`).
 
 ### Thread Formatter
 
-**Location:** `packages/indexer/src/workers/threadFormatter.ts`
+**Location:** `packages/indexer/src/lib/threadFormatter.ts` (pure function, not a worker)
 
-Takes `WeeklyReportData`, outputs a formatted text block (stored in `thread_text` column):
+Takes `WeeklyReportData` + `reportNumber`, outputs a formatted text block. Each tweet is capped at 280 characters — the formatter truncates agent names at 20 chars and descriptions at 100 chars with ellipsis if needed.
 
 ```
 Tweet 1 (hook):
-"39 AI agents on Base moved $X this week (+Y% WoW).
+"Base Agent Intelligence Report #[N]
 
-Here's what they did 🧵"
+[activeAgentCount] AI agents on Base moved $[totalValueUsd] this week[deltaStr].
+
+What they did 🧵"
+
+(deltaStr = " (+Y% WoW)" if delta is not null, "" if first report)
 
 Tweet 2 (most active):
 "Most Active: [Agent Name]
-[X] transactions this week — [description of what they were doing]"
+[X] transactions this week"
 
 Tweet 3 (biggest mover):
 "Biggest Mover: [Agent Name]
-[Description of the notable transaction or balance change]"
+[description]"
 
 Tweet 4 (gas + efficiency):
 "Gas Report:
 Total consumed: [X] ETH ($Y)
-Most efficient: [Agent] at [Z] ETH/tx
-[Delta vs last week]"
+Most efficient: [Agent] at [Z] ETH/tx"
 
 Tweet 5 (A2A or protocol):
-"Agent-to-Agent Activity:
-[X] transactions between tracked agents this week
-[Notable pairs or protocol breakdown]"
+If a2aActivity.totalA2aTransactions > 0:
+  "Agent-to-Agent: [X] transactions between tracked agents this week"
+Else, show protocol breakdown:
+  "Protocol Activity:
+  [top 3 protocols with percentages]"
 
 Tweet 6 (CTA):
-"Full report with charts and data:
-chainward.ai/reports/weekly
+"Full report: chainward.ai/reports/weekly/latest
 
-Want real-time monitoring for your agents?
-Connect your wallet — it takes 60 seconds."
+Track your own agents — 60 seconds to set up.
+chainward.ai"
 ```
 
-Thread is 6 tweets. No emojis except the thread indicator 🧵 on tweet 1. Numbers are rounded for readability. Dollar amounts use K/M suffixes.
+Thread is 6 tweets. No emojis except 🧵 on tweet 1. Numbers rounded for readability. Dollar amounts use K/M suffixes ($1.2K, $3.4M).
 
 ### Web Pages
 
-**`/reports/weekly` — Latest Report Page**
+**`/reports/weekly/latest` — Latest Report Page**
 
-Location: `apps/web/src/app/reports/weekly/page.tsx`
+Location: `apps/web/src/app/reports/weekly/latest/page.tsx`
 
-Server component that fetches latest report, renders:
-- Report header: "Base Agent Intelligence Report #[N]" + date range + "Week [N] of tracking"
-- Summary stat cards (same style as observatory): total txs, total value, total gas, active agents — all with WoW deltas
+Server component that fetches latest report via API proxy, renders:
+- Report header: "Base Agent Intelligence Report #[N]" + date range
+- Summary stat cards (same style as observatory): total txs, total value, total gas, active agents — all with WoW deltas (show "First report" badge instead of delta on Report #1)
 - "Highlights" section: most active, biggest mover, gas leader — card per highlight
-- Activity chart: bar chart of daily tx volume for the week (Recharts)
+- Activity chart: bar chart of daily tx volume for the week (Recharts, brand green)
 - Top agents table: ranked by tx count with value and gas
 - A2A section: if any A2A activity, show pairs
 - Protocol breakdown: horizontal bar chart
@@ -223,10 +257,18 @@ Location: `apps/web/src/app/reports/page.tsx`
 
 List of all published reports with date range, headline stat, and link. Simple grid layout.
 
+### Manual Trigger
+
+**Location:** `packages/indexer/src/scripts/generateReport.ts`
+
+A standalone script runnable via `npx tsx packages/indexer/src/scripts/generateReport.ts`. Connects to DB and Redis, enqueues the report generation job immediately. Used for testing and generating Report #001.
+
+Add npm script: `"report:generate": "tsx src/scripts/generateReport.ts"` in `packages/indexer/package.json`.
+
 ### Sitemap & SEO
 
-- Add `/reports/weekly` to existing sitemap with `weekly` changefreq
-- Each report page gets unique OG image (or reuse observatory OG with report number overlay — v2)
+- Add `/reports/weekly/latest` to existing sitemap with `weekly` changefreq
+- Individual report pages (`/reports/weekly/1`, etc.) won't be in the static sitemap initially — switch to dynamic `app/sitemap.ts` as a v2 enhancement when the archive grows
 - JSON-LD `Dataset` schema on each report page
 
 ## What This Does NOT Include
@@ -238,6 +280,7 @@ List of all published reports with date range, headline stat, and link. Simple g
 - **No PDF export** — web-first
 - **No "analyst agent" wallet** — cut for v1 scope (cool but unnecessary for launch)
 - **No custom OG images per report** — reuse site OG image
+- **No dynamic sitemap** — static sitemap with `/reports/weekly/latest` only for now
 
 ## Migration
 
@@ -260,21 +303,22 @@ CREATE INDEX IF NOT EXISTS idx_weekly_reports_number
 
 ## Build Order
 
-1. **Migration + Drizzle schema** — `0008_weekly_reports.sql`, add table to Drizzle schema
-2. **Report generator worker** — aggregation queries, delta computation, store to DB
-3. **Thread formatter** — template engine that produces tweet text from report data
-4. **API endpoints** — 3 public GET routes for latest, by-number, and list
-5. **Web pages** — `/reports/weekly`, `/reports/weekly/[number]`, `/reports`
-6. **Manual trigger** — ability to run report generation on-demand (for testing + Report #001)
+1. **Migration + Drizzle schema** — `0008_weekly_reports.sql`, create `packages/db/src/schema/weeklyReports.ts`, export from index
+2. **Report generator worker** — aggregation queries (observatory-scoped), delta computation, store to DB
+3. **Thread formatter** — pure function, template engine with 280-char truncation
+4. **API endpoints** — 3 public GET routes: `/latest`, `/:number`, list with pagination
+5. **Web pages** — `/reports/weekly/latest`, `/reports/weekly/[number]`, `/reports`
+6. **Manual trigger script** — `packages/indexer/src/scripts/generateReport.ts` + npm script
 7. **Polish + deploy** — SEO tags, sitemap entry, landing page link, deploy all 3 services
 
 ## Testing Strategy
 
-- Run report generator against live observatory data to produce Report #001
-- Verify all queries return sensible data (handle edge cases: agents with 0 txs, missing balance snapshots)
-- Verify thread text reads well and fits tweet character limits (280 chars each)
+- Run report generator via manual trigger against live observatory data to produce Report #001
+- Verify all queries return sensible data (handle edge cases: agents with 0 txs, missing balance snapshots, first report with null deltas)
+- Verify thread text reads well and fits tweet character limits (280 chars each) — test with long agent names
 - Visual review of report page on desktop and mobile
 - Check SEO tags render correctly (OG preview tools)
+- Verify Report #1 renders correctly with null deltas (no "NaN%" or "undefined")
 
 ## Success Metrics
 
