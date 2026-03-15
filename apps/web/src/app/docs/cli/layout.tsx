@@ -1,11 +1,23 @@
 export const metadata = {
-  title: 'CLI',
-  description: 'ChainWard CLI reference. Monitor agent wallets, view transactions, manage alerts, and watch live activity from the terminal. Install with npm i -g @chainward/cli.',
+  title: 'CLI — Monitor Agents from Your Terminal',
+  description:
+    'Install the ChainWard CLI to monitor AI agent wallets on Base from your terminal. List agents, view transactions, create alerts, and watch a live feed.',
   alternates: { canonical: 'https://chainward.ai/docs/cli' },
   openGraph: {
-    title: 'CLI — ChainWard Docs',
-    description: 'Monitor AI agent wallets from the terminal with the ChainWard CLI.',
+    title: 'CLI — Monitor Agents from Your Terminal | ChainWard',
+    description:
+      'Install the ChainWard CLI to monitor AI agent wallets on Base from your terminal.',
+    url: 'https://chainward.ai/docs/cli',
+    type: 'website',
     images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image' as const,
+    site: '@chainwardai',
+    title: 'CLI — Monitor Agents from Your Terminal | ChainWard',
+    description:
+      'Install the ChainWard CLI to monitor AI agent wallets on Base from your terminal.',
+    images: ['/chainward-og.png'],
   },
 };
 
