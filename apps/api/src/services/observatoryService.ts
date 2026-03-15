@@ -77,12 +77,12 @@ export class ObservatoryService {
           COUNT(*) FILTER (WHERE timestamp >= ${dayAgo}::timestamptz) AS tx_24h,
           COUNT(*) FILTER (WHERE timestamp >= ${weekAgo}::timestamptz) AS tx_7d,
           COUNT(*) AS tx_30d,
-          COALESCE(SUM(gas_cost_native) FILTER (WHERE timestamp >= ${dayAgo}::timestamptz), 0) AS gas_eth_24h,
-          COALESCE(SUM(gas_cost_usd)    FILTER (WHERE timestamp >= ${dayAgo}::timestamptz), 0) AS gas_usd_24h,
-          COALESCE(SUM(gas_cost_native) FILTER (WHERE timestamp >= ${weekAgo}::timestamptz), 0) AS gas_eth_7d,
-          COALESCE(SUM(gas_cost_usd)    FILTER (WHERE timestamp >= ${weekAgo}::timestamptz), 0) AS gas_usd_7d,
-          COALESCE(SUM(gas_cost_native), 0) AS gas_eth_30d,
-          COALESCE(SUM(gas_cost_usd),    0) AS gas_usd_30d,
+          COALESCE(SUM(CAST(gas_cost_native AS numeric)) FILTER (WHERE timestamp >= ${dayAgo}::timestamptz), 0) AS gas_eth_24h,
+          COALESCE(SUM(CAST(gas_cost_usd AS numeric))    FILTER (WHERE timestamp >= ${dayAgo}::timestamptz), 0) AS gas_usd_24h,
+          COALESCE(SUM(CAST(gas_cost_native AS numeric)) FILTER (WHERE timestamp >= ${weekAgo}::timestamptz), 0) AS gas_eth_7d,
+          COALESCE(SUM(CAST(gas_cost_usd AS numeric))    FILTER (WHERE timestamp >= ${weekAgo}::timestamptz), 0) AS gas_usd_7d,
+          COALESCE(SUM(CAST(gas_cost_native AS numeric)), 0) AS gas_eth_30d,
+          COALESCE(SUM(CAST(gas_cost_usd AS numeric)),    0) AS gas_usd_30d,
           COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= ${dayAgo}::timestamptz) AS active_24h,
           COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= ${weekAgo}::timestamptz) AS active_7d
         FROM transactions
@@ -103,8 +103,8 @@ export class ObservatoryService {
       `);
 
       let totalPortfolioValue = 0;
-      for (const row of balanceRows as unknown as Array<{ balance_usd: string }>) {
-        totalPortfolioValue += parseFloat(row.balance_usd ?? '0');
+      for (const row of balanceRows as unknown as Array<{ balance_usd: string | null }>) {
+        totalPortfolioValue += parseFloat(String(row.balance_usd ?? '0'));
       }
 
       return {
@@ -214,7 +214,7 @@ export class ObservatoryService {
           t.wallet_address,
           COALESCE(a.agent_name, t.wallet_address) AS agent_name,
           a.agent_framework,
-          COALESCE(SUM(t.gas_cost_usd), 0) AS gas_spend_usd
+          COALESCE(SUM(CAST(t.gas_cost_usd AS numeric)), 0) AS gas_spend_usd
         FROM transactions t
         LEFT JOIN agent_registry a ON a.wallet_address = t.wallet_address
           AND a.is_observatory = true AND a.is_public = true
@@ -240,7 +240,7 @@ export class ObservatoryService {
           bs.wallet_address,
           COALESCE(a.agent_name, bs.wallet_address) AS agent_name,
           a.agent_framework,
-          bs.balance_usd AS portfolio_value_usd
+          CAST(bs.balance_usd AS numeric) AS portfolio_value_usd
         FROM (
           SELECT DISTINCT ON (wallet_address) wallet_address, balance_usd
           FROM balance_snapshots
@@ -250,7 +250,7 @@ export class ObservatoryService {
         ) bs
         LEFT JOIN agent_registry a ON a.wallet_address = bs.wallet_address
           AND a.is_observatory = true AND a.is_public = true
-        ORDER BY bs.balance_usd::numeric DESC
+        ORDER BY CAST(bs.balance_usd AS numeric) DESC
         LIMIT 10
       `);
 
@@ -320,7 +320,7 @@ export class ObservatoryService {
         SELECT
           time_bucket('1 day', timestamp) AS day,
           COUNT(*) AS tx_count,
-          COALESCE(SUM(gas_cost_usd), 0) AS gas_usd,
+          COALESCE(SUM(CAST(gas_cost_usd AS numeric)), 0) AS gas_usd,
           COUNT(DISTINCT wallet_address) AS active_agents
         FROM transactions
         WHERE wallet_address = ANY(${walletArray}::text[])
