@@ -149,7 +149,7 @@ export class ObservatoryService {
         LEFT JOIN agent_registry a ON a.wallet_address = t.wallet_address
           AND a.is_observatory = true AND a.is_public = true
         WHERE t.wallet_address = ANY(${walletArray}::text[])
-          AND COALESCE(t.amount_usd, 0) > 0
+          AND t.amount_usd IS NOT NULL AND CAST(t.amount_usd AS numeric) > 0.001
           ${spamExclusion}
         ORDER BY t.timestamp DESC
         LIMIT 50
