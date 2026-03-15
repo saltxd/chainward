@@ -10,7 +10,7 @@ import { getEthPrice, getUsdPrice } from '../processors/priceResolver.js';
 import { logger } from '../lib/logger.js';
 
 interface BalanceJobData {
-  type: 'poll' | 'initial';
+  type: 'poll' | 'poll-observatory' | 'initial';
   agentId?: number;
   walletAddress?: string;
   chain?: string;
@@ -25,8 +25,13 @@ export function createBalancePollerWorker() {
         return;
       }
 
-      // Poll all registered agents
-      await pollAllBalances();
+      if (job.data.type === 'poll-observatory') {
+        await pollObservatoryBalances();
+        return;
+      }
+
+      // Poll only user-registered agents (not observatory)
+      await pollUserBalances();
     },
     {
       connection: getRedis(),
@@ -42,47 +47,100 @@ export function createBalancePollerWorker() {
   return worker;
 }
 
-/** Set up repeatable balance polling job */
+/** Set up repeatable balance polling jobs — user agents every 5 min, observatory every 30 min */
 export async function setupBalancePolling(redis: import('ioredis').default) {
   const { Queue } = await import('bullmq');
   const queue = new Queue('balance-poll', { connection: redis });
 
-  // Remove existing repeatable jobs before adding new one
+  // Remove existing repeatable jobs before adding new ones
   const existing = await queue.getRepeatableJobs();
   for (const job of existing) {
     await queue.removeRepeatableByKey(job.key);
   }
 
-  // Poll every 5 minutes (free tier default)
+  // User-registered agents: poll every 5 minutes
   await queue.add(
-    'poll-all',
+    'poll-users',
     { type: 'poll' },
     {
       repeat: { every: 5 * 60 * 1000 },
-      jobId: 'balance-poll-repeatable',
+      jobId: 'balance-poll-users',
     },
   );
 
-  logger.info('Balance polling scheduled (every 5 minutes)');
+  // Observatory agents: poll every 30 minutes (saves ~85% CUs vs 5 min)
+  await queue.add(
+    'poll-observatory',
+    { type: 'poll-observatory' },
+    {
+      repeat: { every: 30 * 60 * 1000 },
+      jobId: 'balance-poll-observatory',
+    },
+  );
+
+  logger.info('Balance polling scheduled (users: 5min, observatory: 30min)');
   await queue.close();
 }
 
-async function pollAllBalances() {
+/** Poll only user-registered agents (non-observatory) */
+async function pollUserBalances() {
   const db = getDb();
   const agents = await db.select().from(agentRegistry);
+  const userAgents = agents.filter((a) => !a.isObservatory);
 
-  logger.info({ count: agents.length }, 'Polling balances for all agents');
+  if (userAgents.length === 0) return;
 
-  for (const agent of agents) {
+  logger.info({ count: userAgents.length }, 'Polling balances for user agents');
+
+  for (const agent of userAgents) {
     try {
       await snapshotWallet(agent.walletAddress, agent.chain);
     } catch (err) {
-      logger.error(
-        { err, walletAddress: agent.walletAddress },
-        'Failed to snapshot balance',
-      );
+      logger.error({ err, walletAddress: agent.walletAddress }, 'Failed to snapshot balance');
     }
   }
+}
+
+/** Poll observatory agents at lower frequency to save CUs */
+async function pollObservatoryBalances() {
+  const db = getDb();
+  const agents = await db.select().from(agentRegistry);
+  const obsAgents = agents.filter((a) => a.isObservatory);
+
+  if (obsAgents.length === 0) return;
+
+  logger.info({ count: obsAgents.length }, 'Polling balances for observatory agents (30min interval)');
+
+  for (const agent of obsAgents) {
+    try {
+      // ETH only for observatory — skip ERC-20 tokens to save CUs
+      await snapshotWalletEthOnly(agent.walletAddress, agent.chain);
+    } catch (err) {
+      logger.error({ err, walletAddress: agent.walletAddress }, 'Failed to snapshot observatory balance');
+    }
+  }
+}
+
+/** Lightweight snapshot: ETH balance only (1 RPC call vs 7) */
+async function snapshotWalletEthOnly(walletAddress: string, chain: string) {
+  if (chain !== 'base') return;
+
+  const db = getDb();
+  const client = getBaseClient();
+  const ethBalance = await client.getBalance({ address: walletAddress as Address });
+  const ethAmount = parseFloat(formatEther(ethBalance));
+  const ethPrice = await getEthPrice();
+
+  await db.insert(balanceSnapshots).values({
+    timestamp: new Date(),
+    chain: 'base',
+    walletAddress,
+    tokenAddress: null,
+    tokenSymbol: 'ETH',
+    balanceRaw: ethBalance.toString(),
+    balanceUsd: ethPrice ? (ethAmount * ethPrice).toFixed(6) : null,
+    snapshotType: 'periodic',
+  });
 }
 
 async function snapshotWallet(walletAddress: string, chain: string) {
