@@ -26,7 +26,7 @@ export async function insertTransactionIfNew(db: Database, tx: TransactionInsert
         AND wallet_address = ${tx.walletAddress}
         AND direction = ${tx.direction}
         AND status = ${tx.status}
-        AND timestamp = ${tx.timestamp}
+        AND timestamp = ${tx.timestamp instanceof Date ? tx.timestamp.toISOString() : tx.timestamp}
         AND counterparty IS NOT DISTINCT FROM ${tx.counterparty ?? null}
         AND token_address IS NOT DISTINCT FROM ${tx.tokenAddress ?? null}
         AND amount_raw IS NOT DISTINCT FROM ${tx.amountRaw ?? null}
