@@ -1,6 +1,10 @@
 /**
  * Spam token detection for Base chain.
  * Filters known scam airdrops and tokens with suspicious naming patterns.
+ *
+ * These small lists are kept inline — they're operational quality filters,
+ * not competitive intelligence. For the curated agent and protocol datasets,
+ * see packages/intelligence/.
  */
 
 /** Known spam/scam token contract addresses on Base (lowercased) */

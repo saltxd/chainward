@@ -401,6 +401,12 @@ export function ObservatoryPage() {
         </Link>
         <div className="flex items-center gap-4">
           <Link
+            href="/base/digest"
+            className="hidden text-sm text-gray-400 transition-colors hover:text-white sm:block"
+          >
+            Digest
+          </Link>
+          <Link
             href="/wallet"
             className="hidden text-sm text-gray-400 transition-colors hover:text-white sm:block"
           >

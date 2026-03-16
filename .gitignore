@@ -41,3 +41,7 @@ redisdata/
 docs/plans/
 docs/research/
 codex/
+
+# Private intelligence data (curated agent labels, protocol registry, etc.)
+packages/intelligence/*.json
+!packages/intelligence/*.example.json

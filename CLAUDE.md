@@ -12,6 +12,7 @@ Onchain agent monitoring SaaS. Tracks transactions, balances, and gas for AI age
 - **Auth:** SIWE (Sign In With Ethereum) + JWT in HTTP-only cookies
 - **Wallet UI:** RainbowKit v2 + wagmi v2
 - **Shared types/utils:** `packages/common/`
+- **Intelligence:** `packages/intelligence/` (gitignored data) + `packages/intelligence-loader/` (public types/loader)
 - **SDK:** `packages/sdk/` — TypeScript client, Bearer auth via `ag_` keys
 - **CLI:** `packages/cli/` — `chainward` command (login, status, agents, txs, alerts, watch)
 - **elizaOS Plugin:** `packages/elizaos-plugin/` — 6 actions, auto-registration on init
@@ -70,6 +71,18 @@ RPC and webhook functionality is abstracted behind provider interfaces:
 - **Switching guide:** `docs/PROVIDER-SWITCHING.md`
 - **Standard RPC** calls (eth_getBalance, getTransaction, etc.) go through viem — not abstracted, just change `BASE_RPC_URL`
 - To add a provider: create adapter files + register in factory + update env vars
+
+## Intelligence Separation
+
+Curated data (agent labels, protocol registry) is separated from the open-source engine:
+
+- **Data** lives in `packages/intelligence/*.json` — gitignored, not in the public repo
+- **Types + loader** in `packages/intelligence-loader/` — public, provides `getObservatoryAgents()`, `getProtocolRegistry()`, etc.
+- **Seed scripts** read from `packages/intelligence/` and populate the DB
+- **`INTELLIGENCE_SOURCE` env var:** `local` (read files), `remote` (future API), `empty` (self-hosted default)
+- Auto-detects: if `observatory-agents.json` exists locally, uses `local`; otherwise `empty`
+- Self-hosters get an empty observatory and add agents via API/UI
+- See `packages/intelligence/README.md` for setup
 
 ## Critical Patterns
 

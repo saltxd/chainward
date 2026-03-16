@@ -8,6 +8,7 @@ import { createAlertDeliveryWorker } from './workers/alertDelivery.js';
 import { createIntelligenceWorker, setupIntelligenceSchedule } from './workers/intelligence.js';
 import { createRegistryScoutWorker, setupRegistryScoutSchedule } from './workers/registryScout.js';
 import { createAcpSyncWorker, setupAcpSyncSchedule } from './workers/acpSync.js';
+import { createDigestWorker, setupDigestSchedule } from './workers/digestGenerator.js';
 
 // Validate env on startup
 getEnv();
@@ -22,6 +23,7 @@ const alertDelivery = createAlertDeliveryWorker();
 const intelligence = createIntelligenceWorker();
 const registryScout = createRegistryScoutWorker();
 const acpSync = createAcpSyncWorker();
+const digest = createDigestWorker();
 
 // Set up repeatable jobs
 const redis = getRedis();
@@ -30,6 +32,7 @@ await setupAlertSchedule(redis);
 await setupIntelligenceSchedule(redis);
 await setupRegistryScoutSchedule(redis);
 await setupAcpSyncSchedule(redis);
+await setupDigestSchedule(redis);
 
 // Graceful shutdown
 async function shutdown(signal: string) {
@@ -42,6 +45,7 @@ async function shutdown(signal: string) {
     intelligence.close(),
     registryScout.close(),
     acpSync.close(),
+    digest.close(),
   ]);
   process.exit(0);
 }
