@@ -47,9 +47,10 @@ interface DigestData {
   };
   alertsAnomalies?: Array<{ type: string; agentName: string; detail: string }>;
   quickStats?: {
-    busiestHour?: string;
-    longestIdleAgent?: string;
-    highestRevenue?: string;
+    busiestHour?: { day: string; hour: number; txCount: number } | null;
+    longestIdleAgent?: { name: string; lastTxDaysAgo: number } | null;
+    highestRevenue?: { name: string; revenue: number } | null;
+    mostExpensiveTx?: { gasCostUsd: number } | null;
   };
 }
 
@@ -589,10 +590,14 @@ function renderAnomalies(digest: DigestData) {
 function renderStats(digest: DigestData) {
   const qs = digest.quickStats;
 
+  const bh = qs?.busiestHour;
+  const idle = qs?.longestIdleAgent;
+  const hi = qs?.highestRevenue;
+
   const items = [
-    { label: 'Busiest Hour', value: qs?.busiestHour ?? '—' },
-    { label: 'Longest Idle Agent', value: qs?.longestIdleAgent ?? '—' },
-    { label: 'Highest Revenue', value: qs?.highestRevenue ?? '—' },
+    { label: 'Busiest Hour', value: bh ? `${bh.day.slice(5)} ${bh.hour}:00 UTC (${bh.txCount} txs)` : '—' },
+    { label: 'Longest Idle', value: idle ? `${idle.name} (${idle.lastTxDaysAgo}d)` : '—' },
+    { label: 'Top Revenue', value: hi ? `${hi.name} (${fmtUsd(hi.revenue)})` : '—' },
   ];
 
   return (
