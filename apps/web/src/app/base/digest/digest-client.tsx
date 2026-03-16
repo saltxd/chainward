@@ -161,12 +161,12 @@ function wowBadge(change: number | null) {
   );
 }
 
-const ANOMALY_CONFIG: Record<string, { icon: string; color: string }> = {
-  revenue_drop: { icon: '\u{1F4C9}', color: 'border-red-500/20 bg-red-500/5' },
-  operating_at_loss: { icon: '\u{1F6A8}', color: 'border-red-500/20 bg-red-500/5' },
-  went_inactive: { icon: '\u{1F4A4}', color: 'border-yellow-500/20 bg-yellow-500/5' },
-  strong_debut: { icon: '\u{1F31F}', color: 'border-[#4ade80]/20 bg-[#4ade80]/5' },
-  success_rate_divergence: { icon: '\u{26A0}\u{FE0F}', color: 'border-yellow-500/20 bg-yellow-500/5' },
+const ANOMALY_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
+  revenue_drop: { icon: '\u{1F4C9}', color: 'border-red-500/20 bg-red-500/5', label: 'Revenue Drop' },
+  operating_at_loss: { icon: '\u{1F6A8}', color: 'border-red-500/20 bg-red-500/5', label: 'Operating at Loss' },
+  went_inactive: { icon: '\u{1F4A4}', color: 'border-yellow-500/20 bg-yellow-500/5', label: 'Went Inactive' },
+  strong_debut: { icon: '\u{1F31F}', color: 'border-[#4ade80]/20 bg-[#4ade80]/5', label: 'Strong Debut' },
+  success_rate_divergence: { icon: '\u{26A0}\u{FE0F}', color: 'border-yellow-500/20 bg-yellow-500/5', label: 'Success Rate Mismatch' },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -212,8 +212,8 @@ function HeadlineCard({
 type LeaderboardTab = 'mostProfitable' | 'mostEfficient' | 'biggestMovers';
 
 const LB_TAB_LABELS: Record<LeaderboardTab, string> = {
-  mostProfitable: 'Most Profitable',
-  mostEfficient: 'Most Efficient',
+  mostProfitable: 'Top Revenue',
+  mostEfficient: 'Revenue/Gas',
   biggestMovers: 'Biggest Movers',
 };
 
@@ -224,6 +224,12 @@ function LeaderboardsSection({
   data: Leaderboards | null;
   loading: boolean;
 }) {
+  // Hide Revenue/Gas tab if there are no entries with gas > 0
+  const hasEfficientData = (data?.mostEfficient ?? []).length > 0;
+  const visibleTabs = (Object.keys(LB_TAB_LABELS) as LeaderboardTab[]).filter(
+    (t) => t !== 'mostEfficient' || hasEfficientData,
+  );
+
   const [tab, setTab] = useState<LeaderboardTab>('mostProfitable');
 
   const renderTable = () => {
@@ -361,9 +367,6 @@ function LeaderboardsSection({
         <td className="px-4 py-3 text-right font-mono text-gray-500">
           {formatUsd(entry.gasCost)}
         </td>
-        <td className="px-4 py-3 text-right font-mono text-[#4ade80]">
-          {formatUsd(entry.profit)}
-        </td>
       </tr>
     ));
   };
@@ -387,7 +390,7 @@ function LeaderboardsSection({
           <th className="px-4 py-3 font-medium">Agent</th>
           <th className="px-4 py-3 text-right font-medium">Revenue</th>
           <th className="px-4 py-3 text-right font-medium">Gas</th>
-          <th className="px-4 py-3 text-right font-medium">Efficiency</th>
+          <th className="px-4 py-3 text-right font-medium">Revenue/Gas</th>
         </tr>
       );
     }
@@ -397,7 +400,6 @@ function LeaderboardsSection({
         <th className="px-4 py-3 font-medium">Agent</th>
         <th className="px-4 py-3 text-right font-medium">Revenue</th>
         <th className="px-4 py-3 text-right font-medium">Gas</th>
-        <th className="px-4 py-3 text-right font-medium">Profit</th>
       </tr>
     );
   };
@@ -406,7 +408,7 @@ function LeaderboardsSection({
     <section className="mt-12">
       <h2 className="mb-4 text-xl font-bold text-white">Leaderboards</h2>
       <div className="flex gap-1 rounded-lg border border-white/5 bg-[#0a0a0f] p-1">
-        {(Object.keys(LB_TAB_LABELS) as LeaderboardTab[]).map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -501,70 +503,39 @@ function SpotlightSection({
           )}
         </div>
 
-        {/* Two-column metrics */}
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          {/* Financial */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Financial
-            </h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-gray-500">Revenue</p>
-                <p className="font-mono text-sm font-bold text-white">
-                  {formatUsd(data.revenue)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Gas Cost</p>
-                <p className="font-mono text-sm font-bold text-gray-400">
-                  {formatUsd(data.gasCost)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Net Profit</p>
-                <p
-                  className={`font-mono text-sm font-bold ${
-                    data.profit >= 0 ? 'text-[#4ade80]' : 'text-red-400'
-                  }`}
-                >
-                  {data.profit >= 0 ? '+' : ''}{formatUsd(Math.abs(data.profit))}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Margin</p>
-                <p className="font-mono text-sm font-bold text-white">
-                  {data.margin}%
-                </p>
-              </div>
-            </div>
+        {/* Metrics */}
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div>
+            <p className="text-xs text-gray-500">Revenue</p>
+            <p className="font-mono text-sm font-bold text-white">
+              {formatUsd(data.revenue)}
+            </p>
           </div>
-
-          {/* Operational */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Operational
-            </h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-gray-500">Jobs</p>
-                <p className="font-mono text-sm font-bold text-white">
-                  {data.jobs.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Success Rate</p>
-                <p className="font-mono text-sm font-bold text-white">
-                  {data.successRate}%
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Unique Hirers</p>
-                <p className="font-mono text-sm font-bold text-white">
-                  {data.uniqueHirers}
-                </p>
-              </div>
+          {data.gasCost > 0 && (
+            <div>
+              <p className="text-xs text-gray-500">Gas Cost</p>
+              <p className="font-mono text-sm font-bold text-gray-400">
+                {formatUsd(data.gasCost)}
+              </p>
             </div>
+          )}
+          <div>
+            <p className="text-xs text-gray-500">Jobs</p>
+            <p className="font-mono text-sm font-bold text-white">
+              {data.jobs.toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Success Rate</p>
+            <p className="font-mono text-sm font-bold text-white">
+              {data.successRate}%
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Unique Hirers</p>
+            <p className="font-mono text-sm font-bold text-white">
+              {data.uniqueHirers}
+            </p>
           </div>
         </div>
 
@@ -712,6 +683,7 @@ function AnomaliesSection({
           const config = ANOMALY_CONFIG[anomaly.type] ?? {
             icon: '\u{2139}\u{FE0F}',
             color: 'border-white/10 bg-white/5',
+            label: anomaly.type.replace(/_/g, ' '),
           };
           return (
             <div
@@ -731,7 +703,7 @@ function AnomaliesSection({
                       {anomaly.agentName ?? truncateAddress(anomaly.walletAddress)}
                     </a>
                     <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
-                      {anomaly.type.replace(/_/g, ' ')}
+                      {config.label}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-gray-400">{anomaly.detail}</p>
@@ -1058,7 +1030,7 @@ export function DigestClient({
             {/* ------------------------------------------------------------ */}
             {/*  Section 1: Headline Numbers                                 */}
             {/* ------------------------------------------------------------ */}
-            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
               <HeadlineCard
                 label="Total Revenue"
                 value={formatUsd(digest?.headline?.totalRevenue ?? 0)}
@@ -1066,15 +1038,9 @@ export function DigestClient({
                 loading={loading}
               />
               <HeadlineCard
-                label="Total Gas"
+                label="Gas Burned"
                 value={formatUsd(digest?.headline?.totalGas ?? 0)}
                 change={digest?.headline?.wow?.gasChange ?? null}
-                loading={loading}
-              />
-              <HeadlineCard
-                label="Net Profit"
-                value={formatUsd(digest?.headline?.netProfit ?? 0)}
-                change={digest?.headline?.wow?.profitChange ?? null}
                 loading={loading}
               />
               <HeadlineCard
@@ -1096,6 +1062,9 @@ export function DigestClient({
                 loading={loading}
               />
             </section>
+            <p className="text-xs text-[#71717a] mt-2">
+              Revenue data from Virtuals ACP. Gas costs reflect matched on-chain wallets only.
+            </p>
 
             {/* ------------------------------------------------------------ */}
             {/*  Section 2: Leaderboards                                     */}
