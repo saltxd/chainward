@@ -45,8 +45,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const headline = digest?.headline;
   const hasData = digest != null && headline != null;
 
+  const fmtUsd = (n: number) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${Math.round(n)}`;
+  const fmtCount = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n);
   const description = hasData
-    ? `$${headline.totalRevenue.toLocaleString()} revenue | ${headline.activeAgents} active agents | ${headline.totalJobs.toLocaleString()} jobs — Weekly intelligence on the Base agent economy`
+    ? `${fmtUsd(headline.totalRevenue)} revenue, ${headline.activeAgents} active agents, ${fmtCount(headline.totalJobs)} jobs — Weekly intelligence on the Base agent economy`
     : 'Weekly intelligence on the Base agent economy';
 
   return {
@@ -65,13 +67,13 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       url: 'https://chainward.ai/base/digest',
       type: 'article',
-      images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+      images: [{ url: 'https://chainward.ai/api/digest/latest/image/headline', width: 1200, height: 675 }],
     },
     twitter: {
       card: 'summary_large_image',
       title: 'Base Agent Economy — Weekly Digest',
       description,
-      images: ['/chainward-og.png'],
+      images: ['https://chainward.ai/api/digest/latest/image/headline'],
     },
   };
 }
