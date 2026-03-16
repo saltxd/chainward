@@ -170,17 +170,46 @@ async function syncAgents() {
 async function matchWallets() {
   const db = getDb();
 
-  const result = await db.execute(sql`
+  // Strategy 1: Direct wallet address match (same wallet in both systems)
+  const directResult = await db.execute(sql`
     UPDATE agent_registry ar
     SET acp_agent_id = acp.acp_id
     FROM acp_agent_data acp
     WHERE LOWER(ar.wallet_address) = LOWER(acp.wallet_address)
       AND ar.acp_agent_id IS DISTINCT FROM acp.acp_id
   `);
+  const directMatched = (directResult as unknown as { rowCount?: number }).rowCount ?? 0;
 
-  const matched = (result as unknown as { rowCount?: number }).rowCount ?? 0;
-  logger.info({ matched }, 'ACP wallet matching complete');
-  return matched;
+  // Strategy 2: Match via virtualAgentId bridge
+  // Observatory agents have registry_id (Virtuals launchpad ID)
+  // ACP agents have virtual_agent_id (same Virtuals launchpad ID)
+  // Different wallets, same underlying agent
+  const bridgeResult = await db.execute(sql`
+    UPDATE agent_registry ar
+    SET acp_agent_id = acp.acp_id
+    FROM acp_agent_data acp
+    WHERE ar.registry_id IS NOT NULL
+      AND acp.virtual_agent_id IS NOT NULL
+      AND ar.registry_id = acp.virtual_agent_id::text
+      AND ar.is_observatory = true
+      AND ar.acp_agent_id IS NULL
+  `);
+  const bridgeMatched = (bridgeResult as unknown as { rowCount?: number }).rowCount ?? 0;
+
+  // Strategy 3: Match via ownerAddress — ACP agent's owner might be the observatory wallet
+  const ownerResult = await db.execute(sql`
+    UPDATE agent_registry ar
+    SET acp_agent_id = acp.acp_id
+    FROM acp_agent_data acp
+    WHERE LOWER(ar.wallet_address) = LOWER(acp.owner_address)
+      AND ar.is_observatory = true
+      AND ar.acp_agent_id IS NULL
+  `);
+  const ownerMatched = (ownerResult as unknown as { rowCount?: number }).rowCount ?? 0;
+
+  const total = directMatched + bridgeMatched + ownerMatched;
+  logger.info({ directMatched, bridgeMatched, ownerMatched, total }, 'ACP wallet matching complete');
+  return total;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
