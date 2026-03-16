@@ -562,8 +562,8 @@ async function buildSpotlight(weekStart: string, weekEnd: string, priorWeekStart
     notable = `Completed ${jobs.toLocaleString()} jobs with ${successRate.toFixed(1)}% success rate`;
   } else if (uniqueHirers >= 50) {
     notable = `Served ${uniqueHirers} unique hirers this period`;
-  } else if (gasCost > 0 && margin >= 80) {
-    notable = `Operating at ${margin.toFixed(0)}% profit margin on ${fmtUsd(revenue)} revenue`;
+  } else if (gasCost > 0 && revenue > gasCost) {
+    notable = `Earned ${fmtUsd(revenue)} revenue on just ${fmtUsd(gasCost)} in gas`;
   } else {
     notable = `Earned ${fmtUsd(revenue)} from ${jobs.toLocaleString()} jobs`;
   }
@@ -782,7 +782,7 @@ async function buildAlertsAnomalies(weekStart: string, weekEnd: string, priorWee
       type: 'success_rate_divergence',
       agentName: r['name'] ?? null,
       walletAddress: r['wallet_address'] ?? '',
-      detail: `ACP success rate (${acpRate}%) diverges from on-chain (${onchainRate}%), gap: ${Math.abs(acpRate - onchainRate).toFixed(1)}%`,
+      detail: `Success rate mismatch: ACP reports ${acpRate}%, on-chain shows ${onchainRate}%`,
     });
   }
 
