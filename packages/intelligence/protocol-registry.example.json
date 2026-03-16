@@ -1,0 +1,14 @@
+[
+  {
+    "chain": "base",
+    "contractAddress": "0x0000000000000000000000000000000000000000",
+    "protocolName": "Example DEX",
+    "contractLabel": "Router"
+  },
+  {
+    "chain": "base",
+    "contractAddress": "0x0000000000000000000000000000000000000001",
+    "protocolName": "Example Lending",
+    "contractLabel": "Pool"
+  }
+]

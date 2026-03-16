@@ -1,0 +1,19 @@
+[
+  {
+    "address": "0x0000000000000000000000000000000000000000",
+    "name": "Example Agent",
+    "framework": "custom",
+    "project": "My Project",
+    "source": "manual",
+    "agentType": "trading"
+  },
+  {
+    "address": "0x0000000000000000000000000000000000000001",
+    "name": "Example Virtuals Agent",
+    "framework": "virtuals",
+    "project": "Virtuals Protocol",
+    "source": "Virtuals API #123",
+    "virtualsId": 123,
+    "agentType": "defi"
+  }
+]

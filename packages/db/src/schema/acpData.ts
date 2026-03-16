@@ -41,6 +41,7 @@ export const acpAgentData = pgTable(
     // Timestamps
     lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSpotlightedAt: timestamp('last_spotlighted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
