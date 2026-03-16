@@ -13,15 +13,34 @@ const REQUEST_DELAY = 200; // ms between paginated requests
 // HTTP helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function fetchJson(url: string): Promise<unknown> {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'ChainWard-ACP-Sync/1.0' },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!res.ok) {
-    throw new Error(`ACP API error: ${res.status} ${res.statusText} for ${url}`);
+async function fetchJson(url: string, retries = 3): Promise<unknown> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'ChainWard-ACP-Sync/1.0' },
+        signal: AbortSignal.timeout(30000),
+      });
+      if (res.status === 502 || res.status === 503 || res.status === 429) {
+        if (attempt < retries - 1) {
+          logger.warn({ status: res.status, attempt, url }, 'ACP API temporary error, retrying');
+          await sleep(2000 * (attempt + 1)); // exponential backoff
+          continue;
+        }
+      }
+      if (!res.ok) {
+        throw new Error(`ACP API error: ${res.status} ${res.statusText} for ${url}`);
+      }
+      return res.json();
+    } catch (err) {
+      if (attempt < retries - 1 && (err as Error).name === 'TimeoutError') {
+        logger.warn({ attempt, url }, 'ACP API timeout, retrying');
+        await sleep(2000 * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
   }
-  return res.json();
+  throw new Error(`ACP API failed after ${retries} retries for ${url}`);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -89,7 +108,7 @@ async function syncAgents() {
             ${(metrics.revenue as number) ?? null},
             ${(metrics.rating as number) ?? null},
             ${(agent.walletBalance as string) ?? null},
-            ${(agent.processingTime as number) ?? null},
+            ${typeof agent.processingTime === 'number' ? agent.processingTime : null},
             ${JSON.stringify(agent.offerings ?? agent.jobs ?? null)},
             ${JSON.stringify(agent.resources ?? null)},
             ${JSON.stringify(agent)},
