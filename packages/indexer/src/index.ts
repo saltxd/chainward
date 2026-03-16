@@ -7,6 +7,7 @@ import { createAlertEvaluatorWorker, setupAlertSchedule } from './workers/alertE
 import { createAlertDeliveryWorker } from './workers/alertDelivery.js';
 import { createIntelligenceWorker, setupIntelligenceSchedule } from './workers/intelligence.js';
 import { createRegistryScoutWorker, setupRegistryScoutSchedule } from './workers/registryScout.js';
+import { createAcpSyncWorker, setupAcpSyncSchedule } from './workers/acpSync.js';
 
 // Validate env on startup
 getEnv();
@@ -20,6 +21,7 @@ const alertEvaluator = createAlertEvaluatorWorker();
 const alertDelivery = createAlertDeliveryWorker();
 const intelligence = createIntelligenceWorker();
 const registryScout = createRegistryScoutWorker();
+const acpSync = createAcpSyncWorker();
 
 // Set up repeatable jobs
 const redis = getRedis();
@@ -27,6 +29,7 @@ await setupBalancePolling(redis);
 await setupAlertSchedule(redis);
 await setupIntelligenceSchedule(redis);
 await setupRegistryScoutSchedule(redis);
+await setupAcpSyncSchedule(redis);
 
 // Graceful shutdown
 async function shutdown(signal: string) {
@@ -38,6 +41,7 @@ async function shutdown(signal: string) {
     alertDelivery.close(),
     intelligence.close(),
     registryScout.close(),
+    acpSync.close(),
   ]);
   process.exit(0);
 }

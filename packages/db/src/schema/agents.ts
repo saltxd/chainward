@@ -1,4 +1,4 @@
-import { pgTable, bigserial, text, boolean, real, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, bigserial, text, boolean, integer, real, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const agentRegistry = pgTable(
@@ -21,6 +21,7 @@ export const agentRegistry = pgTable(
     classificationSource: text('classification_source').default('auto'),
     isPublic: boolean('is_public').notNull().default(false),
     isObservatory: boolean('is_observatory').notNull().default(false),
+    acpAgentId: integer('acp_agent_id'),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),

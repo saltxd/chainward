@@ -8,3 +8,4 @@ export * from './knownContracts';
 export * from './agentHealth';
 export * from './protocolStats';
 export * from './observatoryCandidates';
+export * from './acpData';

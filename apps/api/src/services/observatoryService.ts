@@ -240,7 +240,7 @@ export class ObservatoryService {
           bs.wallet_address,
           COALESCE(a.agent_name, bs.wallet_address) AS agent_name,
           a.agent_framework,
-          CAST(bs.balance_usd AS numeric) AS portfolio_value_usd
+          COALESCE(CAST(bs.balance_usd AS numeric), 0) AS portfolio_value_usd
         FROM (
           SELECT DISTINCT ON (wallet_address) wallet_address, balance_usd
           FROM balance_snapshots
@@ -250,7 +250,7 @@ export class ObservatoryService {
         ) bs
         LEFT JOIN agent_registry a ON a.wallet_address = bs.wallet_address
           AND a.is_observatory = true AND a.is_public = true
-        ORDER BY CAST(bs.balance_usd AS numeric) DESC
+        ORDER BY portfolio_value_usd DESC
         LIMIT 10
       `);
 
