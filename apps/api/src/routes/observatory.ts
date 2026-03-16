@@ -60,11 +60,13 @@ observatory.get('/economics', async (c) => {
   `);
   const eco = (ecoRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
 
-  // Top agents by revenue (ACP data merged with on-chain gas)
+  // Top agents by revenue (ACP data merged with on-chain gas via virtualAgentId bridge)
+  // ACP wallets ≠ observatory wallets, but they share a virtualAgentId
   const agentRows = await db.execute(sql`
     SELECT
       acp.name,
-      acp.wallet_address,
+      acp.wallet_address AS acp_wallet,
+      ar.wallet_address AS obs_wallet,
       acp.symbol,
       acp.has_graduated,
       acp.role,
@@ -78,16 +80,18 @@ observatory.get('/economics', async (c) => {
       COALESCE((
         SELECT SUM(CAST(t.gas_cost_usd AS numeric))
         FROM transactions t
-        WHERE LOWER(t.wallet_address) = LOWER(acp.wallet_address)
+        WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
           AND t.timestamp >= NOW() - INTERVAL '30 days'
       ), 0) AS gas_cost_30d,
       COALESCE(acp.revenue, 0) - COALESCE((
         SELECT SUM(CAST(t.gas_cost_usd AS numeric))
         FROM transactions t
-        WHERE LOWER(t.wallet_address) = LOWER(acp.wallet_address)
+        WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
           AND t.timestamp >= NOW() - INTERVAL '30 days'
       ), 0) AS profit_30d
     FROM acp_agent_data acp
+    LEFT JOIN agent_registry ar ON ar.registry_id = acp.virtual_agent_id::text
+      AND ar.is_observatory = true
     WHERE acp.successful_job_count IS NOT NULL AND acp.successful_job_count > 0
     ORDER BY COALESCE(acp.revenue, 0) DESC
     LIMIT 50
@@ -103,7 +107,8 @@ observatory.get('/economics', async (c) => {
     } : null,
     topAgents: (agentRows as unknown as Array<Record<string, unknown>>).map((r) => ({
       name: String(r.name ?? ''),
-      walletAddress: String(r.wallet_address),
+      walletAddress: String(r.acp_wallet ?? ''),
+      obsWalletAddress: r.obs_wallet != null ? String(r.obs_wallet) : null,
       symbol: r.symbol != null ? String(r.symbol) : null,
       hasGraduated: Boolean(r.has_graduated),
       role: r.role != null ? String(r.role) : null,
