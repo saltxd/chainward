@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
 import { rateLimit } from '../middleware/rateLimit.js';
+import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import type { AppVariables } from '../types.js';
 
 const digest = new Hono<{ Variables: AppVariables }>();
@@ -28,8 +29,8 @@ digest.get('/latest', async (c) => {
   return c.json({ success: true, data });
 });
 
-// GET /api/digest/latest/snippets — just the social_snippets array from latest digest
-digest.get('/latest/snippets', async (c) => {
+// GET /api/digest/latest/snippets — auth required (internal content dashboard)
+digest.get('/latest/snippets', requireApiKeyOrSession(), async (c) => {
   const redis = getRedis();
   const cached = await redis.get('digest:latest');
 
