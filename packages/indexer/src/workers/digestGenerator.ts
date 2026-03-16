@@ -892,8 +892,10 @@ function buildSocialSnippets(
   const link = 'chainward.ai/base/digest';
   const snippets: string[] = [];
 
-  // Sanity check: if all gas is $0, suppress any profit/margin references
-  const hasRealGasData = headline.totalGas > 1;
+  // Sanity check: suppress profit/margin if gas data is clearly incomplete
+  // $44 gas on $3.8M revenue means most agents lack gas data — don't pretend we have P&L
+  const gasRevenueRatio = headline.totalRevenue > 0 ? headline.totalGas / headline.totalRevenue : 0;
+  const hasRealGasData = headline.totalGas > 100 && gasRevenueRatio > 0.001;
 
   // 1. Headline — lead with a hook, not raw stats
   const rev = fmtUsd(headline.totalRevenue);
