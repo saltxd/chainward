@@ -134,7 +134,7 @@ function wowBadge(change: number | null) {
   if (change == null) {
     return (
       <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-        --
+        First week
       </span>
     );
   }
@@ -600,6 +600,7 @@ function ProtocolSection({
   if (!data || data.length === 0) return null;
 
   const maxTxCount = Math.max(...data.map((p) => p.txCount), 1);
+  const hasProtocolGas = data.some((p) => p.gasCost > 0.01);
 
   return (
     <section className="mt-12">
@@ -611,7 +612,7 @@ function ProtocolSection({
               <th className="px-4 py-3 font-medium">Protocol</th>
               <th className="px-4 py-3 font-medium">Transactions</th>
               <th className="min-w-[140px] px-4 py-3 font-medium">Share</th>
-              <th className="px-4 py-3 text-right font-medium">Gas Cost</th>
+              {hasProtocolGas && <th className="px-4 py-3 text-right font-medium">Gas Cost</th>}
             </tr>
           </thead>
           <tbody>
@@ -637,9 +638,11 @@ function ProtocolSection({
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-gray-500">
-                  {formatUsd(p.gasCost)}
-                </td>
+                {hasProtocolGas && (
+                  <td className="px-4 py-3 text-right font-mono text-gray-500">
+                    {formatUsd(p.gasCost)}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -1055,12 +1058,14 @@ export function DigestClient({
                 change={digest?.headline?.wow?.jobsChange ?? null}
                 loading={loading}
               />
-              <HeadlineCard
-                label="New Agents"
-                value={String(digest?.headline?.newAgents ?? 0)}
-                change={null}
-                loading={loading}
-              />
+              {(digest?.headline?.newAgents ?? 0) > 0 && (
+                <HeadlineCard
+                  label="New Agents"
+                  value={String(digest?.headline?.newAgents ?? 0)}
+                  change={null}
+                  loading={loading}
+                />
+              )}
             </section>
             <p className="text-xs text-[#71717a] mt-2">
               Revenue data from Virtuals ACP. Gas costs reflect matched on-chain wallets only.
