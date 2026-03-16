@@ -93,6 +93,24 @@ interface QuickStats {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Week boundary helpers
 // ═══════════════════════════════════════════════════════════════════════════════
+// Formatting helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Format dollar amounts human-readably: $3.6M, $695.8K, $43 */
+function fmtUsd(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1) return `$${Math.round(n)}`;
+  return `$${n.toFixed(2)}`;
+}
+
+function fmtCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function getPriorWeekBoundaries(): { weekStart: string; weekEnd: string; priorWeekStart: string } {
   const now = new Date();
@@ -293,9 +311,9 @@ async function buildHeadline(weekStart: string, weekEnd: string, priorWeekStart:
 async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekStart: string): Promise<Leaderboards> {
   const db = getDb();
 
-  // Most Profitable: join ACP revenue with on-chain gas via virtualAgentId bridge
+  // Top Revenue: deduped by ACP wallet (LEFT JOIN can produce multiple rows per agent)
   const profitableRows = await db.execute(sql`
-    SELECT
+    SELECT DISTINCT ON (acp.wallet_address)
       acp.name,
       acp.wallet_address,
       COALESCE(CAST(acp.revenue AS numeric), 0) AS revenue,
@@ -312,23 +330,19 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
       AND ar.is_observatory = true
     WHERE acp.revenue IS NOT NULL
       AND CAST(acp.revenue AS numeric) > 0
-    ORDER BY (CAST(acp.revenue AS numeric) - COALESCE((
-      SELECT SUM(CAST(t.gas_cost_usd AS numeric))
-      FROM transactions t
-      WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
-        AND t.timestamp >= ${weekStart}::date
-        AND t.timestamp < ${weekEnd}::date
-    ), 0)) DESC
-    LIMIT 5
+    ORDER BY acp.wallet_address, CAST(acp.revenue AS numeric) DESC
   `);
 
-  const mostProfitable: LeaderboardEntry[] = (profitableRows as unknown as Array<Record<string, string>>).map((r) => ({
-    name: r['name'] ?? null,
-    walletAddress: r['wallet_address'] ?? '',
-    revenue: parseFloat(r['revenue'] ?? '0'),
-    gasCost: parseFloat(r['gas_cost'] ?? '0'),
-    profit: parseFloat(r['revenue'] ?? '0') - parseFloat(r['gas_cost'] ?? '0'),
-  }));
+  const mostProfitable: LeaderboardEntry[] = (profitableRows as unknown as Array<Record<string, string>>)
+    .map((r) => ({
+      name: r['name'] ?? null,
+      walletAddress: r['wallet_address'] ?? '',
+      revenue: parseFloat(r['revenue'] ?? '0'),
+      gasCost: parseFloat(r['gas_cost'] ?? '0'),
+      profit: parseFloat(r['revenue'] ?? '0') - parseFloat(r['gas_cost'] ?? '0'),
+    }))
+    .sort((a, b) => b.revenue - a.revenue) // re-sort by revenue after dedup
+    .slice(0, 5);
 
   // Most Efficient: revenue / gas where gas > 0
   const efficientRows = await db.execute(sql`
@@ -545,13 +559,13 @@ async function buildSpotlight(weekStart: string, weekEnd: string, priorWeekStart
   if (wowPct != null && Math.abs(wowPct) >= 50) {
     notable = `Revenue ${wowPct > 0 ? 'increased' : 'decreased'} ${Math.abs(wowPct)}% week over week`;
   } else if (jobs >= 10000 && successRate >= 99) {
-    notable = `Completed ${jobs.toLocaleString()} jobs with ${successRate}% success rate`;
-  } else if (margin >= 80) {
-    notable = `Operating at ${margin}% profit margin with $${revenue.toFixed(2)} revenue`;
+    notable = `Completed ${jobs.toLocaleString()} jobs with ${successRate.toFixed(1)}% success rate`;
   } else if (uniqueHirers >= 50) {
     notable = `Served ${uniqueHirers} unique hirers this period`;
+  } else if (gasCost > 0 && margin >= 80) {
+    notable = `Operating at ${margin.toFixed(0)}% profit margin on ${fmtUsd(revenue)} revenue`;
   } else {
-    notable = `Generated $${profit.toFixed(2)} net profit from ${jobs.toLocaleString()} jobs`;
+    notable = `Earned ${fmtUsd(revenue)} from ${jobs.toLocaleString()} jobs`;
   }
 
   // Mark as spotlighted
@@ -873,63 +887,64 @@ function buildSocialSnippets(
   spotlight: SpotlightData | null,
   quickStats: QuickStats,
   anomalies: AnomalyEntry[],
-  weekStart: string,
+  _weekStart: string,
 ): string[] {
   const link = 'chainward.ai/base/digest';
   const snippets: string[] = [];
 
-  // 1. Headline snippet
-  const headlineSnippet = `Base Agent Economy this week: $${headline.totalRevenue.toLocaleString()} revenue | ${headline.activeAgents} active agents | ${headline.totalJobs.toLocaleString()} jobs completed${headline.wow.revenueChange != null ? ` (${headline.wow.revenueChange > 0 ? '+' : ''}${headline.wow.revenueChange}% WoW)` : ''} | ${link}`;
-  if (headlineSnippet.length <= 280) {
-    snippets.push(headlineSnippet);
-  } else {
-    snippets.push(`Base agents: $${headline.totalRevenue.toLocaleString()} rev, ${headline.activeAgents} active, ${headline.totalJobs.toLocaleString()} jobs this week | ${link}`);
-  }
+  // Sanity check: if all gas is $0, suppress any profit/margin references
+  const hasRealGasData = headline.totalGas > 1;
 
-  // 2. Most profitable leaderboard
+  // 1. Headline — lead with a hook, not raw stats
+  const rev = fmtUsd(headline.totalRevenue);
+  const jobs = fmtCount(headline.totalJobs);
+  const wow = headline.wow.revenueChange != null
+    ? ` That's ${headline.wow.revenueChange > 0 ? 'up' : 'down'} ${Math.abs(headline.wow.revenueChange)}% from last week.`
+    : '';
+  const s1 = `AI agents on Base earned ${rev} this week across ${jobs} jobs.${wow} ${headline.activeAgents} agents active, ${headline.newAgents} new ones joined.\n\n${link}`;
+  snippets.push(s1);
+
+  // 2. Revenue leaderboard — question hook
   if (leaderboards.mostProfitable.length > 0) {
     const top3 = leaderboards.mostProfitable.slice(0, 3);
-    const lines = top3.map((a, i) => `${i + 1}. ${(a.name ?? a.walletAddress.slice(0, 10)).slice(0, 20)}: $${a.profit.toFixed(0)}`).join('\n');
-    const lbSnippet = `Most profitable Base agents this week:\n${lines}\n\nFull leaderboard: ${link}`;
-    if (lbSnippet.length <= 280) {
-      snippets.push(lbSnippet);
-    }
+    const lines = top3.map((a, i) =>
+      `${i + 1}. ${(a.name ?? a.walletAddress.slice(0, 10)).slice(0, 20)} — ${fmtUsd(a.revenue)}`
+    ).join('\n');
+    const s2 = `which AI agents earned the most on Base this week?\n\n${lines}\n\ntracking 22K+ agents: ${link}`;
+    snippets.push(s2);
   }
 
-  // 3. Spotlight summary
+  // 3. Spotlight — story, not stats
   if (spotlight) {
-    const spotSnippet = `Agent Spotlight: ${(spotlight.name ?? spotlight.walletAddress.slice(0, 10)).slice(0, 25)} - ${spotlight.notable}. ${spotlight.jobs.toLocaleString()} jobs, ${spotlight.margin}% margin | ${link}`;
-    if (spotSnippet.length <= 280) {
-      snippets.push(spotSnippet);
-    } else {
-      snippets.push(`Agent Spotlight: ${(spotlight.name ?? spotlight.walletAddress.slice(0, 10)).slice(0, 25)} - ${spotlight.notable} | ${link}`);
-    }
+    const name = (spotlight.name ?? spotlight.walletAddress.slice(0, 10)).slice(0, 25);
+    const rev = fmtUsd(spotlight.revenue);
+    const jobs = fmtCount(spotlight.jobs);
+    const s3 = `${name} earned ${rev} from ${jobs} jobs this week with a ${spotlight.successRate.toFixed(0)}% success rate. ${spotlight.uniqueHirers} unique hirers.\n\n${link}`;
+    snippets.push(s3);
   }
 
-  // 4. Fun stat
+  // 4. Anomaly/fun stat — surprising detail
   if (quickStats.busiestHour) {
-    const funSnippet = `Busiest hour on Base: ${quickStats.busiestHour.day} ${quickStats.busiestHour.hour}:00 UTC with ${quickStats.busiestHour.txCount} agent txs. Most expensive single tx: $${quickStats.mostExpensiveTx?.gasCostUsd.toFixed(4) ?? '?'} gas | ${link}`;
-    if (funSnippet.length <= 280) {
-      snippets.push(funSnippet);
-    }
+    const bh = quickStats.busiestHour;
+    const s4 = `busiest hour for AI agents on Base this week: ${bh.day} ${bh.hour}:00 UTC with ${bh.txCount} transactions. these agents never sleep.\n\n${link}`;
+    if (s4.length <= 280) snippets.push(s4);
   }
 
-  // 5. Anomaly snippet (if any notable ones)
-  const strongDebuts = anomalies.filter((a) => a.type === 'strong_debut');
-  if (strongDebuts.length > 0) {
-    const debut = strongDebuts[0]!;
-    const debutSnippet = `New agent alert: ${(debut.agentName ?? debut.walletAddress.slice(0, 10)).slice(0, 25)} ${debut.detail.toLowerCase()} | ${link}`;
-    if (debutSnippet.length <= 280) {
-      snippets.push(debutSnippet);
-    }
+  // 5. New agent debut (if any)
+  const debuts = anomalies.filter((a) => a.type === 'strong_debut');
+  if (debuts.length > 0) {
+    const d = debuts[0]!;
+    const name = (d.agentName ?? d.walletAddress.slice(0, 10)).slice(0, 25);
+    const s5 = `new agent just showed up on Base: ${name}. ${d.detail}\n\nfull report: ${link}`;
+    if (s5.length <= 280) snippets.push(s5);
   }
 
-  // 6. Net profit stat
-  if (headline.netProfit > 0) {
-    const profitSnippet = `Base agents earned $${headline.netProfit.toLocaleString()} net profit this week after $${headline.totalGas.toLocaleString()} in gas. ${headline.newAgents} new agents joined the economy | ${link}`;
-    if (profitSnippet.length <= 280) {
-      snippets.push(profitSnippet);
-    }
+  // 6. Profit snippet — ONLY if we have real gas data
+  if (hasRealGasData && headline.netProfit > 0) {
+    const profit = fmtUsd(headline.netProfit);
+    const gas = fmtUsd(headline.totalGas);
+    const s6 = `Base agents earned ${profit} in net profit this week after ${gas} in gas costs. the agent economy is profitable.\n\n${link}`;
+    if (s6.length <= 280) snippets.push(s6);
   }
 
   // Ensure max 6 snippets, all within 280 chars
