@@ -71,6 +71,9 @@ async function syncAgents() {
     totalPages = data.meta.pagination.pageCount;
 
     for (const agent of data.data) {
+      // Skip agents without wallet addresses
+      if (!agent.walletAddress) continue;
+
       const metrics = (agent.metrics as Record<string, unknown>) || {};
 
       try {
