@@ -1,0 +1,255 @@
+import { Worker, Queue, type Job } from 'bullmq';
+import { sql } from 'drizzle-orm';
+import { getRedis } from '../lib/redis.js';
+import { getDb } from '../lib/db.js';
+import { logger } from '../lib/logger.js';
+
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+// Known contract addresses to exclude from destination analysis
+const EXCLUDE_ADDRESSES = new Set([
+  '0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0', // ACP V2
+  '0x6a1fe26d54ab0d3e1e3168f2e0c0cda5cc0a0a4a', // ACP V1
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // USDC
+  '0x4200000000000000000000000000000000000006', // WETH
+  '0x0000000000000000000000000000000000000000', // zero
+  '0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b', // VIRTUAL token
+]);
+
+interface TracerJobData {
+  type: 'trace';
+  topN?: number;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Fund flow tracing
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function traceTopAgents(topN: number) {
+  const db = getDb();
+  const rpcUrl = process.env.BASE_RPC_URL;
+
+  if (!rpcUrl) {
+    logger.warn('BASE_RPC_URL not set, skipping ACP wallet tracing');
+    return;
+  }
+
+  // Get top N ACP agents by revenue that don't yet have a matched ops wallet
+  const agents = await db.execute(sql`
+    SELECT acp.acp_id, acp.name, acp.wallet_address, acp.virtual_agent_id,
+      COALESCE(CAST(acp.revenue AS numeric), 0) AS revenue
+    FROM acp_agent_data acp
+    WHERE acp.revenue IS NOT NULL
+      AND CAST(acp.revenue AS numeric) > 100
+      AND acp.virtual_agent_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM agent_registry ar
+        WHERE ar.registry_id = acp.virtual_agent_id::text
+          AND ar.is_observatory = true
+          AND ar.tags @> ARRAY['ACP fund flow trace']
+      )
+    ORDER BY CAST(acp.revenue AS numeric) DESC
+    LIMIT ${topN}
+  `);
+
+  const agentList = agents as unknown as Array<{
+    acp_id: number;
+    name: string;
+    wallet_address: string;
+    virtual_agent_id: number;
+    revenue: string;
+  }>;
+
+  logger.info({ count: agentList.length, topN }, 'Starting ACP wallet fund flow tracing');
+
+  let traced = 0;
+  let matched = 0;
+
+  for (const agent of agentList) {
+    try {
+      const candidate = await traceWallet(agent.wallet_address, rpcUrl);
+
+      if (!candidate) {
+        logger.debug({ name: agent.name }, 'No candidate operational wallet found');
+        continue;
+      }
+
+      traced++;
+
+      // Check if this wallet is already in the observatory
+      const existing = await db.execute(sql`
+        SELECT id FROM agent_registry
+        WHERE LOWER(wallet_address) = LOWER(${candidate.address})
+          AND is_observatory = true
+      `);
+
+      if ((existing as unknown[]).length > 0) {
+        // Already tracked — just link it
+        await db.execute(sql`
+          UPDATE agent_registry
+          SET acp_agent_id = ${agent.acp_id},
+              registry_id = ${String(agent.virtual_agent_id)}
+          WHERE LOWER(wallet_address) = LOWER(${candidate.address})
+            AND is_observatory = true
+            AND acp_agent_id IS NULL
+        `);
+        matched++;
+        logger.info({ name: agent.name, opsWallet: candidate.address }, 'Linked existing observatory agent to ACP');
+      } else {
+        // Add new observatory agent
+        await db.execute(sql`
+          INSERT INTO agent_registry (
+            chain, wallet_address, agent_name, agent_framework,
+            registry_source, registry_id, is_public, is_observatory,
+            user_id, tags, agent_type, acp_agent_id
+          ) VALUES (
+            'base',
+            ${candidate.address},
+            ${agent.name + ' (ops)'},
+            'virtuals',
+            'acp-trace',
+            ${String(agent.virtual_agent_id)},
+            true, true,
+            ${SYSTEM_USER_ID},
+            ARRAY['ACP fund flow trace'],
+            'trading',
+            ${agent.acp_id}
+          )
+          ON CONFLICT (chain, wallet_address, user_id) DO UPDATE SET
+            acp_agent_id = EXCLUDED.acp_agent_id,
+            registry_id = EXCLUDED.registry_id,
+            tags = EXCLUDED.tags
+        `);
+        matched++;
+        logger.info({
+          name: agent.name,
+          opsWallet: candidate.address,
+          txCount: candidate.txCount,
+          totalValue: candidate.totalValue,
+        }, 'Added new operational wallet from ACP fund flow trace');
+      }
+
+      // Rate limit: 200ms between agents
+      await new Promise((r) => setTimeout(r, 200));
+    } catch (err) {
+      logger.warn({ err, name: agent.name }, 'Failed to trace ACP agent fund flow');
+    }
+  }
+
+  logger.info({ traced, matched, total: agentList.length }, 'ACP wallet tracing complete');
+}
+
+async function traceWallet(
+  acpWallet: string,
+  rpcUrl: string,
+): Promise<{ address: string; txCount: number; totalValue: number } | null> {
+  // Fetch outbound transfers from ACP wallet
+  const payload = JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'alchemy_getAssetTransfers',
+    params: [{
+      fromBlock: '0x0',
+      toBlock: 'latest',
+      fromAddress: acpWallet,
+      category: ['external', 'erc20'],
+      maxCount: '0x64', // 100
+      order: 'desc',
+    }],
+  });
+
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload,
+    signal: AbortSignal.timeout(15000),
+  });
+
+  const data = await res.json() as {
+    result?: { transfers: Array<{ to: string; value: number | null; asset: string }> };
+  };
+
+  const transfers = data.result?.transfers ?? [];
+  if (transfers.length === 0) return null;
+
+  // Count destination wallets (excluding known contracts)
+  const destCounts = new Map<string, { count: number; totalValue: number }>();
+
+  for (const tx of transfers) {
+    const to = (tx.to ?? '').toLowerCase();
+    if (!to || EXCLUDE_ADDRESSES.has(to)) continue;
+
+    const entry = destCounts.get(to) ?? { count: 0, totalValue: 0 };
+    entry.count++;
+    entry.totalValue += tx.value ?? 0;
+    destCounts.set(to, entry);
+  }
+
+  if (destCounts.size === 0) return null;
+
+  // Find the most frequent destination
+  let topDest = '';
+  let topCount = 0;
+  let topValue = 0;
+
+  for (const [addr, { count, totalValue }] of destCounts) {
+    if (count > topCount) {
+      topDest = addr;
+      topCount = count;
+      topValue = totalValue;
+    }
+  }
+
+  // Only return if there's a clear pattern (>= 2 transfers to same address)
+  if (topCount < 2) return null;
+
+  return { address: topDest, txCount: topCount, totalValue: topValue };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Worker setup
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function createAcpWalletTracerWorker() {
+  const worker = new Worker<TracerJobData>(
+    'acp-wallet-tracer',
+    async (job: Job<TracerJobData>) => {
+      const topN = job.data.topN ?? 50;
+      await traceTopAgents(topN);
+    },
+    {
+      connection: getRedis(),
+      concurrency: 1,
+    },
+  );
+
+  worker.on('failed', (job, err) => {
+    logger.error({ jobId: job?.id, err }, 'ACP wallet tracer job failed');
+  });
+
+  logger.info('ACP wallet tracer worker started');
+  return worker;
+}
+
+export async function setupAcpWalletTracerSchedule(redis: import('ioredis').default) {
+  const queue = new Queue('acp-wallet-tracer', { connection: redis });
+
+  const existing = await queue.getRepeatableJobs();
+  for (const job of existing) {
+    await queue.removeRepeatableByKey(job.key);
+  }
+
+  // Run daily at 03:00 UTC (after ACP sync at 00:00/06:00 and digest at 01:00)
+  await queue.add('trace-top', { type: 'trace', topN: 50 }, {
+    repeat: { pattern: '0 3 * * *' },
+    jobId: 'acp-tracer-daily',
+  });
+
+  // Trigger initial trace
+  await queue.add('initial-trace', { type: 'trace', topN: 50 }, {
+    jobId: 'acp-tracer-initial',
+  });
+
+  logger.info('ACP wallet tracer scheduled (daily 03:00 UTC, top 50 agents)');
+  await queue.close();
+}
