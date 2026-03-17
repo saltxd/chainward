@@ -1,6 +1,6 @@
 # ChainWard
 
-Onchain agent monitoring SaaS. Tracks transactions, balances, and gas for AI agents on Base. Alerts via Discord/Telegram/webhook.
+Onchain agent monitoring + intelligence SaaS. Tracks transactions, balances, gas, and ACP economic data for AI agents on Base. Alerts via Discord/Telegram/webhook. Weekly digest with revenue leaderboards and agent P&L.
 
 ## Quick Reference
 
@@ -60,6 +60,35 @@ Alchemy webhook → API /api/webhooks/alchemy → BullMQ (base-tx-process)
 
 Balance snapshots taken on agent registration + periodic polling.
 
+### ACP Integration Pipeline
+
+```
+Virtuals ACP API (acpx.virtuals.io) → acpSync worker (every 6h)
+  → 22K+ agents with revenue, jobs, success rates → acp_agent_data table
+  → Wallet matching via virtualAgentId bridge (ACP wallet ≠ ops wallet)
+
+ACP wallet fund flow tracing → acpWalletTracer worker (daily 03:00 UTC)
+  → alchemy_getAssetTransfers on top 50 ACP wallets
+  → Most frequent destination = candidate operational wallet
+  → Auto-adds to observatory + links to ACP agent
+
+Weekly Digest → digestGenerator worker (Monday 01:00 UTC)
+  → 6 sections: headline, leaderboards, spotlight, protocols, anomalies, stats
+  → Social snippets (≤280 chars, rounded numbers, no profit when gas=$0)
+  → Stored in weekly_digests table, served at /api/digest/latest
+```
+
+### Digest Image Generation
+
+`@vercel/og` (Satori) endpoints at `/api/digest/latest/image/{section}`:
+- `headline` — 3 key stats card (revenue, jobs, active agents)
+- `leaderboard` — top 5 agents by revenue
+- `spotlight` — featured agent with 2x2 stats grid
+- `anomalies` — top alerts with color-coded badges
+- `stats` — fun data points
+
+Used as OG images for link previews. Internal snippets dashboard at `/base/digest/snippets` (auth required).
+
 ## Provider Abstraction
 
 RPC and webhook functionality is abstracted behind provider interfaces:
@@ -93,6 +122,10 @@ Curated data (agent labels, protocol registry) is separated from the open-source
 - **Brand color:** `#4ade80` (green)
 - **No shadcn** — custom UI components in `apps/web/src/components/ui/`
 - **API auth:** All data routes accept both `Bearer ag_` API keys AND session cookies via `requireApiKeyOrSession()` middleware
+- **ACP wallet ≠ observatory wallet** — bridge via `agent_registry.registry_id = acp_agent_data.virtual_agent_id::text`
+- **Balance polling split:** User agents every 5 min (full), observatory every 30 min (ETH-only) — saves ~96% Alchemy CUs
+- **Digest snippet sanity check:** Suppress profit/margin snippets when gas/revenue ratio < 0.1%
+- **Satori image generation:** Inline styles only (no Tailwind), all containers need `display: 'flex'`
 
 ## Key Gotchas
 
@@ -102,6 +135,9 @@ Curated data (agent labels, protocol registry) is separated from the open-source
 - SIWE nonces must be alphanumeric (strip hyphens from UUID)
 - `TELEGRAM_BOT_TOKEN` env var needed for Telegram delivery
 - elizaOS plugin uses `@elizaos/core@1.7.2` — Action handlers return `ActionResult`, examples use `name` (not `user`), `actions` array (not `action` string)
+- **Alchemy free tier:** 30M CUs/month. Balance polling is the main consumer. Monitor usage.
+- **ACP API rate limiting:** 200ms delay between paginated requests to acpx.virtuals.io
+- **Digest images cached 7 days** — `Cache-Control: public, max-age=604800`
 
 ## Project Status
 
