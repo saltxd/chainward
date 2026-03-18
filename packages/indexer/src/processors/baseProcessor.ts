@@ -96,6 +96,9 @@ export async function processWebhookTx(
   const ethPrice = await getEthPrice();
   const gasCostUsd = ethPrice ? (parseFloat(gasCostNative) * ethPrice).toFixed(6) : null;
 
+  // Resolve protocol once per tx (only depends on tx.to, not the monitored address)
+  const protocolName = tx.to ? await resolveProtocol(tx.to, 'base') : null;
+
   // Determine which monitored addresses are involved
   const fromLower = data.fromAddress?.toLowerCase();
   const toLower = data.toAddress?.toLowerCase();
@@ -140,9 +143,6 @@ export async function processWebhookTx(
     }
 
     const counterparty = direction === 'out' ? data.toAddress : data.fromAddress;
-
-    // Resolve protocol name from known_contracts
-    const protocolName = tx.to ? await resolveProtocol(tx.to, 'base') : null;
 
     // Agent-to-agent interaction detection
     const counterpartyAgent = counterparty ? await resolveAgentByAddress(counterparty) : null;
