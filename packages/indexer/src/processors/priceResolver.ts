@@ -23,6 +23,8 @@ const COINGECKO_TO_TOKEN: Record<string, string> = Object.fromEntries(
   Object.entries(TOKEN_TO_COINGECKO).map(([sym, id]) => [id, sym]),
 );
 
+const RATE_LIMIT_TTL = 120; // Cache "rate limited" for 2 minutes to stop thundering herd
+
 /** Get current USD price for a token symbol */
 export async function getUsdPrice(symbol: string): Promise<number | null> {
   const upper = symbol.toUpperCase();
@@ -32,6 +34,7 @@ export async function getUsdPrice(symbol: string): Promise<number | null> {
   const cacheKey = `price:${upper}`;
 
   const cached = await redis.get(cacheKey);
+  if (cached === 'RATE_LIMITED') return null;
   if (cached) return parseFloat(cached);
 
   const coinId = TOKEN_TO_COINGECKO[upper];
@@ -41,6 +44,13 @@ export async function getUsdPrice(symbol: string): Promise<number | null> {
     const response = await fetch(
       `${COINGECKO_API}/simple/price?ids=${coinId}&vs_currencies=usd`,
     );
+
+    if (response.status === 429) {
+      // Cache the rate limit so we stop hammering CoinGecko
+      await redis.setex(cacheKey, RATE_LIMIT_TTL, 'RATE_LIMITED');
+      logger.warn({ symbol }, 'CoinGecko rate limited, backing off 2min');
+      return null;
+    }
 
     if (!response.ok) {
       logger.warn({ status: response.status, symbol }, 'CoinGecko price lookup failed');
@@ -105,6 +115,17 @@ export async function getUsdPrices(symbols: string[]): Promise<Map<string, numbe
     const response = await fetch(
       `${COINGECKO_API}/simple/price?ids=${coinIds.join(',')}&vs_currencies=usd`,
     );
+
+    if (response.status === 429) {
+      // Cache rate limit for all tokens to stop thundering herd
+      const pipeline2 = redis.pipeline();
+      for (const sym of toFetch) {
+        pipeline2.setex(`price:${sym}`, RATE_LIMIT_TTL, 'RATE_LIMITED');
+      }
+      await pipeline2.exec();
+      logger.warn({ symbols: toFetch }, 'CoinGecko batch rate limited, backing off 2min');
+      return result;
+    }
 
     if (!response.ok) {
       logger.warn({ status: response.status, symbols: toFetch }, 'CoinGecko batch price lookup failed');

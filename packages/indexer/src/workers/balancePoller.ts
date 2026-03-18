@@ -111,10 +111,13 @@ async function pollObservatoryBalances() {
 
   logger.info({ count: obsAgents.length }, 'Polling balances for observatory agents (30min interval)');
 
+  // Pre-fetch ETH price ONCE for the entire batch instead of per-agent
+  const ethPrice = await getEthPrice();
+
   for (const agent of obsAgents) {
     try {
       // ETH only for observatory — skip ERC-20 tokens to save CUs
-      await snapshotWalletEthOnly(agent.walletAddress, agent.chain);
+      await snapshotWalletEthOnly(agent.walletAddress, agent.chain, ethPrice);
     } catch (err) {
       logger.error({ err, walletAddress: agent.walletAddress }, 'Failed to snapshot observatory balance');
     }
@@ -122,14 +125,14 @@ async function pollObservatoryBalances() {
 }
 
 /** Lightweight snapshot: ETH balance only (1 RPC call vs 7) */
-async function snapshotWalletEthOnly(walletAddress: string, chain: string) {
+async function snapshotWalletEthOnly(walletAddress: string, chain: string, preloadedEthPrice?: number | null) {
   if (chain !== 'base') return;
 
   const db = getDb();
   const client = getBaseClient();
   const ethBalance = await client.getBalance({ address: walletAddress as Address });
   const ethAmount = parseFloat(formatEther(ethBalance));
-  const ethPrice = await getEthPrice();
+  const ethPrice = preloadedEthPrice ?? await getEthPrice();
 
   await db.insert(balanceSnapshots).values({
     timestamp: new Date(),
