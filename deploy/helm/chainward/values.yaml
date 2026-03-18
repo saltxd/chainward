@@ -11,7 +11,7 @@ imagePullSecrets:
   - name: ghcr-pull
 
 postgres:
-  image: timescale/timescaledb:latest-pg16
+  image: timescale/timescaledb:2.25.1-pg16
   storage: 10Gi
   user: chainward
   database: chainward
