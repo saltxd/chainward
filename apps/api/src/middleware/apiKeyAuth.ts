@@ -4,7 +4,7 @@ import { users } from '@chainward/db';
 import { ApiKeyService } from '../services/apiKeyService.js';
 import { getDb } from '../lib/db.js';
 import { AppError } from './errorHandler.js';
-import { verifyJwt, COOKIE_NAME } from '../lib/auth.js';
+import { verifyJwt, extractSessionToken } from '../lib/auth.js';
 
 function inferRequiredScope(method: string): string {
   return ['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase()) ? 'read' : 'write';
@@ -59,14 +59,7 @@ export function requireApiKeyOrSession(requiredScope?: string) {
     }
 
     // Fall back to JWT session auth
-    const cookie = c.req.header('Cookie');
-    const token = cookie
-      ?.split(';')
-      .map((s) => s.trim())
-      .find((s) => s.startsWith(`${COOKIE_NAME}=`))
-      ?.split('=')
-      .slice(1)
-      .join('=');
+    const token = extractSessionToken(c);
 
     if (!token) {
       throw new AppError(401, 'UNAUTHORIZED', 'Authentication required. Provide a Bearer API key or session cookie.');

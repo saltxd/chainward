@@ -30,16 +30,26 @@ export async function recordAndCheck(redis: Redis, address: string): Promise<boo
   // Already paused — skip silently
   if (await redis.exists(pausedKey)) return false;
 
-  // Increment counter with TTL
-  const count = await redis.incr(counterKey);
-  if (count === 1) {
+  // Atomically increment + set TTL on first insert via pipeline
+  const pipeline = redis.pipeline();
+  pipeline.incr(counterKey);
+  pipeline.ttl(counterKey);
+  const results = await pipeline.exec();
+
+  const count = (results?.[0]?.[1] as number) ?? 0;
+  const ttl = (results?.[1]?.[1] as number) ?? -1;
+
+  // Set expiry if this is a new key (ttl -1 = no expiry set)
+  if (ttl === -1) {
     await redis.expire(counterKey, RATE_LIMIT_WINDOW);
   }
 
   if (count > RATE_LIMIT_MAX) {
-    // Pause this address
-    await redis.setex(pausedKey, PAUSE_DURATION, '1');
-    await redis.del(counterKey);
+    // Pause this address — pipeline the cleanup
+    const pausePipeline = redis.pipeline();
+    pausePipeline.setex(pausedKey, PAUSE_DURATION, '1');
+    pausePipeline.del(counterKey);
+    await pausePipeline.exec();
 
     logger.warn(
       { address: addr, txCount: count, pauseDuration: PAUSE_DURATION },

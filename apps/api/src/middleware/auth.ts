@@ -1,19 +1,12 @@
 import type { Context, Next } from 'hono';
 import { eq } from 'drizzle-orm';
 import { users } from '@chainward/db';
-import { verifyJwt, COOKIE_NAME } from '../lib/auth.js';
+import { verifyJwt, extractSessionToken } from '../lib/auth.js';
 import { getDb } from '../lib/db.js';
 import { AppError } from './errorHandler.js';
 
 export async function requireAuth(c: Context, next: Next) {
-  const cookie = c.req.header('Cookie');
-  const token = cookie
-    ?.split(';')
-    .map((s) => s.trim())
-    .find((s) => s.startsWith(`${COOKIE_NAME}=`))
-    ?.split('=')
-    .slice(1)
-    .join('=');
+  const token = extractSessionToken(c);
 
   if (!token) {
     throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
