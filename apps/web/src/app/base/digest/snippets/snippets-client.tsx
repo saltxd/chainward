@@ -51,10 +51,12 @@ function SnippetRow({
   snippet,
   index,
   weekStart,
+  generatedAt,
 }: {
   snippet: string;
   index: number;
   weekStart: string;
+  generatedAt: string;
 }) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -79,7 +81,7 @@ function SnippetRow({
   const handleDownload = useCallback(async () => {
     if (!section) return;
     try {
-      const res = await fetch(`/api/digest/latest/image/${section}`);
+      const res = await fetch(`/api/digest/latest/image/${section}?v=${generatedAt}`);
       if (!res.ok) return;
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -132,7 +134,7 @@ function SnippetRow({
             ) : (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={`/api/digest/latest/image/${section}`}
+                src={`/api/digest/latest/image/${section}?v=${generatedAt}`}
                 alt={`${label} digest image`}
                 className="w-full rounded object-cover"
                 style={{ aspectRatio: '16 / 9' }}
@@ -272,6 +274,7 @@ export function SnippetsClient() {
                 snippet={snippet}
                 index={i}
                 weekStart={digest?.week_start ?? ''}
+                generatedAt={digest?.generated_at ?? ''}
               />
             ))}
           </div>
