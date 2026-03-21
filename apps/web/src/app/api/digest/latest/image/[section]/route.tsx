@@ -707,7 +707,7 @@ export async function GET(
     width: WIDTH,
     height: HEIGHT,
     headers: {
-      'Cache-Control': 'public, max-age=604800, stale-while-revalidate=86400',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=300',
     },
   });
 }

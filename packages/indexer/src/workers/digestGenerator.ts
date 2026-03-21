@@ -918,7 +918,7 @@ function buildSocialSnippets(
 
   // 3. Spotlight — story, not stats
   if (spotlight) {
-    const name = (spotlight.name ?? spotlight.walletAddress.slice(0, 10)).slice(0, 25);
+    const name = (spotlight.name ?? spotlight.walletAddress.slice(0, 10)).slice(0, 40);
     const rev = fmtUsd(spotlight.revenue);
     const jobs = fmtCount(spotlight.jobs);
     const s3 = `${name} earned ${rev} from ${jobs} jobs this week with a ${spotlight.successRate.toFixed(0)}% success rate. ${spotlight.uniqueHirers} unique hirers.\n\n${link}`;
