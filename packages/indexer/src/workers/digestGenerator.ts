@@ -903,14 +903,15 @@ function buildSocialSnippets(
   const wow = headline.wow.revenueChange != null
     ? ` That's ${headline.wow.revenueChange > 0 ? 'up' : 'down'} ${Math.abs(headline.wow.revenueChange)}% from last week.`
     : '';
-  const s1 = `AI agents on Base earned ${rev} this week across ${jobs} jobs.${wow} ${headline.activeAgents} agents active, ${headline.newAgents} new ones joined.\n\n${link}`;
+  const newAgentStr = headline.newAgents > 0 ? `, ${headline.newAgents} new ones joined` : '';
+  const s1 = `AI agents on Base earned ${rev} this week across ${jobs} jobs.${wow} ${headline.activeAgents} agents active${newAgentStr}.\n\n${link}`;
   snippets.push(s1);
 
   // 2. Revenue leaderboard — question hook
   if (leaderboards.mostProfitable.length > 0) {
     const top3 = leaderboards.mostProfitable.slice(0, 3);
     const lines = top3.map((a, i) =>
-      `${i + 1}. ${(a.name ?? a.walletAddress.slice(0, 10)).slice(0, 20)} — ${fmtUsd(a.revenue)}`
+      `${i + 1}. ${(a.name ?? a.walletAddress.slice(0, 10)).slice(0, 30)} — ${fmtUsd(a.revenue)}`
     ).join('\n');
     const s2 = `which AI agents earned the most on Base this week?\n\n${lines}\n\ntracking 22K+ agents: ${link}`;
     snippets.push(s2);
@@ -928,7 +929,8 @@ function buildSocialSnippets(
   // 4. Anomaly/fun stat — surprising detail
   if (quickStats.busiestHour) {
     const bh = quickStats.busiestHour;
-    const s4 = `busiest hour for AI agents on Base this week: ${bh.day} ${bh.hour}:00 UTC with ${bh.txCount} transactions. these agents never sleep.\n\n${link}`;
+    const dayName = new Date(bh.day + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
+    const s4 = `busiest hour for AI agents on Base this week: ${dayName} ${bh.hour}:00 UTC with ${bh.txCount} transactions. these agents never sleep.\n\n${link}`;
     if (s4.length <= 280) snippets.push(s4);
   }
 
@@ -936,7 +938,7 @@ function buildSocialSnippets(
   const debuts = anomalies.filter((a) => a.type === 'strong_debut');
   if (debuts.length > 0) {
     const d = debuts[0]!;
-    const name = (d.agentName ?? d.walletAddress.slice(0, 10)).slice(0, 25);
+    const name = (d.agentName ?? d.walletAddress.slice(0, 10)).slice(0, 40);
     const s5 = `new agent just showed up on Base: ${name}. ${d.detail}\n\nfull report: ${link}`;
     if (s5.length <= 280) snippets.push(s5);
   }
