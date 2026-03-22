@@ -11,7 +11,8 @@ const envSchema = z.object({
 
   // RPC - Base
   BASE_RPC_URL: z.string().url(),
-  ALCHEMY_API_KEY: z.string(),
+  BASE_RPC_FALLBACK_URL: z.string().url().optional(),
+  ALCHEMY_API_KEY: z.string().optional(),
 
   // External
   COINGECKO_API_KEY: z.string().optional(),
