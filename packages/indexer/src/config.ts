@@ -11,7 +11,8 @@ const envSchema = z.object({
 
   // RPC - Base
   BASE_RPC_URL: z.string().url(),
-  ALCHEMY_API_KEY: z.string(),
+  BASE_RPC_FALLBACK_URL: z.string().url().optional(),
+  ALCHEMY_API_KEY: z.string().optional(),
 
   // External
   COINGECKO_API_KEY: z.string().optional(),
@@ -25,8 +26,7 @@ export function getEnv(): IndexerEnv {
   if (!_env) {
     const result = envSchema.safeParse(process.env);
     if (!result.success) {
-      console.error('Invalid environment variables:');
-      console.error(result.error.flatten().fieldErrors);
+      console.error('Invalid environment variables:', JSON.stringify(result.error.flatten().fieldErrors, null, 2));
       process.exit(1);
     }
     _env = result.data;

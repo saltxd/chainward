@@ -14,12 +14,20 @@ const jsonLd = {
   url: 'https://chainward.ai',
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Web, CLI (macOS, Linux, Windows)',
-  offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'USD',
-    description: 'Free during beta with founder-supported setup for early Base agent teams.',
-  },
+  offers: [
+    {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+      description: 'Free tier: 3 agents, 7-day history, all alerts.',
+    },
+    {
+      '@type': 'Offer',
+      price: '25',
+      priceCurrency: 'USD',
+      description: 'Operator: 10 agents, 90-day history, API + CLI access. Paid in USDC on Base.',
+    },
+  ],
   creator: {
     '@type': 'Organization',
     name: 'ChainWard',
@@ -70,6 +78,7 @@ export default async function LandingPage() {
           {isAuthenticated ? (
             <Link
               href="/overview"
+              rel="nofollow"
               className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
             >
               Dashboard &rarr;
@@ -77,6 +86,7 @@ export default async function LandingPage() {
           ) : (
             <Link
               href="/login"
+              rel="nofollow"
               className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
             >
               Connect Wallet
@@ -110,6 +120,7 @@ export default async function LandingPage() {
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             href="/login"
+            rel="nofollow"
             className="group relative inline-flex items-center gap-2 rounded-lg bg-[#1B5E20] px-8 py-3.5 text-sm font-semibold text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_30px_rgba(74,222,128,0.2)]"
           >
             Connect Wallet
@@ -317,6 +328,9 @@ export default async function LandingPage() {
           <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
             Simple, transparent pricing
           </h2>
+          <p className="mt-3 text-[#71717a]">
+            Pay with USDC on Base. No credit cards, no subscriptions middleman.
+          </p>
         </div>
 
         <div className="mt-12 grid gap-6 md:grid-cols-3">
@@ -326,93 +340,83 @@ export default async function LandingPage() {
               <h3 className="text-lg font-semibold text-white">Free</h3>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="text-3xl font-bold text-white">$0</span>
-                <span className="text-sm text-[#71717a]">/mo</span>
               </div>
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
               <li className="text-[#a1a1aa]">3 agents</li>
-              <li className="text-[#a1a1aa]">Real-time alerts</li>
               <li className="text-[#a1a1aa]">7-day history</li>
+              <li className="text-[#a1a1aa]">All alert types</li>
               <li className="text-[#a1a1aa]">Discord &amp; Telegram</li>
               <li className="text-[#a1a1aa]">Community support</li>
-              <li className="text-[#71717a]">&mdash;</li>
-              <li className="text-[#71717a]">&mdash;</li>
             </ul>
             <Link
               href="/login"
+              rel="nofollow"
               className="block rounded-lg bg-[#1B5E20] px-6 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-[#2E7D32]"
             >
-              Join beta
+              Get Started
             </Link>
           </div>
 
-          {/* Pro */}
+          {/* Operator */}
           <div className="relative flex flex-col rounded-xl border border-[#4ade80]/30 bg-[#0a0a0f] p-8">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#4ade80] px-3 py-0.5 text-xs font-semibold text-[#050508]">
               Most Popular
             </div>
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-white">Pro</h3>
+              <h3 className="text-lg font-semibold text-white">Operator</h3>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-white">$49</span>
-                <span className="text-sm text-[#71717a]">/mo</span>
+                <span className="text-3xl font-bold text-white">25</span>
+                <span className="text-sm text-[#71717a]">USDC/mo</span>
               </div>
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
-              <li className="text-[#a1a1aa]">25 agents</li>
-              <li className="text-[#a1a1aa]">Real-time alerts</li>
+              <li className="text-[#a1a1aa]">10 agents</li>
               <li className="text-[#a1a1aa]">90-day history</li>
+              <li className="text-[#a1a1aa]">All alert types</li>
               <li className="text-[#a1a1aa]">All channels + webhook</li>
-              <li className="text-[#a1a1aa]">Email support</li>
               <li className="flex items-center gap-1.5 text-[#4ade80]">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                API access
+                API + CLI access
               </li>
             </ul>
             <Link
               href="/login"
+              rel="nofollow"
               className="block rounded-lg bg-[#4ade80] px-6 py-2.5 text-center text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e]"
             >
-              Join beta
+              Get Operator &rarr;
             </Link>
           </div>
 
-          {/* Team */}
+          {/* Intelligence Brief */}
           <div className="flex flex-col rounded-xl border border-[#1a1a2e] bg-[#0a0a0f] p-8">
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-white">Team</h3>
+              <h3 className="text-lg font-semibold text-white">Intelligence Brief</h3>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-white">$199</span>
-                <span className="text-sm text-[#71717a]">/mo</span>
+                <span className="text-3xl font-bold text-white">99</span>
+                <span className="text-sm text-[#71717a]">USDC</span>
               </div>
+              <p className="mt-1 text-xs text-[#71717a]">one-time</p>
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
-              <li className="text-[#a1a1aa]">100 agents</li>
-              <li className="text-[#a1a1aa]">Priority alerts</li>
-              <li className="text-[#a1a1aa]">Unlimited history</li>
-              <li className="text-[#a1a1aa]">All channels + webhook</li>
-              <li className="text-[#a1a1aa]">Dedicated support</li>
-              <li className="flex items-center gap-1.5 text-[#4ade80]">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                API access
-              </li>
+              <li className="text-[#a1a1aa]">Custom fleet analysis</li>
+              <li className="text-[#a1a1aa]">Alert strategy setup</li>
+              <li className="text-[#a1a1aa]">Gas optimization review</li>
+              <li className="text-[#a1a1aa]">Written report delivery</li>
+              <li className="text-[#a1a1aa]">1:1 walkthrough call</li>
             </ul>
             <Link
               href="/login"
+              rel="nofollow"
               className="block rounded-lg bg-[#1B5E20] px-6 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-[#2E7D32]"
             >
-              Join beta
+              Request Brief &rarr;
             </Link>
           </div>
         </div>
-
-        <p className="mt-6 text-center text-sm text-[#71717a]">
-          All plans free during beta
-        </p>
       </section>
 
       {/* CTA */}
@@ -428,6 +432,7 @@ export default async function LandingPage() {
           <div className="relative mt-8">
             <Link
               href="/login"
+              rel="nofollow"
               className="inline-flex items-center gap-2 rounded-lg bg-[#4ade80] px-8 py-3.5 text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e] hover:shadow-[0_0_40px_rgba(74,222,128,0.3)]"
             >
               Get Started
@@ -444,7 +449,7 @@ export default async function LandingPage() {
         <p className="text-sm leading-relaxed text-[#52525b]">
           ChainWard is a Base-first operations dashboard for teams running on-chain agents. Monitor agent wallets,
           route failed-transaction and gas-spike alerts to Discord, Telegram, or webhooks, and track recent wallet
-          behavior through the web app, API, TypeScript SDK, and CLI. Free during beta.
+          behavior through the web app, API, TypeScript SDK, and CLI. Free tier available, paid plans in USDC on Base.
         </p>
       </section>
 
