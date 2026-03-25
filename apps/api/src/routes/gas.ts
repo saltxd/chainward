@@ -3,6 +3,7 @@ import type { AppVariables } from '../types.js';
 import { GasService } from '../services/gasService.js';
 import { getDb } from '../lib/db.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
+import { safeDate } from '../lib/queryParams.js';
 
 const gas = new Hono<{ Variables: AppVariables }>();
 gas.use('*', requireApiKeyOrSession());
@@ -17,8 +18,8 @@ gas.get('/analytics', async (c) => {
   const data = await service.getAnalytics(
     user.id,
     query.wallet,
-    query.from ? new Date(query.from) : undefined,
-    query.to ? new Date(query.to) : undefined,
+    safeDate(query.from),
+    safeDate(query.to),
     bucket,
   );
 

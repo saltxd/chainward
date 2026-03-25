@@ -8,6 +8,7 @@ import { AlertService } from '../services/alertService.js';
 import { getDb } from '../lib/db.js';
 import { getQueues } from '../lib/queue.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
+import { safeInt } from '../lib/queryParams.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { validateWebhookUrl } from '../lib/validateUrl.js';
@@ -168,8 +169,8 @@ alerts.get('/events', async (c) => {
   const service = new AlertService(getDb());
   const result = await service.getEvents(
     user.id,
-    query.limit ? Number(query.limit) : undefined,
-    query.offset ? Number(query.offset) : undefined,
+    safeInt(query.limit),
+    safeInt(query.offset, 0),
   );
 
   return c.json({ success: true, ...result });

@@ -18,6 +18,7 @@ import { wallets } from './routes/wallets.js';
 import { publicAgents } from './routes/publicAgents.js';
 import { observatory } from './routes/observatory.js';
 import { digest } from './routes/digest.js';
+import { payments } from './routes/payments.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
@@ -72,11 +73,21 @@ app.route('/api/wallets', wallets);
 app.route('/api/public/agents', publicAgents);
 app.route('/api/observatory', observatory);
 app.route('/api/digest', digest);
+app.route('/api/payments', payments);
 
 // 404 handler
 app.notFound((c) =>
   c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404),
 );
+
+// Catch unhandled errors so the process doesn't die silently
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled promise rejection');
+});
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught exception — shutting down');
+  process.exit(1);
+});
 
 // Start server
 const port = env.PORT;

@@ -1,21 +1,16 @@
 import type { ChainDataProvider, TransferRecord, TokenBalanceRecord } from '@chainward/common';
+import { parseAbiItem } from 'viem';
+import { getBaseClient } from './viem.js';
 import { logger } from './logger.js';
 
-interface AlchemyTransferResult {
-  transfers: TransferRecord[];
-  pageKey?: string;
-}
+const ERC20_TRANSFER_EVENT = parseAbiItem(
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+);
 
-interface AlchemyRpcResponse<T> {
-  jsonrpc: string;
-  id: number;
-  result: T;
-  error?: { code: number; message: string };
-}
+/** Max block lookback for eth_getLogs to avoid reth timeout */
+const MAX_LOG_LOOKBACK = 10_000n;
 
-export class IndexerAlchemyProvider implements ChainDataProvider {
-  constructor(private rpcUrl: string) {}
-
+export class IndexerChainDataProvider implements ChainDataProvider {
   async getTransferHistory(params: {
     address: string;
     direction: 'inbound' | 'outbound';
@@ -23,65 +18,48 @@ export class IndexerAlchemyProvider implements ChainDataProvider {
     maxCount?: number;
     categories?: string[];
   }): Promise<TransferRecord[]> {
-    const perPage = params.maxCount ?? 1000;
-    const maxPages = 10; // Safety cap: 10 pages = up to 10,000 transfers per direction
-    const allTransfers: TransferRecord[] = [];
-    let pageKey: string | undefined;
+    const client = getBaseClient();
+    const address = params.address as `0x${string}`;
+    const maxCount = params.maxCount ?? 1000;
 
-    for (let page = 0; page < maxPages; page++) {
-      const rpcParams: Record<string, unknown> = {
-        category: params.categories ?? ['external', 'erc20'],
-        maxCount: `0x${perPage.toString(16)}`,
-        order: 'desc',
-        withMetadata: true,
-      };
-
-      if (params.fromBlock) rpcParams.fromBlock = params.fromBlock;
-      if (pageKey) rpcParams.pageKey = pageKey;
-
-      if (params.direction === 'inbound') {
-        rpcParams.toAddress = params.address;
-      } else {
-        rpcParams.fromAddress = params.address;
-      }
-
-      try {
-        const response = await fetch(this.rpcUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'alchemy_getAssetTransfers',
-            params: [rpcParams],
-          }),
-        });
-
-        const data = (await response.json()) as AlchemyRpcResponse<AlchemyTransferResult>;
-
-        if (!response.ok || data.error) {
-          logger.error({ status: response.status, error: data.error }, 'getTransferHistory failed');
-          break;
-        }
-
-        const transfers = data.result?.transfers ?? [];
-        allTransfers.push(...transfers);
-
-        logger.debug(
-          { direction: params.direction, page: page + 1, count: transfers.length, hasMore: !!data.result?.pageKey },
-          'Fetched transfer page',
-        );
-
-        // If no pageKey in response, we've fetched all pages
-        if (!data.result?.pageKey) break;
-        pageKey = data.result.pageKey;
-      } catch (err) {
-        logger.error({ err, page: page + 1 }, 'Failed to fetch transfer history page');
-        break;
-      }
+    // Determine fromBlock with safe lookback guard
+    let fromBlock: bigint;
+    if (params.fromBlock) {
+      fromBlock = BigInt(params.fromBlock);
+    } else {
+      const currentBlock = await client.getBlockNumber();
+      fromBlock = currentBlock > MAX_LOG_LOOKBACK ? currentBlock - MAX_LOG_LOOKBACK : 0n;
     }
 
-    return allTransfers;
+    const logs = await client.getLogs({
+      event: ERC20_TRANSFER_EVENT,
+      args: params.direction === 'outbound' ? { from: address } : { to: address },
+      fromBlock,
+      toBlock: 'latest',
+    });
+
+    const transfers: TransferRecord[] = logs.slice(0, maxCount).map((log) => ({
+      hash: log.transactionHash ?? '0x',
+      blockNum: `0x${(log.blockNumber ?? 0n).toString(16)}`,
+      from: log.args.from ?? '0x',
+      to: log.args.to ?? null,
+      value: null,
+      asset: null,
+      category: 'erc20',
+      rawContract: {
+        rawValue: log.args.value?.toString() ?? null,
+        address: log.address ?? null,
+        decimal: null,
+      },
+      metadata: null,
+    }));
+
+    logger.debug(
+      { address, direction: params.direction, count: transfers.length },
+      'Fetched transfer history via eth_getLogs',
+    );
+
+    return transfers;
   }
 
   async getTokenBalances(_address: string): Promise<TokenBalanceRecord[]> {
