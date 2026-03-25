@@ -26,8 +26,7 @@ export function getEnv(): IndexerEnv {
   if (!_env) {
     const result = envSchema.safeParse(process.env);
     if (!result.success) {
-      console.error('Invalid environment variables:');
-      console.error(result.error.flatten().fieldErrors);
+      console.error('Invalid environment variables:', JSON.stringify(result.error.flatten().fieldErrors, null, 2));
       process.exit(1);
     }
     _env = result.data;

@@ -80,6 +80,15 @@ app.notFound((c) =>
   c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404),
 );
 
+// Catch unhandled errors so the process doesn't die silently
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled promise rejection');
+});
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught exception — shutting down');
+  process.exit(1);
+});
+
 // Start server
 const port = env.PORT;
 logger.info({ port, env: env.NODE_ENV }, 'Starting ChainWard API');
