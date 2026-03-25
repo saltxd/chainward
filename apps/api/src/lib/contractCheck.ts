@@ -1,20 +1,24 @@
-import { JsonRpcProvider } from 'ethers';
-import { getEnv } from '../config.js';
+import { createPublicClient, http, fallback, type PublicClient } from 'viem';
+import { base } from 'viem/chains';
 import { logger } from './logger.js';
 
-let _provider: JsonRpcProvider | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _client: any = null;
 
-function getProvider(): JsonRpcProvider {
-  if (!_provider) {
-    _provider = new JsonRpcProvider(getEnv().BASE_RPC_URL);
+function getClient(): PublicClient {
+  if (!_client) {
+    const rpcUrl = process.env.BASE_RPC_URL;
+    const fallbackUrl = process.env.BASE_RPC_FALLBACK_URL;
+    const transports = [http(rpcUrl)];
+    if (fallbackUrl) transports.push(http(fallbackUrl));
+
+    _client = createPublicClient({
+      chain: base,
+      transport: transports.length > 1 ? fallback(transports) : http(rpcUrl),
+    });
   }
-  return _provider;
+  return _client as PublicClient;
 }
-
-/** Well-known proxy/wallet bytecode signatures */
-const KNOWN_WALLET_SIGNATURES = [
-  '0x6080604052', // Generic proxy prefix (Safe, ERC-4337, etc.)
-];
 
 /** Known wallet factory/singleton addresses (lowercase) */
 const KNOWN_WALLET_CONTRACTS = new Set([
@@ -36,17 +40,15 @@ export interface ContractCheckResult {
  */
 export async function checkAddressType(address: string): Promise<ContractCheckResult> {
   try {
-    const code = await getProvider().getCode(address);
+    const code = await getClient().getCode({ address: address as `0x${string}` });
 
-    if (code === '0x' || code === '0x0') {
+    if (!code || code === '0x' || code === '0x0') {
       return { isContract: false, isKnownWallet: false };
     }
 
-    // Check if this is a known wallet contract (Safe, ERC-4337 account, etc.)
-    // Safe proxies delegate to a known singleton — check if bytecode contains the singleton address
     const codeLower = code.toLowerCase();
     const isKnownWallet = [...KNOWN_WALLET_CONTRACTS].some((addr) =>
-      codeLower.includes(addr.slice(2)), // Check if singleton address appears in proxy bytecode
+      codeLower.includes(addr.slice(2)),
     );
 
     return { isContract: true, isKnownWallet };

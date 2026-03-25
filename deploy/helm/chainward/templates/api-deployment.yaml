@@ -52,6 +52,18 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.externalSecret }}
                   key: BASE_RPC_URL
+            - name: BASE_RPC_FALLBACK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: BASE_RPC_FALLBACK_URL
+                  optional: true
+            - name: CHAIN_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: CHAIN_PROVIDER
+                  optional: true
             - name: ALCHEMY_WEBHOOK_SIGNING_KEY
               valueFrom:
                 secretKeyRef:

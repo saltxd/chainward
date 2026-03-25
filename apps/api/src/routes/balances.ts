@@ -3,6 +3,7 @@ import type { AppVariables } from '../types.js';
 import { BalanceService } from '../services/balanceService.js';
 import { getDb } from '../lib/db.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
+import { safeDate } from '../lib/queryParams.js';
 
 const balances = new Hono<{ Variables: AppVariables }>();
 balances.use('*', requireApiKeyOrSession());
@@ -23,8 +24,8 @@ balances.get('/history', async (c) => {
   const data = await service.getHistory(
     user.id,
     query.wallet,
-    query.from ? new Date(query.from) : undefined,
-    query.to ? new Date(query.to) : undefined,
+    safeDate(query.from),
+    safeDate(query.to),
     bucket,
   );
 

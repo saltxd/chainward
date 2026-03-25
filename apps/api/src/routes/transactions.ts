@@ -3,6 +3,7 @@ import type { AppVariables } from '../types.js';
 import { TxService } from '../services/txService.js';
 import { getDb } from '../lib/db.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
+import { safeInt, safeDate } from '../lib/queryParams.js';
 
 const txRoutes = new Hono<{ Variables: AppVariables }>();
 txRoutes.use('*', requireApiKeyOrSession());
@@ -18,11 +19,11 @@ txRoutes.get('/', async (c) => {
     direction: query.direction,
     txType: query.type,
     status: query.status,
-    from: query.from ? new Date(query.from) : undefined,
-    to: query.to ? new Date(query.to) : undefined,
+    from: safeDate(query.from),
+    to: safeDate(query.to),
     search: query.search,
-    limit: query.limit ? Number(query.limit) : undefined,
-    offset: query.offset ? Number(query.offset) : undefined,
+    limit: safeInt(query.limit),
+    offset: safeInt(query.offset, 0),
   });
 
   return c.json({ success: true, ...result });
@@ -38,8 +39,8 @@ txRoutes.get('/stats', async (c) => {
   const data = await service.getVolumeStats(
     user.id,
     query.wallet,
-    query.from ? new Date(query.from) : undefined,
-    query.to ? new Date(query.to) : undefined,
+    safeDate(query.from),
+    safeDate(query.to),
     bucket,
   );
 

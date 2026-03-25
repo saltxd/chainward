@@ -3,7 +3,7 @@ import type { TransferRecord } from '@chainward/common';
 import { getBaseClient } from '../lib/viem.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
-import { IndexerAlchemyProvider } from '../lib/chainDataProvider.js';
+import { IndexerChainDataProvider } from '../lib/chainDataProvider.js';
 import { resolveToken } from '../processors/tokenResolver.js';
 import { resolveProtocol } from '../processors/protocolResolver.js';
 import { getEthPrice, getUsdPrice } from '../processors/priceResolver.js';
@@ -12,7 +12,7 @@ import { getEnv } from '../config.js';
 import { insertTransactionIfNew } from '../lib/transactionStore.js';
 
 /**
- * Backfill the last 30 days of transactions for a wallet using alchemy_getAssetTransfers.
+ * Backfill the last 30 days of transactions for a wallet using eth_getLogs.
  */
 export async function backfillAgent(walletAddress: string, chain: string) {
   if (chain !== 'base') {
@@ -32,7 +32,7 @@ export async function backfillAgent(walletAddress: string, chain: string) {
 
   let totalInserted = 0;
 
-  const provider = new IndexerAlchemyProvider(env.BASE_RPC_URL);
+  const provider = new IndexerChainDataProvider();
   const outgoing = await provider.getTransferHistory({
     address: walletAddress,
     direction: 'outbound',

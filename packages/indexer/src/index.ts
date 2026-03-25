@@ -60,4 +60,13 @@ async function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// Catch unhandled errors so workers don't die silently
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled promise rejection in indexer');
+});
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught exception in indexer — shutting down');
+  process.exit(1);
+});
+
 logger.info('All indexer workers running');

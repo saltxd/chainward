@@ -108,6 +108,13 @@ export const api = {
     }),
   revokeApiKey: (id: number) =>
     fetchApi<{ success: true }>(`/api/keys/${id}`, { method: 'DELETE' }),
+
+  // Payments
+  verifyPayment: (body: { txHash: string; plan: string }) =>
+    fetchApi<{ success: true; plan: string; txHash: string }>('/api/payments/verify', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 // Types
