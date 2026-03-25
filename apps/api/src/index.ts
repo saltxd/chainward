@@ -18,6 +18,7 @@ import { wallets } from './routes/wallets.js';
 import { publicAgents } from './routes/publicAgents.js';
 import { observatory } from './routes/observatory.js';
 import { digest } from './routes/digest.js';
+import { payments } from './routes/payments.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
@@ -72,6 +73,7 @@ app.route('/api/wallets', wallets);
 app.route('/api/public/agents', publicAgents);
 app.route('/api/observatory', observatory);
 app.route('/api/digest', digest);
+app.route('/api/payments', payments);
 
 // 404 handler
 app.notFound((c) =>
