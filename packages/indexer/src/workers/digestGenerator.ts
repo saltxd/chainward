@@ -320,7 +320,7 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
       COALESCE((
         SELECT SUM(CAST(t.gas_cost_usd AS numeric))
         FROM transactions t
-        WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
+        WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
           AND t.timestamp >= ${weekStart}::date
           AND t.timestamp < ${weekEnd}::date
       ), 0) AS gas_cost
@@ -362,7 +362,7 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
     CROSS JOIN LATERAL (
       SELECT COALESCE(SUM(CAST(t.gas_cost_usd AS numeric)), 0) AS gas_cost
       FROM transactions t
-      WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
+      WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
         AND t.timestamp >= ${weekStart}::date
         AND t.timestamp < ${weekEnd}::date
     ) sub
@@ -673,7 +673,7 @@ async function buildAlertsAnomalies(weekStart: string, weekEnd: string, priorWee
     CROSS JOIN LATERAL (
       SELECT COALESCE(SUM(CAST(t.gas_cost_usd AS numeric)), 0) AS gas_cost
       FROM transactions t
-      WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
+      WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
         AND t.timestamp >= ${weekStart}::date
         AND t.timestamp < ${weekEnd}::date
     ) sub
@@ -764,7 +764,7 @@ async function buildAlertsAnomalies(weekStart: string, weekEnd: string, priorWee
           ELSE NULL
         END AS onchain_success_rate
       FROM transactions t
-      WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
+      WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
         AND t.timestamp >= ${weekStart}::date
         AND t.timestamp < ${weekEnd}::date
     ) sub

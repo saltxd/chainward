@@ -80,13 +80,13 @@ observatory.get('/economics', async (c) => {
       COALESCE((
         SELECT SUM(CAST(t.gas_cost_usd AS numeric))
         FROM transactions t
-        WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
+        WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
           AND t.timestamp >= NOW() - INTERVAL '30 days'
       ), 0) AS gas_cost_30d,
       COALESCE(acp.revenue, 0) - COALESCE((
         SELECT SUM(CAST(t.gas_cost_usd AS numeric))
         FROM transactions t
-        WHERE LOWER(t.wallet_address) = LOWER(COALESCE(ar.wallet_address, acp.wallet_address))
+        WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
           AND t.timestamp >= NOW() - INTERVAL '30 days'
       ), 0) AS profit_30d
     FROM acp_agent_data acp
