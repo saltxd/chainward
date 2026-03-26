@@ -91,7 +91,7 @@ auth.post('/verify', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:auth-verify'
   const isSecure = env.NODE_ENV === 'production';
   c.header(
     'Set-Cookie',
-    `${COOKIE_NAME}=${token}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=${7 * 24 * 60 * 60}`,
+    `${COOKIE_NAME}=${token}; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=${7 * 24 * 60 * 60}`,
   );
 
   return c.json({
@@ -151,7 +151,7 @@ auth.post('/logout', (c) => {
   const isSecure = env.NODE_ENV === 'production';
   c.header(
     'Set-Cookie',
-    `${COOKIE_NAME}=; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=0`,
+    `${COOKIE_NAME}=; HttpOnly; ${isSecure ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=0`,
   );
   return c.json({ success: true });
 });
