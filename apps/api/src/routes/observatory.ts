@@ -132,6 +132,11 @@ observatory.get('/economics/:wallet', async (c) => {
   const db = getDb();
   const wallet = c.req.param('wallet');
 
+  // Validate Ethereum address format
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+    return c.json({ success: false, error: 'Invalid wallet address format' }, 400);
+  }
+
   const rows = await db.execute(sql`
     SELECT
       acp.name, acp.wallet_address, acp.symbol, acp.role, acp.profile_pic,
@@ -284,7 +289,11 @@ observatory.get('/report', async (c) => {
 
 observatory.get('/candidates', requireApiKeyOrSession(), async (c) => {
   const db = getDb();
-  const status = c.req.query('status') ?? 'pending';
+  const rawStatus = c.req.query('status') ?? 'pending';
+  const validStatuses = ['pending', 'approved', 'dismissed'] as const;
+  const status = validStatuses.includes(rawStatus as typeof validStatuses[number])
+    ? rawStatus
+    : 'pending';
 
   const rows = await db.execute(sql`
     SELECT id, chain, wallet_address, agent_name, registry_token_id,
@@ -298,7 +307,7 @@ observatory.get('/candidates', requireApiKeyOrSession(), async (c) => {
   return c.json({ success: true, data: rows });
 });
 
-observatory.patch('/candidates/:id', requireApiKeyOrSession(), async (c) => {
+observatory.patch('/candidates/:id', requireApiKeyOrSession('admin'), async (c) => {
   const db = getDb();
   const id = parseInt(c.req.param('id'), 10);
   const body = await c.req.json<{ status: 'approved' | 'dismissed'; notes?: string }>();

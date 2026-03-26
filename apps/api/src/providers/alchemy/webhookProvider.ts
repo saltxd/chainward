@@ -1,6 +1,33 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { z } from 'zod';
 import type { WebhookProvider, NormalizedActivity } from '@chainward/common';
 import { logger } from '../../lib/logger.js';
+
+const activitySchema = z.object({
+  fromAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/i),
+  toAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/i),
+  blockNum: z.string().regex(/^0x[a-fA-F0-9]+$/),
+  hash: z.string().regex(/^0x[a-fA-F0-9]{64}$/i),
+  value: z.number(),
+  asset: z.string(),
+  category: z.string(),
+  rawContract: z.object({
+    rawValue: z.string(),
+    address: z.string(),
+    decimals: z.number(),
+  }).optional(),
+});
+
+const webhookPayloadSchema = z.object({
+  webhookId: z.string(),
+  id: z.string(),
+  createdAt: z.string(),
+  type: z.string(),
+  event: z.object({
+    network: z.string(),
+    activity: z.array(activitySchema),
+  }),
+});
 
 const ALCHEMY_NOTIFY_API = 'https://dashboard.alchemy.com/api';
 
@@ -113,9 +140,15 @@ export class AlchemyWebhookProvider implements WebhookProvider {
   }
 
   parsePayload(rawBody: string): NormalizedActivity[] {
-    const body = JSON.parse(rawBody) as AlchemyWebhookPayload;
-    const activities = body.event?.activity;
-    if (!activities || activities.length === 0) return [];
+    const raw = JSON.parse(rawBody);
+    const parsed = webhookPayloadSchema.safeParse(raw);
+    if (!parsed.success) {
+      logger.warn({ errors: parsed.error.flatten().fieldErrors }, 'Rejected malformed Alchemy webhook payload');
+      return [];
+    }
+    const body = parsed.data;
+    const activities = body.event.activity;
+    if (activities.length === 0) return [];
 
     return activities.map((a) => ({
       txHash: a.hash,

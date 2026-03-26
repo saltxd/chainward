@@ -22,12 +22,20 @@ function ipToNum(ip: string): number {
 }
 
 function isPrivateIp(ip: string): boolean {
-  // IPv6 loopback
+  // Normalize IPv4-mapped IPv6 (e.g., ::ffff:127.0.0.1 → 127.0.0.1)
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.slice(7);
+  }
+  // IPv6 loopback and private ranges
   if (ip === '::1' || ip === '::' || ip.startsWith('fc') || ip.startsWith('fd') || ip.startsWith('fe80')) {
     return true;
   }
-  const num = ipToNum(ip);
-  return PRIVATE_RANGES.some((r) => num >= ipToNum(r.start) && num <= ipToNum(r.end));
+  // Check IPv4 private ranges
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
+    const num = ipToNum(ip);
+    return PRIVATE_RANGES.some((r) => num >= ipToNum(r.start) && num <= ipToNum(r.end));
+  }
+  return false;
 }
 
 /**
@@ -49,9 +57,17 @@ export function validateWebhookUrl(urlStr: string): string | null {
 
   const hostname = url.hostname.toLowerCase();
 
-  // Block localhost variants
+  // Block localhost variants and IPv6 brackets with private IPs
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
     return 'Webhook URL cannot point to localhost';
+  }
+
+  // Block bracketed IPv6 private addresses (e.g., [::ffff:127.0.0.1])
+  if (hostname.startsWith('[') && hostname.endsWith(']')) {
+    const inner = hostname.slice(1, -1);
+    if (isPrivateIp(inner)) {
+      return 'Webhook URL cannot point to private IP addresses';
+    }
   }
 
   // Block hostnames without dots (likely internal K8s service names)
