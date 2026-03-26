@@ -209,11 +209,11 @@ function HeadlineCard({
 /*  Section: Leaderboards                                                     */
 /* -------------------------------------------------------------------------- */
 
-type LeaderboardTab = 'mostProfitable' | 'mostEfficient' | 'biggestMovers';
+// Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory.
+type LeaderboardTab = 'mostProfitable' | 'biggestMovers';
 
 const LB_TAB_LABELS: Record<LeaderboardTab, string> = {
   mostProfitable: 'Top Revenue',
-  mostEfficient: 'Revenue/Gas',
   biggestMovers: 'Biggest Movers',
 };
 
@@ -224,11 +224,7 @@ function LeaderboardsSection({
   data: Leaderboards | null;
   loading: boolean;
 }) {
-  // Hide Revenue/Gas tab if there are no entries with gas > 0
-  const hasEfficientData = (data?.mostEfficient ?? []).length > 0;
-  const visibleTabs = (Object.keys(LB_TAB_LABELS) as LeaderboardTab[]).filter(
-    (t) => t !== 'mostEfficient' || hasEfficientData,
-  );
+  const visibleTabs = Object.keys(LB_TAB_LABELS) as LeaderboardTab[];
 
   const [tab, setTab] = useState<LeaderboardTab>('mostProfitable');
 
@@ -298,44 +294,6 @@ function LeaderboardsSection({
       ));
     }
 
-    if (tab === 'mostEfficient') {
-      const entries = data?.mostEfficient ?? [];
-      if (entries.length === 0) {
-        return (
-          <tr>
-            <td colSpan={5} className="px-4 py-8 text-center text-gray-600">No data yet</td>
-          </tr>
-        );
-      }
-      return entries.map((entry, i) => (
-        <tr
-          key={entry.walletAddress}
-          className="border-b border-white/5 transition-colors hover:bg-white/[0.02]"
-        >
-          <td className="px-4 py-3 font-mono text-gray-500">{i + 1}</td>
-          <td className="px-4 py-3">
-            <a
-              href={`https://basescan.org/address/${entry.walletAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white transition-colors hover:text-[#4ade80]"
-            >
-              {entry.name ?? truncateAddress(entry.walletAddress)}
-            </a>
-          </td>
-          <td className="px-4 py-3 text-right font-mono text-white">
-            {formatUsd(entry.revenue)}
-          </td>
-          <td className="px-4 py-3 text-right font-mono text-gray-500">
-            {formatUsd(entry.gasCost)}
-          </td>
-          <td className="px-4 py-3 text-right font-mono text-[#4ade80]">
-            {entry.efficiency.toFixed(1)}x
-          </td>
-        </tr>
-      ));
-    }
-
     // mostProfitable
     const entries = data?.mostProfitable ?? [];
     if (entries.length === 0) {
@@ -364,9 +322,6 @@ function LeaderboardsSection({
         <td className="px-4 py-3 text-right font-mono text-white">
           {formatUsd(entry.revenue)}
         </td>
-        <td className="px-4 py-3 text-right font-mono text-gray-500">
-          {formatUsd(entry.gasCost)}
-        </td>
       </tr>
     ));
   };
@@ -383,23 +338,11 @@ function LeaderboardsSection({
         </tr>
       );
     }
-    if (tab === 'mostEfficient') {
-      return (
-        <tr className="border-b border-white/10 text-left text-gray-500">
-          <th className="px-4 py-3 font-medium">#</th>
-          <th className="px-4 py-3 font-medium">Agent</th>
-          <th className="px-4 py-3 text-right font-medium">Revenue</th>
-          <th className="px-4 py-3 text-right font-medium">Gas</th>
-          <th className="px-4 py-3 text-right font-medium">Revenue/Gas</th>
-        </tr>
-      );
-    }
     return (
       <tr className="border-b border-white/10 text-left text-gray-500">
         <th className="px-4 py-3 font-medium">#</th>
         <th className="px-4 py-3 font-medium">Agent</th>
         <th className="px-4 py-3 text-right font-medium">Revenue</th>
-        <th className="px-4 py-3 text-right font-medium">Gas</th>
       </tr>
     );
   };
@@ -511,14 +454,7 @@ function SpotlightSection({
               {formatUsd(data.revenue)}
             </p>
           </div>
-          {data.gasCost > 0 && (
-            <div>
-              <p className="text-xs text-gray-500">Gas Cost</p>
-              <p className="font-mono text-sm font-bold text-gray-400">
-                {formatUsd(data.gasCost)}
-              </p>
-            </div>
-          )}
+          {/* Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory. */}
           <div>
             <p className="text-xs text-gray-500">Jobs</p>
             <p className="font-mono text-sm font-bold text-white">
@@ -600,7 +536,8 @@ function ProtocolSection({
   if (!data || data.length === 0) return null;
 
   const maxTxCount = Math.max(...data.map((p) => p.txCount), 1);
-  const hasProtocolGas = data.some((p) => p.gasCost > 0.01);
+  // Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory.
+  const hasProtocolGas = false;
 
   return (
     <section className="mt-12">
@@ -759,14 +696,10 @@ function QuickStatsSection({
     });
   }
 
-  if (data.mostExpensiveTx) {
-    cards.push({
-      emoji: '\u{26FD}',
-      label: 'Most Expensive Tx',
-      value: formatUsd(data.mostExpensiveTx.gasCostUsd),
-      sub: `${data.mostExpensiveTx.txHash.slice(0, 10)}...`,
-    });
-  }
+  // Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory.
+  // if (data.mostExpensiveTx) {
+  //   cards.push({ emoji: '\u{26FD}', label: 'Most Expensive Tx', ... });
+  // }
 
   if (data.longestIdleAgent) {
     cards.push({
@@ -1040,12 +973,7 @@ export function DigestClient({
                 change={digest?.headline?.wow?.revenueChange ?? null}
                 loading={loading}
               />
-              <HeadlineCard
-                label="Gas Burned"
-                value={formatUsd(digest?.headline?.totalGas ?? 0)}
-                change={digest?.headline?.wow?.gasChange ?? null}
-                loading={loading}
-              />
+              {/* Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory. */}
               <HeadlineCard
                 label="Active Agents"
                 value={String(digest?.headline?.activeAgents ?? 0)}
@@ -1068,7 +996,7 @@ export function DigestClient({
               )}
             </section>
             <p className="text-xs text-[#71717a] mt-2">
-              Revenue data from Virtuals ACP. Gas costs reflect matched on-chain wallets only.
+              Revenue data from Virtuals ACP.
             </p>
 
             {/* ------------------------------------------------------------ */}
