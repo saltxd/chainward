@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -57,7 +58,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark scroll-smooth">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        {children}
+        <Script
+          src="/u/script.js"
+          data-website-id="bd27109d-11b2-4a0e-b621-b4456297c035"
+          data-host-url="/u"
+          strategy="afterInteractive"
+        />
+      </body>
     </html>
   );
 }
