@@ -100,7 +100,7 @@ export function TxDetailPanel({ transaction, onClose }: TxDetailPanelProps) {
             <span
               className={cn(
                 'rounded px-1.5 py-0.5 text-xs font-medium',
-                tx.status === 'confirmed' && 'bg-[#4ade80]/20 text-[#4ade80]',
+                tx.status === 'confirmed' && 'bg-accent-foreground/20 text-accent-foreground',
                 tx.status === 'failed' && 'bg-destructive/20 text-destructive',
               )}
             >
@@ -111,7 +111,7 @@ export function TxDetailPanel({ transaction, onClose }: TxDetailPanelProps) {
             <span
               className={cn(
                 'text-xs font-medium',
-                tx.direction === 'in' && 'text-[#4ade80]',
+                tx.direction === 'in' && 'text-accent-foreground',
                 tx.direction === 'out' && 'text-destructive',
                 tx.direction === 'self' && 'text-muted-foreground',
               )}

@@ -54,7 +54,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
       className={cn(
         'animate-in slide-in-from-right-5 fade-in rounded-lg border px-4 py-3 text-sm shadow-lg',
         'min-w-[280px] max-w-[400px]',
-        toast.type === 'success' && 'border-[#4ade80]/30 bg-[#4ade80]/10 text-[#4ade80]',
+        toast.type === 'success' && 'border-accent-foreground/30 bg-accent-foreground/10 text-accent-foreground',
         toast.type === 'error' && 'border-destructive/30 bg-destructive/10 text-destructive',
         toast.type === 'info' && 'border-border bg-card text-foreground',
       )}

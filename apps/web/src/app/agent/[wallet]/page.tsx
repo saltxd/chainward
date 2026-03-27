@@ -179,7 +179,7 @@ export default function PublicAgentPage({
       </div>
 
       {/* CTA */}
-      <div className="mt-10 rounded-lg border border-[#4ade80]/20 bg-[#4ade80]/5 p-8 text-center">
+      <div className="mt-10 rounded-lg border border-accent-foreground/20 bg-accent-foreground/5 p-8 text-center">
         <h3 className="text-xl font-bold">Monitor your own agents</h3>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
           Track transactions, balances, and gas for your AI agent wallets on Base.
@@ -187,7 +187,7 @@ export default function PublicAgentPage({
         </p>
         <Link
           href="/login"
-          className="mt-5 inline-block rounded-xl bg-[#4ade80] px-8 py-3 text-sm font-semibold text-black transition-colors hover:bg-[#22c55e]"
+          className="mt-5 inline-block rounded-xl bg-accent-foreground px-8 py-3 text-sm font-semibold text-background transition-colors hover:bg-accent-foreground/90"
         >
           Start Monitoring &mdash; Free
         </Link>
@@ -195,7 +195,7 @@ export default function PublicAgentPage({
 
       {/* Footer */}
       <p className="mt-8 text-center text-xs text-muted-foreground/60">
-        Powered by Chain<span className="text-[#4ade80]/60">Ward</span> &mdash; AgentOps for Base
+        Powered by Chain<span className="text-accent-foreground/60">Ward</span> &mdash; AgentOps for Base
       </p>
     </div>
     </div>

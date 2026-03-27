@@ -135,8 +135,8 @@ export default function SettingsPage() {
 
         {/* New key reveal banner */}
         {newRawKey && (
-          <div className="rounded-lg border border-[#4ade80]/30 bg-[#4ade80]/5 p-6">
-            <h3 className="text-sm font-semibold text-[#4ade80]">API Key Created</h3>
+          <div className="rounded-lg border border-accent-foreground/30 bg-accent-foreground/5 p-6">
+            <h3 className="text-sm font-semibold text-accent-foreground">API Key Created</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Copy this key now. It will not be shown again.
             </p>

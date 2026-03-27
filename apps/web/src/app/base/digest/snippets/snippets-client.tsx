@@ -96,10 +96,10 @@ function SnippetRow({
   }, [section, weekStart]);
 
   return (
-    <div className="rounded-xl border border-white/5 bg-[#0a0a0f] p-5">
+    <div className="rounded-xl border border-white/5 bg-muted p-5">
       {/* Row label + copy button */}
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#4ade80]">
+        <span className="text-xs font-semibold uppercase tracking-wider text-accent-foreground">
           {label}
         </span>
         <button
@@ -113,7 +113,7 @@ function SnippetRow({
       {/* Two-column layout: tweet text + image */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         {/* Tweet text card */}
-        <div className="flex-1 rounded-lg border border-white/[0.06] bg-[#050508] p-4">
+        <div className="flex-1 rounded-lg border border-white/[0.06] bg-background p-4">
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{snippet}</p>
           <p
             className={`mt-3 text-right text-xs font-mono ${
@@ -126,7 +126,7 @@ function SnippetRow({
 
         {/* Image panel */}
         {section ? (
-          <div className="flex w-full flex-col items-center rounded-lg border border-white/[0.06] bg-[#050508] p-4 sm:w-[360px]">
+          <div className="flex w-full flex-col items-center rounded-lg border border-white/[0.06] bg-background p-4 sm:w-[360px]">
             {imgError ? (
               <div className="flex h-[202px] w-full items-center justify-center rounded text-xs text-gray-600">
                 Image not available
@@ -206,14 +206,14 @@ export function SnippetsClient() {
   /* -- Loading / auth pending state -- */
   if (!authChecked || (loading && authChecked)) {
     return (
-      <div className="min-h-screen bg-[#050508] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-sm text-gray-500">Loading…</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050508]">
+    <div className="min-h-screen bg-background">
       {/* Subtle grid overlay */}
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.02]"
@@ -230,7 +230,7 @@ export function SnippetsClient() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/chainward-logo.svg" alt="ChainWard" className="h-7 w-7" />
           <span className="text-base font-semibold tracking-tight text-white">
-            Chain<span className="text-[#4ade80]">Ward</span>
+            Chain<span className="text-accent-foreground">Ward</span>
           </span>
         </Link>
         <div className="flex items-center gap-4">
@@ -261,7 +261,7 @@ export function SnippetsClient() {
 
         {/* Snippets */}
         {!loading && snippets.length === 0 ? (
-          <div className="rounded-xl border border-white/5 bg-[#0a0a0f] px-6 py-16 text-center">
+          <div className="rounded-xl border border-white/5 bg-muted px-6 py-16 text-center">
             <p className="text-sm text-gray-500">
               No snippets available for the current digest.
             </p>

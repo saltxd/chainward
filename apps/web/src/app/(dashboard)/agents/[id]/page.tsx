@@ -159,7 +159,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-sm font-medium">Public Status Page</p>
           <p className="text-xs text-muted-foreground">
             {agent.isPublic
-              ? <>Live at <a href={`/agent/${agent.walletAddress}`} target="_blank" rel="noopener noreferrer" className="text-[#4ade80] hover:underline">chainward.ai/agent/{agent.walletAddress.slice(0, 8)}...</a></>
+              ? <>Live at <a href={`/agent/${agent.walletAddress}`} target="_blank" rel="noopener noreferrer" className="text-accent-foreground hover:underline">chainward.ai/agent/{agent.walletAddress.slice(0, 8)}...</a></>
               : 'Share a read-only dashboard of this agent'}
           </p>
         </div>
@@ -170,7 +170,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           }}
           className={cn(
             'relative h-6 w-11 rounded-full transition-colors',
-            agent.isPublic ? 'bg-[#4ade80]' : 'bg-muted',
+            agent.isPublic ? 'bg-accent-foreground' : 'bg-muted',
           )}
         >
           <span
