@@ -219,7 +219,7 @@ function LeaderboardSection({
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === t
                 ? 'border border-border bg-card text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
