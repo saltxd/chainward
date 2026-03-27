@@ -42,7 +42,7 @@ export function ObservatoryStats() {
   return (
     <section className="relative z-10 mx-auto max-w-5xl px-6 pt-32 md:pt-40">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="text-xs font-medium uppercase tracking-widest text-[#71717a]">
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Live Agent Intelligence
         </p>
         <h2 className="mt-3 text-2xl font-bold tracking-tight text-white md:text-3xl">
@@ -54,10 +54,10 @@ export function ObservatoryStats() {
         {stats.map((s) => (
           <div
             key={s.label}
-            className="rounded-xl border border-[#1a1a2e] bg-[#0a0a0f] p-5 text-center"
+            className="rounded-sm border border-border bg-background p-5 text-center"
           >
-            <p className="text-2xl font-bold text-[#4ade80]">{s.value}</p>
-            <p className="mt-1 text-xs text-[#71717a]">{s.label}</p>
+            <p className="font-mono text-2xl font-bold text-accent-foreground">{s.value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{s.label}</p>
           </div>
         ))}
       </div>
@@ -65,7 +65,7 @@ export function ObservatoryStats() {
       <div className="mt-6 text-center">
         <Link
           href="/base"
-          className="inline-flex items-center gap-1.5 text-sm text-[#4ade80] transition-colors hover:text-[#22c55e]"
+          className="inline-flex items-center gap-1.5 text-sm text-accent-foreground transition-colors hover:text-accent-foreground/80"
         >
           View full Observatory &rarr;
         </Link>

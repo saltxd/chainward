@@ -194,7 +194,6 @@ function AgentsContent() {
                 className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="base">Base</option>
-                <option value="solana" disabled>Solana (coming soon)</option>
               </select>
             </div>
             <div className="flex flex-col gap-2">

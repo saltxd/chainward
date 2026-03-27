@@ -75,15 +75,15 @@ const typeIcons: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  success: 'text-[#4ade80]',
-  warning: 'text-[#facc15]',
-  info: 'text-[#60a5fa]',
+  success: 'text-accent-foreground',
+  warning: 'text-yellow-400',
+  info: 'text-blue-400',
 };
 
 const statusDotColors: Record<string, string> = {
-  success: 'bg-[#4ade80]',
-  warning: 'bg-[#facc15]',
-  info: 'bg-[#60a5fa]',
+  success: 'bg-accent-foreground',
+  warning: 'bg-yellow-400',
+  info: 'bg-blue-400',
 };
 
 export function ActivityFeed() {
@@ -103,26 +103,26 @@ export function ActivityFeed() {
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-[#1a1a2e] bg-[#0a0a0f]">
+    <div className="relative overflow-hidden rounded-sm border border-border bg-background">
       {/* Terminal header */}
-      <div className="flex items-center gap-2 border-b border-[#1a1a2e] px-4 py-2.5">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
         <div className="flex gap-1.5">
           <div className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
           <div className="h-2.5 w-2.5 rounded-full bg-[#ffbd2e]" />
           <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
         </div>
-        <span className="ml-2 font-mono text-xs text-[#71717a]">chainward monitor</span>
+        <span className="ml-2 font-mono text-xs text-muted-foreground">chainward monitor</span>
         <div className="ml-auto flex items-center gap-1.5">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#4ade80]" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-foreground opacity-75" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-foreground" />
           </span>
-          <span className="font-mono text-[10px] text-[#4ade80]">LIVE</span>
+          <span className="font-mono text-[10px] text-accent-foreground">LIVE</span>
         </div>
       </div>
 
       {/* Feed content */}
-      <div className="divide-y divide-[#1a1a2e]/50 font-mono text-xs">
+      <div className="divide-y divide-border/50 font-mono text-xs">
         {FEED_ITEMS.slice(0, visibleCount).map((item, i) => (
           <div
             key={item.id}
@@ -132,14 +132,14 @@ export function ActivityFeed() {
               transform: i < visibleCount ? 'translateY(0)' : 'translateY(8px)',
             }}
           >
-            <span className="w-16 shrink-0 text-[#52525b]">{item.time}</span>
+            <span className="w-16 shrink-0 text-muted-foreground/60">{item.time}</span>
             <span className={`w-4 shrink-0 text-center ${statusColors[item.status]}`}>
               {typeIcons[item.type]}
             </span>
-            <span className="w-20 shrink-0 truncate text-[#a1a1aa]">{item.agent}</span>
-            <span className="flex-1 truncate text-[#d4d4d8]">{item.message}</span>
+            <span className="w-20 shrink-0 truncate text-muted-foreground">{item.agent}</span>
+            <span className="flex-1 truncate text-foreground">{item.message}</span>
             {item.amount && (
-              <span className={`shrink-0 ${statusColors[item.status]}`}>{item.amount}</span>
+              <span className={`shrink-0 font-mono ${statusColors[item.status]}`}>{item.amount}</span>
             )}
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDotColors[item.status]}`} />
           </div>
@@ -147,14 +147,14 @@ export function ActivityFeed() {
 
         {/* Cursor line */}
         <div className="flex items-center gap-3 px-4 py-2.5">
-          <span className="w-16 shrink-0 text-[#52525b]">now</span>
-          <span className="animate-pulse text-[#4ade80]">_</span>
-          <span className="text-[#52525b]">Monitoring 3 agents on Base...</span>
+          <span className="w-16 shrink-0 text-muted-foreground/60">now</span>
+          <span className="animate-pulse text-accent-foreground">_</span>
+          <span className="text-muted-foreground/60">Monitoring agents on Base...</span>
         </div>
       </div>
 
       {/* Bottom fade */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0a0a0f] to-transparent" />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent" />
     </div>
   );
 }
