@@ -3,6 +3,8 @@ import { sql } from 'drizzle-orm';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
+import { getBaseClient } from '../lib/viem.js';
+import { parseAbiItem, type Address } from 'viem';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -21,18 +23,14 @@ interface TracerJobData {
   topN?: number;
 }
 
+const TRANSFER_EVENT = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)');
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Fund flow tracing
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async function traceTopAgents(topN: number) {
   const db = getDb();
-  const rpcUrl = process.env.BASE_RPC_URL;
-
-  if (!rpcUrl) {
-    logger.warn('BASE_RPC_URL not set, skipping ACP wallet tracing');
-    return;
-  }
 
   // Get top N ACP agents by revenue that don't yet have a matched ops wallet
   const agents = await db.execute(sql`
@@ -67,7 +65,7 @@ async function traceTopAgents(topN: number) {
 
   for (const agent of agentList) {
     try {
-      const candidate = await traceWallet(agent.wallet_address, rpcUrl);
+      const candidate = await traceWallet(agent.wallet_address);
 
       if (!candidate) {
         logger.debug({ name: agent.name }, 'No candidate operational wallet found');
@@ -141,47 +139,32 @@ async function traceTopAgents(topN: number) {
 
 async function traceWallet(
   acpWallet: string,
-  rpcUrl: string,
 ): Promise<{ address: string; txCount: number; totalValue: number } | null> {
-  // Fetch outbound transfers from ACP wallet
-  const payload = JSON.stringify({
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'alchemy_getAssetTransfers',
-    params: [{
-      fromBlock: '0x0',
-      toBlock: 'latest',
-      fromAddress: acpWallet,
-      category: ['external', 'erc20'],
-      maxCount: '0x64', // 100
-      order: 'desc',
-    }],
+  const client = getBaseClient();
+  const currentBlock = await client.getBlockNumber();
+  // Scan last 30 days (~1.3M blocks at 2s/block)
+  const fromBlock = currentBlock - BigInt(1_296_000);
+
+  // Fetch ERC20 Transfer events FROM this wallet
+  const logs = await client.getLogs({
+    event: TRANSFER_EVENT,
+    args: { from: acpWallet as Address },
+    fromBlock: fromBlock > 0n ? fromBlock : 0n,
+    toBlock: 'latest',
   });
 
-  const res = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: payload,
-    signal: AbortSignal.timeout(15000),
-  });
-
-  const data = await res.json() as {
-    result?: { transfers: Array<{ to: string; value: number | null; asset: string }> };
-  };
-
-  const transfers = data.result?.transfers ?? [];
-  if (transfers.length === 0) return null;
+  if (logs.length === 0) return null;
 
   // Count destination wallets (excluding known contracts)
   const destCounts = new Map<string, { count: number; totalValue: number }>();
 
-  for (const tx of transfers) {
-    const to = (tx.to ?? '').toLowerCase();
+  for (const log of logs) {
+    const to = (log.args.to ?? '').toLowerCase();
     if (!to || EXCLUDE_ADDRESSES.has(to)) continue;
 
     const entry = destCounts.get(to) ?? { count: 0, totalValue: 0 };
     entry.count++;
-    entry.totalValue += tx.value ?? 0;
+    entry.totalValue += Number(log.args.value ?? 0n) / 1e18;
     destCounts.set(to, entry);
   }
 
@@ -214,7 +197,7 @@ export function createAcpWalletTracerWorker() {
   const worker = new Worker<TracerJobData>(
     'acp-wallet-tracer',
     async (job: Job<TracerJobData>) => {
-      const topN = job.data.topN ?? 50;
+      const topN = job.data.topN ?? 200;
       await traceTopAgents(topN);
     },
     {
@@ -240,16 +223,16 @@ export async function setupAcpWalletTracerSchedule(redis: import('ioredis').defa
   }
 
   // Run daily at 03:00 UTC (after ACP sync at 00:00/06:00 and digest at 01:00)
-  await queue.add('trace-top', { type: 'trace', topN: 50 }, {
+  await queue.add('trace-top', { type: 'trace', topN: 200 }, {
     repeat: { pattern: '0 3 * * *' },
     jobId: 'acp-tracer-daily',
   });
 
   // Trigger initial trace
-  await queue.add('initial-trace', { type: 'trace', topN: 50 }, {
+  await queue.add('initial-trace', { type: 'trace', topN: 200 }, {
     jobId: 'acp-tracer-initial',
   });
 
-  logger.info('ACP wallet tracer scheduled (daily 03:00 UTC, top 50 agents)');
+  logger.info('ACP wallet tracer scheduled (daily 03:00 UTC, top 200 agents)');
   await queue.close();
 }

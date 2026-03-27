@@ -9,8 +9,7 @@ import { createIntelligenceWorker, setupIntelligenceSchedule } from './workers/i
 import { createRegistryScoutWorker, setupRegistryScoutSchedule } from './workers/registryScout.js';
 import { createAcpSyncWorker, setupAcpSyncSchedule } from './workers/acpSync.js';
 import { createDigestWorker, setupDigestSchedule } from './workers/digestGenerator.js';
-// DISABLED: CU emergency — ACP wallet tracer burns heavy alchemy_getAssetTransfers CUs
-// import { createAcpWalletTracerWorker, setupAcpWalletTracerSchedule } from './workers/acpWalletTracer.js';
+import { createAcpWalletTracerWorker, setupAcpWalletTracerSchedule } from './workers/acpWalletTracer.js';
 
 // Validate env on startup
 getEnv();
@@ -26,8 +25,7 @@ const intelligence = createIntelligenceWorker();
 const registryScout = createRegistryScoutWorker();
 const acpSync = createAcpSyncWorker();
 const digest = createDigestWorker();
-// DISABLED: CU emergency
-// const acpTracer = createAcpWalletTracerWorker();
+const acpTracer = createAcpWalletTracerWorker();
 
 // Set up repeatable jobs
 const redis = getRedis();
@@ -37,8 +35,7 @@ await setupIntelligenceSchedule(redis);
 await setupRegistryScoutSchedule(redis);
 await setupAcpSyncSchedule(redis);
 await setupDigestSchedule(redis);
-// DISABLED: CU emergency
-// await setupAcpWalletTracerSchedule(redis);
+await setupAcpWalletTracerSchedule(redis);
 
 // Graceful shutdown
 async function shutdown(signal: string) {
@@ -52,7 +49,7 @@ async function shutdown(signal: string) {
     registryScout.close(),
     acpSync.close(),
     digest.close(),
-    // acpTracer.close(),
+    acpTracer.close(),
   ]);
   process.exit(0);
 }
