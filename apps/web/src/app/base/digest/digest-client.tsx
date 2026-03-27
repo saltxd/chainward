@@ -910,9 +910,7 @@ export function DigestClient({
         <Link href="/" className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/chainward-logo.svg" alt="ChainWard" className="h-7 w-7" />
-          <span className="text-base font-semibold tracking-tight text-foreground">
-            Chain<span className="text-accent-foreground">Ward</span>
-          </span>
+          <span className="text-base font-semibold tracking-tight text-foreground">Chain<span className="text-accent-foreground">Ward</span></span>
         </Link>
         <div className="flex items-center gap-4">
           <Link

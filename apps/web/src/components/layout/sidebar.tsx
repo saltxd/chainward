@@ -22,10 +22,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <div className="flex h-14 items-center px-6 pt-[env(safe-area-inset-top)]">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold" onClick={onNavigate}>
+        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight" onClick={onNavigate}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/chainward-logo.svg" alt="" className="h-6 w-6" />
-          Chain<span className="text-accent-foreground">Ward</span>
+          <span>Chain<span className="text-accent-foreground">Ward</span></span>
         </Link>
       </div>
 
