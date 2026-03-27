@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { api, type FleetOverview, type Transaction, type TxVolumeBucket, type BalanceHistoryBucket, type GasBucket } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
-import { StatCard } from '@/components/ui/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VolumeChart } from '@/components/charts/volume-chart';
 import { BalanceChart } from '@/components/charts/balance-chart';
@@ -11,6 +10,16 @@ import { GasChart } from '@/components/charts/gas-chart';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { OnboardingBanner } from '@/components/onboarding-banner';
 import { cn } from '@/lib/utils';
+
+function TickerStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-muted-foreground text-xs uppercase tracking-wide">{label}</span>
+      <span className="font-mono text-foreground text-sm font-semibold">{value}</span>
+      {sub && <span className="font-mono text-muted-foreground text-xs">{sub}</span>}
+    </div>
+  );
+}
 
 export default function OverviewPage() {
   const { data: overview, loading: overviewLoading, error: overviewError } = useApi<FleetOverview>(
@@ -40,6 +49,9 @@ export default function OverviewPage() {
     [],
   );
 
+  const hasVolumeData = volumeData && volumeData.some((d: TxVolumeBucket) => parseFloat(d.total_volume_usd ?? '0') > 0);
+  const hasGasData = gasData && gasData.some((d: GasBucket) => parseFloat(d.total_gas_usd ?? '0') > 0);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -51,42 +63,42 @@ export default function OverviewPage() {
 
       {overview && overview.agents.total === 0 && <OnboardingBanner />}
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-        {overviewLoading ? (
-          <>
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-          </>
-        ) : (
-          <>
-            <StatCard label="Total Agents" value={String(overview?.agents.total ?? 0)} />
-            <StatCard label="24h Transactions" value={String(overview?.transactions24h ?? 0)} />
-            <StatCard
-              label="24h Gas Spend"
-              value={`$${(overview?.gasSpend24h ?? 0).toFixed(2)}`}
-            />
-            <StatCard
-              label="Portfolio Value"
-              value={`$${(overview?.totalValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            />
-          </>
-        )}
-      </div>
+      {/* Compact ticker */}
+      {overviewLoading ? (
+        <div className="flex items-center gap-6 border-b border-border pb-4 mb-6">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+      ) : (
+        <div className="flex items-center gap-6 overflow-x-auto border-b border-border pb-4 mb-6">
+          <TickerStat label="Agents" value={String(overview?.agents.total ?? 0)} />
+          <div className="h-3 w-px bg-border" />
+          <TickerStat label="24h Txns" value={String(overview?.transactions24h ?? 0)} />
+          <div className="h-3 w-px bg-border" />
+          <TickerStat label="24h Gas" value={`$${(overview?.gasSpend24h ?? 0).toFixed(2)}`} />
+          <div className="h-3 w-px bg-border" />
+          <TickerStat
+            label="Portfolio"
+            value={`$${(overview?.totalValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          />
+        </div>
+      )}
 
       {/* Charts row */}
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-border bg-card p-5">
+        <div className="rounded-sm border border-border bg-card p-5">
           <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Volume (7d)</h2>
-          {volumeData && volumeData.length > 0 ? (
-            <VolumeChart data={volumeData} />
+          {hasVolumeData ? (
+            <VolumeChart data={volumeData!} />
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No volume data yet</p>
+            <div className="flex h-[180px] items-center justify-center rounded-sm border border-border text-sm text-muted-foreground">
+              No transaction volume yet. Data appears when your agents transact.
+            </div>
           )}
         </div>
-        <div className="rounded-lg border border-border bg-card p-5">
+        <div className="rounded-sm border border-border bg-card p-5">
           <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Balance (30d)</h2>
           {balanceData && balanceData.length > 0 ? (
             <BalanceChart data={balanceData} />
@@ -97,17 +109,19 @@ export default function OverviewPage() {
       </div>
 
       {/* Gas chart full-width */}
-      <div className="rounded-lg border border-border bg-card p-5">
+      <div className="rounded-sm border border-border bg-card p-5">
         <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Gas Spend (7d)</h2>
-        {gasData && gasData.length > 0 ? (
-          <GasChart data={gasData} />
+        {hasGasData ? (
+          <GasChart data={gasData!} />
         ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">No gas data yet</p>
+          <div className="flex h-[180px] items-center justify-center rounded-sm border border-border text-sm text-muted-foreground">
+            No gas spend yet. Data appears when your agents transact.
+          </div>
         )}
       </div>
 
       {/* Recent transactions */}
-      <div className="rounded-lg border border-border bg-card p-5">
+      <div className="rounded-sm border border-border bg-card p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground">Recent Transactions</h2>
           <Link
@@ -133,7 +147,7 @@ export default function OverviewPage() {
               <tbody>
                 {recentTxs.map((tx, i) => (
                   <tr key={`${tx.txHash}-${i}`} className="border-b border-border/50 last:border-0">
-                    <td className="py-2.5 pr-4 text-xs text-muted-foreground">
+                    <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
                       {new Date(tx.timestamp).toLocaleString(undefined, {
                         month: 'short',
                         day: 'numeric',
@@ -145,7 +159,7 @@ export default function OverviewPage() {
                       <span
                         className={cn(
                           'text-xs font-medium',
-                          tx.direction === 'in' && 'text-[#4ade80]',
+                          tx.direction === 'in' && 'text-primary',
                           tx.direction === 'out' && 'text-destructive',
                           tx.direction === 'self' && 'text-muted-foreground',
                         )}
