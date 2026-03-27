@@ -6,9 +6,7 @@ export function PublicHeader() {
       <Link href="/" className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/chainward-logo.svg" alt="ChainWard" className="h-8 w-8" />
-        <span className="text-lg font-semibold tracking-tight text-foreground">
-          Chain<span className="text-accent-foreground">Ward</span>
-        </span>
+        <span className="text-lg font-semibold tracking-tight text-foreground">Chain<span className="text-accent-foreground">Ward</span></span>
       </Link>
       <div className="flex items-center gap-3">
         <Link
