@@ -143,15 +143,23 @@ async function traceWallet(
   const client = getBaseClient();
   const currentBlock = await client.getBlockNumber();
   // Scan last 30 days (~1.3M blocks at 2s/block)
-  const fromBlock = currentBlock - BigInt(1_296_000);
+  const startBlock = currentBlock - BigInt(1_296_000);
+  const from = startBlock > 0n ? startBlock : 0n;
 
-  // Fetch ERC20 Transfer events FROM this wallet
-  const logs = await client.getLogs({
-    event: TRANSFER_EVENT,
-    args: { from: acpWallet as Address },
-    fromBlock: fromBlock > 0n ? fromBlock : 0n,
-    toBlock: 'latest',
-  });
+  // Fetch ERC20 Transfer events FROM this wallet in 100K-block chunks
+  // (Reth/sentinel limits eth_getLogs to 100K blocks per query)
+  const CHUNK = BigInt(100_000);
+  const logs: Array<{ args: { from?: Address; to?: Address; value?: bigint }; [k: string]: unknown }> = [];
+  for (let cursor = from; cursor <= currentBlock; cursor += CHUNK) {
+    const end = cursor + CHUNK - 1n > currentBlock ? currentBlock : cursor + CHUNK - 1n;
+    const chunk = await client.getLogs({
+      event: TRANSFER_EVENT,
+      args: { from: acpWallet as Address },
+      fromBlock: cursor,
+      toBlock: end,
+    });
+    logs.push(...chunk);
+  }
 
   if (logs.length === 0) return null;
 
