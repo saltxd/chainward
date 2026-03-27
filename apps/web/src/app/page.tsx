@@ -64,9 +64,7 @@ export default async function LandingPage() {
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/chainward-logo.svg" alt="ChainWard" className="h-8 w-8" />
-          <span className="text-lg font-semibold tracking-tight text-white">
-            Chain<span className="text-accent-foreground">Ward</span>
-          </span>
+          <span className="text-lg font-semibold tracking-tight text-white">Chain<span className="text-accent-foreground">Ward</span></span>
         </div>
         <div className="flex items-center gap-3">
           <Link
