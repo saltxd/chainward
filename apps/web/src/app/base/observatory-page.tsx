@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { FRAMEWORK_COLORS, DIRECTION_STYLES } from '@/lib/design-tokens';
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -131,33 +131,17 @@ async function fetchObservatory<T>(path: string): Promise<T | null> {
 function Skeleton({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse rounded bg-white/5 ${className}`}
+      className={`animate-pulse bg-white/5 ${className}`}
     />
   );
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-  loading,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  loading: boolean;
-}) {
+function TickerStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-lg border border-white/5 bg-[#0a0a0f] p-5">
-      <p className="text-sm text-gray-500">{label}</p>
-      {loading ? (
-        <Skeleton className="mt-2 h-8 w-24" />
-      ) : (
-        <>
-          <p className="mt-1 text-2xl font-bold text-white">{value}</p>
-          {sub && <p className="mt-0.5 text-sm text-gray-500">{sub}</p>}
-        </>
-      )}
+    <div className="flex items-baseline gap-2">
+      <span className="text-muted-foreground text-xs uppercase tracking-wide">{label}</span>
+      <span className="font-mono text-foreground text-sm font-semibold">{value}</span>
+      {sub && <span className="font-mono text-muted-foreground text-xs">{sub}</span>}
     </div>
   );
 }
@@ -165,44 +149,33 @@ function StatCard({
 function PulseDot() {
   return (
     <span className="relative flex h-2.5 w-2.5">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
-      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#4ade80]" />
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-foreground opacity-75" />
+      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent-foreground" />
     </span>
   );
 }
 
-const FRAMEWORK_COLORS: Record<string, string> = {
-  elizaos: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  olas: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  virtuals: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
-  agentkit: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-  crewai: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  langchain: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
-  custom: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
-};
-
 function FrameworkBadge({ framework }: { framework: string }) {
-  const colors = FRAMEWORK_COLORS[framework.toLowerCase()] ?? FRAMEWORK_COLORS.custom;
+  const key = framework.toLowerCase();
+  const fallback = { bg: 'bg-zinc-500/10', text: 'text-zinc-400', label: framework };
+  const colors = FRAMEWORK_COLORS[key] ?? fallback;
   return (
     <span
-      className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${colors}`}
+      className={`inline-flex rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}
     >
-      {framework}
+      {colors.label}
     </span>
   );
 }
 
 function DirectionBadge({ direction }: { direction: string }) {
-  const isIn = direction.toLowerCase() === 'in';
+  const key = direction.toUpperCase() as keyof typeof DIRECTION_STYLES;
+  const style = DIRECTION_STYLES[key] ?? DIRECTION_STYLES.OUT;
   return (
     <span
-      className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-        isIn
-          ? 'bg-[#4ade80]/10 text-[#4ade80]'
-          : 'bg-red-500/10 text-red-400'
-      }`}
+      className={`inline-flex px-1.5 py-0.5 text-[10px] font-semibold ${style.bg} ${style.text}`}
     >
-      {isIn ? 'IN' : 'OUT'}
+      {style.label}
     </span>
   );
 }
@@ -239,17 +212,17 @@ function LeaderboardSection({
   }
 
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-white">Agent Leaderboard</h2>
-      <div className="flex gap-1 rounded-lg border border-white/5 bg-[#0a0a0f] p-1">
+    <div>
+      <h2 className="mb-3 text-sm font-semibold text-foreground">Agent Leaderboard</h2>
+      <div className="flex gap-1 border border-border bg-muted p-1">
         {(Object.keys(TAB_LABELS) as LeaderboardTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === t
-                ? 'bg-white/10 text-white'
-                : 'text-gray-500 hover:text-gray-300'
+                ? 'border border-border bg-card text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {TAB_LABELS[t]}
@@ -257,54 +230,56 @@ function LeaderboardSection({
         ))}
       </div>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-white/5 bg-[#0a0a0f]">
-        <table className="w-full text-sm">
+      <div className="mt-2 overflow-x-auto border border-border bg-card">
+        <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-white/10 text-left text-gray-500">
-              <th className="px-4 py-3 font-medium">#</th>
-              <th className="px-4 py-3 font-medium">Agent</th>
-              <th className="px-4 py-3 font-medium">Framework</th>
-              <th className="px-4 py-3 text-right font-medium">Value</th>
+            <tr className="border-b border-border text-left text-muted-foreground">
+              <th className="px-3 py-2 font-medium">#</th>
+              <th className="px-3 py-2 font-medium">Agent</th>
+              <th className="px-3 py-2 font-medium">Framework</th>
+              <th className="px-3 py-2 text-right font-medium">Value</th>
             </tr>
           </thead>
           <tbody>
             {loading
               ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b border-white/5">
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-6" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
-                    <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-4 w-20" /></td>
+                  <tr key={i} className="border-b border-border">
+                    <td className="px-3 py-2"><Skeleton className="h-4 w-6" /></td>
+                    <td className="px-3 py-2"><Skeleton className="h-4 w-32" /></td>
+                    <td className="px-3 py-2"><Skeleton className="h-4 w-16" /></td>
+                    <td className="px-3 py-2 text-right"><Skeleton className="ml-auto h-4 w-20" /></td>
                   </tr>
                 ))
               : entries.map((entry) => (
                   <tr
                     key={`${entry.walletAddress}-${entry.rank}`}
-                    className="border-b border-white/5 transition-colors hover:bg-white/[0.02]"
+                    className={`border-b border-border transition-colors hover:bg-[rgba(255,255,255,0.02)] ${
+                      entry.rank <= 3 ? 'bg-[rgba(255,255,255,0.02)]' : ''
+                    }`}
                   >
-                    <td className="px-4 py-3 font-mono text-gray-500">
+                    <td className="px-3 py-2 font-mono text-muted-foreground">
                       {entry.rank}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <Link
-                        href={`/wallet/${entry.walletAddress}`}
-                        className="text-white transition-colors hover:text-[#4ade80]"
+                        href={`/agent/${entry.walletAddress}`}
+                        className="text-link hover:underline"
                       >
                         {entry.agentName || truncateAddress(entry.walletAddress)}
                       </Link>
-                      <span className="ml-2 font-mono text-xs text-gray-600">
+                      <span className="ml-2 font-mono text-xs text-text-muted">
                         {truncateAddress(entry.walletAddress)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       {entry.agentFramework && <FrameworkBadge framework={entry.agentFramework} />}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-white">
+                    <td className="px-3 py-2 text-right font-mono text-foreground">
                       {tab === 'healthiest' ? (
                         <span className={
-                          (entry.healthScore ?? 0) >= 80 ? 'text-[#4ade80]' :
-                          (entry.healthScore ?? 0) >= 50 ? 'text-yellow-400' :
-                          'text-red-400'
+                          (entry.healthScore ?? 0) >= 80 ? 'text-accent-foreground' :
+                          (entry.healthScore ?? 0) >= 50 ? 'text-warning' :
+                          'text-destructive'
                         }>
                           {valueForEntry(entry)}
                         </span>
@@ -316,7 +291,7 @@ function LeaderboardSection({
                 ))}
             {!loading && entries.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-600">
+                <td colSpan={4} className="px-3 py-8 text-center text-text-muted">
                   No data yet
                 </td>
               </tr>
@@ -324,7 +299,7 @@ function LeaderboardSection({
           </tbody>
         </table>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -366,8 +341,6 @@ export function ObservatoryPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const updatedAgo = overview?.updatedAt ? timeAgo(overview.updatedAt) : '...';
-
   const txChartData = (trends?.dailyTxCount ?? []).map((d) => ({
     date: formatChartDate(d.date),
     count: d.count ?? 0,
@@ -379,382 +352,270 @@ export function ObservatoryPage() {
   }));
 
   return (
-    <div className="min-h-screen bg-[#050508]">
-      {/* Subtle grid background */}
-      <div
-        className="pointer-events-none fixed inset-0 opacity-[0.02]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(74,222,128,1) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,1) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
-        }}
-      />
-
-      {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between border-b border-white/5 px-6 py-4 md:px-12">
-        <Link href="/" className="flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/chainward-logo.svg" alt="ChainWard" className="h-7 w-7" />
-          <span className="text-base font-semibold tracking-tight text-white">
-            Chain<span className="text-[#4ade80]">Ward</span>
-          </span>
-        </Link>
+    <div className="min-h-screen bg-background">
+      {/* -------------------------------------------------------------- */}
+      {/*  Status bar                                                     */}
+      {/* -------------------------------------------------------------- */}
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <div className="flex items-center gap-4">
-          <Link
-            href="/base/digest"
-            className="hidden text-sm text-gray-400 transition-colors hover:text-white sm:block"
-          >
-            Digest
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/chainward-logo-128.png" alt="ChainWard" width={20} height={20} />
+            <span className="text-sm font-semibold text-foreground">ChainWard</span>
           </Link>
-          <Link
-            href="/wallet"
-            className="hidden text-sm text-gray-400 transition-colors hover:text-white sm:block"
-          >
-            Wallet Lookup
-          </Link>
-          <Link
-            href="/login"
-            className="whitespace-nowrap rounded-md bg-[#1B5E20] px-3 py-2 text-xs font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] sm:px-4 sm:text-sm"
-          >
+          <nav className="hidden items-center gap-3 text-xs text-muted-foreground sm:flex">
+            <Link href="/base" className="text-foreground">Observatory</Link>
+            <Link href="/base/digest" className="hover:text-foreground transition-colors">Digest</Link>
+            <Link href="/wallet" className="hover:text-foreground transition-colors">Wallet Lookup</Link>
+          </nav>
+        </div>
+        <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
+          <span className="hidden items-center gap-1.5 sm:flex">
+            <PulseDot /> Tracking {overview?.agentsTracked ?? '\u2014'} agents
+          </span>
+          <Link href="/login" className="rounded-sm border border-border px-3 py-1.5 text-xs text-foreground hover:border-border-hover transition-colors">
             Connect Wallet
           </Link>
         </div>
-      </nav>
+      </div>
 
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        {/* ---------------------------------------------------------------- */}
-        {/*  Header                                                          */}
-        {/* ---------------------------------------------------------------- */}
-        <header className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-            Base Agent Observatory
-          </h1>
-          <p className="mt-2 text-base text-gray-400">
-            Real-time intelligence on AI agent activity on Base
-          </p>
-          <p className="mt-2 flex items-center gap-2 text-sm text-[#4ade80]">
-            <PulseDot />
-            {loading ? (
-              <Skeleton className="h-4 w-60" />
-            ) : (
-              <span>
-                Tracking {overview?.agentsTracked ?? 0} agents &middot; Updated{' '}
-                {updatedAgo}
-              </span>
-            )}
-          </p>
-        </header>
+      {/* -------------------------------------------------------------- */}
+      {/*  Stat ticker                                                    */}
+      {/* -------------------------------------------------------------- */}
+      <div className="flex items-center gap-6 border-b border-border px-4 py-2.5 overflow-x-auto">
+        <TickerStat label="Agents" value={String(overview?.agentsTracked ?? 0)} />
+        <div className="h-3 w-px bg-border" />
+        <TickerStat label="Active (24h)" value={String(overview?.activeAgents24h ?? 0)} />
+        <div className="h-3 w-px bg-border" />
+        <TickerStat label="Txns (24h)" value={(overview?.transactions24h ?? 0).toLocaleString()} />
+        <div className="h-3 w-px bg-border" />
+        <TickerStat label="Gas (24h)" value={formatUsd(overview?.gasBurned24h?.usd ?? 0)} />
+        <div className="h-3 w-px bg-border" />
+        <TickerStat label="Portfolio" value={formatUsd(overview?.totalPortfolioValue ?? 0)} />
+      </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  SEO blurb                                                       */}
-        {/* ---------------------------------------------------------------- */}
-        <p className="mb-8 max-w-3xl text-sm leading-relaxed text-gray-500">
-          The Base Agent Observatory tracks autonomous AI agent wallets operating
-          on Base chain. View real-time transaction volumes, gas analytics, agent
-          leaderboards, and a live feed of on-chain activity. All data is sourced
-          from Base mainnet and updated continuously.
-        </p>
+      {/* -------------------------------------------------------------- */}
+      {/*  SEO blurb (sr-only for screen readers, visible to crawlers)    */}
+      {/* -------------------------------------------------------------- */}
+      <p className="sr-only">
+        The Base Agent Observatory tracks autonomous AI agent wallets operating
+        on Base chain. View real-time transaction volumes, gas analytics, agent
+        leaderboards, and a live feed of on-chain activity. All data is sourced
+        from Base mainnet and updated continuously.
+      </p>
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Fleet Stats                                                     */}
-        {/* ---------------------------------------------------------------- */}
-        <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <StatCard
-            label="Agents Tracked"
-            value={String(overview?.agentsTracked ?? 0)}
-            loading={loading}
-          />
-          <StatCard
-            label="24h Transactions"
-            value={String(overview?.transactions24h ?? 0)}
-            loading={loading}
-          />
-          <StatCard
-            label="24h Gas Burned"
-            value={formatEth(overview?.gasBurned24h?.eth ?? 0)}
-            sub={`(${formatUsd(overview?.gasBurned24h?.usd ?? 0)})`}
-            loading={loading}
-          />
-          <StatCard
-            label="Active Agents (7d)"
-            value={`${overview?.activeAgents7d ?? 0} / ${overview?.totalAgents ?? 0}`}
-            loading={loading}
-          />
-        </section>
+      {/* -------------------------------------------------------------- */}
+      {/*  Two-column: Leaderboard + Live Feed                            */}
+      {/* -------------------------------------------------------------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-5">
+        {/* Leaderboard */}
+        <div className="col-span-1 lg:col-span-3 border-b border-border lg:border-b-0 lg:border-r p-4">
+          <LeaderboardSection data={leaderboard} loading={loading} />
+        </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Activity Charts                                                 */}
-        {/* ---------------------------------------------------------------- */}
-        <section className="mt-10 grid gap-4 md:grid-cols-2">
-          {/* Tx Volume Chart */}
-          <div className="rounded-lg border border-white/5 bg-[#0a0a0f] p-4 sm:p-6">
-            <h3 className="mb-4 text-sm font-medium text-gray-400">
-              Daily Transaction Volume (30d)
-            </h3>
-            {loading ? (
-              <Skeleton className="h-[220px] w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart
-                  data={txChartData}
-                  margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="date"
-                    stroke="#666"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#666"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1a1a2e',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                    }}
-                    labelStyle={{ color: '#999' }}
-                    itemStyle={{ color: '#4ade80' }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#4ade80"
-                    strokeWidth={2}
-                    dot={false}
-                    name="Transactions"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Gas Spend Chart */}
-          <div className="rounded-lg border border-white/5 bg-[#0a0a0f] p-4 sm:p-6">
-            <h3 className="mb-4 text-sm font-medium text-gray-400">
-              Daily Gas Spend (30d)
-            </h3>
-            {loading ? (
-              <Skeleton className="h-[220px] w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart
-                  data={gasChartData}
-                  margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="date"
-                    stroke="#666"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#666"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v: number) =>
-                      v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`
-                    }
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                    contentStyle={{
-                      backgroundColor: '#1a1a2e',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                    }}
-                    labelStyle={{ color: '#999' }}
-                    itemStyle={{ color: '#4ade80' }}
-                  />
-                  <Bar
-                    dataKey="gasUsd"
-                    fill="#4ade80"
-                    radius={[4, 4, 0, 0]}
-                    name="Gas (USD)"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </section>
-
-        {/* ---------------------------------------------------------------- */}
-        {/*  Live Feed                                                       */}
-        {/* ---------------------------------------------------------------- */}
-        <section className="mt-12">
-          <div className="mb-4 flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white">Live Feed</h2>
+        {/* Live Feed */}
+        <div className="col-span-1 lg:col-span-2 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-foreground">Live Transactions</h2>
             <PulseDot />
           </div>
-
-          <div className="overflow-x-auto rounded-lg border border-white/5 bg-[#0a0a0f]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10 text-left text-gray-500">
-                  <th className="whitespace-nowrap px-4 py-3 font-medium">Time</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium">Agent</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium">Dir</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium">Token</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-right font-medium">
-                    Amount
-                  </th>
-                  <th className="whitespace-nowrap px-4 py-3 text-right font-medium">
-                    Gas
-                  </th>
-                  <th className="whitespace-nowrap px-4 py-3 text-right font-medium">
-                    Tx
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading
-                  ? Array.from({ length: 8 }).map((_, i) => (
-                      <tr key={i} className="border-b border-white/5">
-                        <td className="px-4 py-3"><Skeleton className="h-4 w-14" /></td>
-                        <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
-                        <td className="px-4 py-3"><Skeleton className="h-4 w-8" /></td>
-                        <td className="px-4 py-3"><Skeleton className="h-4 w-12" /></td>
-                        <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-4 w-16" /></td>
-                        <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-4 w-14" /></td>
-                        <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-4 w-10" /></td>
-                      </tr>
-                    ))
-                  : (feed ?? []).map((item, i) => (
-                      <tr
-                        key={`${item.txHash}-${i}`}
-                        className="border-b border-white/5 transition-colors hover:bg-white/[0.02]"
-                      >
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-500">
-                          {timeAgo(item.timestamp)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <Link
-                            href={`/wallet/${item.walletAddress}`}
-                            className="text-white transition-colors hover:text-[#4ade80]"
-                          >
-                            {item.agentName || truncateAddress(item.walletAddress)}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3">
-                          <DirectionBadge direction={item.direction} />
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-400">
-                          {item.tokenSymbol ?? 'ETH'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-white">
-                          {formatUsd(item.amountUsd)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-gray-500">
-                          {formatUsd(item.gasCostUsd)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right">
-                          <a
-                            href={`https://basescan.org/tx/${item.txHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-mono text-xs text-[#4ade80]/70 transition-colors hover:text-[#4ade80]"
-                          >
-                            {item.txHash.slice(0, 6)}...
-                            <svg
-                              className="ml-0.5 inline-block h-3 w-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                              />
-                            </svg>
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                {!loading && (!feed || feed.length === 0) && (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-12 text-center text-gray-600"
+          <div className="divide-y divide-border max-h-[520px] overflow-y-auto">
+            {loading
+              ? Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2">
+                    <Skeleton className="h-4 w-10" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-8" />
+                    <Skeleton className="h-4 w-10" />
+                    <Skeleton className="ml-auto h-4 w-14" />
+                  </div>
+                ))
+              : (feed ?? []).map((item, i) => (
+                  <div
+                    key={`${item.txHash}-${i}`}
+                    className="flex items-center gap-3 py-2 text-xs transition-colors hover:bg-[rgba(255,255,255,0.02)]"
+                  >
+                    <span className="font-mono text-muted-foreground whitespace-nowrap">
+                      {timeAgo(item.timestamp)}
+                    </span>
+                    <Link
+                      href={`/wallet/${item.walletAddress}`}
+                      className="text-foreground hover:text-link truncate max-w-[120px]"
                     >
-                      No recent activity
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      {item.agentName || truncateAddress(item.walletAddress)}
+                    </Link>
+                    <DirectionBadge direction={item.direction} />
+                    <span className="font-mono text-muted-foreground">
+                      {item.tokenSymbol ?? 'ETH'}
+                    </span>
+                    <span className="ml-auto font-mono text-foreground whitespace-nowrap">
+                      {formatUsd(item.amountUsd)}
+                    </span>
+                    <a
+                      href={`https://basescan.org/tx/${item.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-muted-foreground hover:text-accent-foreground transition-colors"
+                      title={item.txHash}
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </a>
+                  </div>
+                ))}
+            {!loading && (!feed || feed.length === 0) && (
+              <div className="py-12 text-center text-text-muted text-xs">
+                No recent activity
+              </div>
+            )}
           </div>
-        </section>
+        </div>
+      </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/*  Leaderboard                                                     */}
-        {/* ---------------------------------------------------------------- */}
-        <LeaderboardSection data={leaderboard} loading={loading} />
-
-        {/* ---------------------------------------------------------------- */}
-        {/*  CTA                                                             */}
-        {/* ---------------------------------------------------------------- */}
-        <section className="mt-16">
-          <div className="relative overflow-hidden rounded-2xl border border-[#1B5E20]/30 bg-gradient-to-b from-[#0a0f0a] to-[#050508] p-10 text-center shadow-[0_0_40px_rgba(74,222,128,0.08)] md:p-14">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(27,94,32,0.15),_transparent_70%)]" />
-            <h2 className="relative text-xl font-bold text-white md:text-2xl">
-              This is public data. Want private monitoring for{' '}
-              <span className="text-[#4ade80]">your</span> agents?
-            </h2>
-            <p className="relative mx-auto mt-3 max-w-lg text-sm text-gray-400">
-              Real-time alerts &middot; 7 alert types &middot; Discord, Telegram,
-              webhook
-            </p>
-            <p className="relative mt-1 text-sm text-gray-500">
-              chainward.ai - free during beta
-            </p>
-            <div className="relative mt-6">
-              <Link
-                href="/login"
-                className="group inline-flex items-center gap-2 rounded-lg bg-[#4ade80] px-8 py-3 text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e] hover:shadow-[0_0_30px_rgba(74,222,128,0.25)]"
+      {/* -------------------------------------------------------------- */}
+      {/*  Charts — half-width side-by-side                               */}
+      {/* -------------------------------------------------------------- */}
+      <div className="grid grid-cols-1 gap-0 border-t border-border md:grid-cols-2">
+        {/* Tx Volume Chart */}
+        <div className="border-b border-border md:border-b-0 md:border-r p-4">
+          <h3 className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Transaction Volume (30d)
+          </h3>
+          {loading ? (
+            <Skeleton className="h-[180px] w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart
+                data={txChartData}
+                margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
               >
-                Start Monitoring
-                <svg
-                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  />
-                </svg>
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
+                <XAxis
+                  dataKey="date"
+                  stroke="#666"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#666"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0d1117',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '0',
+                    fontSize: '11px',
+                  }}
+                  labelStyle={{ color: '#8b949e' }}
+                  itemStyle={{ color: '#4ade80' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#4ade80"
+                  fill="#4ade80"
+                  fillOpacity={0.08}
+                  strokeWidth={1.5}
+                  name="Transactions"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/*  Footer                                                            */}
-      {/* ------------------------------------------------------------------ */}
-      <footer className="relative z-10 border-t border-white/5 px-6 py-8 md:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 text-center text-xs text-gray-600">
+        {/* Gas Spend Chart */}
+        <div className="p-4">
+          <h3 className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Gas Spend (30d)
+          </h3>
+          {loading ? (
+            <Skeleton className="h-[180px] w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart
+                data={gasChartData}
+                margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="date"
+                  stroke="#666"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#666"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v: number) =>
+                    v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`
+                  }
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0d1117',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '0',
+                    fontSize: '11px',
+                  }}
+                  labelStyle={{ color: '#8b949e' }}
+                  itemStyle={{ color: '#4ade80' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="gasUsd"
+                  stroke="#4ade80"
+                  fill="#4ade80"
+                  fillOpacity={0.08}
+                  strokeWidth={1.5}
+                  name="Gas (USD)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* -------------------------------------------------------------- */}
+      {/*  Compact CTA footer                                             */}
+      {/* -------------------------------------------------------------- */}
+      <div className="border-t border-border px-4 py-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          Private monitoring for your agents &mdash;{' '}
+          <Link href="/login" className="text-accent-foreground hover:underline">
+            Start monitoring
+          </Link>
+        </p>
+      </div>
+
+      {/* -------------------------------------------------------------- */}
+      {/*  Footer                                                         */}
+      {/* -------------------------------------------------------------- */}
+      <footer className="border-t border-border px-6 py-6">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 text-center text-xs text-text-muted">
           <p>
             Data sourced from Base mainnet via Alchemy. Updated every 15 min.
           </p>
           <p>
             Powered by{' '}
-            <Link href="/" className="text-gray-400 transition-colors hover:text-white">
+            <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">
               ChainWard
             </Link>{' '}
-            - AgentOps for Base
+            &mdash; AgentOps for Base
           </p>
         </div>
       </footer>
