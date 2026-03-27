@@ -219,17 +219,17 @@ export default function ApiReferencePage() {
   return (
     <article className="max-w-none md:max-w-3xl">
       <h1 className="text-2xl font-bold text-white">API Reference</h1>
-      <p className="mt-2 text-[#a1a1aa]">
+      <p className="mt-2 text-muted-foreground">
         Programmatic access to ChainWard. All endpoints require authentication.
       </p>
 
       {/* Auth section */}
       <section className="mt-10">
         <h2 className="text-lg font-semibold text-white">Authentication</h2>
-        <div className="mt-4 space-y-3 text-sm text-[#a1a1aa]">
+        <div className="mt-4 space-y-3 text-sm text-muted-foreground">
           <p>
             <strong className="text-white">Base URL:</strong>{' '}
-            <code className="rounded bg-[#1a1a2e] px-1.5 py-0.5 font-mono text-[#4ade80]">
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-accent-foreground">
               https://api.chainward.ai
             </code>
           </p>
@@ -239,23 +239,23 @@ export default function ApiReferencePage() {
         </div>
 
         <div className="mt-4 space-y-4">
-          <div className="rounded-lg border border-[#4ade80]/20 bg-[#0a0a0f] p-5">
-            <h3 className="text-sm font-semibold text-[#4ade80]">API Key (recommended)</h3>
-            <p className="mt-2 text-sm text-[#a1a1aa]">
+          <div className="rounded-lg border border-accent-foreground/20 bg-muted p-5">
+            <h3 className="text-sm font-semibold text-accent-foreground">API Key (recommended)</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
               Generate an API key in{' '}
-              <a href="/settings" className="text-[#4ade80] underline underline-offset-2 hover:text-[#22c55e]">Settings</a>.
-              Keys use the <code className="rounded bg-[#1a1a2e] px-1.5 py-0.5 font-mono text-[#4ade80]">ag_</code> prefix
+              <a href="/settings" className="text-accent-foreground underline underline-offset-2 hover:text-accent-foreground">Settings</a>.
+              Keys use the <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-accent-foreground">ag_</code> prefix
               and are shown only once at creation.
             </p>
             <CodeBlock>{`curl -H "Authorization: Bearer ag_YOUR_KEY" \\
   https://api.chainward.ai/api/agents`}</CodeBlock>
           </div>
 
-          <div className="rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] p-5">
+          <div className="rounded-lg border border-border bg-muted p-5">
             <h3 className="text-sm font-semibold text-white">Session Cookie</h3>
-            <p className="mt-2 text-sm text-[#a1a1aa]">
+            <p className="mt-2 text-sm text-muted-foreground">
               When signed in via the dashboard, a{' '}
-              <code className="rounded bg-[#1a1a2e] px-1.5 py-0.5 font-mono text-[#4ade80]">chainward-session</code>{' '}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-accent-foreground">chainward-session</code>{' '}
               JWT cookie is set automatically. Browser requests include this cookie by default.
             </p>
           </div>
@@ -265,7 +265,7 @@ export default function ApiReferencePage() {
       {/* SDK section */}
       <section className="mt-10">
         <h2 className="text-lg font-semibold text-white">TypeScript SDK</h2>
-        <div className="mt-4 text-sm text-[#a1a1aa]">
+        <div className="mt-4 text-sm text-muted-foreground">
           <p>Install the SDK for typed access to all endpoints:</p>
           <CodeBlock>{`npm install @chainward/sdk`}</CodeBlock>
           <CodeBlock>{`import { ChainWard } from '@chainward/sdk';
@@ -297,8 +297,8 @@ await cw.alerts.create({
             <h3 className="mb-4 text-base font-semibold text-white">{group.group}</h3>
             <div className="space-y-6">
               {group.items.map((ep) => (
-                <div key={`${ep.method} ${ep.path}`} className="rounded-lg border border-[#1a1a2e] bg-[#0a0a0f]">
-                  <div className="flex items-center gap-3 border-b border-[#1a1a2e] px-5 py-3">
+                <div key={`${ep.method} ${ep.path}`} className="rounded-lg border border-border bg-muted">
+                  <div className="flex items-center gap-3 border-b border-border px-5 py-3">
                     <span
                       className={`rounded px-2 py-0.5 font-mono text-xs font-bold ${
                         ep.method === 'GET'
@@ -315,16 +315,16 @@ await cw.alerts.create({
                     <code className="font-mono text-sm text-white">{ep.path}</code>
                   </div>
                   <div className="p-5">
-                    <p className="text-sm text-[#a1a1aa]">{ep.desc}</p>
+                    <p className="text-sm text-muted-foreground">{ep.desc}</p>
                     <div className="mt-4">
-                      <div className="mb-1 text-xs font-medium uppercase tracking-wider text-[#71717a]">
+                      <div className="mb-1 text-xs font-medium uppercase tracking-wider text-text-muted">
                         Example
                       </div>
                       <CodeBlock>{ep.curl}</CodeBlock>
                     </div>
                     {ep.response && (
                       <div className="mt-4">
-                        <div className="mb-1 text-xs font-medium uppercase tracking-wider text-[#71717a]">
+                        <div className="mb-1 text-xs font-medium uppercase tracking-wider text-text-muted">
                           Response
                         </div>
                         <CodeBlock>{ep.response}</CodeBlock>
@@ -338,9 +338,9 @@ await cw.alerts.create({
         ))}
       </section>
 
-      <div className="mt-12 rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] p-6">
+      <div className="mt-12 rounded-lg border border-border bg-muted p-6">
         <h3 className="text-sm font-semibold text-white">Rate limits</h3>
-        <p className="mt-2 text-sm text-[#a1a1aa]">
+        <p className="mt-2 text-sm text-muted-foreground">
           API requests are rate-limited to 100 requests per minute per session.
           Rate limit headers are included in all responses.
         </p>
@@ -351,7 +351,7 @@ await cw.alerts.create({
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-md bg-[#111118] p-4 font-mono text-xs leading-relaxed text-[#e4e4e7]">
+    <pre className="overflow-x-auto rounded-md bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
       {children}
     </pre>
   );

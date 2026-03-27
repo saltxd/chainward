@@ -96,7 +96,7 @@ export default function AlertTypesPage() {
   return (
     <article className="max-w-none md:max-w-3xl">
       <h1 className="text-2xl font-bold text-white">Alert Types</h1>
-      <p className="mt-2 text-[#a1a1aa]">
+      <p className="mt-2 text-muted-foreground">
         ChainWard supports 7 alert types covering common failure modes for on-chain AI agents.
         Each alert can be delivered through multiple channels.
       </p>
@@ -105,24 +105,24 @@ export default function AlertTypesPage() {
       <section className="mt-10 space-y-4">
         <h2 className="text-lg font-semibold text-white">Types</h2>
         {alertTypes.map((alert) => (
-          <div key={alert.type} className="rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] p-5">
+          <div key={alert.type} className="rounded-lg border border-border bg-muted p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-white">{alert.name}</h3>
-                  <code className="rounded bg-[#1a1a2e] px-1.5 py-0.5 font-mono text-xs text-[#4ade80]">
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-accent-foreground">
                     {alert.type}
                   </code>
                 </div>
-                <p className="mt-2 text-sm text-[#a1a1aa]">{alert.desc}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{alert.desc}</p>
               </div>
             </div>
-            <div className="mt-3 flex gap-4 text-xs text-[#71717a]">
+            <div className="mt-3 flex gap-4 text-xs text-text-muted">
               <span>
-                Default: <span className="text-[#a1a1aa]">{alert.defaultThreshold}</span>
+                Default: <span className="text-muted-foreground">{alert.defaultThreshold}</span>
               </span>
               <span>
-                Unit: <span className="text-[#a1a1aa]">{alert.unit}</span>
+                Unit: <span className="text-muted-foreground">{alert.unit}</span>
               </span>
             </div>
           </div>
@@ -134,9 +134,9 @@ export default function AlertTypesPage() {
         <h2 className="text-lg font-semibold text-white">Delivery Channels</h2>
         <div className="mt-4 space-y-4">
           {channels.map((ch) => (
-            <div key={ch.name} className="rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] p-5">
+            <div key={ch.name} className="rounded-lg border border-border bg-muted p-5">
               <h3 className="font-semibold text-white">{ch.name}</h3>
-              <p className="mt-1 text-sm text-[#a1a1aa]">{ch.desc}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{ch.desc}</p>
             </div>
           ))}
         </div>
@@ -145,17 +145,17 @@ export default function AlertTypesPage() {
       {/* Example payload */}
       <section className="mt-12">
         <h2 className="text-lg font-semibold text-white">Example Webhook Payload</h2>
-        <p className="mt-2 text-sm text-[#a1a1aa]">
+        <p className="mt-2 text-sm text-muted-foreground">
           When using a custom webhook, ChainWard sends a POST request with the following JSON body:
         </p>
-        <pre className="mt-4 overflow-x-auto rounded-md bg-[#111118] p-4 font-mono text-xs leading-relaxed text-[#e4e4e7]">
+        <pre className="mt-4 overflow-x-auto rounded-md bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
           {examplePayload}
         </pre>
       </section>
 
-      <div className="mt-12 rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] p-6">
+      <div className="mt-12 rounded-lg border border-border bg-muted p-6">
         <h3 className="text-sm font-semibold text-white">Testing alerts</h3>
-        <p className="mt-2 text-sm text-[#a1a1aa]">
+        <p className="mt-2 text-sm text-muted-foreground">
           Each alert rule has a <strong className="text-white">Test</strong> button in the dashboard.
           This sends a sample payload to your configured delivery channel so you can verify
           the integration works. Test deliveries are rate-limited to 5 per minute.

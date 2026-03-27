@@ -111,8 +111,8 @@ const TYPE_LABELS: Record<string, string> = Object.fromEntries(
 /* ── Channel colors for history ── */
 
 const CHANNEL_BADGE: Record<string, string> = {
-  discord: 'bg-[#5865f2]/20 text-[#5865f2]',
-  telegram: 'bg-[#26a5e4]/20 text-[#26a5e4]',
+  discord: 'bg-[#5865f2]/20 text-discord',
+  telegram: 'bg-[#26a5e4]/20 text-telegram',
   webhook: 'bg-muted text-muted-foreground',
 };
 
@@ -598,7 +598,7 @@ export default function AlertsPage() {
                     className={cn(
                       'rounded px-1.5 py-0.5 text-xs',
                       event.delivered
-                        ? 'bg-[#4ade80]/20 text-[#4ade80]'
+                        ? 'bg-accent-foreground/20 text-accent-foreground'
                         : event.deliveryError
                           ? 'bg-destructive/20 text-destructive'
                           : 'bg-yellow-500/20 text-yellow-400',

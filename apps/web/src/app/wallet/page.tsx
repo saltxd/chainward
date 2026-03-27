@@ -46,7 +46,7 @@ export default function WalletLookupPage() {
             placeholder="0x..."
             spellCheck={false}
             autoComplete="off"
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 font-mono text-sm outline-none transition-colors focus:border-[#4ade80] placeholder:text-muted-foreground/50"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 font-mono text-sm outline-none transition-colors focus:border-accent-foreground placeholder:text-muted-foreground/50"
           />
 
           {error && (
@@ -55,7 +55,7 @@ export default function WalletLookupPage() {
 
           <button
             type="submit"
-            className="mt-4 w-full rounded-xl bg-[#4ade80] py-3.5 text-sm font-semibold text-black transition-colors hover:bg-[#22c55e]"
+            className="mt-4 w-full rounded-xl bg-accent-foreground py-3.5 text-sm font-semibold text-background transition-colors hover:bg-accent-foreground/90"
           >
             Look up
           </button>
@@ -63,21 +63,21 @@ export default function WalletLookupPage() {
       </div>
 
       <div className="mt-16 w-full max-w-lg text-left">
-        <h2 className="text-sm font-medium text-[#a1a1aa]">What you&apos;ll see</h2>
-        <ul className="mt-3 space-y-2 text-sm text-[#71717a]">
+        <h2 className="text-sm font-medium text-muted-foreground">What you&apos;ll see</h2>
+        <ul className="mt-3 space-y-2 text-sm text-text-muted">
           <li>Recent transactions — transfers, swaps, contract calls with timestamps and gas costs</li>
           <li>Token balances — ETH and ERC-20 holdings on Base</li>
           <li>Gas spend analysis — total gas burned and average cost per transaction</li>
           <li>Activity patterns — transaction frequency and direction (in/out)</li>
         </ul>
-        <p className="mt-6 text-xs text-[#52525b]">
+        <p className="mt-6 text-xs text-text-muted">
           No sign-up required. Data sourced from Base mainnet. Use this tool to research any wallet
           before adding it to your ChainWard monitoring fleet.
         </p>
       </div>
 
       <p className="mt-12 text-center text-xs text-muted-foreground/60">
-        Powered by Chain<span className="text-[#4ade80]/60">Ward</span> &mdash; AgentOps for Base
+        Powered by Chain<span className="text-accent-foreground/60">Ward</span> &mdash; AgentOps for Base
       </p>
     </div>
     </div>

@@ -14,23 +14,23 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-[#050508] pt-[env(safe-area-inset-top)] text-[#e4e4e7]">
+    <div className="min-h-screen bg-background pt-[env(safe-area-inset-top)] text-foreground">
       {/* Top bar */}
-      <nav className="border-b border-[#1a1a2e] px-4 py-4 md:px-6">
+      <nav className="border-b border-border px-4 py-4 md:px-6">
         <div className="mx-auto flex max-w-6xl items-center gap-4">
           <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-white">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/chainward-logo.svg" alt="ChainWard" className="h-6 w-6" />
             ChainWard
           </Link>
-          <span className="text-[#3f3f46]">/</span>
-          <span className="text-sm text-[#a1a1aa]">Docs</span>
+          <span className="text-text-muted">/</span>
+          <span className="text-sm text-muted-foreground">Docs</span>
         </div>
       </nav>
 
       <div className="mx-auto flex flex-col md:max-w-6xl md:flex-row">
         {/* Sidebar */}
-        <aside className="sticky top-0 hidden w-56 shrink-0 border-r border-[#1a1a2e] p-6 md:block" style={{ height: 'calc(100dvh - 57px)' }}>
+        <aside className="sticky top-0 hidden w-56 shrink-0 border-r border-border p-6 md:block" style={{ height: 'calc(100dvh - 57px)' }}>
           <ul className="space-y-1">
             {navItems.map((item) => (
               <li key={item.href}>
@@ -38,8 +38,8 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
                   href={item.href}
                   className={`block rounded-md px-3 py-2 text-sm transition-colors ${
                     pathname === item.href
-                      ? 'bg-[#1B5E20]/20 font-medium text-[#4ade80]'
-                      : 'text-[#a1a1aa] hover:text-white'
+                      ? 'bg-primary/20 font-medium text-accent-foreground'
+                      : 'text-muted-foreground hover:text-white'
                   }`}
                 >
                   {item.label}
@@ -50,15 +50,15 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
         </aside>
 
         {/* Mobile nav */}
-        <div className="flex gap-2 overflow-x-auto border-b border-[#1a1a2e] px-4 py-2 md:hidden">
+        <div className="flex gap-2 overflow-x-auto border-b border-border px-4 py-2 md:hidden">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={`flex min-h-[44px] shrink-0 items-center rounded-md px-4 py-2.5 text-sm ${
                 pathname === item.href
-                  ? 'bg-[#1B5E20]/20 font-medium text-[#4ade80]'
-                  : 'text-[#a1a1aa]'
+                  ? 'bg-primary/20 font-medium text-accent-foreground'
+                  : 'text-muted-foreground'
               }`}
             >
               {item.label}
