@@ -36,9 +36,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-sm transition-colors min-h-[44px]',
+              'flex items-center gap-3 px-3 py-3 md:py-2 text-sm transition-colors min-h-[44px]',
               pathname.startsWith(item.href)
-                ? 'bg-accent text-accent-foreground'
+                ? 'border-l-2 border-accent-foreground text-accent-foreground bg-transparent'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
@@ -52,15 +52,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href="/agents?register=true"
           onClick={onNavigate}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-3 md:py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground min-h-[44px]"
+          className="flex w-full items-center justify-center gap-2 border border-dashed border-border px-3 py-3 md:py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground min-h-[44px]"
         >
           + Register Agent
         </Link>
       </div>
 
-      <div className="border-t border-border px-4 py-3 pb-[env(safe-area-inset-bottom)]">
-        <div className="text-xs text-muted-foreground">ChainWard v0.0.1</div>
-      </div>
     </>
   );
 }
@@ -74,7 +71,7 @@ export function MobileMenuButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Open menu"
-      className="inline-flex items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden min-h-[44px] min-w-[44px]"
+      className="inline-flex items-center justify-center p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden min-h-[44px] min-w-[44px]"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
