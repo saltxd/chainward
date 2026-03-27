@@ -6,8 +6,8 @@ export function PublicHeader() {
       <Link href="/" className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/chainward-logo.svg" alt="ChainWard" className="h-8 w-8" />
-        <span className="text-lg font-semibold tracking-tight text-white">
-          Chain<span className="text-[#4ade80]">Ward</span>
+        <span className="text-lg font-semibold tracking-tight text-foreground">
+          Chain<span className="text-accent-foreground">Ward</span>
         </span>
       </Link>
       <div className="flex items-center gap-3">
@@ -19,7 +19,7 @@ export function PublicHeader() {
         </Link>
         <Link
           href="/login"
-          className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
+          className="rounded-sm bg-[#1B5E20] px-4 py-2 text-sm font-medium text-foreground transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
         >
           Connect Wallet
         </Link>

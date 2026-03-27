@@ -133,7 +133,7 @@ function formatWeekRange(weekStart: string, weekEnd: string): string {
 function wowBadge(change: number | null) {
   if (change == null) {
     return (
-      <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
         First week
       </span>
     );
@@ -143,8 +143,8 @@ function wowBadge(change: number | null) {
     <span
       className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
         positive
-          ? 'bg-[#4ade80]/10 text-[#4ade80]'
-          : 'bg-red-500/10 text-red-400'
+          ? 'bg-[#4ade80]/10 text-accent-foreground'
+          : 'bg-red-500/10 text-destructive'
       }`}
     >
       {positive ? (
@@ -191,13 +191,13 @@ function HeadlineCard({
   loading: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-white/5 bg-[#0a0a0f] p-5">
-      <p className="text-sm text-gray-500">{label}</p>
+    <div className="rounded-sm border border-border bg-background p-5">
+      <p className="text-sm text-muted-foreground">{label}</p>
       {loading ? (
         <Skeleton className="mt-2 h-8 w-24" />
       ) : (
         <>
-          <p className="mt-1 text-2xl font-bold text-white">{value}</p>
+          <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
           <div className="mt-1.5">{wowBadge(change)}</div>
         </>
       )}
@@ -231,7 +231,7 @@ function LeaderboardsSection({
   const renderTable = () => {
     if (loading) {
       return Array.from({ length: 5 }).map((_, i) => (
-        <tr key={i} className="border-b border-white/5">
+        <tr key={i} className="border-b border-border">
           <td className="px-4 py-3"><Skeleton className="h-4 w-6" /></td>
           <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
           <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-4 w-20" /></td>
@@ -252,7 +252,7 @@ function LeaderboardsSection({
       if (all.length === 0) {
         return (
           <tr>
-            <td colSpan={5} className="px-4 py-8 text-center text-gray-600">
+            <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
               No data yet — need two weeks of snapshots
             </td>
           </tr>
@@ -262,29 +262,29 @@ function LeaderboardsSection({
       return all.map((m, i) => (
         <tr
           key={m.walletAddress}
-          className="border-b border-white/5 transition-colors hover:bg-white/[0.02]"
+          className="border-b border-border transition-colors hover:bg-surface"
         >
-          <td className="px-4 py-3 font-mono text-gray-500">{i + 1}</td>
+          <td className="px-4 py-3 font-mono text-muted-foreground">{i + 1}</td>
           <td className="px-4 py-3">
             <a
               href={`https://basescan.org/address/${m.walletAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-white transition-colors hover:text-[#4ade80]"
+              className="text-foreground transition-colors hover:text-accent-foreground"
             >
               {m.name ?? truncateAddress(m.walletAddress)}
             </a>
           </td>
-          <td className="px-4 py-3 text-right font-mono text-white">
+          <td className="px-4 py-3 text-right font-mono text-foreground">
             {formatUsd(m.currentRevenue)}
           </td>
-          <td className="px-4 py-3 text-right font-mono text-gray-500">
+          <td className="px-4 py-3 text-right font-mono text-muted-foreground">
             {formatUsd(m.previousRevenue)}
           </td>
           <td className="px-4 py-3 text-right">
             <span
               className={`font-mono text-sm font-medium ${
-                m.isGainer ? 'text-[#4ade80]' : 'text-red-400'
+                m.isGainer ? 'text-accent-foreground' : 'text-destructive'
               }`}
             >
               {m.isGainer ? '+' : ''}{m.changePct.toFixed(1)}%
@@ -299,27 +299,27 @@ function LeaderboardsSection({
     if (entries.length === 0) {
       return (
         <tr>
-          <td colSpan={5} className="px-4 py-8 text-center text-gray-600">No data yet</td>
+          <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No data yet</td>
         </tr>
       );
     }
     return entries.map((entry, i) => (
       <tr
         key={entry.walletAddress}
-        className="border-b border-white/5 transition-colors hover:bg-white/[0.02]"
+        className="border-b border-border transition-colors hover:bg-surface"
       >
-        <td className="px-4 py-3 font-mono text-gray-500">{i + 1}</td>
+        <td className="px-4 py-3 font-mono text-muted-foreground">{i + 1}</td>
         <td className="px-4 py-3">
           <a
             href={`https://basescan.org/address/${entry.walletAddress}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-white transition-colors hover:text-[#4ade80]"
+            className="text-foreground transition-colors hover:text-accent-foreground"
           >
             {entry.name ?? truncateAddress(entry.walletAddress)}
           </a>
         </td>
-        <td className="px-4 py-3 text-right font-mono text-white">
+        <td className="px-4 py-3 text-right font-mono text-foreground">
           {formatUsd(entry.revenue)}
         </td>
       </tr>
@@ -329,7 +329,7 @@ function LeaderboardsSection({
   const colHeaders = () => {
     if (tab === 'biggestMovers') {
       return (
-        <tr className="border-b border-white/10 text-left text-gray-500">
+        <tr className="border-b border-border text-left text-muted-foreground">
           <th className="px-4 py-3 font-medium">#</th>
           <th className="px-4 py-3 font-medium">Agent</th>
           <th className="px-4 py-3 text-right font-medium">Current</th>
@@ -339,7 +339,7 @@ function LeaderboardsSection({
       );
     }
     return (
-      <tr className="border-b border-white/10 text-left text-gray-500">
+      <tr className="border-b border-border text-left text-muted-foreground">
         <th className="px-4 py-3 font-medium">#</th>
         <th className="px-4 py-3 font-medium">Agent</th>
         <th className="px-4 py-3 text-right font-medium">Revenue</th>
@@ -349,16 +349,16 @@ function LeaderboardsSection({
 
   return (
     <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-white">Leaderboards</h2>
-      <div className="flex gap-1 rounded-lg border border-white/5 bg-[#0a0a0f] p-1">
+      <h2 className="mb-4 text-xl font-bold text-foreground">Leaderboards</h2>
+      <div className="flex gap-1 rounded-sm border border-border bg-background p-1">
         {visibleTabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 rounded-sm px-3 py-2 text-sm font-medium transition-colors ${
               tab === t
-                ? 'bg-white/10 text-white'
-                : 'text-gray-500 hover:text-gray-300'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {LB_TAB_LABELS[t]}
@@ -366,7 +366,7 @@ function LeaderboardsSection({
         ))}
       </div>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-white/5 bg-[#0a0a0f]">
+      <div className="mt-3 overflow-x-auto rounded-sm border border-border bg-background">
         <table className="w-full text-sm">
           <thead>{colHeaders()}</thead>
           <tbody>{renderTable()}</tbody>
@@ -390,8 +390,8 @@ function SpotlightSection({
   if (loading) {
     return (
       <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-white">Agent Spotlight</h2>
-        <div className="rounded-lg border border-[#4ade80]/20 bg-[#0a0a0f] p-6">
+        <h2 className="mb-4 text-xl font-bold text-foreground">Agent Spotlight</h2>
+        <div className="rounded-sm border border-[#4ade80]/20 bg-background p-6">
           <Skeleton className="h-6 w-48" />
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Skeleton className="h-32" />
@@ -406,15 +406,15 @@ function SpotlightSection({
 
   return (
     <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-white">Agent Spotlight</h2>
-      <div className="rounded-lg border border-[#4ade80]/20 bg-gradient-to-b from-[#0a0f0a] to-[#0a0a0f] p-6">
+      <h2 className="mb-4 text-xl font-bold text-foreground">Agent Spotlight</h2>
+      <div className="rounded-sm border border-[#4ade80]/20 bg-gradient-to-b from-[#0a0f0a] to-[#0a0a0f] p-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-bold text-white">
+            <h3 className="text-lg font-bold text-foreground">
               {data.name ?? truncateAddress(data.walletAddress)}
             </h3>
-            <p className="mt-0.5 font-mono text-xs text-gray-500">
+            <p className="mt-0.5 font-mono text-xs text-muted-foreground">
               {truncateAddress(data.walletAddress)}
             </p>
             {data.topProtocols.length > 0 && (
@@ -422,7 +422,7 @@ function SpotlightSection({
                 {data.topProtocols.map((p) => (
                   <span
                     key={p}
-                    className="inline-flex rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-gray-400"
+                    className="inline-flex rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
                   >
                     {p}
                   </span>
@@ -432,12 +432,12 @@ function SpotlightSection({
           </div>
           {data.healthScore != null && (
             <div
-              className={`rounded-lg border px-3 py-1.5 text-center ${
+              className={`rounded-sm border px-3 py-1.5 text-center ${
                 data.healthScore >= 80
-                  ? 'border-[#4ade80]/20 bg-[#4ade80]/10 text-[#4ade80]'
+                  ? 'border-[#4ade80]/20 bg-[#4ade80]/10 text-accent-foreground'
                   : data.healthScore >= 50
                     ? 'border-yellow-400/20 bg-yellow-400/10 text-yellow-400'
-                    : 'border-red-400/20 bg-red-400/10 text-red-400'
+                    : 'border-red-400/20 bg-red-400/10 text-destructive'
               }`}
             >
               <p className="text-xs font-medium">Health</p>
@@ -447,36 +447,36 @@ function SpotlightSection({
         </div>
 
         {/* Metrics */}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <div>
-            <p className="text-xs text-gray-500">Revenue</p>
-            <p className="font-mono text-sm font-bold text-white">
+            <p className="text-xs text-muted-foreground">Revenue</p>
+            <p className="font-mono text-sm font-bold text-foreground">
               {formatUsd(data.revenue)}
             </p>
           </div>
           {/* Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory. */}
           <div>
-            <p className="text-xs text-gray-500">Jobs</p>
-            <p className="font-mono text-sm font-bold text-white">
+            <p className="text-xs text-muted-foreground">Jobs</p>
+            <p className="font-mono text-sm font-bold text-foreground">
               {data.jobs.toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Success Rate</p>
-            <p className="font-mono text-sm font-bold text-white">
+            <p className="text-xs text-muted-foreground">Success Rate</p>
+            <p className="font-mono text-sm font-bold text-foreground">
               {data.successRate}%
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Unique Hirers</p>
-            <p className="font-mono text-sm font-bold text-white">
+            <p className="text-xs text-muted-foreground">Unique Hirers</p>
+            <p className="font-mono text-sm font-bold text-foreground">
               {data.uniqueHirers}
             </p>
           </div>
         </div>
 
         {/* Notable */}
-        <p className="mt-5 border-t border-white/5 pt-4 text-sm italic text-gray-400">
+        <p className="mt-5 border-t border-border pt-4 text-sm italic text-muted-foreground">
           {data.notable}
         </p>
 
@@ -486,7 +486,7 @@ function SpotlightSection({
             href={`https://basescan.org/address/${data.walletAddress}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-[#4ade80]/70 transition-colors hover:text-[#4ade80]"
+            className="inline-flex items-center gap-1 text-sm text-accent-foreground/70 transition-colors hover:text-accent-foreground"
           >
             View on Basescan
             <svg
@@ -523,7 +523,7 @@ function ProtocolSection({
   if (loading) {
     return (
       <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-white">Protocol Activity</h2>
+        <h2 className="mb-4 text-xl font-bold text-foreground">Protocol Activity</h2>
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
@@ -541,11 +541,11 @@ function ProtocolSection({
 
   return (
     <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-white">Protocol Activity</h2>
-      <div className="overflow-x-auto rounded-lg border border-white/5 bg-[#0a0a0f]">
+      <h2 className="mb-4 text-xl font-bold text-foreground">Protocol Activity</h2>
+      <div className="overflow-x-auto rounded-sm border border-border bg-background">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-left text-gray-500">
+            <tr className="border-b border-border text-left text-muted-foreground">
               <th className="px-4 py-3 font-medium">Protocol</th>
               <th className="px-4 py-3 font-medium">Transactions</th>
               <th className="min-w-[140px] px-4 py-3 font-medium">Share</th>
@@ -556,27 +556,27 @@ function ProtocolSection({
             {data.map((p) => (
               <tr
                 key={p.protocolName}
-                className="border-b border-white/5 transition-colors hover:bg-white/[0.02]"
+                className="border-b border-border transition-colors hover:bg-surface"
               >
-                <td className="px-4 py-3 font-medium text-white">{p.protocolName}</td>
-                <td className="px-4 py-3 font-mono text-gray-300">
+                <td className="px-4 py-3 font-medium text-foreground">{p.protocolName}</td>
+                <td className="px-4 py-3 font-mono text-muted-foreground">
                   {p.txCount.toLocaleString()}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-[#4ade80]"
                         style={{ width: `${(p.txCount / maxTxCount) * 100}%` }}
                       />
                     </div>
-                    <span className="min-w-[3rem] text-right font-mono text-xs text-gray-500">
+                    <span className="min-w-[3rem] text-right font-mono text-xs text-muted-foreground">
                       {p.sharePct}%
                     </span>
                   </div>
                 </td>
                 {hasProtocolGas && (
-                  <td className="px-4 py-3 text-right font-mono text-gray-500">
+                  <td className="px-4 py-3 text-right font-mono text-muted-foreground">
                     {formatUsd(p.gasCost)}
                   </td>
                 )}
@@ -603,7 +603,7 @@ function AnomaliesSection({
   if (loading) {
     return (
       <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-white">Alerts & Anomalies</h2>
+        <h2 className="mb-4 text-xl font-bold text-foreground">Alerts & Anomalies</h2>
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-16 w-full" />
@@ -617,18 +617,18 @@ function AnomaliesSection({
 
   return (
     <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-white">Alerts & Anomalies</h2>
+      <h2 className="mb-4 text-xl font-bold text-foreground">Alerts & Anomalies</h2>
       <div className="space-y-3">
         {data.map((anomaly, i) => {
           const config = ANOMALY_CONFIG[anomaly.type] ?? {
             icon: '\u{2139}\u{FE0F}',
-            color: 'border-white/10 bg-white/5',
+            color: 'border-border bg-muted',
             label: anomaly.type.replace(/_/g, ' '),
           };
           return (
             <div
               key={`${anomaly.walletAddress}-${anomaly.type}-${i}`}
-              className={`rounded-lg border p-4 ${config.color}`}
+              className={`rounded-sm border p-4 ${config.color}`}
             >
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 text-lg">{config.icon}</span>
@@ -638,15 +638,15 @@ function AnomaliesSection({
                       href={`https://basescan.org/address/${anomaly.walletAddress}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-white transition-colors hover:text-[#4ade80]"
+                      className="font-medium text-foreground transition-colors hover:text-accent-foreground"
                     >
                       {anomaly.agentName ?? truncateAddress(anomaly.walletAddress)}
                     </a>
-                    <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+                    <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                       {config.label}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-gray-400">{anomaly.detail}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{anomaly.detail}</p>
                 </div>
               </div>
             </div>
@@ -671,7 +671,7 @@ function QuickStatsSection({
   if (loading) {
     return (
       <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-white">Quick Stats</h2>
+        <h2 className="mb-4 text-xl font-bold text-foreground">Quick Stats</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
@@ -723,17 +723,17 @@ function QuickStatsSection({
 
   return (
     <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-white">Quick Stats</h2>
+      <h2 className="mb-4 text-xl font-bold text-foreground">Quick Stats</h2>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((card) => (
           <div
             key={card.label}
-            className="rounded-lg border border-white/5 bg-[#0a0a0f] p-4"
+            className="rounded-sm border border-border bg-background p-4"
           >
             <span className="text-2xl">{card.emoji}</span>
-            <p className="mt-2 text-xs text-gray-500">{card.label}</p>
-            <p className="mt-0.5 text-lg font-bold text-white">{card.value}</p>
-            <p className="mt-0.5 truncate text-xs text-gray-500">{card.sub}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{card.label}</p>
+            <p className="mt-0.5 text-lg font-bold text-foreground">{card.value}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.sub}</p>
           </div>
         ))}
       </div>
@@ -767,7 +767,7 @@ function SnippetsSection({
   if (loading) {
     return (
       <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-white">Social Snippets</h2>
+        <h2 className="mb-4 text-xl font-bold text-foreground">Social Snippets</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28" />
@@ -781,30 +781,30 @@ function SnippetsSection({
 
   return (
     <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-white">Social Snippets</h2>
-      <p className="mb-4 text-sm text-gray-500">
+      <h2 className="mb-4 text-xl font-bold text-foreground">Social Snippets</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
         Ready-to-post tweets. Click to copy.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {data.map((snippet, i) => (
           <div
             key={i}
-            className="group relative rounded-lg border border-white/5 bg-[#0a0a0f] p-4"
+            className="group relative rounded-sm border border-border bg-background p-4"
           >
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
               {snippet}
             </p>
             <div className="mt-3 flex items-center justify-between">
               <span
                 className={`text-xs ${
-                  snippet.length > 280 ? 'text-red-400' : 'text-gray-600'
+                  snippet.length > 280 ? 'text-destructive' : 'text-muted-foreground'
                 }`}
               >
                 {snippet.length}/280
               </span>
               <button
                 onClick={() => handleCopy(snippet, i)}
-                className="rounded px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-white/5 hover:text-white"
+                className="rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 {copiedIdx === i ? 'Copied!' : 'Copy'}
               </button>
@@ -825,7 +825,7 @@ function ComingSoon() {
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <div className="rounded-full border border-[#4ade80]/20 bg-[#4ade80]/5 p-6">
         <svg
-          className="h-12 w-12 text-[#4ade80]"
+          className="h-12 w-12 text-accent-foreground"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -838,16 +838,16 @@ function ComingSoon() {
           />
         </svg>
       </div>
-      <h2 className="mt-6 text-2xl font-bold text-white">
+      <h2 className="mt-6 text-2xl font-bold text-foreground">
         Weekly Agent Economy Digest
       </h2>
-      <p className="mt-3 max-w-md text-gray-400">
+      <p className="mt-3 max-w-md text-muted-foreground">
         Coming soon — the first digest publishes next Monday. Check back for weekly
         intelligence on the Base agent economy.
       </p>
       <Link
         href="/base"
-        className="mt-6 inline-flex items-center gap-1 text-sm text-[#4ade80]/70 transition-colors hover:text-[#4ade80]"
+        className="mt-6 inline-flex items-center gap-1 text-sm text-accent-foreground/70 transition-colors hover:text-accent-foreground"
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -906,30 +906,30 @@ export function DigestClient({
       />
 
       {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between border-b border-white/5 px-6 py-4 md:px-12">
+      <nav className="relative z-10 flex items-center justify-between border-b border-border px-6 py-4 md:px-12">
         <Link href="/" className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/chainward-logo.svg" alt="ChainWard" className="h-7 w-7" />
-          <span className="text-base font-semibold tracking-tight text-white">
-            Chain<span className="text-[#4ade80]">Ward</span>
+          <span className="text-base font-semibold tracking-tight text-foreground">
+            Chain<span className="text-accent-foreground">Ward</span>
           </span>
         </Link>
         <div className="flex items-center gap-4">
           <Link
             href="/base"
-            className="hidden text-sm text-gray-400 transition-colors hover:text-white sm:block"
+            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
           >
             Observatory
           </Link>
           <Link
             href="/wallet"
-            className="hidden text-sm text-gray-400 transition-colors hover:text-white sm:block"
+            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
           >
             Wallet Lookup
           </Link>
           <Link
             href="/login"
-            className="whitespace-nowrap rounded-md bg-[#1B5E20] px-3 py-2 text-xs font-medium text-white transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] sm:px-4 sm:text-sm"
+            className="whitespace-nowrap rounded-sm bg-[#1B5E20] px-3 py-2 text-xs font-medium text-foreground transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] sm:px-4 sm:text-sm"
           >
             Connect Wallet
           </Link>
@@ -945,20 +945,20 @@ export function DigestClient({
             {/*  Header                                                      */}
             {/* ------------------------------------------------------------ */}
             <header className="mb-10">
-              <p className="text-sm font-medium uppercase tracking-wider text-[#4ade80]">
+              <p className="text-sm font-medium uppercase tracking-wider text-accent-foreground">
                 Weekly Digest
               </p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
                 Base Agent Economy
               </h1>
               {loading ? (
                 <Skeleton className="mt-2 h-5 w-64" />
               ) : (
-                <p className="mt-2 text-base text-gray-400">
+                <p className="mt-2 text-base text-muted-foreground">
                   Week of {formatWeekRange(digest!.week_start, digest!.week_end)}
                 </p>
               )}
-              <p className="mt-1 text-sm text-gray-600">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Published by ChainWard &middot; chainward.ai
               </p>
             </header>
@@ -966,7 +966,7 @@ export function DigestClient({
             {/* ------------------------------------------------------------ */}
             {/*  Section 1: Headline Numbers                                 */}
             {/* ------------------------------------------------------------ */}
-            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               <HeadlineCard
                 label="Total Revenue"
                 value={formatUsd(digest?.headline?.totalRevenue ?? 0)}
@@ -995,7 +995,7 @@ export function DigestClient({
                 />
               )}
             </section>
-            <p className="text-xs text-[#71717a] mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Revenue data from Virtuals ACP.
             </p>
 
@@ -1045,18 +1045,18 @@ export function DigestClient({
             <section className="mt-16">
               <div className="relative overflow-hidden rounded-2xl border border-[#1B5E20]/30 bg-gradient-to-b from-[#0a0f0a] to-[#050508] p-10 text-center shadow-[0_0_40px_rgba(74,222,128,0.08)] md:p-14">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(27,94,32,0.15),_transparent_70%)]" />
-                <h2 className="relative text-xl font-bold text-white md:text-2xl">
+                <h2 className="relative text-xl font-bold text-foreground md:text-2xl">
                   Want private monitoring for{' '}
-                  <span className="text-[#4ade80]">your</span> agents?
+                  <span className="text-accent-foreground">your</span> agents?
                 </h2>
-                <p className="relative mx-auto mt-3 max-w-lg text-sm text-gray-400">
+                <p className="relative mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
                   Real-time alerts &middot; 7 alert types &middot; Discord,
                   Telegram, webhook
                 </p>
                 <div className="relative mt-6">
                   <Link
                     href="/login"
-                    className="group inline-flex items-center gap-2 rounded-lg bg-[#4ade80] px-8 py-3 text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e] hover:shadow-[0_0_30px_rgba(74,222,128,0.25)]"
+                    className="group inline-flex items-center gap-2 rounded-sm bg-[#4ade80] px-8 py-3 text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e] hover:shadow-[0_0_30px_rgba(74,222,128,0.25)]"
                   >
                     Start Monitoring
                     <svg
@@ -1081,18 +1081,18 @@ export function DigestClient({
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 px-6 py-8 md:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 text-center text-xs text-gray-600">
+      <footer className="relative z-10 border-t border-border px-6 py-8 md:px-12">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 text-center text-xs text-muted-foreground">
           <p>Published every Monday by ChainWard</p>
           <p>
             Track 329+ AI agent wallets in real time{' '}
-            <Link href="/base" className="text-gray-400 transition-colors hover:text-white">
+            <Link href="/base" className="text-muted-foreground transition-colors hover:text-foreground">
               chainward.ai/base
             </Link>
           </p>
           <p>
             Powered by{' '}
-            <Link href="/" className="text-gray-400 transition-colors hover:text-white">
+            <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">
               ChainWard
             </Link>{' '}
             - AgentOps for Base
