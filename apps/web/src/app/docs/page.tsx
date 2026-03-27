@@ -13,7 +13,7 @@ export default function DocsPage() {
   return (
     <article className="prose-invert max-w-none md:max-w-3xl">
       <h1 className="text-2xl font-bold text-white">Getting Started</h1>
-      <p className="mt-2 text-[#a1a1aa]">
+      <p className="mt-2 text-muted-foreground">
         Get up and running with ChainWard in under 2 minutes. Monitor any Base wallet address in real time.
       </p>
 
@@ -59,15 +59,15 @@ export default function DocsPage() {
             interactions, and idle balance). Deliver alerts via Discord, Telegram, or custom webhook.
           </p>
           <p className="mt-2">
-            See <a href="/docs/alerts" className="text-[#4ade80] underline underline-offset-2 hover:text-[#22c55e]">Alert Types</a> for
+            See <a href="/docs/alerts" className="text-accent-foreground underline underline-offset-2 hover:text-accent-foreground/80">Alert Types</a> for
             details on each type and example payloads.
           </p>
         </Step>
       </div>
 
-      <div className="mt-12 rounded-lg border border-[#1a1a2e] bg-[#0a0a0f] p-6">
+      <div className="mt-12 rounded-lg border border-border bg-muted p-6">
         <h3 className="text-sm font-semibold text-white">Free tier</h3>
-        <p className="mt-2 text-sm text-[#a1a1aa]">
+        <p className="mt-2 text-sm text-muted-foreground">
           Monitor up to 3 agent wallets with full alerting and real-time indexing. No credit card required.
         </p>
       </div>
@@ -78,12 +78,12 @@ export default function DocsPage() {
 function Step({ num, title, children }: { num: string; title: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-5">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#4ade80]/30 font-mono text-sm text-[#4ade80]">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent-foreground/30 font-mono text-sm text-accent-foreground">
         {num}
       </div>
       <div className="min-w-0">
         <h2 className="text-lg font-semibold text-white">{title}</h2>
-        <div className="mt-2 space-y-2 text-sm leading-relaxed text-[#a1a1aa]">{children}</div>
+        <div className="mt-2 space-y-2 text-sm leading-relaxed text-muted-foreground">{children}</div>
       </div>
     </div>
   );

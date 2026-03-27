@@ -124,10 +124,10 @@ export function PayButton({ planId, amountUsdc, onSuccess }: PayButtonProps) {
         className={
           'flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed ' +
           (isComplete
-            ? 'bg-[#4ade80] text-[#050508]'
+            ? 'bg-accent-foreground text-background'
             : status === 'error'
               ? 'border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20'
-              : 'bg-[#4ade80] text-[#050508] hover:bg-[#22c55e] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] disabled:opacity-60')
+              : 'bg-accent-foreground text-background hover:bg-accent-foreground/90 hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] disabled:opacity-60')
         }
       >
         {isProcessing && (
@@ -152,7 +152,7 @@ export function PayButton({ planId, amountUsdc, onSuccess }: PayButtonProps) {
           href={`https://basescan.org/tx/${txHash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center text-xs text-[#4ade80] hover:underline"
+          className="text-center text-xs text-accent-foreground hover:underline"
         >
           View on BaseScan
         </a>

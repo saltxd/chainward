@@ -38,10 +38,10 @@ export function OnboardingBanner() {
   }
 
   return (
-    <div className="rounded-lg border border-[#4ade80]/30 bg-[#4ade80]/5 p-4">
+    <div className="rounded-lg border border-accent-foreground/30 bg-accent-foreground/5 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-[#4ade80]">Monitor this wallet and set a first alert?</h3>
+          <h3 className="text-sm font-semibold text-accent-foreground">Monitor this wallet and set a first alert?</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Start monitoring{' '}
             <span className="font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>{' '}
@@ -51,7 +51,7 @@ export function OnboardingBanner() {
         <button
           onClick={handleRegister}
           disabled={loading}
-          className="w-full shrink-0 rounded-lg bg-[#4ade80] px-4 py-2 text-sm font-medium text-[#050508] transition-colors hover:bg-[#22c55e] disabled:opacity-50 sm:w-auto min-h-[44px]"
+          className="w-full shrink-0 rounded-lg bg-accent-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-foreground/90 disabled:opacity-50 sm:w-auto min-h-[44px]"
         >
           {loading ? 'Adding...' : 'Register + Set Alert'}
         </button>

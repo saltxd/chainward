@@ -74,7 +74,7 @@ export function TxTable({ transactions, showWallet, onSelectTx }: TxTableProps) 
                 <span
                   className={cn(
                     'text-xs font-medium',
-                    tx.direction === 'in' && 'text-[#4ade80]',
+                    tx.direction === 'in' && 'text-accent-foreground',
                     tx.direction === 'out' && 'text-destructive',
                     tx.direction === 'self' && 'text-muted-foreground',
                   )}
@@ -105,7 +105,7 @@ export function TxTable({ transactions, showWallet, onSelectTx }: TxTableProps) 
                 <span
                   className={cn(
                     'text-xs',
-                    tx.status === 'confirmed' && 'text-[#4ade80]',
+                    tx.status === 'confirmed' && 'text-accent-foreground',
                     tx.status === 'failed' && 'text-destructive',
                   )}
                 >

@@ -74,13 +74,14 @@ export default function LoginPage() {
       {isConnected && (
         <div className="w-full rounded-2xl border border-border bg-card/80 p-8 backdrop-blur">
           <div className="mb-5 flex justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#4ade80]/30 bg-[#4ade80]/10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-foreground/30 bg-accent-foreground/10">
               <svg
                 width="24"
                 height="24"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#4ade80"
+                stroke="currentColor"
+                className="text-accent-foreground"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -114,7 +115,7 @@ export default function LoginPage() {
       )}
 
       <p className="text-center text-xs text-muted-foreground/60">
-        Chain<span className="text-primary/60">Ward</span>
+        Chain<span className="text-accent-foreground/60">Ward</span>
       </p>
     </div>
   );
