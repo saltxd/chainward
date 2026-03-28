@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const UMAMI_URL = process.env.UMAMI_INTERNAL_URL || 'http://umami.umami.svc.cluster.local:3000';
 
+const ALLOWED_PATHS = new Set(['/script.js', '/api/send']);
+
 async function proxy(req: NextRequest) {
   const url = new URL(req.url);
-  // Strip the /u prefix and forward to Umami
   const path = url.pathname.replace(/^\/u/, '');
+
+  if (!ALLOWED_PATHS.has(path)) {
+    return new NextResponse(null, { status: 404 });
+  }
+
+  // Strip the /u prefix and forward to Umami
   const upstream = `${UMAMI_URL}${path}${url.search}`;
 
   let res: Response;
