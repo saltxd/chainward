@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: '%s | ChainWard',
   },
   description:
-    'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API. Free during beta.',
+    'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API.',
   metadataBase: new URL('https://chainward.ai'),
   alternates: { canonical: 'https://chainward.ai/' },
   robots: { index: true, follow: true },
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'ChainWard — Real-time monitoring for AI agent wallets on Base',
     description:
-      'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API. Free during beta.',
+      'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API.',
     siteName: 'ChainWard',
     url: 'https://chainward.ai',
     type: 'website',
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     site: '@chainwardai',
     title: 'ChainWard — Real-time monitoring for AI agent wallets on Base',
     description:
-      'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API. Free during beta.',
+      'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API.',
     images: ['/chainward-og.png'],
   },
 };
