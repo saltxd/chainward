@@ -6,8 +6,8 @@ import type { AlertConfig } from '@/lib/api';
 import { api } from '@/lib/api';
 
 const CHANNEL_COLORS: Record<string, string> = {
-  discord: 'bg-[#5865f2]/20 text-[#5865f2]',
-  telegram: 'bg-[#26a5e4]/20 text-[#26a5e4]',
+  discord: 'bg-discord/20 text-discord',
+  telegram: 'bg-telegram/20 text-telegram',
   webhook: 'bg-muted text-muted-foreground',
 };
 
@@ -147,7 +147,7 @@ export function AlertCard({
             onClick={() => onToggle(alert)}
             className={cn(
               'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors',
-              alert.enabled ? 'bg-[#4ade80]' : 'bg-muted',
+              alert.enabled ? 'bg-accent-foreground' : 'bg-muted',
             )}
             role="switch"
             aria-checked={alert.enabled}

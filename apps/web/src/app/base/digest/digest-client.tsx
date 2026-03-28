@@ -143,7 +143,7 @@ function wowBadge(change: number | null) {
     <span
       className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
         positive
-          ? 'bg-[#4ade80]/10 text-accent-foreground'
+          ? 'bg-accent-foreground/10 text-accent-foreground'
           : 'bg-red-500/10 text-destructive'
       }`}
     >
@@ -165,7 +165,7 @@ const ANOMALY_CONFIG: Record<string, { icon: string; color: string; label: strin
   revenue_drop: { icon: '\u{1F4C9}', color: 'border-red-500/20 bg-red-500/5', label: 'Revenue Drop' },
   operating_at_loss: { icon: '\u{1F6A8}', color: 'border-red-500/20 bg-red-500/5', label: 'Operating at Loss' },
   went_inactive: { icon: '\u{1F4A4}', color: 'border-yellow-500/20 bg-yellow-500/5', label: 'Went Inactive' },
-  strong_debut: { icon: '\u{1F31F}', color: 'border-[#4ade80]/20 bg-[#4ade80]/5', label: 'Strong Debut' },
+  strong_debut: { icon: '\u{1F31F}', color: 'border-accent-foreground/20 bg-accent-foreground/5', label: 'Strong Debut' },
   success_rate_divergence: { icon: '\u{26A0}\u{FE0F}', color: 'border-yellow-500/20 bg-yellow-500/5', label: 'Success Rate Mismatch' },
 };
 
@@ -391,7 +391,7 @@ function SpotlightSection({
     return (
       <section className="mt-12">
         <h2 className="mb-4 text-xl font-bold text-foreground">Agent Spotlight</h2>
-        <div className="rounded-sm border border-[#4ade80]/20 bg-background p-6">
+        <div className="rounded-sm border border-accent-foreground/20 bg-background p-6">
           <Skeleton className="h-6 w-48" />
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Skeleton className="h-32" />
@@ -407,7 +407,7 @@ function SpotlightSection({
   return (
     <section className="mt-12">
       <h2 className="mb-4 text-xl font-bold text-foreground">Agent Spotlight</h2>
-      <div className="rounded-sm border border-[#4ade80]/20 bg-gradient-to-b from-[#0a0f0a] to-[#0a0a0f] p-6">
+      <div className="rounded-sm border border-accent-foreground/20 bg-gradient-to-b from-background/80 to-background p-6">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -434,7 +434,7 @@ function SpotlightSection({
             <div
               className={`rounded-sm border px-3 py-1.5 text-center ${
                 data.healthScore >= 80
-                  ? 'border-[#4ade80]/20 bg-[#4ade80]/10 text-accent-foreground'
+                  ? 'border-accent-foreground/20 bg-accent-foreground/10 text-accent-foreground'
                   : data.healthScore >= 50
                     ? 'border-yellow-400/20 bg-yellow-400/10 text-yellow-400'
                     : 'border-red-400/20 bg-red-400/10 text-destructive'
@@ -566,7 +566,7 @@ function ProtocolSection({
                   <div className="flex items-center gap-2">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="h-full rounded-full bg-[#4ade80]"
+                        className="h-full rounded-full bg-accent-foreground"
                         style={{ width: `${(p.txCount / maxTxCount) * 100}%` }}
                       />
                     </div>
@@ -823,7 +823,7 @@ function SnippetsSection({
 function ComingSoon() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-      <div className="rounded-full border border-[#4ade80]/20 bg-[#4ade80]/5 p-6">
+      <div className="rounded-full border border-accent-foreground/20 bg-accent-foreground/5 p-6">
         <svg
           className="h-12 w-12 text-accent-foreground"
           fill="none"
@@ -894,7 +894,7 @@ export function DigestClient({
   const hasData = digest != null && digest.headline != null;
 
   return (
-    <div className="min-h-screen bg-[#050508]">
+    <div className="min-h-screen bg-background">
       {/* Subtle grid background */}
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.02]"
@@ -927,7 +927,7 @@ export function DigestClient({
           </Link>
           <Link
             href="/login"
-            className="whitespace-nowrap rounded-sm bg-[#1B5E20] px-3 py-2 text-xs font-medium text-foreground transition-all hover:bg-[#2E7D32] hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] sm:px-4 sm:text-sm"
+            className="whitespace-nowrap rounded-sm bg-primary px-3 py-2 text-xs font-medium text-foreground transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] sm:px-4 sm:text-sm"
           >
             Connect Wallet
           </Link>
@@ -1041,7 +1041,7 @@ export function DigestClient({
             {/*  CTA                                                         */}
             {/* ------------------------------------------------------------ */}
             <section className="mt-16">
-              <div className="relative overflow-hidden rounded-2xl border border-[#1B5E20]/30 bg-gradient-to-b from-[#0a0f0a] to-[#050508] p-10 text-center shadow-[0_0_40px_rgba(74,222,128,0.08)] md:p-14">
+              <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-b from-background/80 to-background p-10 text-center shadow-[0_0_40px_rgba(74,222,128,0.08)] md:p-14">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(27,94,32,0.15),_transparent_70%)]" />
                 <h2 className="relative text-xl font-bold text-foreground md:text-2xl">
                   Want private monitoring for{' '}
@@ -1054,7 +1054,7 @@ export function DigestClient({
                 <div className="relative mt-6">
                   <Link
                     href="/login"
-                    className="group inline-flex items-center gap-2 rounded-sm bg-[#4ade80] px-8 py-3 text-sm font-semibold text-[#050508] transition-all hover:bg-[#22c55e] hover:shadow-[0_0_30px_rgba(74,222,128,0.25)]"
+                    className="group inline-flex items-center gap-2 rounded-sm bg-accent-foreground px-8 py-3 text-sm font-semibold text-background transition-all hover:bg-accent-foreground/90 hover:shadow-[0_0_30px_rgba(74,222,128,0.25)]"
                   >
                     Start Monitoring
                     <svg
