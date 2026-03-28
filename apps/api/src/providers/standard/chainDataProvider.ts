@@ -42,12 +42,12 @@ export class StandardChainDataProvider implements ChainDataProvider {
   private client: any;
 
   constructor(rpcUrl: string, fallbackUrl?: string) {
-    const transports = [http(rpcUrl)];
-    if (fallbackUrl) transports.push(http(fallbackUrl));
-
+    const primary = http(rpcUrl, { timeout: 5_000 });
     this.client = createPublicClient({
       chain: base,
-      transport: transports.length > 1 ? fallback(transports) : http(rpcUrl),
+      transport: fallbackUrl
+        ? fallback([primary, http(fallbackUrl, { timeout: 10_000 })], { rank: false })
+        : primary,
       batch: { multicall: true },
     });
   }
