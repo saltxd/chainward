@@ -1,21 +1,5 @@
-import { createPublicClient, http, fallback, type PublicClient } from 'viem';
-import { base } from 'viem/chains';
 import { logger } from './logger.js';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _client: any = null;
-
-function getClient(): PublicClient {
-  if (!_client) {
-    const primary = http(process.env.BASE_RPC_URL, { timeout: 5_000 });
-    const fb = process.env.BASE_RPC_FALLBACK_URL;
-    _client = createPublicClient({
-      chain: base,
-      transport: fb ? fallback([primary, http(fb, { timeout: 10_000 })], { rank: false }) : primary,
-    });
-  }
-  return _client as PublicClient;
-}
+import { getBaseClient } from './viem.js';
 
 /** Known wallet factory/singleton addresses (lowercase) */
 const KNOWN_WALLET_CONTRACTS = new Set([
@@ -37,7 +21,7 @@ export interface ContractCheckResult {
  */
 export async function checkAddressType(address: string): Promise<ContractCheckResult> {
   try {
-    const code = await getClient().getCode({ address: address as `0x${string}` });
+    const code = await getBaseClient().getCode({ address: address as `0x${string}` });
 
     if (!code || code === '0x' || code === '0x0') {
       return { isContract: false, isKnownWallet: false };
