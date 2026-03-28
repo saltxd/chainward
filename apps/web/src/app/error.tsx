@@ -16,13 +16,13 @@ export default function GlobalError({
       </div>
       <div>
         <h2 className="text-lg font-semibold text-white">Something went wrong</h2>
-        <p className="mt-1 text-sm text-[#71717a]">
+        <p className="mt-1 text-sm text-muted-foreground">
           {error.message || 'An unexpected error occurred.'}
         </p>
       </div>
       <button
         onClick={reset}
-        className="rounded-md bg-[#1B5E20] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#2E7D32]"
+        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
       >
         Try again
       </button>
