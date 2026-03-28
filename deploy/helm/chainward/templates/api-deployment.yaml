@@ -88,6 +88,10 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: ALCHEMY_WEBHOOK_ID
                   optional: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
           readinessProbe:
             httpGet:
               path: /api/health
