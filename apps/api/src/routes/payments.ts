@@ -1,11 +1,10 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { createPublicClient, http, fallback, type PublicClient } from 'viem';
-import { base } from 'viem/chains';
 import { users } from '@chainward/db';
 import type { AppVariables } from '../types.js';
 import { getDb } from '../lib/db.js';
+import { getBaseClient } from '../lib/viem.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../lib/logger.js';
@@ -24,21 +23,6 @@ const PLAN_UPGRADES: Record<string, { tier: 'pro'; agentLimit: number } | null> 
   brief: null, // one-time service, no tier change
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _client: any = null;
-
-function getViemClient(): PublicClient {
-  if (!_client) {
-    const primary = http(process.env.BASE_RPC_URL, { timeout: 5_000 });
-    const fb = process.env.BASE_RPC_FALLBACK_URL;
-    _client = createPublicClient({
-      chain: base,
-      transport: fb ? fallback([primary, http(fb, { timeout: 10_000 })], { rank: false }) : primary,
-    });
-  }
-  return _client as PublicClient;
-}
-
 const payments = new Hono<{ Variables: AppVariables }>();
 
 const verifySchema = z.object({
@@ -56,7 +40,7 @@ payments.post('/verify', requireApiKeyOrSession('write'), async (c) => {
     throw new AppError(500, 'CONFIG_ERROR', 'Treasury address not configured');
   }
 
-  const client = getViemClient();
+  const client = getBaseClient();
 
   const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` }).catch(() => null);
   if (!receipt) {
