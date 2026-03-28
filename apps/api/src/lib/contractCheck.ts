@@ -7,14 +7,11 @@ let _client: any = null;
 
 function getClient(): PublicClient {
   if (!_client) {
-    const rpcUrl = process.env.BASE_RPC_URL;
-    const fallbackUrl = process.env.BASE_RPC_FALLBACK_URL;
-    const transports = [http(rpcUrl)];
-    if (fallbackUrl) transports.push(http(fallbackUrl));
-
+    const primary = http(process.env.BASE_RPC_URL, { timeout: 5_000 });
+    const fb = process.env.BASE_RPC_FALLBACK_URL;
     _client = createPublicClient({
       chain: base,
-      transport: transports.length > 1 ? fallback(transports) : http(rpcUrl),
+      transport: fb ? fallback([primary, http(fb, { timeout: 10_000 })], { rank: false }) : primary,
     });
   }
   return _client as PublicClient;
