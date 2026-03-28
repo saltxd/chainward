@@ -26,8 +26,8 @@ export function getBaseClient(): PublicClient {
     });
 
     // Log fallback events to track sentinel stalls
-    if (env.BASE_RPC_FALLBACK_URL && _client.transport?.onResponse) {
-      _client.transport.onResponse((args: { method: string; status: string; error?: Error; transport: { value?: { url?: string } } }) => {
+    if (env.BASE_RPC_FALLBACK_URL && _client.transport?.value?.onResponse) {
+      _client.transport.value.onResponse((args: { method: string; status: string; error?: Error; transport: { value?: { url?: string } } }) => {
         if (args.status === 'error') {
           logger.warn({
             method: args.method,
