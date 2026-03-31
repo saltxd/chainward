@@ -24,7 +24,7 @@ const webhookPayloadSchema = z.object({
   createdAt: z.string(),
   type: z.string(),
   event: z.object({
-    network: z.string(),
+    network: z.string().optional(),
     activity: z.array(activitySchema),
   }),
 });
@@ -159,7 +159,7 @@ export class AlchemyWebhookProvider implements WebhookProvider {
       asset: a.asset,
       category: a.category,
       rawContract: a.rawContract,
-      network: body.event.network,
+      network: body.event.network ?? 'BASE_MAINNET',
     }));
   }
 }
