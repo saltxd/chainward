@@ -4,6 +4,7 @@ import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { getBaseClient } from '../lib/viem.js';
+import { getEnv } from '../config.js';
 import { parseAbiItem, type Address } from 'viem';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -205,6 +206,12 @@ export function createAcpWalletTracerWorker() {
   const worker = new Worker<TracerJobData>(
     'acp-wallet-tracer',
     async (job: Job<TracerJobData>) => {
+      // Skip when sentinel is unavailable — eth_getLogs is too expensive on third-party RPCs
+      const env = getEnv();
+      if (!env.BASE_RPC_URL.includes('192.168.1.194')) {
+        logger.info('Skipping wallet tracer — sentinel node not primary RPC');
+        return;
+      }
       const topN = job.data.topN ?? 200;
       await traceTopAgents(topN);
     },
@@ -234,11 +241,6 @@ export async function setupAcpWalletTracerSchedule(redis: import('ioredis').defa
   await queue.add('trace-top', { type: 'trace', topN: 200 }, {
     repeat: { pattern: '0 3 * * *' },
     jobId: 'acp-tracer-daily',
-  });
-
-  // Trigger initial trace
-  await queue.add('initial-trace', { type: 'trace', topN: 200 }, {
-    jobId: 'acp-tracer-initial',
   });
 
   logger.info('ACP wallet tracer scheduled (daily 03:00 UTC, top 200 agents)');
