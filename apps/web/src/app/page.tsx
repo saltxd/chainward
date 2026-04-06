@@ -73,6 +73,12 @@ export default async function LandingPage() {
           >
             Observatory
           </Link>
+          <Link
+            href="/decodes"
+            className="hidden px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-white sm:block"
+          >
+            Decodes
+          </Link>
           {isAuthenticated ? (
             <Link
               href="/overview"
