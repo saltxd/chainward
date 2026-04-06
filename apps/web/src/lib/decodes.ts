@@ -18,7 +18,8 @@ const DELIVERABLES_DIR = path.join(process.cwd(), '../../deliverables');
 
 function findMarkdownFile(dirPath: string): string | null {
   const files = fs.readdirSync(dirPath);
-  const md = files.find((f) => f.endsWith('.md') && f !== 'publish-checklist.md' && f !== 'thread.md');
+  const SKIP = new Set(['publish-checklist.md', 'thread.md', 'findings.md']);
+  const md = files.find((f) => f.endsWith('.md') && !SKIP.has(f));
   return md ? path.join(dirPath, md) : null;
 }
 
