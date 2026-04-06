@@ -365,6 +365,7 @@ export function ObservatoryPage() {
           <nav className="hidden items-center gap-3 text-xs text-muted-foreground sm:flex">
             <Link href="/base" className="text-foreground">Observatory</Link>
             <Link href="/base/digest" className="hover:text-foreground transition-colors">Digest</Link>
+            <Link href="/decodes" className="hover:text-foreground transition-colors">Decodes</Link>
             <Link href="/wallet" className="hover:text-foreground transition-colors">Wallet Lookup</Link>
           </nav>
         </div>
