@@ -57,7 +57,7 @@ export function createBalancePollerWorker() {
   return worker;
 }
 
-/** Set up repeatable balance polling jobs — user agents every 5 min, observatory every 30 min */
+/** Set up repeatable balance polling jobs — user agents every 15 min, observatory every 2 hours */
 export async function setupBalancePolling(redis: import('ioredis').default) {
   const { Queue } = await import('bullmq');
   const queue = new Queue('balance-poll', { connection: redis });
@@ -71,7 +71,7 @@ export async function setupBalancePolling(redis: import('ioredis').default) {
     'poll-users',
     { type: 'poll' },
     {
-      repeat: { every: 5 * 60 * 1000 },
+      repeat: { every: 15 * 60 * 1000 },
       jobId: 'balance-poll-users',
     },
   );
@@ -80,12 +80,12 @@ export async function setupBalancePolling(redis: import('ioredis').default) {
     'poll-observatory',
     { type: 'poll-observatory' },
     {
-      repeat: { every: 30 * 60 * 1000 },
+      repeat: { every: 2 * 60 * 60 * 1000 },
       jobId: 'balance-poll-observatory',
     },
   );
 
-  logger.info('Balance polling scheduled (users: 5min, observatory: 30min)');
+  logger.info('Balance polling scheduled (users: 15min, observatory: 2h)');
   await queue.close();
 }
 
