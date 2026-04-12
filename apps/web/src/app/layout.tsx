@@ -17,11 +17,11 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'ChainWard — Real-time monitoring for AI agent wallets on Base',
+    default: 'ChainWard — Monitoring for agents you actually own',
     template: '%s | ChainWard',
   },
   description:
-    'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API.',
+    'Coinbase closed my CDP account. I rebuilt everything with zero vendor lock-in. Real-time alerts for AI agent wallets on Base — 7 alert types, Discord & Telegram delivery in <30s. Free tier, 3 agents.',
   metadataBase: new URL('https://chainward.ai'),
   alternates: { canonical: 'https://chainward.ai/' },
   robots: { index: true, follow: true },
@@ -43,9 +43,9 @@ export const metadata: Metadata = {
     apple: '/chainward-logo-180.png',
   },
   openGraph: {
-    title: 'ChainWard — Real-time monitoring for AI agent wallets on Base',
+    title: 'ChainWard — Monitoring for agents you actually own',
     description:
-      'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API.',
+      'Coinbase closed my CDP account. I rebuilt everything with zero vendor lock-in. Real-time alerts for AI agent wallets on Base — 7 alert types, Discord & Telegram delivery in <30s. Free tier, 3 agents.',
     siteName: 'ChainWard',
     url: 'https://chainward.ai',
     type: 'website',
@@ -54,9 +54,9 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     site: '@chainwardai',
-    title: 'ChainWard — Real-time monitoring for AI agent wallets on Base',
+    title: 'ChainWard — Monitoring for agents you actually own',
     description:
-      'Monitor your AI agent wallets on Base. Real-time transaction indexing, 7 alert types, Discord & Telegram delivery, CLI, and API.',
+      'Coinbase closed my CDP account. I rebuilt everything with zero vendor lock-in. Real-time alerts for AI agent wallets on Base — 7 alert types, Discord & Telegram delivery in <30s. Free tier, 3 agents.',
     images: ['/chainward-og.png'],
   },
 };
