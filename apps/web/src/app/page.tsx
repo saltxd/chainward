@@ -3,38 +3,31 @@
  * LAUNCH POST OPENER (X / blog / Discord — not part of the page)
  * ============================================================
  *
- * The email hit at 2pm on a Tuesday.
+ * It's 4am. Your agent just failed a swap. Nobody told you.
  *
- * Account closed. Bot activity detected. I'd verified KYC that
- * same morning.
+ * That was me three months ago. Running a swap agent on Base —
+ * ETH/USDC round-trips through Aerodrome, nothing exotic. Then
+ * Coinbase closed my CDP account the same day I verified KYC.
+ * "Bot activity." Portal gone. Keys revoked.
  *
- * I was running a swap agent on Base — ETH/USDC round-trips
- * through Aerodrome, nothing exotic. Coinbase didn't see it
- * that way. CDP portal gone. API keys revoked. The wallet I'd
- * been signing transactions with — locked behind someone else's
- * login page.
+ * I rebuilt the agent in four hours on raw viem + a private
+ * key. No Coinbase anywhere in the stack. But here's what
+ * actually kept me up that night: I'd had ZERO visibility into
+ * what that wallet was doing. No alerts when gas spiked. No
+ * notification when a tx failed. I was checking Basescan
+ * manually like it was a full-time job.
  *
- * Here's the thing though: the agent was back up before I went
- * to sleep. Raw private key, viem, no Coinbase anywhere in the
- * stack. Took maybe four hours.
+ * I've been buying and selling things since I was flipping
+ * Monster energy drinks out of my locker in 6th grade. The
+ * lesson is always the same: if your ability to operate
+ * depends on someone else's permission, you don't actually
+ * have a business. You have a favor.
  *
- * But rebuilding the agent wasn't the hard part. The hard part
- * was realizing I'd had ZERO visibility into what that wallet
- * was doing. No alerts when gas spiked. No notification when a
- * tx failed. I was checking Basescan manually like it was 2019.
- *
- * I grew up with a firm belief that self-reliance is the
- * ultimate goal. I've been buying and selling things since I
- * was flipping Monster energy drinks out of my locker in 6th
- * grade. The lesson is always the same: if your ability to
- * operate depends on someone else's permission, you don't
- * actually have a business. You have a favor.
- *
- * ChainWard is the ops layer I built because I needed it.
- * Real-time monitoring, 7 alert types, gas analytics — for
- * agent wallets on Base. No vendor lock-in. No Coinbase
- * dependency. No one can close your account because there's
- * nothing to close. You connect a wallet, you see everything.
+ * So I built ChainWard — real-time monitoring, 7 alert types,
+ * gas analytics for agent wallets on Base. You paste a wallet
+ * address, every tx gets indexed, and you get a Discord ping
+ * or Telegram message within 30 seconds when something goes
+ * wrong. You don't have to build the monitoring yourself.
  *
  * Free tier. 3 agents. Every alert type.
  * chainward.ai
@@ -154,17 +147,17 @@ export default async function LandingPage() {
         </div>
 
         <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-[1.1] tracking-tight text-white md:text-6xl lg:text-7xl">
-          Coinbase closed my account.{' '}
+          It&apos;s 4am. Your agent just failed a swap.{' '}
           <span className="bg-gradient-to-r from-[#4ade80] to-[#22c55e] bg-clip-text text-transparent">
-            By midnight I didn&apos;t need them.
+            Nobody told you.
           </span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-          I was running a swap agent on Base. Coinbase flagged me for &ldquo;bot activity&rdquo; the
-          same day I verified KYC. Portal gone, keys revoked, wallet locked behind someone
-          else&apos;s login. I rebuilt the agent in four hours &mdash; but realized I&apos;d had zero visibility
-          into what that wallet was actually doing. ChainWard is the ops layer I built because I needed it.
+          Coinbase closed my CDP account the same day I verified KYC &mdash; &ldquo;bot activity.&rdquo;
+          I rebuilt my agent in four hours, but realized I&apos;d had zero visibility into what the wallet
+          was actually doing. So I built ChainWard: real-time monitoring and alerts for agent wallets on Base.
+          You don&apos;t have to build the monitoring yourself.
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -479,7 +472,7 @@ export default async function LandingPage() {
           </h2>
           <p className="relative mx-auto mt-4 max-w-md text-muted-foreground">
             If your ability to operate depends on someone else&apos;s permission, you don&apos;t have
-            a business. You have a favor. Own your ops layer.
+            a business. You have a favor. Get monitoring that doesn&apos;t disappear when a platform does.
           </p>
           <div className="relative mt-8">
             <Link
