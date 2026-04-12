@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { and, count, eq } from 'drizzle-orm';
-import { agentRegistry } from '@chainward/db';
+import { and, count, desc, eq } from 'drizzle-orm';
+import { agentEvents, agentRegistry } from '@chainward/db';
 import { AGENT_FRAMEWORKS } from '@chainward/common';
 import type { AppVariables } from '../types.js';
 import { AgentService } from '../services/agentService.js';
@@ -149,6 +149,82 @@ agents.delete('/:id', async (c) => {
   }
 
   return c.json({ success: true, data: null });
+});
+
+/**
+ * POST /:id/events — Ingest structured events from an agent.
+ * Body: single event object or array of events.
+ * Each event: { eventType, timestamp, walletAddress?, chain?, payload? }
+ */
+agents.post('/:id/events', async (c) => {
+  const user = c.get('user');
+  const id = Number(c.req.param('id'));
+  if (Number.isNaN(id)) throw new AppError(400, 'INVALID_ID', 'Agent ID must be a number');
+
+  const db = getDb();
+  const service = new AgentService(db);
+  const agent = await service.getById(user.id, id);
+
+  const body = await c.req.json();
+  const events = Array.isArray(body) ? body : [body];
+
+  if (events.length === 0) {
+    throw new AppError(400, 'EMPTY_EVENTS', 'No events provided');
+  }
+  if (events.length > 100) {
+    throw new AppError(400, 'TOO_MANY_EVENTS', 'Maximum 100 events per request');
+  }
+
+  const rows = events.map((event: any) => {
+    if (!event.eventType || !event.timestamp) {
+      throw new AppError(400, 'INVALID_EVENT', 'Each event must have eventType and timestamp');
+    }
+    return {
+      timestamp: new Date(event.timestamp),
+      agentId: id,
+      walletAddress: event.walletAddress || agent.walletAddress,
+      chain: event.chain || 'base',
+      eventType: event.eventType,
+      payload: event.payload || {},
+    };
+  });
+
+  await db.insert(agentEvents).values(rows);
+
+  return c.json({ success: true, accepted: rows.length }, 202);
+});
+
+/**
+ * GET /:id/events — Fetch recent events for an agent.
+ * Query params: limit (default 50, max 200), offset, eventType (filter)
+ */
+agents.get('/:id/events', async (c) => {
+  const user = c.get('user');
+  const id = Number(c.req.param('id'));
+  if (Number.isNaN(id)) throw new AppError(400, 'INVALID_ID', 'Agent ID must be a number');
+
+  const db = getDb();
+  const service = new AgentService(db);
+  await service.getById(user.id, id); // validates ownership
+
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 200);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const eventTypeFilter = c.req.query('eventType');
+
+  const conditions = [eq(agentEvents.agentId, id)];
+  if (eventTypeFilter) {
+    conditions.push(eq(agentEvents.eventType, eventTypeFilter));
+  }
+
+  const results = await db
+    .select()
+    .from(agentEvents)
+    .where(and(...conditions))
+    .orderBy(desc(agentEvents.timestamp))
+    .limit(limit)
+    .offset(offset);
+
+  return c.json({ success: true, data: results, count: results.length });
 });
 
 export { agents };

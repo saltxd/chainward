@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BalanceChart } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
 import { TxTable } from '@/components/dashboard/tx-table';
+import { EventTimeline } from '@/components/dashboard/event-timeline';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { cn } from '@/lib/utils';
 
@@ -214,6 +215,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">No gas data yet</p>
         )}
+      </div>
+
+      {/* Event timeline */}
+      <div className="rounded-lg border border-border bg-card p-5">
+        <h2 className="mb-4 text-lg font-semibold">Agent Events</h2>
+        <EventTimeline agentId={agentId} />
       </div>
 
       {/* Transaction table */}
