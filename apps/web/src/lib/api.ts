@@ -52,6 +52,10 @@ export const api = {
     }),
   deleteAgent: (id: number) =>
     fetchApi<{ success: true }>(`/api/agents/${id}`, { method: 'DELETE' }),
+  getAgentEvents: (id: number, params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return fetchApi<{ success: true; data: AgentEvent[] }>(`/api/agents/${id}/events${qs}`);
+  },
 
   // Transactions
   getTransactions: (params?: Record<string, string>) => {
@@ -288,6 +292,16 @@ export interface ApiKey {
 
 export interface ApiKeyWithRawKey extends ApiKey {
   rawKey: string;
+}
+
+export interface AgentEvent {
+  timestamp: string;
+  agentId: number;
+  walletAddress: string;
+  chain: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  ingestedAt: string;
 }
 
 export interface CreateApiKeyBody {
