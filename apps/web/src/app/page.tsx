@@ -1,3 +1,47 @@
+/**
+ * ============================================================
+ * LAUNCH POST OPENER (X / blog / Discord — not part of the page)
+ * ============================================================
+ *
+ * The email hit at 2pm on a Tuesday.
+ *
+ * Account closed. Bot activity detected. I'd verified KYC that
+ * same morning.
+ *
+ * I was running a swap agent on Base — ETH/USDC round-trips
+ * through Aerodrome, nothing exotic. Coinbase didn't see it
+ * that way. CDP portal gone. API keys revoked. The wallet I'd
+ * been signing transactions with — locked behind someone else's
+ * login page.
+ *
+ * Here's the thing though: the agent was back up before I went
+ * to sleep. Raw private key, viem, no Coinbase anywhere in the
+ * stack. Took maybe four hours.
+ *
+ * But rebuilding the agent wasn't the hard part. The hard part
+ * was realizing I'd had ZERO visibility into what that wallet
+ * was doing. No alerts when gas spiked. No notification when a
+ * tx failed. I was checking Basescan manually like it was 2019.
+ *
+ * I grew up with a firm belief that self-reliance is the
+ * ultimate goal. I've been buying and selling things since I
+ * was flipping Monster energy drinks out of my locker in 6th
+ * grade. The lesson is always the same: if your ability to
+ * operate depends on someone else's permission, you don't
+ * actually have a business. You have a favor.
+ *
+ * ChainWard is the ops layer I built because I needed it.
+ * Real-time monitoring, 7 alert types, gas analytics — for
+ * agent wallets on Base. No vendor lock-in. No Coinbase
+ * dependency. No one can close your account because there's
+ * nothing to close. You connect a wallet, you see everything.
+ *
+ * Free tier. 3 agents. Every alert type.
+ * chainward.ai
+ *
+ * ============================================================
+ */
+
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { ActivityFeed } from '@/components/landing/activity-feed';
@@ -10,7 +54,7 @@ const jsonLd = {
   '@type': 'SoftwareApplication',
   name: 'ChainWard',
   description:
-    'Real-time monitoring and alerts for on-chain agent wallets on Base. Cross-framework visibility, gas analytics, and operator-focused notifications.',
+    'Real-time monitoring and alerts for AI agent wallets on Base. 7 alert types, 3 delivery channels, gas analytics. No vendor lock-in. Free tier available.',
   url: 'https://chainward.ai',
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Web, CLI (macOS, Linux, Windows)',
@@ -106,19 +150,21 @@ export default async function LandingPage() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-foreground opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-foreground" />
           </span>
-          Live on Base Mainnet
+          Indexing live on Base mainnet
         </div>
 
         <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-[1.1] tracking-tight text-white md:text-6xl lg:text-7xl">
-          Real-time monitoring and alerts for{' '}
+          Coinbase closed my account.{' '}
           <span className="bg-gradient-to-r from-[#4ade80] to-[#22c55e] bg-clip-text text-transparent">
-            Base agent wallets
+            By midnight I didn&apos;t need them.
           </span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-          Base-first AgentOps for small teams running on-chain agents. Track wallet activity,
-          catch failed transactions, and understand gas and balance behavior before an issue turns into a loss.
+          I was running a swap agent on Base. Coinbase flagged me for &ldquo;bot activity&rdquo; the
+          same day I verified KYC. Portal gone, keys revoked, wallet locked behind someone
+          else&apos;s login. I rebuilt the agent in four hours &mdash; but realized I&apos;d had zero visibility
+          into what that wallet was actually doing. ChainWard is the ops layer I built because I needed it.
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -147,7 +193,7 @@ export default async function LandingPage() {
         </div>
 
         <p className="mt-4 text-sm text-muted-foreground">
-          Real-time intelligence for AI agent wallets on Base.
+          Free. 3 agents. Every alert type. No credit card.
         </p>
 
         {/* Live activity feed */}
@@ -160,14 +206,15 @@ export default async function LandingPage() {
       <section className="relative z-10 mx-auto max-w-5xl px-6 pt-32 md:pt-40">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-            Your agents are moving money.
+            Your agents do swaps at 3am.
             <br />
-            <span className="text-muted-foreground">Are you watching?</span>
+            <span className="text-muted-foreground">You&apos;re checking Basescan the next morning.</span>
           </h2>
           <p className="mt-4 text-muted-foreground md:text-base">
-            Autonomous agents execute transactions 24/7. Without real-time visibility,
-            a misconfigured strategy or unexpected market condition can drain wallets
-            before you even notice.
+            That&apos;s not an ops layer. That&apos;s a habit. Autonomous agents execute transactions
+            around the clock. A failed tx or a gas spike at 4am costs you real money, and you
+            won&apos;t know about it until you remember to look. If your visibility depends on
+            manually refreshing a block explorer, you don&apos;t have visibility.
           </p>
         </div>
 
@@ -179,8 +226,9 @@ export default async function LandingPage() {
             </div>
             <div className="h-px w-full bg-border md:h-16 md:w-px" />
             <p className="text-center text-muted-foreground md:text-left">
-              Discord alerts for crypto agents, Telegram notifications, or custom webhooks — delivered within seconds of on-chain activity.
-              No more manual block explorer checks that don&apos;t scale.
+              Transaction fails &mdash; you know in 30 seconds. Gas spikes past your threshold &mdash;
+              Discord ping, Telegram message, or webhook fires before you&apos;d have even opened a browser tab.
+              7 alert types. 3 delivery channels. Set it and go do something else.
             </p>
           </div>
         </div>
@@ -190,10 +238,11 @@ export default async function LandingPage() {
       <section id="features" className="relative z-10 mx-auto max-w-5xl scroll-mt-20 px-6 pt-32 md:pt-40">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-            Built for agent operators
+            7 alert types. 3 channels. Real-time indexing.
           </h2>
           <p className="mt-3 text-muted-foreground">
-            Everything you need to monitor, understand, and control your on-chain AI agents.
+            No enterprise sales call. No 14-day trial that turns into a billing surprise.
+            Connect a wallet and everything works.
           </p>
         </div>
         <div className="mt-12">
@@ -208,7 +257,8 @@ export default async function LandingPage() {
             Monitor from your terminal
           </h2>
           <p className="mt-3 text-muted-foreground">
-            One install. Full visibility.
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-accent-foreground">npm i -g @chainward/cli</code> and you&apos;re done.
+            No dashboard tab to babysit.
           </p>
         </div>
         <div className="mx-auto mt-10 max-w-2xl">
@@ -227,7 +277,7 @@ export default async function LandingPage() {
       {/* Integrations */}
       <section className="relative z-10 mx-auto max-w-5xl px-6 pt-32 md:pt-40">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Works with</p>
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Drop-in plugins</p>
         </div>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-8">
           <a
@@ -266,16 +316,17 @@ export default async function LandingPage() {
       {/* Wallet Lookup CTA */}
       <section className="relative z-10 mx-auto max-w-3xl px-6 pt-32 text-center md:pt-40">
         <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-          Research a wallet before you add it
+          Do your homework first
         </h2>
         <p className="mt-3 text-muted-foreground">
-          Inspect recent Base activity, balances, and gas spend before you promote a wallet into your monitored fleet.
+          Pull any Base wallet&apos;s recent activity, balances, and gas spend before you add it to your
+          monitored fleet. Free. No login required.
         </p>
         <Link
           href="/wallet"
           className="mt-6 inline-flex items-center gap-2 rounded-sm border border-accent-foreground/30 px-6 py-2.5 text-sm font-semibold text-accent-foreground transition-all hover:bg-accent-foreground/10"
         >
-          Open Wallet Research
+          Open Wallet Lookup
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
@@ -286,7 +337,7 @@ export default async function LandingPage() {
       <section className="relative z-10 mx-auto max-w-5xl px-6 pt-32 md:pt-40">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-            Up and running in 2 minutes
+            Two minutes. No meetings. No approval.
           </h2>
         </div>
 
@@ -294,18 +345,18 @@ export default async function LandingPage() {
           {[
             {
               step: '01',
-              title: 'Register your wallet',
-              desc: 'Paste your agent\'s Base wallet address. No private keys needed.',
+              title: 'Paste the wallet address',
+              desc: 'The public address your agent signs from. No private keys, no OAuth, no vendor onboarding.',
             },
             {
               step: '02',
-              title: 'Watch activity flow in',
-              desc: 'Every transaction, token transfer, and contract interaction — indexed in real time.',
+              title: 'Transactions start flowing in',
+              desc: 'Every swap, transfer, contract call, and gas payment — indexed in real time as it hits Base.',
             },
             {
               step: '03',
-              title: 'Set up the first alert',
-              desc: 'Start with a recommended failed-tx, gas-spike, or inactivity alert and route it to Discord, Telegram, or webhook.',
+              title: 'Set an alert and walk away',
+              desc: 'Failed tx. Gas spike. Balance drop. Inactivity. Pick the trigger, pick the channel, go do something else.',
             },
           ].map((item) => (
             <div key={item.step} className="relative">
@@ -321,10 +372,11 @@ export default async function LandingPage() {
       <section id="pricing" className="relative z-10 mx-auto max-w-5xl scroll-mt-20 px-6 pt-32 md:pt-40">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-            Simple, transparent pricing
+            USDC on Base. No Stripe. No middleman.
           </h2>
           <p className="mt-3 text-muted-foreground">
-            Pay with USDC on Base. No credit cards, no subscriptions middleman.
+            No credit card company taking 3%. No subscription platform deciding when to bill you.
+            Stablecoin hits the contract, you&apos;re live.
           </p>
         </div>
 
@@ -339,13 +391,14 @@ export default async function LandingPage() {
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="font-mono text-3xl font-bold text-white">$0</span>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">actually free &mdash; no catch</p>
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
               <li className="text-muted-foreground">3 agents</li>
               <li className="text-muted-foreground">7-day history</li>
-              <li className="text-muted-foreground">All alert types</li>
+              <li className="text-muted-foreground">All 7 alert types</li>
               <li className="text-muted-foreground">Discord &amp; Telegram</li>
-              <li className="text-muted-foreground">Community support</li>
+              <li className="text-muted-foreground">No credit card. Ever.</li>
             </ul>
             <Link
               href="/login"
@@ -367,6 +420,7 @@ export default async function LandingPage() {
                 <span className="font-mono text-3xl font-bold text-white">25</span>
                 <span className="text-sm text-muted-foreground">USDC/mo</span>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">paid onchain &mdash; no intermediary</p>
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
               <li className="text-muted-foreground">10 agents</li>
@@ -396,7 +450,7 @@ export default async function LandingPage() {
                 <span className="font-mono text-3xl font-bold text-white">99</span>
                 <span className="text-sm text-muted-foreground">USDC</span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">one-time</p>
+              <p className="mt-1 text-xs text-muted-foreground">one-time &mdash; delivered in 48h</p>
             </div>
             <ul className="mb-8 flex flex-1 flex-col gap-3 text-sm">
               <li className="text-muted-foreground">Custom fleet analysis</li>
@@ -421,10 +475,11 @@ export default async function LandingPage() {
         <div className="relative overflow-hidden rounded-sm border border-primary/30 bg-gradient-to-b from-background to-background p-12 text-center md:p-16">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(27,94,32,0.15),_transparent_70%)]" />
           <h2 className="relative text-2xl font-bold text-white md:text-4xl">
-            Run your agents with an ops layer
+            Self-reliance is the ultimate goal
           </h2>
           <p className="relative mx-auto mt-4 max-w-md text-muted-foreground">
-            Join Base-first agent teams and get help setting up your first monitored wallet and alert flow.
+            If your ability to operate depends on someone else&apos;s permission, you don&apos;t have
+            a business. You have a favor. Own your ops layer.
           </p>
           <div className="relative mt-8">
             <Link
@@ -444,9 +499,11 @@ export default async function LandingPage() {
       {/* SEO summary — real HTML text for crawlers */}
       <section className="relative z-10 mx-auto max-w-3xl px-6 pb-16 pt-8 text-center">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          ChainWard is a Base-first operations dashboard for teams running on-chain agents. Monitor agent wallets,
-          route failed-transaction and gas-spike alerts to Discord, Telegram, or webhooks, and track recent wallet
-          behavior through the web app, API, TypeScript SDK, and CLI. Free tier available, paid plans in USDC on Base.
+          ChainWard is a Base-first operations layer for teams running on-chain AI agents. Born from a real
+          Coinbase account closure, it provides real-time transaction indexing, 7 alert types delivered to
+          Discord, Telegram, or webhooks, gas analytics, and balance tracking with no vendor lock-in. Free
+          tier available. Paid plans in USDC on Base. TypeScript SDK, CLI, and framework plugins for elizaOS,
+          AgentKit, and Virtuals GAME.
         </p>
       </section>
 
