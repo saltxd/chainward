@@ -13,6 +13,7 @@ import { GasChart } from '@/components/charts/gas-chart';
 import { TxTable } from '@/components/dashboard/tx-table';
 import { EventTimeline } from '@/components/dashboard/event-timeline';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { GlassToggle } from '@/components/ui/glass-toggle';
 import { cn } from '@/lib/utils';
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -196,23 +197,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               : 'Share a read-only dashboard of this agent'}
           </p>
         </div>
-        <button
-          onClick={async () => {
+        <GlassToggle
+          enabled={agent.isPublic}
+          onChange={async () => {
             await api.updateAgent(agentId, { isPublic: !agent.isPublic });
             refetchAgent();
           }}
-          className={cn(
-            'relative h-6 w-11 rounded-full transition-colors',
-            agent.isPublic ? 'bg-accent-foreground' : 'bg-muted',
-          )}
-        >
-          <span
-            className={cn(
-              'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform',
-              agent.isPublic && 'translate-x-5',
-            )}
-          />
-        </button>
+          label={agent.isPublic ? 'Disable public status page' : 'Enable public status page'}
+        />
       </div>
 
       {/* Stats row */}
