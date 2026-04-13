@@ -120,15 +120,17 @@ export async function processWebhookTx(
     let amountRaw: string | null = null;
     let amountUsd: string | null = null;
 
-    if (data.category === 'erc20' && data.rawContract) {
+    if ((data.category === 'erc20' || data.category === 'token') && data.rawContract) {
       tokenAddress = data.rawContract.address;
       tokenDecimals = data.rawContract.decimals;
 
       const tokenMeta = await resolveToken(data.rawContract.address);
       tokenSymbol = tokenMeta?.symbol ?? data.asset;
 
-      amountRaw = data.rawContract.rawValue;
-      const amount = parseFloat(formatUnits(BigInt(data.rawContract.rawValue), tokenDecimals));
+      // Alchemy rawValue is hex — convert to decimal string for numeric DB column
+      const rawBigInt = BigInt(data.rawContract.rawValue);
+      amountRaw = rawBigInt.toString();
+      const amount = parseFloat(formatUnits(rawBigInt, tokenDecimals));
       const price = await getUsdPrice(tokenSymbol);
       if (price) amountUsd = (amount * price).toFixed(6);
     } else if (data.category === 'external' || data.category === 'internal') {
