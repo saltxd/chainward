@@ -86,15 +86,17 @@ export async function backfillAgent(walletAddress: string, chain: string) {
       let amountRaw: string | null = null;
       let amountUsd: string | null = null;
 
-      if (transfer.category === 'erc20' && transfer.rawContract.address) {
+      if ((transfer.category === 'erc20' || transfer.category === 'token') && transfer.rawContract.address) {
         tokenAddress = transfer.rawContract.address;
         const meta = await resolveToken(tokenAddress);
         tokenSymbol = meta?.symbol ?? transfer.asset;
         tokenDecimals = meta?.decimals ?? (transfer.rawContract.decimal ? parseInt(transfer.rawContract.decimal) : null);
         if (transfer.rawContract.rawValue) {
-          amountRaw = transfer.rawContract.rawValue;
+          // Alchemy rawValue is hex — convert to decimal string for numeric DB column
+          const rawBigInt = BigInt(transfer.rawContract.rawValue);
+          amountRaw = rawBigInt.toString();
           if (tokenDecimals !== null) {
-            const amount = parseFloat(formatUnits(BigInt(transfer.rawContract.rawValue), tokenDecimals));
+            const amount = parseFloat(formatUnits(rawBigInt, tokenDecimals));
             const price = tokenSymbol ? await getUsdPrice(tokenSymbol) : null;
             if (price) amountUsd = (amount * price).toFixed(6);
           }

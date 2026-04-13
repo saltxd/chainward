@@ -11,6 +11,10 @@ const KNOWN_SIGNATURES = parseAbi([
   'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96))',
   'function multicall(uint256 deadline, bytes[] data)',
   'function execute(bytes commands, bytes[] inputs, uint256 deadline)',
+  // Aerodrome Router swap functions
+  'function swapExactETHForTokens(uint256 amountOutMin, (address from, address to, bool stable, address factory)[] routes, address to, uint256 deadline)',
+  'function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, (address from, address to, bool stable, address factory)[] routes, address to, uint256 deadline)',
+  'function swapExactTokensForETH(uint256 amountIn, uint256 amountOutMin, (address from, address to, bool stable, address factory)[] routes, address to, uint256 deadline)',
 ]);
 
 interface DecodedMethod {
@@ -95,6 +99,7 @@ export function classifyTxType(
   }
   if (name === 'approve') return 'approval';
   if (name === 'transfer' || name === 'transferfrom') return 'transfer';
+  // multicall/execute are used by DEX routers — classify based on context when possible
   if (name.includes('multicall') || name.includes('execute')) return 'contract_call';
 
   return 'contract_call';
