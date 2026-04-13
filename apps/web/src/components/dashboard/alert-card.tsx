@@ -142,27 +142,91 @@ export function AlertCard({
             Delete
           </button>
 
-          {/* Toggle switch */}
-          <button
-            onClick={() => onToggle(alert)}
-            className={cn(
-              'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors',
-              alert.enabled ? 'bg-accent-foreground' : 'bg-muted',
-            )}
-            role="switch"
-            aria-checked={alert.enabled}
-          >
-            <span
-              className={cn(
-                'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform',
-                alert.enabled ? 'translate-x-4' : 'translate-x-0.5',
-                'mt-0.5',
-              )}
-            />
-          </button>
+          {/* Toggle switch — liquid glass */}
+          <GlassToggle
+            enabled={alert.enabled}
+            onChange={() => onToggle(alert)}
+            label={alert.enabled ? 'Disable alert' : 'Enable alert'}
+          />
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Liquid-glass style toggle. Inspired by Apple's Liquid Glass material:
+ * - translucent track with backdrop blur and inset shadow (reads as glass thickness)
+ * - specular gradient sheen on the thumb
+ * - spring-like motion via cubic-bezier with a touch of overshoot
+ * - accent glow + color bleed when active
+ */
+function GlassToggle({
+  enabled,
+  onChange,
+  label,
+}: {
+  enabled: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      role="switch"
+      aria-checked={enabled}
+      aria-label={label}
+      className={cn(
+        'group relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
+        'border border-white/10 backdrop-blur-md',
+        // base translucent track
+        'bg-gradient-to-b from-white/[0.04] to-white/[0.01]',
+        // inset shadow for glass thickness
+        'shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_-1px_1px_rgba(0,0,0,0.35)]',
+        // spring-like timing
+        'transition-[background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+        // active state overlays with accent bleed + outer glow
+        enabled &&
+          'border-[#4ade80]/40 bg-gradient-to-b from-[#4ade80]/35 to-[#4ade80]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),inset_0_-1px_2px_rgba(0,0,0,0.3),0_0_14px_rgba(74,222,128,0.35)]',
+        // focus ring
+        'outline-none focus-visible:ring-2 focus-visible:ring-[#4ade80]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+      )}
+    >
+      {/* Specular sheen that shifts with state */}
+      <span
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute inset-0 rounded-full',
+          'bg-gradient-to-t from-transparent via-white/[0.04] to-white/[0.12]',
+          'opacity-60 transition-opacity duration-300',
+          enabled && 'opacity-90',
+        )}
+      />
+
+      {/* Thumb */}
+      <span
+        aria-hidden
+        className={cn(
+          'pointer-events-none relative z-10 ml-0.5 inline-block h-5 w-5 rounded-full',
+          // thumb base: cool white with inner highlight
+          'bg-gradient-to-b from-white to-white/90',
+          // concentric shadow/highlight for 3D feel
+          'shadow-[0_1px_2px_rgba(0,0,0,0.35),0_0_0_0.5px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(0,0,0,0.06)]',
+          // spring motion with slight overshoot — feels "liquid"
+          'transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+          // active press squish
+          'group-active:scale-95',
+          enabled ? 'translate-x-[20px]' : 'translate-x-0',
+        )}
+      >
+        {/* Tiny specular highlight on the thumb */}
+        <span
+          aria-hidden
+          className="absolute inset-x-1 top-0.5 h-1.5 rounded-full bg-gradient-to-b from-white/80 to-transparent"
+        />
+      </span>
+    </button>
   );
 }
 
