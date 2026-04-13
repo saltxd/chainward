@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { use, useState, useRef, useEffect } from 'react';
 import { api, type AgentStats, type Transaction, type BalanceHistoryBucket, type GasBucket } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const agentId = Number(id);
+  const router = useRouter();
 
   const { data: agentStats, loading, error, refetch: refetchAgent } = useApi<AgentStats>(
     () => api.getAgentStats(agentId),
@@ -54,6 +56,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [editing, setEditing] = useState(false);
   const [nameValue, setNameValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -103,6 +107,22 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  async function handleDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 3000);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await api.deleteAgent(agentId);
+      router.push('/agents');
+    } catch {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -144,13 +164,25 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
         <Address address={agent.walletAddress} chain={agent.chain} className="mt-1" />
-        <div className="mt-3">
+        <div className="mt-3 flex items-center gap-2">
           <Link
             href={`/alerts?wallet=${encodeURIComponent(agent.walletAddress)}&preset=failed_tx&source=agent-detail`}
             className="inline-flex items-center gap-2 rounded-lg border border-primary/30 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
           >
             Create failed-tx alert
           </Link>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50',
+              confirmDelete
+                ? 'border-red-500 bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                : 'border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400',
+            )}
+          >
+            {deleting ? 'Deleting...' : confirmDelete ? 'Click again to confirm' : 'Delete agent'}
+          </button>
         </div>
       </div>
 
