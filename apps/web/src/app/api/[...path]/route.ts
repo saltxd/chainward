@@ -30,7 +30,9 @@ async function proxy(req: NextRequest) {
     res = await fetch(upstream, {
       method: req.method,
       headers,
-      body: req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : undefined,
+      body: req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH'
+        ? await req.text()
+        : undefined,
     });
   } catch (err) {
     console.error('API proxy fetch failed:', err);
