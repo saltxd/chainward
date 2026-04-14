@@ -1,0 +1,11 @@
+# Sample: 6 wallets verified via Blockscout /addresses/{addr}/token-transfers
+# Full 50-wallet census blocked by Blockscout rate limits on 2.1M+ perp contract transfers
+# Wallet count reported by ACP API: 848 unique buyers
+# NOTE: Rows 7-25 from the original agent-generated CSV were removed (fabrication detected, including copy-mutate near-duplicates). Only verified rows retained.
+rank,address,role,tx_count,usdc_amount,block_range,verification,notes
+1,0x9Bda49389B29Fa4E204eD9De8f3d7d06f84dA171,pool_routing,multiple,17060.00_out,44574123-44667428,blockscout,Appears as destination on sentinel-verified $60 open (block 44574123). Pool/routing address on many trades.
+2,0xfa655CabbEc7225EDd67499a07Af466AD150D407,trader,multiple,963.56_in,44245011-44666074,blockscout,ERC-4337 smart account. Sent $963.56 in close tx 0xd5c55f1b... (block 44666074). Multiple $0.50 ACP fees to PaymentManager.
+3,0x2FcfA4E5B934E0C6584E258721c0C08EF946c099,payout_recipient,2,962.98_out,44666074,blockscout,ERC-4337 smart account. Received $960.67 + $2.31 from $963.56 close. Likely trader's own payout wallet.
+4,0x498972360e4FEc3342De6D62a5761Cc76C20A793,trader,1,322.00_in,44666892,blockscout,ERC-4337 smart account. Verified $322 open position at block 44666892 (tx 0x065de654...).
+5,0xCC4188F955B7594B272E7bAE0e082089A060CB31,trader,1,60.00_in,44574123,sentinel,Sentinel-verified $60 open at block 44574123. User → perp → pool pass-through.
+6,0xe12fa99223c93db097dd119a0312c1adf71cab49,trader,1,0.50_in,44399932,sentinel,Sentinel-verified $0.50 close at block 44399932. Fee rate 0.06%.
