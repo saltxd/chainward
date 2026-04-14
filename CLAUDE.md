@@ -102,6 +102,12 @@ Curated data (agent labels, protocol registry) is separated from the open-source
 - SIWE nonces must be alphanumeric (strip hyphens from UUID)
 - `TELEGRAM_BOT_TOKEN` env var needed for Telegram delivery
 - elizaOS plugin uses `@elizaos/core@1.7.2` — Action handlers return `ActionResult`, examples use `name` (not `user`), `actions` array (not `action` string)
+- **API proxy body forwarding** — `apps/web/src/app/api/[...path]/route.ts` only forwards request body for POST/PUT/PATCH. Do NOT forward body for DELETE/GET/HEAD — sending `body: ""` with `Content-Type: application/json` on DELETE causes upstream issues
+- **Deploy script waits for GHCR** — `deploy.sh` polls for images before rolling out (15s intervals, 10 min timeout). If CI hasn't pushed images yet, the deploy blocks instead of creating ImagePullBackOff pods
+
+## Decodes
+
+On-chain investigation articles rendered at `chainward.ai/decodes/{slug}`. The web app auto-discovers markdown files in `deliverables/{agent-slug}/decode.md` with YAML frontmatter (`title`, `subtitle`, `date`, `slug`). See **BookStack page 172** (On-Chain Decode Runbook) for the full investigation methodology, verification pipeline, and voice guide.
 
 ## Project Status
 
