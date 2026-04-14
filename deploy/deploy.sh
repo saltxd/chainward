@@ -59,35 +59,59 @@ echo "Namespace: $NAMESPACE"
 echo "Time:      $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo ""
 
-# ─── Step 1: Verify images exist in GHCR ─────────────────────────────────────
+# ─── Step 1: Wait for images to appear in GHCR ──────────────────────────────
+
+POLL_INTERVAL=15   # seconds between checks
+POLL_TIMEOUT=600   # 10 minutes max wait
 
 if ! $MIGRATE_ONLY; then
-  echo "--- Verifying GHCR images ---"
-  ALL_FOUND=true
-  for svc in "${SERVICES[@]}"; do
-    IMAGE="$REGISTRY/chainward-$svc:$TAG"
-    if command -v crane &>/dev/null; then
-      if crane manifest "$IMAGE" &>/dev/null; then
-        echo "  OK  $IMAGE"
-      else
-        echo "  MISSING  $IMAGE" >&2
-        ALL_FOUND=false
-      fi
-    else
-      # Fallback: check via docker manifest (requires docker login)
-      if docker manifest inspect "$IMAGE" &>/dev/null 2>&1; then
-        echo "  OK  $IMAGE"
-      else
-        echo "  ??  $IMAGE (install crane for reliable verification)"
-      fi
-    fi
-  done
-  if ! $ALL_FOUND; then
+  echo "--- Waiting for GHCR images ---"
+
+  if $DRY_RUN; then
+    for svc in "${SERVICES[@]}"; do
+      echo "  [dry-run] Would wait for $REGISTRY/chainward-$svc:$TAG"
+    done
     echo ""
-    echo "FATAL: Some images are missing from GHCR. Wait for CI to complete." >&2
-    exit 1
+  else
+    ELAPSED=0
+    PENDING=("${SERVICES[@]}")
+
+    while [[ ${#PENDING[@]} -gt 0 ]]; do
+      STILL_MISSING=()
+      for svc in "${PENDING[@]}"; do
+        IMAGE="$REGISTRY/chainward-$svc:$TAG"
+        if docker manifest inspect "$IMAGE" &>/dev/null 2>&1; then
+          echo "  OK  $IMAGE"
+        else
+          STILL_MISSING+=("$svc")
+        fi
+      done
+
+      PENDING=("${STILL_MISSING[@]+"${STILL_MISSING[@]}"}")
+
+      if [[ ${#PENDING[@]} -eq 0 ]]; then
+        break
+      fi
+
+      if [[ $ELAPSED -ge $POLL_TIMEOUT ]]; then
+        echo "" >&2
+        echo "FATAL: Timed out after ${POLL_TIMEOUT}s waiting for images:" >&2
+        for svc in "${PENDING[@]}"; do
+          echo "  MISSING  $REGISTRY/chainward-$svc:$TAG" >&2
+        done
+        echo "" >&2
+        echo "CI may have failed. Check https://github.com/saltxd/chainward/actions" >&2
+        exit 1
+      fi
+
+      printf "  ...waiting for %s (%ds / %ds)\n" "${PENDING[*]}" "$ELAPSED" "$POLL_TIMEOUT"
+      sleep "$POLL_INTERVAL"
+      ELAPSED=$((ELAPSED + POLL_INTERVAL))
+    done
+
+    echo "  All images verified."
+    echo ""
   fi
-  echo ""
 fi
 
 # ─── Step 2: Run migrations ──────────────────────────────────────────────────
