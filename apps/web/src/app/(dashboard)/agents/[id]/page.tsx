@@ -118,7 +118,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     try {
       await api.deleteAgent(agentId);
       router.push('/agents');
-    } catch {
+    } catch (err) {
+      console.error('Delete agent failed:', err);
       setDeleting(false);
       setConfirmDelete(false);
     }
