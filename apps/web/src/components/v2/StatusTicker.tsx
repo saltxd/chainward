@@ -2,12 +2,35 @@
 
 import { useEffect, useState } from 'react';
 
+type SignalStatus = 'online' | 'syncing' | 'degraded' | 'offline';
+
 interface Telemetry {
   sentinelTip: number | null;
   baseTip: number | null;
-  lag: number | null;
-  status: 'online' | 'syncing' | 'degraded' | 'offline';
+  sentinelLag: number | null;
+  sentinelStatus: SignalStatus;
+  indexerLastTxAt: string | null;
+  indexerLagSeconds: number | null;
+  indexerStatus: SignalStatus;
   checkedAt: string;
+  // legacy aliases for back-compat
+  lag?: number | null;
+  status?: SignalStatus;
+}
+
+function formatAge(seconds: number | null): string {
+  if (seconds === null) return '?';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
+function colorForStatus(s: SignalStatus): string {
+  if (s === 'online') return 'var(--phosphor)';
+  if (s === 'syncing') return 'var(--amber)';
+  if (s === 'degraded') return 'var(--amber)';
+  return 'var(--danger)';
 }
 
 export function StatusTicker() {
@@ -51,25 +74,28 @@ export function StatusTicker() {
   const formatUsd = (n: number) =>
     n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : `$${(n / 1000).toFixed(1)}k`;
 
-  const statusColor =
-    telemetry?.status === 'online'
-      ? 'var(--phosphor)'
-      : telemetry?.status === 'syncing'
-        ? 'var(--amber)'
-        : telemetry?.status === 'degraded'
-          ? 'var(--amber)'
-          : 'var(--danger)';
+  // Sentinel RPC node status (is our node keeping up with chain tip?)
+  const sentinelLabel = (() => {
+    if (!telemetry) return '…';
+    const s = telemetry.sentinelStatus;
+    if (s === 'online') return 'ONLINE';
+    if (s === 'syncing')
+      return `SYNCING · lag ${telemetry.sentinelLag ?? '?'}`;
+    if (s === 'degraded')
+      return `DEGRADED · lag ${telemetry.sentinelLag ?? '?'}`;
+    return 'OFFLINE';
+  })();
 
-  const sentinelLabel =
-    telemetry === null
-      ? '…'
-      : telemetry.status === 'online'
-        ? 'ONLINE'
-        : telemetry.status === 'syncing'
-          ? `SYNCING · lag ${telemetry.lag}`
-          : telemetry.status === 'degraded'
-            ? `DEGRADED · lag ${telemetry.lag ?? '?'}`
-            : 'OFFLINE';
+  // Indexer status (is our ingestion pipeline actually processing txs?)
+  const indexerLabel = (() => {
+    if (!telemetry) return '…';
+    const age = formatAge(telemetry.indexerLagSeconds);
+    const s = telemetry.indexerStatus;
+    if (s === 'online') return `LIVE · ${age}`;
+    if (s === 'syncing') return `LAG · ${age}`;
+    if (s === 'degraded') return `STALLED · ${age}`;
+    return 'OFFLINE';
+  })();
 
   const items: Array<{ label: string; value: string; live?: boolean; color?: string }> = [
     {
@@ -88,7 +114,16 @@ export function StatusTicker() {
       value: observatory ? formatUsd(observatory.totalPortfolioValue) : '…',
     },
     { label: 'utc', value: now || '…' },
-    { label: 'sentinel', value: sentinelLabel, color: statusColor },
+    {
+      label: 'rpc',
+      value: sentinelLabel,
+      color: telemetry ? colorForStatus(telemetry.sentinelStatus) : undefined,
+    },
+    {
+      label: 'indexer',
+      value: indexerLabel,
+      color: telemetry ? colorForStatus(telemetry.indexerStatus) : undefined,
+    },
   ];
 
   return (
