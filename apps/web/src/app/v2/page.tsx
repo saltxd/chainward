@@ -19,17 +19,23 @@ export default function V2Landing() {
           --fg: #e8ebe4;
           --fg-dim: #9ba397;
           --muted: #585f56;
-          --phosphor: #5cf0a4;
-          --phosphor-dim: #2e7d57;
-          --amber: #ffb347;
-          --danger: #ff6b6b;
-          --cyan: #88e0ff;
+          --phosphor: #3dd88d;
+          --phosphor-dim: #1d6b42;
+          --amber: #e8a033;
+          --danger: #e66767;
+          --cyan: #5ec4e6;
 
           background: var(--bg);
           color: var(--fg);
           font-family: var(--font-mono), ui-monospace, monospace;
           min-height: 100vh;
           letter-spacing: 0.01em;
+        }
+        .v2-root .display {
+          font-family: var(--font-display), Georgia, serif;
+          font-weight: 500;
+          letter-spacing: -0.035em;
+          font-variation-settings: 'opsz' 144, 'SOFT' 50, 'WONK' 0;
         }
         .v2-root .serif { font-family: var(--font-serif), Georgia, serif; font-style: italic; letter-spacing: -0.01em; }
         .v2-root a { color: inherit; text-decoration: none; }
@@ -138,19 +144,23 @@ export default function V2Landing() {
         }
 
         .v2-hero-title {
-          font-size: clamp(38px, 6vw, 72px);
-          line-height: 0.98;
-          letter-spacing: -0.035em;
-          font-weight: 600;
+          font-family: var(--font-display), Georgia, serif;
+          font-size: clamp(44px, 7vw, 88px);
+          line-height: 0.96;
+          letter-spacing: -0.04em;
+          font-weight: 500;
           color: var(--fg);
+          font-variation-settings: 'opsz' 144, 'SOFT' 50, 'WONK' 0;
         }
         .v2-hero-title .accent {
           color: var(--phosphor);
+          font-family: var(--font-mono), ui-monospace, monospace;
           font-variant-numeric: tabular-nums;
+          font-size: 0.82em;
+          letter-spacing: -0.02em;
         }
         .v2-hero-title .narrative {
           display: block;
-          font-size: clamp(32px, 5.4vw, 64px);
           font-weight: 400;
           color: var(--fg-dim);
           margin-top: 4px;
@@ -227,11 +237,13 @@ export default function V2Landing() {
         .v2-section-tag::before { content: '[ '; color: var(--fg-dim); }
         .v2-section-tag::after { content: ' ]'; color: var(--fg-dim); }
         .v2-section-title {
-          font-size: clamp(26px, 3.6vw, 42px);
+          font-family: var(--font-display), Georgia, serif;
+          font-size: clamp(28px, 4vw, 48px);
           font-weight: 500;
-          letter-spacing: -0.025em;
-          line-height: 1.05;
-          max-width: 640px;
+          letter-spacing: -0.035em;
+          line-height: 1.02;
+          max-width: 720px;
+          font-variation-settings: 'opsz' 144, 'SOFT' 30, 'WONK' 0;
         }
         .v2-section-title .serif { color: var(--phosphor); font-weight: 400; }
         .v2-section-lede {
@@ -263,12 +275,14 @@ export default function V2Landing() {
           letter-spacing: 0.04em;
         }
         .v2-final-title {
-          font-size: clamp(28px, 4vw, 44px);
+          font-family: var(--font-display), Georgia, serif;
+          font-size: clamp(32px, 4.5vw, 56px);
           font-weight: 500;
-          letter-spacing: -0.025em;
-          line-height: 1.1;
+          letter-spacing: -0.04em;
+          line-height: 1.02;
           margin-top: 24px;
-          max-width: 720px;
+          max-width: 780px;
+          font-variation-settings: 'opsz' 144, 'SOFT' 50, 'WONK' 0;
         }
         .v2-final-title .serif { color: var(--phosphor); }
         .v2-final-sub {
@@ -298,7 +312,7 @@ export default function V2Landing() {
         {/* Nav */}
         <nav className="v2-nav">
           <Link href="/v2" className="v2-nav-brand">
-            chainward<span style={{ color: 'var(--phosphor)' }}>.sh</span>
+            <span>chainward<span style={{ color: 'var(--phosphor)' }}>.sh</span></span>
           </Link>
           <div className="v2-nav-links">
             <Link href="/base">observatory</Link>
