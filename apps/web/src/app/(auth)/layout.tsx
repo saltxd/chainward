@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { PageShell } from '@/components/v2';
 
 const Web3Provider = dynamic(
   () => import('@/providers/web3-provider').then((mod) => mod.Web3Provider),
@@ -10,9 +11,18 @@ const Web3Provider = dynamic(
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <Web3Provider>
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="w-full max-w-md">{children}</div>
-      </div>
+      <PageShell>
+        <div className="v2-auth-shell">{children}</div>
+        <style>{`
+          .v2-auth-shell {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 20px;
+          }
+        `}</style>
+      </PageShell>
     </Web3Provider>
   );
 }
