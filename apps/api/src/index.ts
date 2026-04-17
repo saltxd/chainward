@@ -19,6 +19,7 @@ import { publicAgents } from './routes/publicAgents.js';
 import { observatory } from './routes/observatory.js';
 import { digest } from './routes/digest.js';
 import { payments } from './routes/payments.js';
+import { telemetry } from './routes/telemetry.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
@@ -74,6 +75,7 @@ app.route('/api/public/agents', publicAgents);
 app.route('/api/observatory', observatory);
 app.route('/api/digest', digest);
 app.route('/api/payments', payments);
+app.route('/api/telemetry', telemetry);
 
 // 404 handler
 app.notFound((c) =>
