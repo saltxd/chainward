@@ -1,16 +1,31 @@
 'use client';
 
 import { use } from 'react';
-import Link from 'next/link';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { publicApi, type WalletLookupResult, type LookupTransaction } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
-import { StatCard } from '@/components/ui/stat-card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorBanner } from '@/components/ui/error-banner';
-import { PublicHeader } from '@/components/layout/public-header';
+import {
+  PageShell,
+  NavBar,
+  StatusTicker,
+  SectionHead,
+  StatTile,
+  DataTable,
+  Badge,
+  Button,
+  type Column,
+} from '@/components/v2';
 
 function truncateAddress(addr: string): string {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  if (!addr || addr.length < 10) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 function formatEthFromHex(hex: string): string {
@@ -30,7 +45,7 @@ function formatTokenBalance(hex: string, decimals = 18): string {
 }
 
 function formatValue(value: number | null): string {
-  if (value === null || value === 0) return '-';
+  if (value === null || value === 0) return '—';
   if (value < 0.0001) return '< 0.0001';
   return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
@@ -82,200 +97,434 @@ export default function WalletLookupResultPage({
     refetch,
   } = useApi<WalletLookupResult>(() => publicApi.lookupWallet(address), [address]);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        <Skeleton className="mb-6 h-10 w-64" />
-        <div className="grid grid-cols-3 gap-4">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
-        <Skeleton className="mt-6 h-64" />
-        <Skeleton className="mt-6 h-48" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        <ErrorBanner message={error} onRetry={refetch} />
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        <p className="text-muted-foreground">No data found for this wallet.</p>
-      </div>
-    );
-  }
-
-  // Compute stats
-  const nativeBalance = data.balances.find((b) => b.contractAddress === 'native');
+  // Compute derived stats (guarded so hooks stay at top-level)
+  const nativeBalance = data?.balances.find((b) => b.contractAddress === 'native');
   const ethBalance = nativeBalance ? formatEthFromHex(nativeBalance.tokenBalance) : '0';
-  const nonNativeTokens = data.balances.filter(
-    (b) => b.contractAddress !== 'native' && b.tokenBalance !== '0x0000000000000000000000000000000000000000000000000000000000000000',
+  const nonNativeTokens = (data?.balances ?? []).filter(
+    (b) =>
+      b.contractAddress !== 'native' &&
+      b.tokenBalance !==
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
   );
   const tokenCount = nonNativeTokens.length;
-  const txCount = data.transactions.length;
+  const txCount = data?.transactions.length ?? 0;
+  const inboundCount = (data?.transactions ?? []).filter((t) => t.direction === 'inbound')
+    .length;
+  const outboundCount = (data?.transactions ?? []).filter(
+    (t) => t.direction === 'outbound',
+  ).length;
 
-  const cta = getCtaContent(data);
+  const txChartData = (data?.transactions ?? [])
+    .map((tx) => ({
+      block: blockHexToNumber(tx.blockNum),
+      value: Math.max(tx.value ?? 0, 0),
+    }))
+    .sort((a, b) => a.block - b.block);
+
+  const txColumns: Column<LookupTransaction>[] = [
+    {
+      key: 'hash',
+      header: 'tx',
+      width: '120px',
+      render: (t) => (
+        <a
+          href={`https://basescan.org/tx/${t.hash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--fg-dim)', textDecoration: 'none' }}
+        >
+          {truncateAddress(t.hash)}
+        </a>
+      ),
+    },
+    {
+      key: 'dir',
+      header: 'dir',
+      width: '60px',
+      render: (t) => (
+        <Badge tone={t.direction === 'inbound' ? 'phosphor' : 'neutral'}>
+          {t.direction === 'inbound' ? 'IN' : 'OUT'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'party',
+      header: 'counterparty',
+      render: (t) => (
+        <span style={{ color: 'var(--fg-dim)' }}>
+          {t.direction === 'inbound'
+            ? truncateAddress(t.from)
+            : t.to
+              ? truncateAddress(t.to)
+              : 'contract creation'}
+        </span>
+      ),
+    },
+    {
+      key: 'asset',
+      header: 'asset',
+      width: '90px',
+      render: (t) => (
+        <span style={{ color: 'var(--fg)' }}>{t.asset ?? t.category}</span>
+      ),
+    },
+    {
+      key: 'value',
+      header: 'value',
+      align: 'right',
+      width: '120px',
+      render: (t) => (
+        <span style={{ color: 'var(--fg)' }}>{formatValue(t.value)}</span>
+      ),
+    },
+    {
+      key: 'block',
+      header: 'block',
+      align: 'right',
+      width: '120px',
+      render: (t) => (
+        <span style={{ color: 'var(--muted)' }}>
+          {blockHexToNumber(t.blockNum).toLocaleString()}
+        </span>
+      ),
+    },
+  ];
+
+  const tokenColumns = [
+    {
+      key: 'contract',
+      header: 'contract',
+      render: (t: (typeof nonNativeTokens)[number]) => (
+        <a
+          href={`https://basescan.org/token/${t.contractAddress}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--fg-dim)', textDecoration: 'none' }}
+        >
+          {truncateAddress(t.contractAddress)}
+        </a>
+      ),
+    },
+    {
+      key: 'balance',
+      header: 'balance',
+      align: 'right' as const,
+      render: (t: (typeof nonNativeTokens)[number]) => (
+        <span style={{ color: 'var(--fg)' }}>{formatTokenBalance(t.tokenBalance)}</span>
+      ),
+    },
+  ];
+
+  const cta = data ? getCtaContent(data) : null;
+  const cachedAt = data ? new Date(data.cachedAt).toLocaleString() : '';
 
   return (
-    <div className="min-h-screen">
-      <PublicHeader />
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">
-          Wallet Activity
-        </h1>
-        <p className="mt-1 font-mono text-sm text-muted-foreground">
-          {address}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Base &middot; cached at {new Date(data.cachedAt).toLocaleString()}
-        </p>
-      </div>
+    <PageShell>
+      <StatusTicker />
+      <div className="v2-shell" style={{ paddingTop: 0, paddingBottom: 80 }}>
+        <NavBar ctaHref="/login" ctaLabel="./connect →" />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Transactions" value={String(txCount)} />
-        <StatCard label="ETH Balance" value={`${ethBalance} ETH`} />
-        <StatCard label="Token Holdings" value={String(tokenCount)} />
-      </div>
-
-      {/* Token Balances */}
-      {nonNativeTokens.length > 0 && (
-        <div className="mt-8 rounded-lg border border-border bg-card p-5">
-          <h2 className="mb-4 text-lg font-semibold">Token Balances</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="pb-2 pr-4">Contract</th>
-                  <th className="pb-2 text-right">Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nonNativeTokens.slice(0, 10).map((token) => (
-                  <tr key={token.contractAddress} className="border-b border-border/50">
-                    <td className="py-2.5 pr-4">
-                      <a
-                        href={`https://basescan.org/token/${token.contractAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {truncateAddress(token.contractAddress)}
-                      </a>
-                    </td>
-                    <td className="py-2.5 text-right font-mono">
-                      {formatTokenBalance(token.tokenBalance)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <section style={{ paddingTop: 56 }}>
+          <div className="v2-wa-kicker">
+            <span className="v2-wa-kicker-dot" aria-hidden />
+            wallet.inspect
           </div>
-          {nonNativeTokens.length > 10 && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Showing top 10 of {nonNativeTokens.length} tokens
-            </p>
-          )}
-        </div>
-      )}
+          <div className="v2-wa-hero">
+            <div className="v2-wa-address">{address}</div>
+            <div className="v2-wa-meta">
+              <Badge tone="phosphor">base</Badge>
+              {data && (
+                <span className="v2-wa-meta-cached">cached @ {cachedAt}</span>
+              )}
+            </div>
+          </div>
+        </section>
 
-      {/* Recent Transactions */}
-      <div className="mt-8 rounded-lg border border-border bg-card p-5">
-        <h2 className="mb-4 text-lg font-semibold">Recent Transactions</h2>
-        {data.transactions.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No recent transactions found
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="pb-2 pr-4">Tx Hash</th>
-                  <th className="pb-2 pr-4">Direction</th>
-                  <th className="pb-2 pr-4">From / To</th>
-                  <th className="pb-2 pr-4 text-right">Value</th>
-                  <th className="pb-2 pr-4">Asset</th>
-                  <th className="pb-2 text-right">Block</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.transactions.map((tx: LookupTransaction) => (
-                  <tr key={`${tx.hash}-${tx.direction}`} className="border-b border-border/50">
-                    <td className="py-2.5 pr-4">
-                      <a
-                        href={`https://basescan.org/tx/${tx.hash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {truncateAddress(tx.hash)}
-                      </a>
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <span
-                        className={
-                          tx.direction === 'inbound'
-                            ? 'text-accent-foreground'
-                            : 'text-orange-400'
-                        }
-                      >
-                        {tx.direction === 'inbound' ? 'IN' : 'OUT'}
+        {loading && (
+          <section style={{ paddingTop: 48 }}>
+            <div className="v2-wa-loading">
+              <span className="v2-wa-loading-pulse" />
+              loading wallet data…
+            </div>
+          </section>
+        )}
+
+        {error && (
+          <section style={{ paddingTop: 48 }}>
+            <div className="v2-wa-error">
+              <div>// failed to load wallet data</div>
+              <p>{error}</p>
+              <Button variant="ghost" onClick={refetch}>
+                ./retry
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {!loading && !error && data && (
+          <>
+            <section style={{ paddingTop: 48 }}>
+              <div className="v2-wa-stats">
+                <StatTile
+                  label="txs.indexed"
+                  value={String(txCount)}
+                  unit="transactions"
+                />
+                <StatTile
+                  label="eth.balance"
+                  value={ethBalance}
+                  unit="eth"
+                />
+                <StatTile
+                  label="tokens.held"
+                  value={String(tokenCount)}
+                  unit={tokenCount === 1 ? 'asset' : 'assets'}
+                />
+                <StatTile
+                  label="flow"
+                  value={
+                    <>
+                      <span style={{ color: 'var(--phosphor)' }}>{inboundCount}</span>
+                      <span style={{ color: 'var(--muted)' }}> / </span>
+                      <span style={{ color: 'var(--fg)' }}>{outboundCount}</span>
+                    </>
+                  }
+                  unit="in / out"
+                />
+              </div>
+            </section>
+
+            {txChartData.length >= 2 && (
+              <section style={{ paddingTop: 64 }}>
+                <SectionHead
+                  tag="activity"
+                  title={
+                    <>
+                      Transaction <span className="serif">value flow.</span>
+                    </>
+                  }
+                />
+                <div className="v2-wa-chart-card">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart
+                      data={txChartData}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    >
+                      <XAxis
+                        dataKey="block"
+                        stroke="#585f56"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={32}
+                        tickFormatter={(v: number) => v.toLocaleString()}
+                      />
+                      <YAxis
+                        stroke="#585f56"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#0f1110',
+                          border: '1px solid #1e231f',
+                          borderRadius: 0,
+                          fontSize: 11,
+                        }}
+                        labelStyle={{ color: '#9ba397' }}
+                        itemStyle={{ color: '#3dd88d' }}
+                        labelFormatter={(v: number) => `block ${v.toLocaleString()}`}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#3dd88d"
+                        fill="#3dd88d"
+                        fillOpacity={0.1}
+                        strokeWidth={1.5}
+                        name="value"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
+            )}
+
+            {nonNativeTokens.length > 0 && (
+              <section style={{ paddingTop: 64 }}>
+                <SectionHead
+                  tag="balances"
+                  title={
+                    <>
+                      Token <span className="serif">holdings.</span>
+                    </>
+                  }
+                />
+                <DataTable
+                  columns={tokenColumns}
+                  rows={nonNativeTokens.slice(0, 10)}
+                  empty="No token balances."
+                />
+                {nonNativeTokens.length > 10 && (
+                  <p className="v2-wa-table-note">
+                    // showing top 10 of {nonNativeTokens.length} tokens
+                  </p>
+                )}
+              </section>
+            )}
+
+            <section style={{ paddingTop: 64 }}>
+              <SectionHead
+                tag="recent.tx"
+                title={
+                  <>
+                    Recent <span className="serif">activity.</span>
+                  </>
+                }
+              />
+              <DataTable
+                columns={txColumns}
+                rows={data.transactions}
+                empty="No recent transactions."
+              />
+            </section>
+
+            {cta && (
+              <section style={{ paddingTop: 80 }}>
+                <div className="v2-wa-cta">
+                  <div>
+                    <h3
+                      className="display"
+                      style={{ fontSize: 28, margin: 0, color: 'var(--fg)' }}
+                    >
+                      {cta.heading.replace(/\.$/, '')}
+                      <span className="serif" style={{ color: 'var(--phosphor)' }}>
+                        .
                       </span>
-                    </td>
-                    <td className="py-2.5 pr-4 font-mono text-muted-foreground">
-                      {tx.direction === 'inbound'
-                        ? truncateAddress(tx.from)
-                        : tx.to
-                          ? truncateAddress(tx.to)
-                          : 'Contract Creation'}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right font-mono">
-                      {formatValue(tx.value)}
-                    </td>
-                    <td className="py-2.5 pr-4 text-muted-foreground">
-                      {tx.asset ?? tx.category}
-                    </td>
-                    <td className="py-2.5 text-right font-mono text-muted-foreground">
-                      {blockHexToNumber(tx.blockNum).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </h3>
+                    <p
+                      style={{
+                        marginTop: 10,
+                        color: 'var(--fg-dim)',
+                        fontSize: 13,
+                        lineHeight: 1.7,
+                        maxWidth: 520,
+                      }}
+                    >
+                      {cta.description}
+                    </p>
+                  </div>
+                  <Button href="/login">./start-monitoring →</Button>
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
 
-      {/* Contextual CTA */}
-      <div className="mt-10 rounded-lg border border-accent-foreground/20 bg-accent-foreground/5 p-8 text-center">
-        <h3 className="text-xl font-bold">{cta.heading}</h3>
-        <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
-          {cta.description}
-        </p>
-        <Link
-          href="/login"
-          className="mt-5 inline-block rounded-xl bg-accent-foreground px-8 py-3 text-sm font-semibold text-background transition-colors hover:bg-accent-foreground/90"
-        >
-          Start Monitoring &mdash; Free
-        </Link>
-      </div>
-
-      {/* Footer */}
-      <p className="mt-8 text-center text-xs text-muted-foreground/60">
-        Powered by Chain<span className="text-accent-foreground/60">Ward</span> &mdash; AgentOps for Base
-      </p>
-    </div>
-    </div>
+      <style>{`
+        .v2-wa-kicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          color: var(--fg-dim);
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          padding-bottom: 16px;
+        }
+        .v2-wa-kicker-dot {
+          width: 20px;
+          height: 1px;
+          background: var(--phosphor);
+        }
+        .v2-wa-hero {
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--line);
+        }
+        .v2-wa-address {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: clamp(16px, 2.4vw, 26px);
+          color: var(--fg);
+          letter-spacing: -0.01em;
+          word-break: break-all;
+          line-height: 1.3;
+        }
+        .v2-wa-meta {
+          margin-top: 14px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .v2-wa-meta-cached {
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 0.04em;
+        }
+        .v2-wa-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 32px;
+        }
+        .v2-wa-chart-card {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          padding: 16px;
+        }
+        .v2-wa-table-note {
+          margin-top: 12px;
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 0.04em;
+        }
+        .v2-wa-loading {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          color: var(--fg-dim);
+          font-size: 13px;
+          letter-spacing: 0.04em;
+        }
+        .v2-wa-loading-pulse {
+          width: 8px;
+          height: 8px;
+          background: var(--phosphor);
+          box-shadow: 0 0 6px var(--phosphor);
+          animation: v2-pulse 1.4s ease-in-out infinite;
+        }
+        .v2-wa-error {
+          border: 1px solid rgba(230, 103, 103, 0.3);
+          padding: 24px;
+          background: rgba(230, 103, 103, 0.04);
+        }
+        .v2-wa-error div {
+          color: var(--danger);
+          font-size: 11px;
+          letter-spacing: 0.1em;
+          margin-bottom: 8px;
+        }
+        .v2-wa-error p {
+          color: var(--fg-dim);
+          font-size: 13px;
+          line-height: 1.6;
+          margin: 0 0 18px 0;
+        }
+        .v2-wa-cta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 40px;
+          padding: 40px;
+          border: 1px solid var(--line-2);
+          background: var(--bg-1);
+          flex-wrap: wrap;
+        }
+        @media (max-width: 960px) {
+          .v2-wa-stats { grid-template-columns: repeat(2, 1fr); }
+        }
+      `}</style>
+    </PageShell>
   );
 }
