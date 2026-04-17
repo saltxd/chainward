@@ -312,7 +312,7 @@ export default function V2Landing() {
         {/* Nav */}
         <nav className="v2-nav">
           <Link href="/v2" className="v2-nav-brand">
-            <span>chainward<span style={{ color: 'var(--phosphor)' }}>.sh</span></span>
+            <span>chainward<span style={{ color: 'var(--phosphor)' }}>.ai</span></span>
           </Link>
           <div className="v2-nav-links">
             <Link href="/base">observatory</Link>
@@ -443,7 +443,7 @@ export default function V2Landing() {
 
         <footer className="v2-footer">
           <div>
-            chainward.sh · operator-grade monitoring for base
+            chainward.ai · operator-grade monitoring for base
           </div>
           <div className="v2-footer-links">
             <Link href="/base">observatory</Link>
