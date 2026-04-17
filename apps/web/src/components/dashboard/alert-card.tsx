@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
 import type { AlertConfig } from '@/lib/api';
 import { api } from '@/lib/api';
 import { GlassToggle } from '@/components/ui/glass-toggle';
+import { Badge, Button } from '@/components/v2';
 
-const CHANNEL_COLORS: Record<string, string> = {
-  discord: 'bg-discord/20 text-discord',
-  telegram: 'bg-telegram/20 text-telegram',
-  webhook: 'bg-muted text-muted-foreground',
+const CHANNEL_TONE: Record<string, 'cyan' | 'phosphor' | 'neutral'> = {
+  discord: 'cyan',
+  telegram: 'cyan',
+  webhook: 'neutral',
 };
 
 const ALERT_TYPE_LABELS: Record<string, string> = {
@@ -77,80 +77,109 @@ export function AlertCard({
   const typeLabel = ALERT_TYPE_LABELS[alert.alertType] ?? alert.alertType;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-2 min-w-0">
-          {/* Agent name + address */}
-          <div>
-            <span className="font-medium text-sm">
-              {agentName ?? 'Unknown Agent'}
-            </span>
-            <span className="ml-2 font-mono text-xs text-muted-foreground">
-              {alert.walletAddress.slice(0, 6)}...{alert.walletAddress.slice(-4)}
-            </span>
-          </div>
-
-          {/* Badges row */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-primary">
-              {typeLabel}
-            </span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-xs capitalize text-muted-foreground">
-              {alert.chain}
-            </span>
-            {threshold && (
-              <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                {threshold}
-              </span>
-            )}
-          </div>
-
-          {/* Channel pills */}
-          <div className="flex flex-wrap gap-1.5">
-            {alert.channels.map((ch) => (
-              <span
-                key={ch}
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                  CHANNEL_COLORS[ch] ?? 'bg-muted text-muted-foreground',
-                )}
-              >
-                {ch}
-              </span>
-            ))}
-          </div>
+    <div className="v2-alert-card">
+      <div className="v2-alert-card-main">
+        {/* Type / name header */}
+        <div className="v2-alert-card-head">
+          <span className="v2-alert-card-type">{typeLabel}</span>
+          <span className="v2-alert-card-sep">│</span>
+          <span className="v2-alert-card-name">
+            {agentName ?? 'Unknown Agent'}
+          </span>
+          <span className="v2-alert-card-wallet">
+            {alert.walletAddress.slice(0, 6)}…{alert.walletAddress.slice(-4)}
+          </span>
         </div>
 
-        {/* Actions */}
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={() => onTest(alert.id)}
-            disabled={isTesting}
-            className="rounded-lg border border-border px-3 py-1 text-xs transition-colors hover:bg-muted disabled:opacity-50"
-          >
-            {isTesting ? 'Sending...' : 'Test'}
-          </button>
-          <button
-            onClick={onEditStart}
-            className="rounded-lg border border-border px-3 py-1 text-xs transition-colors hover:bg-muted"
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => onDelete(alert.id)}
-            className="rounded-lg border border-destructive/30 px-3 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
-          >
-            Delete
-          </button>
-
-          {/* Toggle switch — liquid glass */}
-          <GlassToggle
-            enabled={alert.enabled}
-            onChange={() => onToggle(alert)}
-            label={alert.enabled ? 'Disable alert' : 'Enable alert'}
-          />
+        {/* Meta row */}
+        <div className="v2-alert-card-meta">
+          <Badge>{alert.chain}</Badge>
+          {threshold && <Badge tone="amber">{threshold}</Badge>}
+          {alert.channels.map((ch) => (
+            <Badge key={ch} tone={CHANNEL_TONE[ch] ?? 'neutral'}>
+              {ch}
+            </Badge>
+          ))}
+          {!alert.enabled && <Badge tone="danger">disabled</Badge>}
         </div>
       </div>
+
+      {/* Actions */}
+      <div className="v2-alert-card-actions">
+        <Button variant="ghost" size="sm" onClick={() => onTest(alert.id)} disabled={isTesting}>
+          {isTesting ? 'sending…' : 'test'}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onEditStart}>
+          edit
+        </Button>
+        <Button variant="danger" size="sm" onClick={() => onDelete(alert.id)}>
+          delete
+        </Button>
+        <GlassToggle
+          enabled={alert.enabled}
+          onChange={() => onToggle(alert)}
+          label={alert.enabled ? 'Disable alert' : 'Enable alert'}
+        />
+      </div>
+
+      <style>{`
+        .v2-alert-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 18px 22px;
+          border-top: 1px solid var(--line);
+          transition: background 0.15s;
+          flex-wrap: wrap;
+        }
+        .v2-alert-card:first-child { border-top: none; }
+        .v2-alert-card:hover { background: rgba(61, 216, 141, 0.03); }
+        .v2-alert-card-main {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          min-width: 0;
+          flex: 1 1 320px;
+        }
+        .v2-alert-card-head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          font-size: 13px;
+        }
+        .v2-alert-card-type {
+          color: var(--phosphor);
+          font-family: var(--font-mono);
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .v2-alert-card-sep {
+          color: var(--line-2);
+        }
+        .v2-alert-card-name {
+          color: var(--fg);
+        }
+        .v2-alert-card-wallet {
+          font-family: var(--font-mono);
+          font-size: 12px;
+          color: var(--fg-dim);
+        }
+        .v2-alert-card-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .v2-alert-card-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+      `}</style>
     </div>
   );
 }
@@ -197,49 +226,47 @@ function EditForm({
   }
 
   return (
-    <form onSubmit={handleSave} className="rounded-lg border border-primary/30 bg-card p-4">
-      <div className="mb-3 text-xs font-medium text-primary">Editing Alert</div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Alert Type</label>
+    <form onSubmit={handleSave} className="v2-alert-edit">
+      <div className="v2-alert-edit-head">
+        <span className="v2-alert-edit-tag">[ editing alert ]</span>
+      </div>
+      <div className="v2-alert-edit-grid">
+        <label>
+          <span>alert type</span>
           <select
             value={form.alertType}
             onChange={(e) => setForm({ ...form, alertType: e.target.value })}
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
           >
             {Object.entries(ALERT_TYPE_LABELS).map(([val, label]) => (
               <option key={val} value={val}>{label}</option>
             ))}
           </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Threshold</label>
-          <div className="flex gap-2">
+        </label>
+        <label>
+          <span>threshold</span>
+          <div className="v2-alert-edit-threshold">
             <input
               value={form.thresholdValue}
               onChange={(e) => setForm({ ...form, thresholdValue: e.target.value })}
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
               placeholder="500"
             />
             <select
               value={form.thresholdUnit}
               onChange={(e) => setForm({ ...form, thresholdUnit: e.target.value })}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
             >
               <option value="usd">USD</option>
               <option value="native">Native</option>
               <option value="percentage">%</option>
             </select>
           </div>
-        </div>
+        </label>
       </div>
 
-      {/* Channels */}
-      <div className="mt-3">
-        <label className="text-xs text-muted-foreground">Channels</label>
-        <div className="mt-1 flex gap-3">
+      <div className="v2-alert-edit-channels">
+        <span className="v2-alert-edit-label">channels</span>
+        <div className="v2-alert-edit-channel-row">
           {(['webhook', 'telegram', 'discord'] as const).map((ch) => (
-            <label key={ch} className="flex items-center gap-1.5 text-xs">
+            <label key={ch} className="v2-alert-edit-checkbox">
               <input
                 type="checkbox"
                 checked={form.channels.includes(ch)}
@@ -249,20 +276,18 @@ function EditForm({
                     : form.channels.filter((c) => c !== ch);
                   setForm({ ...form, channels });
                 }}
-                className="rounded border-border"
               />
-              <span className="capitalize">{ch}</span>
+              <span>{ch}</span>
             </label>
           ))}
         </div>
 
-        <div className="mt-2 space-y-2">
+        <div className="v2-alert-edit-channel-inputs">
           {form.channels.includes('webhook') && (
             <input
               value={form.webhookUrl}
               onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })}
               placeholder="https://your-server.com/webhook"
-              className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
             />
           )}
           {form.channels.includes('telegram') && (
@@ -270,7 +295,6 @@ function EditForm({
               value={form.telegramChatId}
               onChange={(e) => setForm({ ...form, telegramChatId: e.target.value })}
               placeholder="Telegram chat ID (e.g. 123456789)"
-              className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
             />
           )}
           {form.channels.includes('discord') && (
@@ -278,28 +302,134 @@ function EditForm({
               value={form.discordWebhook}
               onChange={(e) => setForm({ ...form, discordWebhook: e.target.value })}
               placeholder="https://discord.com/api/webhooks/..."
-              className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
             />
           )}
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2">
-        <button
-          type="submit"
-          disabled={saving || form.channels.length === 0}
-          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-border px-3 py-1.5 text-xs transition-colors hover:bg-muted"
-        >
-          Cancel
-        </button>
+      <div className="v2-alert-edit-actions">
+        <Button type="submit" disabled={saving || form.channels.length === 0} size="sm">
+          {saving ? 'saving…' : './save'}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} type="button">
+          cancel
+        </Button>
       </div>
+
+      <style>{`
+        .v2-alert-edit {
+          border: 1px solid var(--phosphor-dim);
+          background: var(--bg-1);
+          padding: 22px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .v2-alert-edit-head {
+          display: flex;
+          align-items: center;
+        }
+        .v2-alert-edit-tag {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: var(--phosphor);
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
+        .v2-alert-edit-grid {
+          display: grid;
+          gap: 16px;
+          grid-template-columns: 1fr 1fr;
+        }
+        .v2-alert-edit-grid label,
+        .v2-alert-edit-channels {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .v2-alert-edit-grid label > span,
+        .v2-alert-edit-label {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        .v2-alert-edit input,
+        .v2-alert-edit select {
+          background: transparent;
+          border: 1px solid var(--line-2);
+          color: var(--fg);
+          padding: 10px 14px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 13px;
+        }
+        .v2-alert-edit input:focus,
+        .v2-alert-edit select:focus {
+          outline: none;
+          border-color: var(--phosphor);
+        }
+        .v2-alert-edit-threshold {
+          display: flex;
+          gap: 8px;
+        }
+        .v2-alert-edit-threshold input { flex: 1; }
+        .v2-alert-edit-channel-row {
+          display: flex;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+        .v2-alert-edit-checkbox {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-family: var(--font-mono);
+          font-size: 13px;
+          color: var(--fg-dim);
+          cursor: pointer;
+        }
+        .v2-alert-edit-checkbox input {
+          width: 14px;
+          height: 14px;
+          margin: 0;
+          appearance: none;
+          -webkit-appearance: none;
+          background: transparent;
+          border: 1px solid var(--line-2);
+          cursor: pointer;
+          position: relative;
+          flex-shrink: 0;
+          padding: 0;
+        }
+        .v2-alert-edit-checkbox input:checked {
+          background: var(--phosphor);
+          border-color: var(--phosphor);
+        }
+        .v2-alert-edit-checkbox input:checked::after {
+          content: '';
+          position: absolute;
+          left: 3px;
+          top: 0px;
+          width: 4px;
+          height: 8px;
+          border: solid var(--bg);
+          border-width: 0 1.5px 1.5px 0;
+          transform: rotate(45deg);
+        }
+        .v2-alert-edit-channel-inputs {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 8px;
+        }
+        .v2-alert-edit-actions {
+          display: flex;
+          gap: 8px;
+        }
+        @media (max-width: 720px) {
+          .v2-alert-edit-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </form>
   );
 }
