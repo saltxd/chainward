@@ -2,30 +2,47 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardLoading() {
   return (
-    <div className="space-y-6">
-      {/* Page header skeleton */}
-      <div className="space-y-2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-72" />
       </div>
 
-      {/* Stat cards skeleton */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        style={{
+          display: 'grid',
+          gap: 16,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        }}
+      >
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-muted bg-background p-5">
+          <div
+            key={i}
+            style={{
+              border: '1px solid var(--line)',
+              background: 'var(--bg-1)',
+              padding: 20,
+            }}
+          >
             <Skeleton className="mb-3 h-4 w-24" />
             <Skeleton className="h-7 w-16" />
           </div>
         ))}
       </div>
 
-      {/* Table skeleton */}
-      <div className="rounded-xl border border-muted bg-background p-4">
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
+      <div
+        style={{
+          border: '1px solid var(--line)',
+          background: 'var(--bg-1)',
+          padding: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
       </div>
     </div>
   );
