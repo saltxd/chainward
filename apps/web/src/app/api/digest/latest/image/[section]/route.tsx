@@ -1,13 +1,13 @@
 import { ImageResponse } from '@vercel/og';
 
 // ── Design constants ──────────────────────────────────────────────────
-const BG = '#0a0a12';
-const BG_CARD = '#12121f';
-const GREEN = '#4ade80';
-const WHITE = '#ffffff';
-const GRAY = '#a1a1aa';
-const DARK_GRAY = '#52525b';
-const BORDER = '#1e1e2e';
+const BG = '#0a0b0a';
+const BG_CARD = '#0f1110';
+const GREEN = '#3dd88d';
+const WHITE = '#e8ebe4';
+const GRAY = '#9ba397';
+const DARK_GRAY = '#585f56';
+const BORDER = '#1e231f';
 
 const WIDTH = 1200;
 const HEIGHT = 675;

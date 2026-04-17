@@ -1,36 +1,35 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Backgrounds */
-  --color-background: #0a0e14;
-  --color-foreground: #e6edf3;
-  --color-muted: #0d1117;
-  --color-muted-foreground: #8b949e;
-  --color-card: #0d1117;
-  --color-card-foreground: #e6edf3;
-  --color-border: rgba(255,255,255,0.06);
+  /* Bridge legacy Tailwind utility classes to v2 tokens — anything in the app
+     that still uses bg-card/text-accent-foreground will pick up the v2 palette
+     automatically. New code should use the raw --phosphor/--fg/etc. vars from
+     styles/v2-tokens.css instead. */
+  --color-background: #0a0b0a;
+  --color-foreground: #e8ebe4;
+  --color-muted: #0f1110;
+  --color-muted-foreground: #9ba397;
+  --color-card: #0f1110;
+  --color-card-foreground: #e8ebe4;
+  --color-border: #1e231f;
 
-  /* Brand */
-  --color-primary: #1B5E20;
-  --color-primary-foreground: #ffffff;
-  --color-accent: #1B5E20;
-  --color-accent-foreground: #4ade80;
-  --color-ring: #1B5E20;
+  --color-primary: #3dd88d;
+  --color-primary-foreground: #0a0b0a;
+  --color-accent: #1d6b42;
+  --color-accent-foreground: #3dd88d;
+  --color-ring: #3dd88d;
 
-  /* Semantic */
-  --color-destructive: #f87171;
-  --color-destructive-foreground: #ffffff;
-  --color-warning: #fbbf24;
-  --color-link: #79c0ff;
-  --color-text-muted: #484f58;
+  --color-destructive: #e66767;
+  --color-destructive-foreground: #0a0b0a;
+  --color-warning: #e8a033;
+  --color-link: #5ec4e6;
+  --color-text-muted: #585f56;
   --color-surface: rgba(255,255,255,0.02);
-  --color-border-hover: rgba(255,255,255,0.12);
+  --color-border-hover: #2a312b;
 
-  /* Service colors */
   --color-discord: #5865f2;
   --color-telegram: #26a5e4;
 
-  /* Typography — keep these, next/font will override via CSS variables */
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
