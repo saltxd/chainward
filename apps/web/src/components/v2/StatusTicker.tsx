@@ -10,14 +10,6 @@ interface Telemetry {
   checkedAt: string;
 }
 
-/**
- * Top-of-page status strip. All values are real:
- * - sentinel/base tips come from /api/telemetry (sentinel via viem, base via Blockscout)
- * - fleet.size / tx.7d / tvl from /api/observatory
- * - utc from client clock
- *
- * No fake "ONLINE" indicators — if the sentinel is behind chain tip it says SYNCING.
- */
 export function StatusTicker() {
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const [observatory, setObservatory] = useState<{
@@ -105,61 +97,13 @@ export function StatusTicker() {
         {items.map((item, i) => (
           <span key={i} className="v2-ticker-item">
             <span className="v2-ticker-label">{item.label}</span>
-            <span
-              className="v2-ticker-value"
-              style={{ color: item.color ?? 'var(--fg)' }}
-            >
+            <span className="v2-ticker-value" style={{ color: item.color ?? 'var(--fg)' }}>
               {item.value}
             </span>
             {item.live && <span className="v2-ticker-pulse" aria-hidden />}
           </span>
         ))}
       </div>
-      <style jsx>{`
-        .v2-ticker {
-          position: relative;
-          z-index: 2;
-          border-bottom: 1px solid var(--line);
-          font-size: 11px;
-          color: var(--fg-dim);
-          background: var(--bg-1);
-          letter-spacing: 0.04em;
-        }
-        .v2-ticker-row {
-          max-width: 1280px;
-          margin: 0 auto;
-          padding: 8px 32px;
-          display: flex;
-          gap: 22px;
-          flex-wrap: wrap;
-          align-items: center;
-        }
-        .v2-ticker-item {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .v2-ticker-label {
-          color: var(--muted);
-        }
-        .v2-ticker-value {
-          font-variant-numeric: tabular-nums;
-        }
-        .v2-ticker-pulse {
-          width: 6px;
-          height: 6px;
-          background: var(--phosphor);
-          box-shadow: 0 0 6px var(--phosphor);
-          animation: v2-pulse 1.4s ease-in-out infinite;
-          display: inline-block;
-        }
-        @media (max-width: 720px) {
-          .v2-ticker-row {
-            padding: 8px 20px;
-            gap: 14px;
-          }
-        }
-      `}</style>
     </div>
   );
 }

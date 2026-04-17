@@ -94,45 +94,6 @@ export function DataTable<T>({
           </div>
         );
       })}
-      <style jsx>{`
-        .v2-tbl {
-          border: 1px solid var(--line);
-          background: var(--bg-1);
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 13px;
-        }
-        .v2-tbl-header {
-          display: grid;
-          padding: 12px 20px;
-          border-bottom: 1px solid var(--line);
-          color: var(--muted);
-          font-size: 10px;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-        }
-        .v2-tbl-row {
-          display: grid;
-          padding: 14px 20px;
-          align-items: center;
-          border-top: 1px solid var(--line);
-          transition: background 0.15s;
-          color: inherit;
-          text-decoration: none;
-        }
-        .v2-tbl-row:hover {
-          background: rgba(61, 216, 141, 0.03);
-        }
-        .v2-tbl-row-link {
-          cursor: pointer;
-        }
-        .v2-tbl-empty {
-          padding: 40px 20px;
-          text-align: center;
-          color: var(--muted);
-          font-style: italic;
-          font-size: 13px;
-        }
-      `}</style>
     </div>
   );
 }
