@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { use, useState, useRef, useEffect } from 'react';
-import { api, type AgentStats, type Transaction, type BalanceHistoryBucket, type GasBucket } from '@/lib/api';
+import {
+  api,
+  type AgentStats,
+  type BalanceHistoryBucket,
+  type GasBucket,
+} from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
-import { Address } from '@/components/ui/address';
-import { StatCard } from '@/components/ui/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BalanceChart, getBalanceSummary } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
@@ -14,43 +17,46 @@ import { TxTable } from '@/components/dashboard/tx-table';
 import { EventTimeline } from '@/components/dashboard/event-timeline';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { GlassToggle } from '@/components/ui/glass-toggle';
-import { cn } from '@/lib/utils';
+import { StatTile, Badge, Button, SectionHead } from '@/components/v2';
 
-export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function AgentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const agentId = Number(id);
   const router = useRouter();
 
-  const { data: agentStats, loading, error, refetch: refetchAgent } = useApi<AgentStats>(
-    () => api.getAgentStats(agentId),
-    [agentId],
-  );
+  const {
+    data: agentStats,
+    loading,
+    error,
+    refetch: refetchAgent,
+  } = useApi<AgentStats>(() => api.getAgentStats(agentId), [agentId]);
 
   const wallet = agentStats?.agent.walletAddress;
 
-  const { data: balanceHistory } = useApi<BalanceHistoryBucket[]>(
-    () => {
-      if (!wallet) return Promise.resolve({ data: [] as BalanceHistoryBucket[] });
-      const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      return api.getBalanceHistory({ wallet, bucket: '1h', from });
-    },
-    [wallet],
-  );
+  const { data: balanceHistory } = useApi<BalanceHistoryBucket[]>(() => {
+    if (!wallet) return Promise.resolve({ data: [] as BalanceHistoryBucket[] });
+    const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    return api.getBalanceHistory({ wallet, bucket: '1h', from });
+  }, [wallet]);
 
-  const { data: gasData } = useApi<GasBucket[]>(
-    () => {
-      if (!wallet) return Promise.resolve({ data: [] as GasBucket[] });
-      const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      return api.getGasAnalytics({ wallet, bucket: '1d', from });
-    },
-    [wallet],
-  );
+  const { data: gasData } = useApi<GasBucket[]>(() => {
+    if (!wallet) return Promise.resolve({ data: [] as GasBucket[] });
+    const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    return api.getGasAnalytics({ wallet, bucket: '1d', from });
+  }, [wallet]);
 
   const { data: txResponse } = useApi(
     () =>
       wallet
         ? api.getTransactions({ wallet, limit: '20' })
-        : Promise.resolve({ data: [], pagination: { total: 0, limit: 20, offset: 0, hasMore: false } }),
+        : Promise.resolve({
+            data: [],
+            pagination: { total: 0, limit: 20, offset: 0, hasMore: false },
+          }),
     [wallet],
   );
 
@@ -67,7 +73,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <Skeleton className="h-20" />
         <div className="grid grid-cols-4 gap-4">
           <Skeleton className="h-24" />
@@ -85,11 +91,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   if (!agentStats) {
-    return <p className="text-muted-foreground">Agent not found</p>;
+    return <p style={{ color: 'var(--fg-dim)' }}>Agent not found</p>;
   }
 
   const { agent, stats } = agentStats;
-
   const balanceSummary = getBalanceSummary(balanceHistory ?? []);
 
   async function saveName() {
@@ -128,10 +133,23 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
       {/* Header */}
       <div>
-        <div className="flex items-center gap-3">
+        <div
+          style={{
+            fontSize: 11,
+            color: 'var(--phosphor)',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            marginBottom: 10,
+          }}
+        >
+          <span style={{ color: 'var(--fg-dim)' }}>[ </span>
+          agent.detail
+          <span style={{ color: 'var(--fg-dim)' }}> ]</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           {editing ? (
             <input
               ref={inputRef}
@@ -143,61 +161,85 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 if (e.key === 'Escape') setEditing(false);
               }}
               disabled={saving}
-              className="rounded-lg border border-border bg-card px-3 py-1 text-2xl font-bold outline-none focus:border-primary"
+              className="v2-agent-name-input"
               placeholder="Agent name"
             />
           ) : (
             <button
-              onClick={() => { setNameValue(agent.agentName ?? ''); setEditing(true); }}
-              className="group flex items-center gap-2 text-2xl font-bold hover:text-primary transition-colors"
+              onClick={() => {
+                setNameValue(agent.agentName ?? '');
+                setEditing(true);
+              }}
+              className="v2-agent-name-btn display"
               title="Click to rename"
             >
               {agent.agentName ?? 'Unnamed Agent'}
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-0 group-hover:opacity-60 transition-opacity">
-                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-              </svg>
             </button>
           )}
-          <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-            {agent.chain}
-          </span>
-          {agent.agentFramework && (
-            <span className="rounded-full bg-accent px-2.5 py-1 text-xs text-accent-foreground">
-              {agent.agentFramework}
-            </span>
-          )}
+          <Badge>{agent.chain}</Badge>
+          {agent.agentFramework && <Badge tone="phosphor">{agent.agentFramework}</Badge>}
         </div>
-        <Address address={agent.walletAddress} chain={agent.chain} className="mt-1" />
-        <div className="mt-3 flex items-center gap-2">
-          <Link
+        <div
+          style={{
+            marginTop: 10,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 13,
+            color: 'var(--fg-dim)',
+          }}
+        >
+          {agent.walletAddress}
+        </div>
+        <div
+          style={{
+            marginTop: 16,
+            display: 'flex',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Button
+            variant="ghost"
+            size="sm"
             href={`/alerts?wallet=${encodeURIComponent(agent.walletAddress)}&preset=failed_tx&source=agent-detail`}
-            className="inline-flex items-center gap-2 rounded-lg border border-primary/30 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
           >
-            Create failed-tx alert
-          </Link>
+            + failed-tx alert
+          </Button>
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50',
-              confirmDelete
-                ? 'border-red-500 bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                : 'border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400',
-            )}
+            className={`v2-agent-delete ${confirmDelete ? 'v2-agent-delete-confirm' : ''}`}
           >
-            {deleting ? 'Deleting...' : confirmDelete ? 'Click again to confirm' : 'Delete agent'}
+            {deleting
+              ? 'deleting…'
+              : confirmDelete
+                ? 'click again to confirm'
+                : 'delete agent'}
           </button>
         </div>
       </div>
 
       {/* Public page toggle */}
-      <div className="flex items-center justify-between rounded-lg border border-border bg-card px-5 py-3">
+      <div className="v2-agent-public">
         <div>
-          <p className="text-sm font-medium">Public Status Page</p>
-          <p className="text-xs text-muted-foreground">
-            {agent.isPublic
-              ? <>Live at <a href={`/agent/${agent.walletAddress}`} target="_blank" rel="noopener noreferrer" className="text-accent-foreground hover:underline">chainward.ai/agent/{agent.walletAddress.slice(0, 8)}...</a></>
-              : 'Share a read-only dashboard of this agent'}
+          <p style={{ fontSize: 13, color: 'var(--fg)', fontWeight: 500, margin: 0 }}>
+            Public Status Page
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--fg-dim)', marginTop: 4, marginBottom: 0 }}>
+            {agent.isPublic ? (
+              <>
+                Live at{' '}
+                <a
+                  href={`/agent/${agent.walletAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--phosphor)', textDecoration: 'none' }}
+                >
+                  chainward.ai/agent/{agent.walletAddress.slice(0, 8)}…
+                </a>
+              </>
+            ) : (
+              'Share a read-only dashboard of this agent.'
+            )}
           </p>
         </div>
         <GlassToggle
@@ -206,45 +248,52 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             await api.updateAgent(agentId, { isPublic: !agent.isPublic });
             refetchAgent();
           }}
-          label={agent.isPublic ? 'Disable public status page' : 'Enable public status page'}
+          label={
+            agent.isPublic ? 'Disable public status page' : 'Enable public status page'
+          }
         />
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="24h Transactions" value={String(stats.txCount24h)} />
-        <StatCard
-          label="24h Volume"
+      <div className="v2-dash-stats">
+        <StatTile label="tx.24h" value={String(stats.txCount24h)} size="md" />
+        <StatTile
+          label="volume.24h"
           value={`$${stats.volume24h.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+          size="md"
         />
-        <StatCard
-          label="24h Gas Spend"
-          value={`$${stats.gasSpend24h.toFixed(2)}`}
-        />
-        <StatCard label="7d Transactions" value={String(stats.txCount7d)} />
+        <StatTile label="gas.24h" value={`$${stats.gasSpend24h.toFixed(2)}`} size="md" />
+        <StatTile label="tx.7d" value={String(stats.txCount7d)} size="md" />
       </div>
 
       {/* Balance chart */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <div className="mb-4 flex items-end justify-between gap-4">
+      <div className="v2-dash-card">
+        <div className="v2-dash-section-head">
           <div>
-            <h2 className="text-lg font-semibold">Balance History</h2>
+            <SectionHead tag="balance.7d" title="Balance history." />
             {balanceSummary && (
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-3xl font-bold tracking-tight">
-                  ${balanceSummary.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              <div className="v2-agent-balance">
+                <span className="v2-agent-balance-big">
+                  $
+                  {balanceSummary.current.toLocaleString(undefined, {
+                    maximumFractionDigits: 2,
+                  })}
                 </span>
                 {balanceSummary.hasDelta && (
                   <span
-                    className={cn(
-                      'text-sm font-medium',
-                      balanceSummary.deltaAbs >= 0 ? 'text-primary' : 'text-red-400',
-                    )}
+                    className="v2-agent-balance-delta"
+                    style={{
+                      color:
+                        balanceSummary.deltaAbs >= 0 ? 'var(--phosphor)' : 'var(--danger)',
+                    }}
                   >
                     {balanceSummary.deltaAbs >= 0 ? '+' : ''}
-                    ${balanceSummary.deltaAbs.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    {' '}
-                    ({balanceSummary.deltaPct >= 0 ? '+' : ''}
+                    $
+                    {balanceSummary.deltaAbs.toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })}
+                    {' ('}
+                    {balanceSummary.deltaPct >= 0 ? '+' : ''}
                     {balanceSummary.deltaPct.toFixed(2)}%) · 7d
                   </span>
                 )}
@@ -255,31 +304,134 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         {balanceHistory && balanceHistory.length > 0 ? (
           <BalanceChart data={balanceHistory} />
         ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">No balance data yet</p>
+          <div className="v2-dash-empty">No balance data yet.</div>
         )}
       </div>
 
       {/* Gas chart */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h2 className="mb-4 text-lg font-semibold">Gas Analytics</h2>
+      <div className="v2-dash-card">
+        <SectionHead tag="gas.30d" title="Gas analytics." />
         {gasData && gasData.length > 0 ? (
           <GasChart data={gasData} />
         ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">No gas data yet</p>
+          <div className="v2-dash-empty">No gas data yet.</div>
         )}
       </div>
 
       {/* Event timeline */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h2 className="mb-4 text-lg font-semibold">Agent Events</h2>
+      <div className="v2-dash-card">
+        <SectionHead tag="events" title={<>Agent <span className="serif">events.</span></>} />
         <EventTimeline agentId={agentId} />
       </div>
 
       {/* Transaction table */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h2 className="mb-4 text-lg font-semibold">Recent Transactions</h2>
+      <div>
+        <SectionHead tag="recent.tx" title="Recent transactions." />
         <TxTable transactions={txResponse ?? []} />
       </div>
+
+      <style>{`
+        .v2-agent-name-btn {
+          background: transparent;
+          border: none;
+          color: var(--fg);
+          font-size: clamp(28px, 4vw, 44px);
+          cursor: pointer;
+          padding: 0;
+          letter-spacing: -0.035em;
+          line-height: 1.02;
+        }
+        .v2-agent-name-btn:hover { color: var(--phosphor); }
+        .v2-agent-name-input {
+          background: transparent;
+          border: 1px solid var(--line-2);
+          color: var(--fg);
+          font-family: var(--font-display);
+          font-size: clamp(28px, 4vw, 44px);
+          padding: 4px 10px;
+          letter-spacing: -0.035em;
+          font-variation-settings: 'opsz' 144, 'SOFT' 50;
+          font-weight: 500;
+        }
+        .v2-agent-name-input:focus {
+          outline: none; border-color: var(--phosphor);
+        }
+        .v2-agent-delete {
+          padding: 8px 14px;
+          font-family: var(--font-mono);
+          font-size: 12px;
+          letter-spacing: 0.04em;
+          background: transparent;
+          border: 1px solid var(--line-2);
+          color: var(--fg-dim);
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .v2-agent-delete:hover {
+          color: var(--danger);
+          border-color: rgba(230, 103, 103, 0.3);
+        }
+        .v2-agent-delete-confirm {
+          color: var(--danger) !important;
+          border-color: var(--danger) !important;
+          background: rgba(230, 103, 103, 0.08);
+        }
+        .v2-agent-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+        .v2-agent-public {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          padding: 20px 24px;
+          border: 1px solid var(--line-2);
+          background: var(--bg-1);
+        }
+        .v2-dash-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 32px;
+          padding-top: 8px;
+          border-top: 1px solid var(--line);
+        }
+        .v2-dash-card {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          padding: 24px;
+        }
+        .v2-dash-empty {
+          padding: 48px 24px;
+          text-align: center;
+          color: var(--muted);
+          font-size: 13px;
+          font-style: italic;
+        }
+        .v2-dash-section-head .v2-sh-head { margin-bottom: 16px; }
+        .v2-agent-balance {
+          display: flex;
+          align-items: baseline;
+          gap: 12px;
+          margin-top: -8px;
+          margin-bottom: 8px;
+          flex-wrap: wrap;
+        }
+        .v2-agent-balance-big {
+          font-family: var(--font-mono);
+          font-size: 36px;
+          font-weight: 500;
+          letter-spacing: -0.03em;
+          color: var(--fg);
+          font-variant-numeric: tabular-nums;
+        }
+        .v2-agent-balance-delta {
+          font-family: var(--font-mono);
+          font-size: 13px;
+          font-variant-numeric: tabular-nums;
+        }
+        @media (max-width: 720px) {
+          .v2-dash-stats { grid-template-columns: repeat(2, 1fr); }
+          .v2-agent-public { flex-direction: column; align-items: flex-start; }
+        }
+      `}</style>
     </div>
   );
 }

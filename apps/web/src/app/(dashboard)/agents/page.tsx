@@ -3,55 +3,70 @@
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api, ApiError, type Agent, type AgentStats, type FleetOverview } from '@/lib/api';
+import {
+  api,
+  ApiError,
+  type Agent,
+  type AgentStats,
+  type FleetOverview,
+} from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
-import { StatCard } from '@/components/ui/stat-card';
-import { Address } from '@/components/ui/address';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBanner } from '@/components/ui/error-banner';
-import { cn } from '@/lib/utils';
+import {
+  SectionHead,
+  StatTile,
+  Badge,
+  Button,
+} from '@/components/v2';
 
-function AgentCard({ agent }: { agent: Agent }) {
+function AgentRow({ agent }: { agent: Agent }) {
   const { data: stats } = useApi<AgentStats>(
     () => api.getAgentStats(agent.id),
     [agent.id],
   );
 
   return (
-    <Link
-      href={`/agents/${agent.id}`}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="flex min-w-0 flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{agent.agentName ?? 'Unnamed Agent'}</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {agent.chain}
+    <Link href={`/agents/${agent.id}`} className="v2-agent-row">
+      <div className="v2-agent-row-main">
+        <div className="v2-agent-row-head">
+          <span style={{ color: 'var(--fg)', fontWeight: 500 }}>
+            {agent.agentName ?? 'Unnamed Agent'}
           </span>
-          {agent.agentFramework && (
-            <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
-              {agent.agentFramework}
-            </span>
-          )}
+          <Badge>{agent.chain}</Badge>
+          {agent.agentFramework && <Badge tone="phosphor">{agent.agentFramework}</Badge>}
         </div>
-        <Address address={agent.walletAddress} chain={agent.chain} />
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 12,
+            color: 'var(--fg-dim)',
+            marginTop: 4,
+          }}
+        >
+          {agent.walletAddress.slice(0, 10)}…{agent.walletAddress.slice(-8)}
+        </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="v2-agent-row-stats">
         {stats ? (
-          <div className="flex gap-4 text-right text-xs text-muted-foreground">
+          <>
             <div>
-              <div className="font-medium text-foreground">{stats.stats.txCount24h}</div>
-              <div>24h txs</div>
+              <span style={{ color: 'var(--fg)', fontVariantNumeric: 'tabular-nums' }}>
+                {stats.stats.txCount24h}
+              </span>
+              <span style={{ color: 'var(--muted)', marginLeft: 6 }}>24h</span>
             </div>
             <div>
-              <div className="font-medium text-foreground">{stats.stats.txCount7d}</div>
-              <div>7d txs</div>
+              <span style={{ color: 'var(--fg)', fontVariantNumeric: 'tabular-nums' }}>
+                {stats.stats.txCount7d}
+              </span>
+              <span style={{ color: 'var(--muted)', marginLeft: 6 }}>7d</span>
             </div>
-          </div>
+          </>
         ) : (
-          <span className="text-xs text-muted-foreground">Loading...</span>
+          <span style={{ color: 'var(--muted)' }}>…</span>
         )}
-        <span className="text-sm text-muted-foreground">→</span>
+        <span style={{ color: 'var(--phosphor)', marginLeft: 16 }}>→</span>
       </div>
     </Link>
   );
@@ -68,20 +83,25 @@ export default function AgentsPage() {
 function AgentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: overview, loading: overviewLoading, error: overviewError, refetch: refetchOverview } = useApi<FleetOverview>(
-    () => api.getOverview(),
-    [],
-  );
-  const { data: agents, loading: agentsLoading, error: agentsError, refetch } = useApi<Agent[]>(
-    () => api.getAgents(),
-    [],
-  );
+  const {
+    data: overview,
+    loading: overviewLoading,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useApi<FleetOverview>(() => api.getOverview(), []);
+  const {
+    data: agents,
+    loading: agentsLoading,
+    error: agentsError,
+    refetch,
+  } = useApi<Agent[]>(() => api.getAgents(), []);
 
   const [showRegister, setShowRegister] = useState(searchParams.get('register') === 'true');
   const [form, setForm] = useState({ chain: 'base', walletAddress: '', agentName: '' });
   const [registering, setRegistering] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [contractWarning, setContractWarning] = useState(false);
 
   function validateAddress(address: string): boolean {
     if (!address.startsWith('0x')) {
@@ -99,8 +119,6 @@ function AgentsContent() {
     setAddressError(null);
     return true;
   }
-
-  const [contractWarning, setContractWarning] = useState(false);
 
   async function handleRegister(e: React.FormEvent, confirmContract = false) {
     e.preventDefault();
@@ -145,24 +163,27 @@ function AgentsContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Agents</h1>
-          <p className="text-sm text-muted-foreground">Monitor your registered AI agent wallets</p>
-        </div>
-        <button
-          onClick={() => setShowRegister(!showRegister)}
-          className="min-h-[44px] shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          Register Agent
-        </button>
+    <div className="flex flex-col" style={{ gap: 40 }}>
+      <div className="v2-agents-header">
+        <SectionHead
+          tag="fleet"
+          title={
+            <>
+              Registered <span className="serif">agents.</span>
+            </>
+          }
+          lede="Your monitored wallets. Click one for full telemetry, alerts, and history."
+        />
+        <Button onClick={() => setShowRegister(!showRegister)}>+ register agent</Button>
       </div>
 
       {(overviewError || agentsError) && (
         <ErrorBanner
           message={overviewError ?? agentsError ?? ''}
-          onRetry={() => { refetchOverview(); refetch(); }}
+          onRetry={() => {
+            refetchOverview();
+            refetch();
+          }}
         />
       )}
 
@@ -174,111 +195,239 @@ function AgentsContent() {
               type="button"
               onClick={(e) => handleRegister(e as unknown as React.FormEvent, true)}
               disabled={registering}
-              className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+              className="v2-agents-warn-btn"
             >
-              {registering ? 'Registering...' : 'Register anyway'}
+              {registering ? 'registering…' : 'register anyway'}
             </button>
           )}
         </div>
       )}
 
-      {/* Register form */}
       {showRegister && (
-        <form onSubmit={handleRegister} className="rounded-lg border border-border bg-card p-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Chain</label>
+        <form onSubmit={handleRegister} className="v2-agents-form">
+          <div className="v2-agents-form-grid">
+            <label>
+              <span>chain</span>
               <select
                 value={form.chain}
                 onChange={(e) => setForm({ ...form, chain: e.target.value })}
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="base">Base</option>
+                <option value="base">base</option>
               </select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Wallet Address</label>
+            </label>
+            <label>
+              <span>wallet address</span>
               <input
                 value={form.walletAddress}
                 onChange={(e) => {
                   setForm({ ...form, walletAddress: e.target.value });
                   if (addressError) setAddressError(null);
                 }}
-                placeholder="0x..."
+                placeholder="0x…"
                 required
-                className={cn(
-                  'rounded-lg border bg-background px-3 py-2 font-mono text-sm',
-                  addressError ? 'border-destructive' : 'border-border',
-                )}
+                style={{
+                  borderColor: addressError ? 'var(--danger)' : 'var(--line-2)',
+                }}
               />
               {addressError && (
-                <p className="text-xs text-destructive">{addressError}</p>
+                <span className="v2-agents-form-err">{addressError}</span>
               )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Name <span className="font-normal text-muted-foreground">(optional)</span></label>
+            </label>
+            <label>
+              <span>
+                name <span style={{ color: 'var(--muted)' }}>(optional)</span>
+              </span>
               <input
                 value={form.agentName}
                 onChange={(e) => setForm({ ...form, agentName: e.target.value })}
-                placeholder={form.walletAddress ? `Agent ${form.walletAddress.slice(0, 6)}...${form.walletAddress.slice(-4)}` : 'Optional — auto-generated from address'}
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                placeholder={
+                  form.walletAddress
+                    ? `Agent ${form.walletAddress.slice(0, 6)}…${form.walletAddress.slice(-4)}`
+                    : 'auto-generated if empty'
+                }
               />
-            </div>
+            </label>
           </div>
-          <button
-            type="submit"
-            disabled={registering}
-            className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {registering ? 'Registering...' : 'Register'}
-          </button>
+          <div style={{ marginTop: 20 }}>
+            <Button type="submit" disabled={registering}>
+              {registering ? 'registering…' : './register'}
+            </Button>
+          </div>
         </form>
       )}
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {overviewLoading ? (
-          <>
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-          </>
-        ) : (
-          <>
-            <StatCard label="Total Agents" value={String(overview?.agents.total ?? 0)} />
-            <StatCard
-              label="Total Value"
-              value={`$${(overview?.totalValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            />
-            <StatCard
-              label="24h Transactions"
-              value={String(overview?.transactions24h ?? 0)}
-              subValue={overview?.gasSpend24h ? `$${overview.gasSpend24h.toFixed(2)} gas` : undefined}
-            />
-          </>
-        )}
-      </div>
+      {/* Stats */}
+      {overviewLoading ? (
+        <div className="v2-dash-stats">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+        </div>
+      ) : (
+        <div className="v2-dash-stats v2-dash-stats-3">
+          <StatTile
+            label="agents.registered"
+            value={String(overview?.agents.total ?? 0)}
+            size="md"
+          />
+          <StatTile
+            label="portfolio"
+            value={`$${(overview?.totalValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            size="md"
+          />
+          <StatTile
+            label="tx.24h"
+            value={String(overview?.transactions24h ?? 0)}
+            unit={
+              overview?.gasSpend24h
+                ? `$${overview.gasSpend24h.toFixed(2)} gas`
+                : undefined
+            }
+            size="md"
+          />
+        </div>
+      )}
 
       {/* Agent list */}
       {agentsLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-20" />
-          <Skeleton className="h-20" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
         </div>
       ) : agents && agents.length > 0 ? (
-        <div className="grid gap-3">
+        <div
+          style={{
+            border: '1px solid var(--line)',
+            background: 'var(--bg-1)',
+          }}
+        >
           {agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
+            <AgentRow key={agent.id} agent={agent} />
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <p className="text-muted-foreground">No agents registered yet.</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Register a wallet address to start monitoring.
+        <div className="v2-agents-empty">
+          <p style={{ color: 'var(--fg)', fontSize: 14, margin: 0 }}>
+            No agents registered yet.
+          </p>
+          <p style={{ color: 'var(--fg-dim)', fontSize: 13, marginTop: 8 }}>
+            Paste a wallet address above to start monitoring.
           </p>
         </div>
       )}
+
+      <style>{`
+        .v2-agents-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 24px;
+          flex-wrap: wrap;
+        }
+        .v2-agents-header .v2-sh-head { margin-bottom: 0; }
+        .v2-dash-stats {
+          display: grid;
+          gap: 32px;
+          padding-top: 8px;
+          border-top: 1px solid var(--line);
+          grid-template-columns: repeat(4, 1fr);
+        }
+        .v2-dash-stats-3 { grid-template-columns: repeat(3, 1fr); }
+        .v2-agents-form {
+          border: 1px solid var(--line-2);
+          background: var(--bg-1);
+          padding: 24px;
+        }
+        .v2-agents-form-grid {
+          display: grid;
+          gap: 16px;
+          grid-template-columns: 120px 1fr 1fr;
+        }
+        .v2-agents-form-grid label {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .v2-agents-form-grid label > span {
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        .v2-agents-form-grid input,
+        .v2-agents-form-grid select {
+          background: transparent;
+          border: 1px solid var(--line-2);
+          color: var(--fg);
+          padding: 10px 12px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 13px;
+        }
+        .v2-agents-form-grid input:focus,
+        .v2-agents-form-grid select:focus {
+          outline: none;
+          border-color: var(--phosphor);
+        }
+        .v2-agents-form-err {
+          color: var(--danger);
+          font-size: 11px;
+        }
+        .v2-agents-warn-btn {
+          margin-top: 12px;
+          padding: 10px 16px;
+          border: 1px solid rgba(232, 160, 51, 0.3);
+          background: rgba(232, 160, 51, 0.08);
+          color: var(--amber);
+          font-family: var(--font-mono);
+          font-size: 12px;
+          letter-spacing: 0.04em;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .v2-agents-warn-btn:hover {
+          background: rgba(232, 160, 51, 0.15);
+        }
+        .v2-agents-warn-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .v2-agent-row {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 24px;
+          padding: 18px 24px;
+          border-top: 1px solid var(--line);
+          text-decoration: none;
+          transition: background 0.15s;
+          align-items: center;
+        }
+        .v2-agent-row:first-child { border-top: none; }
+        .v2-agent-row:hover { background: rgba(61, 216, 141, 0.03); }
+        .v2-agent-row-head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          font-size: 14px;
+        }
+        .v2-agent-row-stats {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 13px;
+        }
+        .v2-agents-empty {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          padding: 48px 24px;
+          text-align: center;
+        }
+
+        @media (max-width: 720px) {
+          .v2-agents-form-grid { grid-template-columns: 1fr; }
+          .v2-dash-stats, .v2-dash-stats-3 { grid-template-columns: 1fr 1fr; }
+          .v2-agent-row { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </div>
   );
 }
