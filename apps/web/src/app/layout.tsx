@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Instrument_Serif, Fraunces } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
+import '../styles/v2-tokens.css';
 
 const inter = Inter({
   subsets: ['latin'],
