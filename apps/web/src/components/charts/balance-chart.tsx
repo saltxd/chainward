@@ -51,7 +51,7 @@ export function BalanceChart({ data }: BalanceChartProps) {
 
   if (chartData.length < 2) {
     return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
+      <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>
         Insufficient data for chart — need at least 2 balance snapshots
       </p>
     );
@@ -71,29 +71,34 @@ export function BalanceChart({ data }: BalanceChartProps) {
           type="number"
           scale="time"
           domain={['dataMin', 'dataMax']}
-          tick={{ fill: '#a1a1aa', fontSize: 11 }}
+          tick={{ fill: '#9ba397', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           minTickGap={40}
           tickFormatter={formatTick}
         />
         <YAxis
-          tick={{ fill: '#a1a1aa', fontSize: 11 }}
+          tick={{ fill: '#9ba397', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v: number) => `$${v.toLocaleString()}`}
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: '#111827',
-            border: '1px solid #27272a',
-            borderRadius: '8px',
+            backgroundColor: '#0f1110',
+            border: '1px solid #1e231f',
+            borderRadius: 0,
             fontSize: '12px',
           }}
-          labelStyle={{ color: '#a1a1aa' }}
-          labelFormatter={(label: number) => new Date(label).toLocaleString(undefined, {
-            month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-          })}
+          labelStyle={{ color: '#9ba397' }}
+          labelFormatter={(label: number) =>
+            new Date(label).toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })
+          }
           formatter={(value: number) => [`$${value.toFixed(2)}`, 'Balance']}
         />
         <Area
