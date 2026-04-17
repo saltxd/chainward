@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth-client';
 import { api } from '@/lib/api';
+import { Button } from '@/components/v2';
 
 export function OnboardingBanner() {
   const router = useRouter();
@@ -38,23 +39,73 @@ export function OnboardingBanner() {
   }
 
   return (
-    <div className="rounded-lg border border-accent-foreground/30 bg-accent-foreground/5 p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-accent-foreground">Monitor this wallet and set a first alert?</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+    <div
+      style={{
+        border: '1px solid var(--phosphor-dim)',
+        background:
+          'linear-gradient(180deg, rgba(61, 216, 141, 0.05), transparent 80%), var(--bg-1)',
+        padding: '24px 28px',
+        position: 'relative',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.14em',
+          color: 'var(--phosphor)',
+          marginBottom: 10,
+          textTransform: 'uppercase',
+        }}
+      >
+        // first.run
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 24,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <h3
+            className="display"
+            style={{
+              fontSize: 20,
+              color: 'var(--fg)',
+              margin: 0,
+              letterSpacing: '-0.025em',
+            }}
+          >
+            Monitor this wallet and arm your first alert?
+          </h3>
+          <p
+            style={{
+              marginTop: 10,
+              fontSize: 13,
+              color: 'var(--fg-dim)',
+              lineHeight: 1.7,
+            }}
+          >
             Start monitoring{' '}
-            <span className="font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>{' '}
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--fg)',
+                background: 'rgba(61, 216, 141, 0.08)',
+                padding: '1px 6px',
+                border: '1px solid var(--line)',
+              }}
+            >
+              {address.slice(0, 6)}…{address.slice(-4)}
+            </span>{' '}
             on Base, then jump straight into a recommended failed-transaction alert.
           </p>
         </div>
-        <button
-          onClick={handleRegister}
-          disabled={loading}
-          className="w-full shrink-0 rounded-lg bg-accent-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-foreground/90 disabled:opacity-50 sm:w-auto min-h-[44px]"
-        >
-          {loading ? 'Adding...' : 'Register + Set Alert'}
-        </button>
+        <Button onClick={handleRegister} disabled={loading}>
+          {loading ? 'registering…' : './register + arm-alert'}
+        </Button>
       </div>
     </div>
   );

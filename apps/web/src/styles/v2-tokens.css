@@ -361,6 +361,15 @@ body {
   border-color: var(--danger);
 }
 
+/* ── Focus-visible (accessibility) ──────────────────────────────────── */
+.v2-btn:focus-visible,
+.v2-nav-link:focus-visible,
+.v2-nav-cta:focus-visible,
+.v2-tbl-row-link:focus-visible {
+  outline: 2px solid var(--phosphor);
+  outline-offset: 2px;
+}
+
 /* ── Badge ────────────────────────────────────────────────────────── */
 .v2-badge {
   display: inline-flex;
