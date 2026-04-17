@@ -1,5 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  PageShell,
+  NavBar,
+  StatusTicker,
+  SectionHead,
+} from '@/components/v2';
 import { getAllDecodes } from '@/lib/decodes';
 
 export const metadata: Metadata = {
@@ -23,66 +29,128 @@ export const metadata: Metadata = {
   },
 };
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+function formatIsoDate(dateStr: string): string {
+  return new Date(dateStr).toISOString().slice(0, 10);
 }
 
 export default function DecodesPage() {
   const decodes = getAllDecodes();
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Top bar — matches docs layout */}
-      <nav className="border-b border-border px-4 py-4 md:px-6">
-        <div className="mx-auto flex max-w-4xl items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-white">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/chainward-logo.svg" alt="ChainWard" className="h-6 w-6" />
-            ChainWard
-          </Link>
-          <span className="text-text-muted">/</span>
-          <span className="text-sm text-muted-foreground">Decodes</span>
-        </div>
-      </nav>
+    <PageShell>
+      <StatusTicker />
 
-      <main className="mx-auto max-w-4xl px-4 py-10 md:px-6">
-        <h1 className="text-2xl font-bold text-white">On-Chain Decodes</h1>
-        <p className="mt-2 text-muted-foreground">
-          We trace wallets, verify claims, and document what the on-chain data actually shows.
-        </p>
+      <div className="v2-shell" style={{ paddingBottom: 80 }}>
+        <NavBar ctaHref="/login" ctaLabel="./connect →" />
 
-        <div className="mt-10 space-y-4">
-          {decodes.map((decode) => (
-            <Link
-              key={decode.slug}
-              href={`/decodes/${decode.slug}`}
-              className="group block border border-border bg-card p-6 transition-colors hover:border-border-hover"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h2 className="text-lg font-semibold text-white group-hover:text-accent-foreground transition-colors">
+        <section style={{ paddingTop: 56 }}>
+          <SectionHead
+            tag="decodes"
+            title={
+              <>
+                On-chain{' '}
+                <span className="serif" style={{ color: 'var(--phosphor)' }}>
+                  investigations.
+                </span>
+              </>
+            }
+            lede="We trace wallets, verify claims, and document what the on-chain data actually shows. No marketing copy, no cope — just receipts."
+          />
+
+          {decodes.length === 0 ? (
+            <div className="v2-decodes-empty">No decodes published yet.</div>
+          ) : (
+            <div className="v2-decodes-grid">
+              {decodes.map((decode) => (
+                <Link
+                  key={decode.slug}
+                  href={`/decodes/${decode.slug}`}
+                  className="v2-decode-card"
+                >
+                  <time
+                    className="v2-decode-card-date"
+                    dateTime={decode.date}
+                  >
+                    // {formatIsoDate(decode.date)}
+                  </time>
+                  <h2 className="v2-decode-card-title display">
                     {decode.title}
                   </h2>
                   {decode.subtitle && (
-                    <p className="mt-1 text-sm text-muted-foreground">{decode.subtitle}</p>
+                    <p className="v2-decode-card-sub serif">
+                      {decode.subtitle}
+                    </p>
                   )}
-                </div>
-                <time className="shrink-0 text-xs text-text-muted" dateTime={decode.date}>
-                  {formatDate(decode.date)}
-                </time>
-              </div>
-            </Link>
-          ))}
-
-          {decodes.length === 0 && (
-            <p className="py-12 text-center text-muted-foreground">No decodes published yet.</p>
+                  <span className="v2-decode-card-cta">read →</span>
+                </Link>
+              ))}
+            </div>
           )}
-        </div>
-      </main>
-    </div>
+        </section>
+      </div>
+
+      <style>{`
+        .v2-decodes-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
+        }
+        @media (max-width: 720px) {
+          .v2-decodes-grid { grid-template-columns: 1fr; }
+        }
+        .v2-decode-card {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 28px;
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          text-decoration: none;
+          transition: border-color 0.15s, background 0.15s, transform 0.15s;
+          min-height: 220px;
+        }
+        .v2-decode-card:hover {
+          border-color: var(--phosphor-dim);
+          background: var(--bg-2);
+        }
+        .v2-decode-card-date {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          color: var(--phosphor);
+        }
+        .v2-decode-card-title {
+          font-size: 26px;
+          line-height: 1.08;
+          color: var(--fg);
+          margin: 0;
+          letter-spacing: -0.025em;
+        }
+        .v2-decode-card-sub {
+          font-size: 17px;
+          line-height: 1.35;
+          color: var(--fg-dim);
+          margin: 0;
+        }
+        .v2-decode-card-cta {
+          margin-top: auto;
+          padding-top: 16px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 12px;
+          color: var(--phosphor);
+          letter-spacing: 0.04em;
+        }
+        .v2-decode-card:hover .v2-decode-card-cta {
+          color: var(--fg);
+        }
+        .v2-decodes-empty {
+          padding: 48px 0;
+          text-align: center;
+          color: var(--muted);
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 13px;
+        }
+      `}</style>
+    </PageShell>
   );
 }
