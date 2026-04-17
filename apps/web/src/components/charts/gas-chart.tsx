@@ -9,7 +9,10 @@ interface GasChartProps {
 
 export function GasChart({ data }: GasChartProps) {
   const chartData = data.map((d) => ({
-    time: new Date(d.bucket).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    time: new Date(d.bucket).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    }),
     gas: parseFloat(d.total_gas_usd ?? '0'),
     txCount: d.tx_count,
   }));
@@ -19,31 +22,34 @@ export function GasChart({ data }: GasChartProps) {
       <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
         <XAxis
           dataKey="time"
-          tick={{ fill: '#a1a1aa', fontSize: 11 }}
+          tick={{ fill: '#9ba397', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
+          minTickGap={32}
         />
         <YAxis
-          tick={{ fill: '#a1a1aa', fontSize: 11 }}
+          tick={{ fill: '#9ba397', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v: number) => v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`}
+          tickFormatter={(v: number) =>
+            v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`
+          }
         />
         <Tooltip
-          cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+          cursor={{ fill: 'rgba(61, 216, 141, 0.06)' }}
           contentStyle={{
-            backgroundColor: '#111827',
-            border: '1px solid #27272a',
-            borderRadius: '8px',
+            backgroundColor: '#0f1110',
+            border: '1px solid #1e231f',
+            borderRadius: 0,
             fontSize: '12px',
           }}
-          labelStyle={{ color: '#a1a1aa' }}
+          labelStyle={{ color: '#9ba397' }}
           formatter={(value: number, name: string) => [
             name === 'gas' ? `$${value.toFixed(4)}` : value,
             name === 'gas' ? 'Gas Spend' : 'Tx Count',
           ]}
         />
-        <Bar dataKey="gas" fill="#4ade80" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="gas" fill="#3dd88d" />
       </BarChart>
     </ResponsiveContainer>
   );
