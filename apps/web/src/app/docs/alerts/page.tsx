@@ -1,6 +1,9 @@
+import { CodeBlock } from '@/components/v2';
+
 export const metadata = {
   title: 'Alert Types',
-  description: '7 alert types for AI agent wallets: large transfers, gas spikes, failed transactions, balance drops, new contracts, inactivity, and idle balance. Delivered via Discord, Telegram, or webhook.',
+  description:
+    '7 alert types for AI agent wallets: large transfers, gas spikes, failed transactions, balance drops, new contracts, inactivity, and idle balance. Delivered via Discord, Telegram, or webhook.',
   alternates: { canonical: 'https://chainward.ai/docs/alerts' },
   openGraph: {
     title: 'Alert Types — ChainWard Docs',
@@ -13,49 +16,49 @@ const alertTypes = [
   {
     type: 'large_transfer',
     name: 'Large Transfer',
-    desc: 'Triggers when a single transaction exceeds a USD value threshold.',
+    desc: 'Fires when a single transaction exceeds a USD value threshold.',
     defaultThreshold: '$500',
     unit: 'USD',
   },
   {
     type: 'balance_drop',
     name: 'Balance Drop',
-    desc: 'Triggers when an agent\'s balance drops by a percentage within a lookback window.',
+    desc: "Fires when an agent's balance drops by a percentage within a lookback window.",
     defaultThreshold: '20% in 1 hour',
     unit: 'Percentage',
   },
   {
     type: 'gas_spike',
     name: 'Gas Spike',
-    desc: 'Triggers when gas cost on a single transaction exceeds a threshold.',
+    desc: 'Fires when gas cost on a single transaction exceeds a threshold.',
     defaultThreshold: '$50',
     unit: 'USD',
   },
   {
     type: 'failed_tx',
     name: 'Failed Transaction',
-    desc: 'Triggers on any reverted transaction. No threshold needed — any failure fires the alert.',
+    desc: 'Fires on any reverted transaction. No threshold needed — any failure fires the alert.',
     defaultThreshold: 'Any failure',
     unit: 'N/A',
   },
   {
     type: 'inactivity',
     name: 'Inactivity',
-    desc: 'Triggers when no transactions are detected within a lookback window. Useful for detecting stuck or crashed agents.',
+    desc: 'Fires when no transactions are detected within a lookback window. Useful for detecting stuck or crashed agents.',
     defaultThreshold: '24 hours',
     unit: 'Duration',
   },
   {
     type: 'new_contract',
     name: 'New Contract Interaction',
-    desc: 'Triggers when an agent interacts with a contract address it has never transacted with before.',
+    desc: 'Fires when an agent interacts with a contract address it has never transacted with before.',
     defaultThreshold: 'Any new contract',
     unit: 'N/A',
   },
   {
     type: 'idle_balance',
     name: 'Idle Balance',
-    desc: 'Triggers when token balance stays above a USD threshold with no outgoing transactions for a specified duration. Detects unused capital sitting in agent wallets.',
+    desc: 'Fires when token balance stays above a USD threshold with no outgoing transactions for a specified duration. Detects unused capital sitting in agent wallets.',
     defaultThreshold: '$50 for 24 hours',
     unit: 'USD + Duration',
   },
@@ -94,73 +97,65 @@ const examplePayload = `{
 
 export default function AlertTypesPage() {
   return (
-    <article className="max-w-none md:max-w-3xl">
-      <h1 className="text-2xl font-bold text-white">Alert Types</h1>
-      <p className="mt-2 text-muted-foreground">
-        ChainWard supports 7 alert types covering common failure modes for on-chain AI agents.
-        Each alert can be delivered through multiple channels.
+    <article className="decode-prose">
+      <h1>Alert Types</h1>
+      <p>
+        ChainWard supports 7 alert types covering common failure modes for on-chain
+        AI agents. Every alert can be delivered through multiple channels.
       </p>
 
-      {/* Alert types */}
-      <section className="mt-10 space-y-4">
-        <h2 className="text-lg font-semibold text-white">Types</h2>
-        {alertTypes.map((alert) => (
-          <div key={alert.type} className="rounded-lg border border-border bg-muted p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-white">{alert.name}</h3>
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-accent-foreground">
-                    {alert.type}
-                  </code>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">{alert.desc}</p>
-              </div>
-            </div>
-            <div className="mt-3 flex gap-4 text-xs text-text-muted">
-              <span>
-                Default: <span className="text-muted-foreground">{alert.defaultThreshold}</span>
-              </span>
-              <span>
-                Unit: <span className="text-muted-foreground">{alert.unit}</span>
-              </span>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      {/* Delivery channels */}
-      <section className="mt-12">
-        <h2 className="text-lg font-semibold text-white">Delivery Channels</h2>
-        <div className="mt-4 space-y-4">
-          {channels.map((ch) => (
-            <div key={ch.name} className="rounded-lg border border-border bg-muted p-5">
-              <h3 className="font-semibold text-white">{ch.name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{ch.desc}</p>
-            </div>
+      <h2>Types</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Key</th>
+            <th>Default</th>
+            <th>Unit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {alertTypes.map((a) => (
+            <tr key={a.type}>
+              <td>
+                <strong>{a.name}</strong>
+                <br />
+                <span style={{ color: 'var(--muted)' }}>{a.desc}</span>
+              </td>
+              <td>
+                <code>{a.type}</code>
+              </td>
+              <td>{a.defaultThreshold}</td>
+              <td>{a.unit}</td>
+            </tr>
           ))}
-        </div>
-      </section>
+        </tbody>
+      </table>
 
-      {/* Example payload */}
-      <section className="mt-12">
-        <h2 className="text-lg font-semibold text-white">Example Webhook Payload</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          When using a custom webhook, ChainWard sends a POST request with the following JSON body:
-        </p>
-        <pre className="mt-4 overflow-x-auto rounded-md bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
-          {examplePayload}
-        </pre>
-      </section>
+      <h2>Delivery Channels</h2>
+      <ul>
+        {channels.map((ch) => (
+          <li key={ch.name}>
+            <strong>{ch.name}</strong> — {ch.desc}
+          </li>
+        ))}
+      </ul>
 
-      <div className="mt-12 rounded-lg border border-border bg-muted p-6">
-        <h3 className="text-sm font-semibold text-white">Testing alerts</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Each alert rule has a <strong className="text-white">Test</strong> button in the dashboard.
-          This sends a sample payload to your configured delivery channel so you can verify
-          the integration works. Test deliveries are rate-limited to 5 per minute.
+      <h2>Example Webhook Payload</h2>
+      <p>
+        When using a custom webhook, ChainWard sends a POST request with the
+        following JSON body:
+      </p>
+      <CodeBlock>{examplePayload}</CodeBlock>
+
+      <blockquote>
+        <p>
+          <strong>Testing alerts.</strong> Each alert rule has a{' '}
+          <strong>Test</strong> button in the dashboard. This sends a sample payload
+          to your configured delivery channel so you can verify the integration
+          works. Test deliveries are rate-limited to 5 per minute.
         </p>
-      </div>
+      </blockquote>
     </article>
   );
 }

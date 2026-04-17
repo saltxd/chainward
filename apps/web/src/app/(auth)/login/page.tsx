@@ -1,10 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useSignMessage } from 'wagmi';
 import { siweSignIn } from '@/lib/auth-client';
+import { TerminalCard, Button } from '@/components/v2';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,93 +32,158 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-6">
-      {/* Pre-connect card */}
-      {!isConnected && (
-        <div className="w-full rounded-2xl border border-border bg-card/80 p-8 backdrop-blur">
-          {/* Wallet icon */}
-          <div className="mb-5 flex justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-muted/50">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-muted-foreground"
-              >
-                <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-                <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-                <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-              </svg>
-            </div>
+    <div className="v2-auth-card">
+      {/* Brand */}
+      <Link href="/" className="v2-auth-brand" aria-label="ChainWard home">
+        <span className="v2-auth-dot" aria-hidden />
+        <span>
+          chainward<span style={{ color: 'var(--phosphor)' }}>.ai</span>
+        </span>
+      </Link>
+
+      {/* Terminal card */}
+      <TerminalCard title="~/chainward" status={isConnected ? 'wallet.connected' : 'session.idle'}>
+        <div className="v2-auth-term">
+          <div className="v2-auth-term-line">
+            <span className="v2-auth-term-prompt">$</span>
+            <span>cw auth login</span>
           </div>
-
-          <p className="mb-6 text-center text-sm leading-relaxed text-muted-foreground">
-            ChainWard uses wallet-based authentication.
-            Connect a self-custodial wallet to monitor
-            your onchain agents — no email or password needed.
-          </p>
-
-          <button
-            onClick={openConnectModal}
-            className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(74,222,128,0.15)]"
-          >
-            Connect
-          </button>
-        </div>
-      )}
-
-      {/* Post-connect: sign in */}
-      {isConnected && (
-        <div className="w-full rounded-2xl border border-border bg-card/80 p-8 backdrop-blur">
-          <div className="mb-5 flex justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-foreground/30 bg-accent-foreground/10">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                className="text-accent-foreground"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-            </div>
-          </div>
-
-          <p className="mb-1 text-center text-sm font-medium">
-            Wallet connected
-          </p>
-          <p className="mb-6 text-center font-mono text-xs text-muted-foreground">
-            {address?.slice(0, 6)}...{address?.slice(-4)}
-          </p>
-
-          {error && (
-            <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
+          {!isConnected && (
+            <>
+              <div className="v2-auth-term-sub">waiting for wallet…</div>
+              <div className="v2-auth-term-cursor" aria-hidden />
+            </>
           )}
-
-          <button
-            onClick={handleSignIn}
-            disabled={signing}
-            className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] disabled:opacity-50"
-          >
-            {signing ? 'Signing...' : 'Sign in with Ethereum'}
-          </button>
+          {isConnected && (
+            <>
+              <div className="v2-auth-term-sub">
+                wallet: <span style={{ color: 'var(--phosphor)' }}>
+                  {address?.slice(0, 6)}…{address?.slice(-4)}
+                </span>
+              </div>
+              <div className="v2-auth-term-line">
+                <span className="v2-auth-term-prompt">$</span>
+                <span>cw auth sign-siwe</span>
+              </div>
+              <div className="v2-auth-term-sub">
+                {signing ? 'signing…' : 'ready — press sign to generate session.'}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </TerminalCard>
 
-      <p className="text-center text-xs text-muted-foreground/60">
-        Chain<span className="text-accent-foreground/60">Ward</span>
+      {/* Action */}
+      <div className="v2-auth-action">
+        {!isConnected && (
+          <Button variant="primary" fullWidth onClick={openConnectModal}>
+            ./connect-wallet
+            <span>→</span>
+          </Button>
+        )}
+        {isConnected && (
+          <>
+            {error && <div className="v2-auth-error">error: {error}</div>}
+            <Button
+              variant="primary"
+              fullWidth
+              onClick={handleSignIn}
+              disabled={signing}
+            >
+              {signing ? 'signing…' : './sign-in-with-ethereum'}
+              {!signing && <span>→</span>}
+            </Button>
+          </>
+        )}
+      </div>
+
+      <p className="v2-auth-hint">
+        Connect a wallet to sign in. No email, no password.
       </p>
+
+      <style>{`
+        .v2-auth-card {
+          width: 100%;
+          max-width: 480px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .v2-auth-brand {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-weight: 600;
+          font-size: 13px;
+          letter-spacing: -0.01em;
+          color: var(--fg);
+          text-decoration: none;
+          margin-bottom: 4px;
+        }
+        .v2-auth-dot {
+          display: block;
+          width: 10px;
+          height: 10px;
+          background: var(--phosphor);
+          box-shadow: 0 0 8px var(--phosphor);
+          animation: v2-pulse 2s ease-in-out infinite;
+        }
+        .v2-auth-term {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 12.5px;
+          line-height: 1.8;
+          color: var(--fg);
+        }
+        .v2-auth-term-line {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+        }
+        .v2-auth-term-prompt {
+          color: var(--phosphor);
+        }
+        .v2-auth-term-sub {
+          color: var(--fg-dim);
+          padding-left: 20px;
+          font-size: 12px;
+        }
+        .v2-auth-term-cursor {
+          display: inline-block;
+          width: 8px;
+          height: 14px;
+          background: var(--phosphor);
+          margin-left: 20px;
+          margin-top: 4px;
+          animation: v2-auth-blink 1s steps(2, start) infinite;
+        }
+        @keyframes v2-auth-blink {
+          to {
+            visibility: hidden;
+          }
+        }
+        .v2-auth-action {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .v2-auth-error {
+          padding: 10px 14px;
+          background: rgba(230, 103, 103, 0.08);
+          border: 1px solid rgba(230, 103, 103, 0.3);
+          color: var(--danger);
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 12px;
+          letter-spacing: 0.02em;
+        }
+        .v2-auth-hint {
+          margin: 0;
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 0.04em;
+          text-align: center;
+        }
+      `}</style>
     </div>
   );
 }
