@@ -32,32 +32,6 @@ export function StatTile({ label, value, unit, size = 'lg', tone = 'default' }: 
         {value}
       </div>
       {unit && <div className="v2-tile-unit">{unit}</div>}
-      <style jsx>{`
-        .v2-tile {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-        }
-        .v2-tile-label {
-          font-size: 10px;
-          letter-spacing: 0.1em;
-          color: var(--muted);
-          margin-bottom: 12px;
-          text-transform: lowercase;
-        }
-        .v2-tile-value {
-          font-weight: 500;
-          line-height: 1;
-          letter-spacing: -0.03em;
-          font-variant-numeric: tabular-nums;
-        }
-        .v2-tile-unit {
-          margin-top: 10px;
-          font-size: 11px;
-          color: var(--fg-dim);
-          letter-spacing: 0.06em;
-        }
-      `}</style>
     </div>
   );
 }

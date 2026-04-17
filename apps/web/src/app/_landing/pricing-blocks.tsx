@@ -65,7 +65,7 @@ export function PricingBlocks() {
               : '1px solid var(--line-2)',
             padding: '28px 24px',
             background: p.primary
-              ? 'linear-gradient(180deg, rgba(92,240,164,0.04), transparent)'
+              ? 'linear-gradient(180deg, rgba(61,216,141,0.05), transparent)'
               : 'var(--bg-1)',
             position: 'relative',
             display: 'flex',
