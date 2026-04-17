@@ -2,6 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import {
+  PageShell,
+  NavBar,
+  StatusTicker,
+  SectionHead,
+  StatTile,
+  DataTable,
+  Badge,
+  Button,
+  type Column,
+} from '@/components/v2';
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -115,7 +126,7 @@ function formatUsd(value: number): string {
 
 function truncateAddress(addr: string): string {
   if (!addr || addr.length < 10) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 function formatWeekRange(weekStart: string, weekEnd: string): string {
@@ -130,79 +141,34 @@ function formatWeekRange(weekStart: string, weekEnd: string): string {
   return `${startStr} – ${endStr}`;
 }
 
-function wowBadge(change: number | null) {
-  if (change == null) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-        First week
-      </span>
-    );
-  }
-  const positive = change >= 0;
-  return (
-    <span
-      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-        positive
-          ? 'bg-accent-foreground/10 text-accent-foreground'
-          : 'bg-red-500/10 text-destructive'
-      }`}
-    >
-      {positive ? (
-        <svg className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clipRule="evenodd" />
-        </svg>
-      ) : (
-        <svg className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clipRule="evenodd" />
-        </svg>
-      )}
-      {positive ? '+' : ''}{change}%
-    </span>
-  );
+function formatChange(change: number | null): string {
+  if (change == null) return 'first.week';
+  const sign = change >= 0 ? '+' : '';
+  return `${sign}${change}% wow`;
 }
 
-const ANOMALY_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
-  revenue_drop: { icon: '\u{1F4C9}', color: 'border-red-500/20 bg-red-500/5', label: 'Revenue Drop' },
-  operating_at_loss: { icon: '\u{1F6A8}', color: 'border-red-500/20 bg-red-500/5', label: 'Operating at Loss' },
-  went_inactive: { icon: '\u{1F4A4}', color: 'border-yellow-500/20 bg-yellow-500/5', label: 'Went Inactive' },
-  strong_debut: { icon: '\u{1F31F}', color: 'border-accent-foreground/20 bg-accent-foreground/5', label: 'Strong Debut' },
-  success_rate_divergence: { icon: '\u{26A0}\u{FE0F}', color: 'border-yellow-500/20 bg-yellow-500/5', label: 'Success Rate Mismatch' },
+function statToneForChange(change: number | null): 'default' | 'phosphor' | 'danger' {
+  if (change == null) return 'default';
+  return change >= 0 ? 'phosphor' : 'danger';
+}
+
+const ANOMALY_CONFIG: Record<
+  string,
+  { tone: 'phosphor' | 'amber' | 'danger' | 'neutral'; label: string }
+> = {
+  revenue_drop: { tone: 'danger', label: 'Revenue Drop' },
+  operating_at_loss: { tone: 'danger', label: 'Operating at Loss' },
+  went_inactive: { tone: 'amber', label: 'Went Inactive' },
+  strong_debut: { tone: 'phosphor', label: 'Strong Debut' },
+  success_rate_divergence: { tone: 'amber', label: 'Success Rate Mismatch' },
 };
 
 /* -------------------------------------------------------------------------- */
-/*  Sub-components                                                            */
+/*  Loading skeleton                                                          */
 /* -------------------------------------------------------------------------- */
 
 function Skeleton({ className = '' }: { className?: string }) {
-  return (
-    <div className={`animate-pulse rounded bg-white/5 ${className}`} />
-  );
-}
-
-function HeadlineCard({
-  label,
-  value,
-  change,
-  loading,
-}: {
-  label: string;
-  value: string;
-  change: number | null;
-  loading: boolean;
-}) {
-  return (
-    <div className="rounded-sm border border-border bg-background p-5">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      {loading ? (
-        <Skeleton className="mt-2 h-8 w-24" />
-      ) : (
-        <>
-          <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
-          <div className="mt-1.5">{wowBadge(change)}</div>
-        </>
-      )}
-    </div>
-  );
+  return <div className={`v2-digest-skeleton ${className}`} />;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -213,9 +179,11 @@ function HeadlineCard({
 type LeaderboardTab = 'mostProfitable' | 'biggestMovers';
 
 const LB_TAB_LABELS: Record<LeaderboardTab, string> = {
-  mostProfitable: 'Top Revenue',
-  biggestMovers: 'Biggest Movers',
+  mostProfitable: 'top.revenue',
+  biggestMovers: 'biggest.movers',
 };
+
+type MoverRow = MoverEntry & { isGainer: boolean };
 
 function LeaderboardsSection({
   data,
@@ -224,154 +192,169 @@ function LeaderboardsSection({
   data: Leaderboards | null;
   loading: boolean;
 }) {
+  const [tab, setTab] = useState<LeaderboardTab>('mostProfitable');
   const visibleTabs = Object.keys(LB_TAB_LABELS) as LeaderboardTab[];
 
-  const [tab, setTab] = useState<LeaderboardTab>('mostProfitable');
-
-  const renderTable = () => {
-    if (loading) {
-      return Array.from({ length: 5 }).map((_, i) => (
-        <tr key={i} className="border-b border-border">
-          <td className="px-4 py-3"><Skeleton className="h-4 w-6" /></td>
-          <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
-          <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-4 w-20" /></td>
-          <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-4 w-16" /></td>
-          <td className="px-4 py-3 text-right"><Skeleton className="ml-auto h-4 w-16" /></td>
-        </tr>
-      ));
-    }
-
-    if (tab === 'biggestMovers') {
-      const gainers = data?.biggestMovers?.gainers ?? [];
-      const decliners = data?.biggestMovers?.decliners ?? [];
-      const all = [
-        ...gainers.map((m) => ({ ...m, isGainer: true })),
-        ...decliners.map((m) => ({ ...m, isGainer: false })),
-      ];
-
-      if (all.length === 0) {
-        return (
-          <tr>
-            <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-              No data yet — need two weeks of snapshots
-            </td>
-          </tr>
-        );
-      }
-
-      return all.map((m, i) => (
-        <tr
-          key={m.walletAddress}
-          className="border-b border-border transition-colors hover:bg-surface"
-        >
-          <td className="px-4 py-3 font-mono text-muted-foreground">{i + 1}</td>
-          <td className="px-4 py-3">
-            <a
-              href={`https://basescan.org/address/${m.walletAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-foreground transition-colors hover:text-accent-foreground"
-            >
-              {m.name ?? truncateAddress(m.walletAddress)}
-            </a>
-          </td>
-          <td className="px-4 py-3 text-right font-mono text-foreground">
-            {formatUsd(m.currentRevenue)}
-          </td>
-          <td className="px-4 py-3 text-right font-mono text-muted-foreground">
-            {formatUsd(m.previousRevenue)}
-          </td>
-          <td className="px-4 py-3 text-right">
-            <span
-              className={`font-mono text-sm font-medium ${
-                m.isGainer ? 'text-accent-foreground' : 'text-destructive'
-              }`}
-            >
-              {m.isGainer ? '+' : ''}{m.changePct.toFixed(1)}%
-            </span>
-          </td>
-        </tr>
-      ));
-    }
-
-    // mostProfitable
-    const entries = data?.mostProfitable ?? [];
-    if (entries.length === 0) {
-      return (
-        <tr>
-          <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No data yet</td>
-        </tr>
-      );
-    }
-    return entries.map((entry, i) => (
-      <tr
-        key={entry.walletAddress}
-        className="border-b border-border transition-colors hover:bg-surface"
-      >
-        <td className="px-4 py-3 font-mono text-muted-foreground">{i + 1}</td>
-        <td className="px-4 py-3">
-          <a
-            href={`https://basescan.org/address/${entry.walletAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-foreground transition-colors hover:text-accent-foreground"
-          >
-            {entry.name ?? truncateAddress(entry.walletAddress)}
-          </a>
-        </td>
-        <td className="px-4 py-3 text-right font-mono text-foreground">
-          {formatUsd(entry.revenue)}
-        </td>
-      </tr>
-    ));
-  };
-
-  const colHeaders = () => {
-    if (tab === 'biggestMovers') {
-      return (
-        <tr className="border-b border-border text-left text-muted-foreground">
-          <th className="px-4 py-3 font-medium">#</th>
-          <th className="px-4 py-3 font-medium">Agent</th>
-          <th className="px-4 py-3 text-right font-medium">Current</th>
-          <th className="px-4 py-3 text-right font-medium">Previous</th>
-          <th className="px-4 py-3 text-right font-medium">Change</th>
-        </tr>
-      );
-    }
+  if (loading) {
     return (
-      <tr className="border-b border-border text-left text-muted-foreground">
-        <th className="px-4 py-3 font-medium">#</th>
-        <th className="px-4 py-3 font-medium">Agent</th>
-        <th className="px-4 py-3 text-right font-medium">Revenue</th>
-      </tr>
+      <section style={{ paddingTop: 64 }}>
+        <SectionHead
+          tag="leaderboard"
+          title={
+            <>
+              Top <span className="serif">performers.</span>
+            </>
+          }
+        />
+        <div className="v2-obs-tabs">
+          {visibleTabs.map((t) => (
+            <button
+              key={t}
+              className={`v2-obs-tab ${tab === t ? 'v2-obs-tab-active' : ''}`}
+              onClick={() => setTab(t)}
+            >
+              {LB_TAB_LABELS[t]}
+            </button>
+          ))}
+        </div>
+        <div className="v2-digest-skel-table">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="v2-digest-skel-row" />
+          ))}
+        </div>
+      </section>
     );
-  };
+  }
+
+  const mostProfitableColumns: Column<LeaderboardEntry>[] = [
+    {
+      key: 'rank',
+      header: '#',
+      width: '48px',
+      render: (_r, i) => <span style={{ color: 'var(--muted)' }}>{i + 1}</span>,
+    },
+    {
+      key: 'agent',
+      header: 'agent',
+      render: (r) => (
+        <a
+          href={`https://basescan.org/address/${r.walletAddress}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--fg)', textDecoration: 'none' }}
+        >
+          {r.name ?? truncateAddress(r.walletAddress)}
+          <span style={{ marginLeft: 10, color: 'var(--muted)', fontSize: 11 }}>
+            {truncateAddress(r.walletAddress)}
+          </span>
+        </a>
+      ),
+    },
+    {
+      key: 'revenue',
+      header: 'revenue',
+      align: 'right',
+      width: '140px',
+      render: (r) => (
+        <span style={{ color: 'var(--phosphor)' }}>{formatUsd(r.revenue)}</span>
+      ),
+    },
+  ];
+
+  const moverColumns: Column<MoverRow>[] = [
+    {
+      key: 'rank',
+      header: '#',
+      width: '48px',
+      render: (_r, i) => <span style={{ color: 'var(--muted)' }}>{i + 1}</span>,
+    },
+    {
+      key: 'agent',
+      header: 'agent',
+      render: (r) => (
+        <a
+          href={`https://basescan.org/address/${r.walletAddress}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--fg)', textDecoration: 'none' }}
+        >
+          {r.name ?? truncateAddress(r.walletAddress)}
+          <span style={{ marginLeft: 10, color: 'var(--muted)', fontSize: 11 }}>
+            {truncateAddress(r.walletAddress)}
+          </span>
+        </a>
+      ),
+    },
+    {
+      key: 'current',
+      header: 'current',
+      align: 'right',
+      width: '110px',
+      render: (r) => formatUsd(r.currentRevenue),
+    },
+    {
+      key: 'previous',
+      header: 'previous',
+      align: 'right',
+      width: '110px',
+      render: (r) => (
+        <span style={{ color: 'var(--muted)' }}>{formatUsd(r.previousRevenue)}</span>
+      ),
+    },
+    {
+      key: 'change',
+      header: 'change',
+      align: 'right',
+      width: '100px',
+      render: (r) => (
+        <span style={{ color: r.isGainer ? 'var(--phosphor)' : 'var(--danger)' }}>
+          {r.isGainer ? '+' : ''}
+          {r.changePct.toFixed(1)}%
+        </span>
+      ),
+    },
+  ];
+
+  const moversData: MoverRow[] = [
+    ...(data?.biggestMovers?.gainers ?? []).map((m) => ({ ...m, isGainer: true })),
+    ...(data?.biggestMovers?.decliners ?? []).map((m) => ({ ...m, isGainer: false })),
+  ];
 
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-foreground">Leaderboards</h2>
-      <div className="flex gap-1 rounded-sm border border-border bg-background p-1">
+    <section style={{ paddingTop: 64 }}>
+      <SectionHead
+        tag="leaderboard"
+        title={
+          <>
+            Top <span className="serif">performers.</span>
+          </>
+        }
+      />
+      <div className="v2-obs-tabs">
         {visibleTabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 rounded-sm px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t
-                ? 'bg-muted text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`v2-obs-tab ${tab === t ? 'v2-obs-tab-active' : ''}`}
           >
             {LB_TAB_LABELS[t]}
           </button>
         ))}
       </div>
 
-      <div className="mt-3 overflow-x-auto rounded-sm border border-border bg-background">
-        <table className="w-full text-sm">
-          <thead>{colHeaders()}</thead>
-          <tbody>{renderTable()}</tbody>
-        </table>
-      </div>
+      {tab === 'mostProfitable' ? (
+        <DataTable
+          columns={mostProfitableColumns}
+          rows={data?.mostProfitable ?? []}
+          empty="No data yet."
+        />
+      ) : (
+        <DataTable
+          columns={moverColumns}
+          rows={moversData}
+          empty="No data yet — need two weeks of snapshots."
+        />
+      )}
     </section>
   );
 }
@@ -389,14 +372,17 @@ function SpotlightSection({
 }) {
   if (loading) {
     return (
-      <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-foreground">Agent Spotlight</h2>
-        <div className="rounded-sm border border-accent-foreground/20 bg-background p-6">
-          <Skeleton className="h-6 w-48" />
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-          </div>
+      <section style={{ paddingTop: 64 }}>
+        <SectionHead
+          tag="spotlight"
+          title={
+            <>
+              Agent <span className="serif">spotlight.</span>
+            </>
+          }
+        />
+        <div className="v2-digest-spotlight">
+          <Skeleton className="v2-digest-skel-spotlight" />
         </div>
       </section>
     );
@@ -404,105 +390,76 @@ function SpotlightSection({
 
   if (!data) return null;
 
+  const healthTone =
+    data.healthScore == null
+      ? 'neutral'
+      : data.healthScore >= 80
+        ? 'phosphor'
+        : data.healthScore >= 50
+          ? 'amber'
+          : 'danger';
+
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-foreground">Agent Spotlight</h2>
-      <div className="rounded-sm border border-accent-foreground/20 bg-gradient-to-b from-background/80 to-background p-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
+    <section style={{ paddingTop: 64 }}>
+      <SectionHead
+        tag="spotlight"
+        title={
+          <>
+            Agent <span className="serif">spotlight.</span>
+          </>
+        }
+      />
+      <div className="v2-digest-spotlight">
+        <div className="v2-digest-spotlight-head">
           <div>
-            <h3 className="text-lg font-bold text-foreground">
+            <h3 className="display" style={{ fontSize: 28, margin: 0, color: 'var(--fg)' }}>
               {data.name ?? truncateAddress(data.walletAddress)}
             </h3>
-            <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+            <p
+              style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: 'var(--muted)',
+                letterSpacing: '0.06em',
+              }}
+            >
               {truncateAddress(data.walletAddress)}
             </p>
             {data.topProtocols.length > 0 && (
-              <div className="mt-2 flex gap-1.5">
+              <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
                 {data.topProtocols.map((p) => (
-                  <span
-                    key={p}
-                    className="inline-flex rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                  >
+                  <Badge key={p} tone="neutral">
                     {p}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             )}
           </div>
           {data.healthScore != null && (
-            <div
-              className={`rounded-sm border px-3 py-1.5 text-center ${
-                data.healthScore >= 80
-                  ? 'border-accent-foreground/20 bg-accent-foreground/10 text-accent-foreground'
-                  : data.healthScore >= 50
-                    ? 'border-yellow-400/20 bg-yellow-400/10 text-yellow-400'
-                    : 'border-red-400/20 bg-red-400/10 text-destructive'
-              }`}
-            >
-              <p className="text-xs font-medium">Health</p>
-              <p className="text-lg font-bold">{data.healthScore}</p>
+            <div className={`v2-digest-health v2-digest-health-${healthTone}`}>
+              <div className="v2-digest-health-label">health</div>
+              <div className="v2-digest-health-value">{data.healthScore}</div>
             </div>
           )}
         </div>
 
-        {/* Metrics */}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Revenue</p>
-            <p className="font-mono text-sm font-bold text-foreground">
-              {formatUsd(data.revenue)}
-            </p>
-          </div>
-          {/* Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory. */}
-          <div>
-            <p className="text-xs text-muted-foreground">Jobs</p>
-            <p className="font-mono text-sm font-bold text-foreground">
-              {data.jobs.toLocaleString()}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Success Rate</p>
-            <p className="font-mono text-sm font-bold text-foreground">
-              {data.successRate}%
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Unique Hirers</p>
-            <p className="font-mono text-sm font-bold text-foreground">
-              {data.uniqueHirers}
-            </p>
-          </div>
+        <div className="v2-digest-spotlight-metrics">
+          <StatTile label="revenue" value={formatUsd(data.revenue)} size="md" tone="phosphor" />
+          <StatTile label="jobs" value={data.jobs.toLocaleString()} size="md" />
+          <StatTile label="success.rate" value={`${data.successRate}%`} size="md" />
+          <StatTile label="unique.hirers" value={data.uniqueHirers.toString()} size="md" />
         </div>
 
-        {/* Notable */}
-        <p className="mt-5 border-t border-border pt-4 text-sm italic text-muted-foreground">
-          {data.notable}
-        </p>
+        <p className="v2-digest-spotlight-notable serif">{data.notable}</p>
 
-        {/* View agent link */}
-        <div className="mt-3">
-          <a
+        <div style={{ marginTop: 20 }}>
+          <Button
             href={`https://basescan.org/address/${data.walletAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-accent-foreground/70 transition-colors hover:text-accent-foreground"
+            variant="link"
+            external
           >
-            View on Basescan
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13 7l5 5m0 0l-5 5m5-5H6"
-              />
-            </svg>
-          </a>
+            view on basescan →
+          </Button>
         </div>
       </div>
     </section>
@@ -522,11 +479,18 @@ function ProtocolSection({
 }) {
   if (loading) {
     return (
-      <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-foreground">Protocol Activity</h2>
-        <div className="space-y-2">
+      <section style={{ paddingTop: 64 }}>
+        <SectionHead
+          tag="protocols"
+          title={
+            <>
+              Protocol <span className="serif">activity.</span>
+            </>
+          }
+        />
+        <div className="v2-digest-skel-table">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
+            <Skeleton key={i} className="v2-digest-skel-row" />
           ))}
         </div>
       </section>
@@ -536,55 +500,59 @@ function ProtocolSection({
   if (!data || data.length === 0) return null;
 
   const maxTxCount = Math.max(...data.map((p) => p.txCount), 1);
-  // Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory.
-  const hasProtocolGas = false;
+
+  const columns: Column<ProtocolEntry>[] = [
+    {
+      key: 'protocol',
+      header: 'protocol',
+      render: (p) => <span style={{ color: 'var(--fg)' }}>{p.protocolName}</span>,
+    },
+    {
+      key: 'txCount',
+      header: 'transactions',
+      width: '140px',
+      render: (p) => (
+        <span style={{ color: 'var(--fg-dim)' }}>{p.txCount.toLocaleString()}</span>
+      ),
+    },
+    {
+      key: 'share',
+      header: 'share',
+      width: '2fr',
+      render: (p) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="v2-digest-bar-track">
+            <div
+              className="v2-digest-bar-fill"
+              style={{ width: `${(p.txCount / maxTxCount) * 100}%` }}
+            />
+          </div>
+          <span
+            style={{
+              minWidth: 50,
+              textAlign: 'right',
+              color: 'var(--muted)',
+              fontSize: 12,
+            }}
+          >
+            {p.sharePct}%
+          </span>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-foreground">Protocol Activity</h2>
-      <div className="overflow-x-auto rounded-sm border border-border bg-background">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Protocol</th>
-              <th className="px-4 py-3 font-medium">Transactions</th>
-              <th className="min-w-[140px] px-4 py-3 font-medium">Share</th>
-              {hasProtocolGas && <th className="px-4 py-3 text-right font-medium">Gas Cost</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((p) => (
-              <tr
-                key={p.protocolName}
-                className="border-b border-border transition-colors hover:bg-surface"
-              >
-                <td className="px-4 py-3 font-medium text-foreground">{p.protocolName}</td>
-                <td className="px-4 py-3 font-mono text-muted-foreground">
-                  {p.txCount.toLocaleString()}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-accent-foreground"
-                        style={{ width: `${(p.txCount / maxTxCount) * 100}%` }}
-                      />
-                    </div>
-                    <span className="min-w-[3rem] text-right font-mono text-xs text-muted-foreground">
-                      {p.sharePct}%
-                    </span>
-                  </div>
-                </td>
-                {hasProtocolGas && (
-                  <td className="px-4 py-3 text-right font-mono text-muted-foreground">
-                    {formatUsd(p.gasCost)}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <section style={{ paddingTop: 64 }}>
+      <SectionHead
+        tag="protocols"
+        title={
+          <>
+            Protocol <span className="serif">activity.</span>
+          </>
+        }
+      />
+      <DataTable columns={columns} rows={data} empty="No protocol data yet." />
     </section>
   );
 }
@@ -602,11 +570,18 @@ function AnomaliesSection({
 }) {
   if (loading) {
     return (
-      <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-foreground">Alerts & Anomalies</h2>
-        <div className="space-y-3">
+      <section style={{ paddingTop: 64 }}>
+        <SectionHead
+          tag="anomalies"
+          title={
+            <>
+              Alerts &amp; <span className="serif">anomalies.</span>
+            </>
+          }
+        />
+        <div className="v2-digest-anomalies">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full" />
+            <Skeleton key={i} className="v2-digest-skel-anomaly" />
           ))}
         </div>
       </section>
@@ -616,39 +591,38 @@ function AnomaliesSection({
   if (!data || data.length === 0) return null;
 
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-foreground">Alerts & Anomalies</h2>
-      <div className="space-y-3">
+    <section style={{ paddingTop: 64 }}>
+      <SectionHead
+        tag="anomalies"
+        title={
+          <>
+            Alerts &amp; <span className="serif">anomalies.</span>
+          </>
+        }
+      />
+      <div className="v2-digest-anomalies">
         {data.map((anomaly, i) => {
           const config = ANOMALY_CONFIG[anomaly.type] ?? {
-            icon: '\u{2139}\u{FE0F}',
-            color: 'border-border bg-muted',
+            tone: 'neutral' as const,
             label: anomaly.type.replace(/_/g, ' '),
           };
           return (
             <div
               key={`${anomaly.walletAddress}-${anomaly.type}-${i}`}
-              className={`rounded-sm border p-4 ${config.color}`}
+              className={`v2-digest-anomaly v2-digest-anomaly-${config.tone}`}
             >
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 text-lg">{config.icon}</span>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={`https://basescan.org/address/${anomaly.walletAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-foreground transition-colors hover:text-accent-foreground"
-                    >
-                      {anomaly.agentName ?? truncateAddress(anomaly.walletAddress)}
-                    </a>
-                    <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {config.label}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{anomaly.detail}</p>
-                </div>
+              <div className="v2-digest-anomaly-head">
+                <a
+                  href={`https://basescan.org/address/${anomaly.walletAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="v2-digest-anomaly-name"
+                >
+                  {anomaly.agentName ?? truncateAddress(anomaly.walletAddress)}
+                </a>
+                <Badge tone={config.tone}>{config.label}</Badge>
               </div>
+              <p className="v2-digest-anomaly-detail">{anomaly.detail}</p>
             </div>
           );
         })}
@@ -670,11 +644,18 @@ function QuickStatsSection({
 }) {
   if (loading) {
     return (
-      <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-foreground">Quick Stats</h2>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section style={{ paddingTop: 64 }}>
+        <SectionHead
+          tag="quick.stats"
+          title={
+            <>
+              Notable <span className="serif">moments.</span>
+            </>
+          }
+        />
+        <div className="v2-digest-quickstats">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
+            <Skeleton key={i} className="v2-digest-skel-stat" />
           ))}
         </div>
       </section>
@@ -683,28 +664,23 @@ function QuickStatsSection({
 
   if (!data) return null;
 
-  const cards: { emoji: string; label: string; value: string; sub: string }[] = [];
+  const cards: { label: string; value: string; sub: string }[] = [];
 
   if (data.busiestHour) {
     const h = data.busiestHour.hour;
-    const hStr = `${h.toString().padStart(2, '0')}:00 UTC`;
+    const hStr = `${h.toString().padStart(2, '0')}:00 utc`;
     cards.push({
-      emoji: '\u{23F0}',
-      label: 'Busiest Hour',
+      label: 'busiest.hour',
       value: hStr,
-      sub: `${data.busiestHour.txCount} txs on ${data.busiestHour.day}`,
+      sub: `${data.busiestHour.txCount} txs · ${data.busiestHour.day}`,
     });
   }
 
   // Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory.
-  // if (data.mostExpensiveTx) {
-  //   cards.push({ emoji: '\u{26FD}', label: 'Most Expensive Tx', ... });
-  // }
 
   if (data.longestIdleAgent) {
     cards.push({
-      emoji: '\u{1F634}',
-      label: 'Longest Idle',
+      label: 'longest.idle',
       value: `${data.longestIdleAgent.lastTxDaysAgo}d`,
       sub: data.longestIdleAgent.name ?? truncateAddress(data.longestIdleAgent.walletAddress),
     });
@@ -712,8 +688,7 @@ function QuickStatsSection({
 
   if (data.highestRevenue) {
     cards.push({
-      emoji: '\u{1F3C6}',
-      label: 'Highest Revenue',
+      label: 'highest.revenue',
       value: formatUsd(data.highestRevenue.revenue),
       sub: data.highestRevenue.name ?? 'Unknown',
     });
@@ -722,93 +697,21 @@ function QuickStatsSection({
   if (cards.length === 0) return null;
 
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-foreground">Quick Stats</h2>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <section style={{ paddingTop: 64 }}>
+      <SectionHead
+        tag="quick.stats"
+        title={
+          <>
+            Notable <span className="serif">moments.</span>
+          </>
+        }
+      />
+      <div className="v2-digest-quickstats">
         {cards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-sm border border-border bg-background p-4"
-          >
-            <span className="text-2xl">{card.emoji}</span>
-            <p className="mt-2 text-xs text-muted-foreground">{card.label}</p>
-            <p className="mt-0.5 text-lg font-bold text-foreground">{card.value}</p>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.sub}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Section: Social Snippets                                                  */
-/* -------------------------------------------------------------------------- */
-
-function SnippetsSection({
-  data,
-  loading,
-}: {
-  data: string[] | null;
-  loading: boolean;
-}) {
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-
-  const handleCopy = useCallback(async (text: string, idx: number) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedIdx(idx);
-      setTimeout(() => setCopiedIdx(null), 2000);
-    } catch {
-      // Fallback
-    }
-  }, []);
-
-  if (loading) {
-    return (
-      <section className="mt-12">
-        <h2 className="mb-4 text-xl font-bold text-foreground">Social Snippets</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28" />
-          ))}
-        </div>
-      </section>
-    );
-  }
-
-  if (!data || data.length === 0) return null;
-
-  return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-xl font-bold text-foreground">Social Snippets</h2>
-      <p className="mb-4 text-sm text-muted-foreground">
-        Ready-to-post tweets. Click to copy.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {data.map((snippet, i) => (
-          <div
-            key={i}
-            className="group relative rounded-sm border border-border bg-background p-4"
-          >
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-              {snippet}
-            </p>
-            <div className="mt-3 flex items-center justify-between">
-              <span
-                className={`text-xs ${
-                  snippet.length > 280 ? 'text-destructive' : 'text-muted-foreground'
-                }`}
-              >
-                {snippet.length}/280
-              </span>
-              <button
-                onClick={() => handleCopy(snippet, i)}
-                className="rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {copiedIdx === i ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
+          <div key={card.label} className="v2-digest-quickstat">
+            <div className="v2-digest-quickstat-label">{card.label}</div>
+            <div className="v2-digest-quickstat-value">{card.value}</div>
+            <div className="v2-digest-quickstat-sub">{card.sub}</div>
           </div>
         ))}
       </div>
@@ -822,39 +725,34 @@ function SnippetsSection({
 
 function ComingSoon() {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-      <div className="rounded-full border border-accent-foreground/20 bg-accent-foreground/5 p-6">
-        <svg
-          className="h-12 w-12 text-accent-foreground"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
+    <section style={{ paddingTop: 80, paddingBottom: 80, textAlign: 'center' }}>
+      <div className="v2-digest-soon">
+        <div className="v2-digest-soon-tag">[ scheduled ]</div>
+        <h1
+          className="display"
+          style={{
+            fontSize: 'clamp(32px, 5vw, 56px)',
+            lineHeight: 1.02,
+            marginTop: 24,
+            color: 'var(--fg)',
+          }}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"
-          />
-        </svg>
+          Weekly agent economy{' '}
+          <span className="serif" style={{ color: 'var(--phosphor)' }}>
+            digest.
+          </span>
+        </h1>
+        <p className="v2-digest-soon-sub">
+          Coming soon — the first digest publishes next Monday. Check back for weekly intelligence
+          on the Base agent economy.
+        </p>
+        <div style={{ marginTop: 32 }}>
+          <Button href="/base" variant="ghost">
+            ← back to observatory
+          </Button>
+        </div>
       </div>
-      <h2 className="mt-6 text-2xl font-bold text-foreground">
-        Weekly Agent Economy Digest
-      </h2>
-      <p className="mt-3 max-w-md text-muted-foreground">
-        Coming soon — the first digest publishes next Monday. Check back for weekly
-        intelligence on the Base agent economy.
-      </p>
-      <Link
-        href="/base"
-        className="mt-6 inline-flex items-center gap-1 text-sm text-accent-foreground/70 transition-colors hover:text-accent-foreground"
-      >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Observatory
-      </Link>
-    </div>
+    </section>
   );
 }
 
@@ -862,17 +760,12 @@ function ComingSoon() {
 /*  Main Component                                                            */
 /* -------------------------------------------------------------------------- */
 
-export function DigestClient({
-  initialData,
-}: {
-  initialData: DigestData | null;
-}) {
+export function DigestClient({ initialData }: { initialData: DigestData | null }) {
   const [digest, setDigest] = useState<DigestData | null>(initialData ?? null);
   const [loading, setLoading] = useState(initialData == null);
 
   useEffect(() => {
     if (initialData != null) return;
-    // Fetch on client if server fetch failed
     async function load() {
       try {
         const res = await fetch('/api/digest/latest');
@@ -892,211 +785,429 @@ export function DigestClient({
   }, [initialData]);
 
   const hasData = digest != null && digest.headline != null;
+  const headline = digest?.headline ?? null;
+  const wow = headline?.wow ?? null;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Subtle grid background */}
-      <div
-        className="pointer-events-none fixed inset-0 opacity-[0.02]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(74,222,128,1) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,1) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
-        }}
-      />
+    <PageShell>
+      <StatusTicker />
 
-      {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between border-b border-border px-6 py-4 md:px-12">
-        <Link href="/" className="flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/chainward-logo.svg" alt="ChainWard" className="h-7 w-7" />
-          <span className="text-base font-semibold tracking-tight text-foreground">Chain<span className="text-accent-foreground">Ward</span></span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/base"
-            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
-          >
-            Observatory
-          </Link>
-          <Link
-            href="/wallet"
-            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
-          >
-            Wallet Lookup
-          </Link>
-          <Link
-            href="/login"
-            className="whitespace-nowrap rounded-sm bg-primary px-3 py-2 text-xs font-medium text-foreground transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] sm:px-4 sm:text-sm"
-          >
-            Connect Wallet
-          </Link>
-        </div>
-      </nav>
+      <div className="v2-shell" style={{ paddingBottom: 80 }}>
+        <NavBar ctaHref="/login" ctaLabel="./connect →" />
 
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         {!hasData && !loading ? (
           <ComingSoon />
         ) : (
           <>
-            {/* ------------------------------------------------------------ */}
-            {/*  Header                                                      */}
-            {/* ------------------------------------------------------------ */}
-            <header className="mb-10">
-              <p className="text-sm font-medium uppercase tracking-wider text-accent-foreground">
-                Weekly Digest
-              </p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-                Base Agent Economy
-              </h1>
-              {loading ? (
-                <Skeleton className="mt-2 h-5 w-64" />
-              ) : (
-                <p className="mt-2 text-base text-muted-foreground">
-                  Week of {formatWeekRange(digest!.week_start, digest!.week_end)}
-                </p>
-              )}
-              <p className="mt-1 text-sm text-muted-foreground">
-                Published by ChainWard &middot; chainward.ai
-              </p>
-            </header>
+            {/* Hero */}
+            <section style={{ paddingTop: 56 }}>
+              <SectionHead
+                tag="weekly.digest"
+                title={
+                  <>
+                    Base agent{' '}
+                    <span className="serif" style={{ color: 'var(--phosphor)' }}>
+                      economy.
+                    </span>
+                  </>
+                }
+                lede={
+                  loading
+                    ? 'Loading weekly intelligence…'
+                    : `Week of ${formatWeekRange(digest!.week_start, digest!.week_end)}. Published by ChainWard.`
+                }
+              />
 
-            {/* ------------------------------------------------------------ */}
-            {/*  Section 1: Headline Numbers                                 */}
-            {/* ------------------------------------------------------------ */}
-            <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-              <HeadlineCard
-                label="Total Revenue"
-                value={formatUsd(digest?.headline?.totalRevenue ?? 0)}
-                change={digest?.headline?.wow?.revenueChange ?? null}
-                loading={loading}
-              />
-              {/* Re-enable gas columns after sentinel node is live and ACP agents are registered in observatory. */}
-              <HeadlineCard
-                label="Active Agents"
-                value={String(digest?.headline?.activeAgents ?? 0)}
-                change={digest?.headline?.wow?.activeAgentsChange ?? null}
-                loading={loading}
-              />
-              <HeadlineCard
-                label="Jobs Completed"
-                value={(digest?.headline?.totalJobs ?? 0).toLocaleString()}
-                change={digest?.headline?.wow?.jobsChange ?? null}
-                loading={loading}
-              />
-              {(digest?.headline?.newAgents ?? 0) > 0 && (
-                <HeadlineCard
-                  label="New Agents"
-                  value={String(digest?.headline?.newAgents ?? 0)}
-                  change={null}
-                  loading={loading}
+              {/* Headline stats */}
+              <div className="v2-digest-stats">
+                <StatTile
+                  label="total.revenue"
+                  value={loading ? '…' : formatUsd(headline?.totalRevenue ?? 0)}
+                  unit={loading ? undefined : formatChange(wow?.revenueChange ?? null)}
+                  tone={statToneForChange(wow?.revenueChange ?? null)}
                 />
-              )}
+                <StatTile
+                  label="active.agents"
+                  value={loading ? '…' : String(headline?.activeAgents ?? 0)}
+                  unit={loading ? undefined : formatChange(wow?.activeAgentsChange ?? null)}
+                  tone={statToneForChange(wow?.activeAgentsChange ?? null)}
+                />
+                <StatTile
+                  label="jobs.completed"
+                  value={loading ? '…' : (headline?.totalJobs ?? 0).toLocaleString()}
+                  unit={loading ? undefined : formatChange(wow?.jobsChange ?? null)}
+                  tone={statToneForChange(wow?.jobsChange ?? null)}
+                />
+                {(headline?.newAgents ?? 0) > 0 && (
+                  <StatTile
+                    label="new.agents"
+                    value={loading ? '…' : String(headline?.newAgents ?? 0)}
+                  />
+                )}
+              </div>
+              <p className="v2-digest-source">
+                // revenue data from Virtuals ACP
+              </p>
             </section>
-            <p className="text-xs text-muted-foreground mt-2">
-              Revenue data from Virtuals ACP.
-            </p>
 
-            {/* ------------------------------------------------------------ */}
-            {/*  Section 2: Leaderboards                                     */}
-            {/* ------------------------------------------------------------ */}
             <LeaderboardsSection
               data={digest?.leaderboards ?? null}
               loading={loading}
             />
 
-            {/* ------------------------------------------------------------ */}
-            {/*  Section 3: Spotlight                                        */}
-            {/* ------------------------------------------------------------ */}
             <SpotlightSection
               data={digest?.spotlight ?? null}
               loading={loading}
             />
 
-            {/* ------------------------------------------------------------ */}
-            {/*  Section 4: Protocol Activity                                */}
-            {/* ------------------------------------------------------------ */}
             <ProtocolSection
               data={digest?.protocol_activity ?? null}
               loading={loading}
             />
 
-            {/* ------------------------------------------------------------ */}
-            {/*  Section 5: Alerts & Anomalies                               */}
-            {/* ------------------------------------------------------------ */}
             <AnomaliesSection
               data={digest?.alerts_anomalies ?? null}
               loading={loading}
             />
 
-            {/* ------------------------------------------------------------ */}
-            {/*  Section 6: Quick Stats                                      */}
-            {/* ------------------------------------------------------------ */}
             <QuickStatsSection
               data={digest?.quick_stats ?? null}
               loading={loading}
             />
 
-            {/* ------------------------------------------------------------ */}
-            {/*  CTA                                                         */}
-            {/* ------------------------------------------------------------ */}
-            <section className="mt-16">
-              <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-b from-background/80 to-background p-10 text-center shadow-[0_0_40px_rgba(74,222,128,0.08)] md:p-14">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(27,94,32,0.15),_transparent_70%)]" />
-                <h2 className="relative text-xl font-bold text-foreground md:text-2xl">
-                  Want private monitoring for{' '}
-                  <span className="text-accent-foreground">your</span> agents?
-                </h2>
-                <p className="relative mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
-                  Real-time alerts &middot; 7 alert types &middot; Discord,
-                  Telegram, webhook
-                </p>
-                <div className="relative mt-6">
-                  <Link
-                    href="/login"
-                    className="group inline-flex items-center gap-2 rounded-sm bg-accent-foreground px-8 py-3 text-sm font-semibold text-background transition-all hover:bg-accent-foreground/90 hover:shadow-[0_0_30px_rgba(74,222,128,0.25)]"
+            {/* CTA */}
+            <section style={{ paddingTop: 80 }}>
+              <div className="v2-digest-cta">
+                <div>
+                  <h3
+                    className="display"
+                    style={{ fontSize: 28, margin: 0, color: 'var(--fg)' }}
                   >
-                    Start Monitoring
-                    <svg
-                      className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                      />
-                    </svg>
-                  </Link>
+                    Private monitoring for{' '}
+                    <span className="serif" style={{ color: 'var(--phosphor)' }}>
+                      your agents.
+                    </span>
+                  </h3>
+                  <p
+                    style={{
+                      marginTop: 8,
+                      color: 'var(--fg-dim)',
+                      fontSize: 13,
+                      lineHeight: 1.7,
+                      maxWidth: 520,
+                    }}
+                  >
+                    Real-time alerts, 7 alert types, Discord · Telegram · webhook. The digest
+                    watches the whole ecosystem. Want pings when YOUR agents misbehave?
+                  </p>
                 </div>
+                <Button href="/login">./start-monitoring →</Button>
               </div>
             </section>
           </>
         )}
-      </main>
+      </div>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-border px-6 py-8 md:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 text-center text-xs text-muted-foreground">
-          <p>Published every Monday by ChainWard</p>
-          <p>
-            Track 329+ AI agent wallets in real time{' '}
-            <Link href="/base" className="text-muted-foreground transition-colors hover:text-foreground">
-              chainward.ai/base
-            </Link>
-          </p>
-          <p>
-            Powered by{' '}
-            <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">
-              ChainWard
-            </Link>{' '}
-            - AgentOps for Base
-          </p>
+      <footer className="v2-digest-footer">
+        <div className="v2-shell v2-digest-footer-inner">
+          <div>// published every monday · chainward.ai</div>
+          <div className="v2-digest-footer-links">
+            <Link href="/base">observatory</Link>
+            <Link href="/decodes">decodes</Link>
+            <Link href="/wallet">lookup</Link>
+          </div>
         </div>
       </footer>
-    </div>
+
+      <style>{`
+        .v2-digest-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 32px;
+          padding-top: 32px;
+          border-top: 1px solid var(--line);
+        }
+        .v2-digest-source {
+          margin-top: 16px;
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 0.04em;
+        }
+
+        /* Tabs reuse observatory pattern */
+        .v2-obs-tabs {
+          display: flex;
+          gap: 0;
+          margin-bottom: 12px;
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+        }
+        .v2-obs-tab {
+          flex: 1;
+          background: transparent;
+          border: none;
+          padding: 10px 14px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          color: var(--fg-dim);
+          letter-spacing: 0.06em;
+          cursor: pointer;
+          transition: color 0.15s, background 0.15s;
+          border-right: 1px solid var(--line);
+        }
+        .v2-obs-tab:last-child { border-right: none; }
+        .v2-obs-tab:hover { color: var(--phosphor); }
+        .v2-obs-tab-active {
+          color: var(--phosphor);
+          background: rgba(61, 216, 141, 0.06);
+        }
+
+        /* Spotlight */
+        .v2-digest-spotlight {
+          border: 1px solid var(--line-2);
+          background:
+            radial-gradient(ellipse at 0% 0%, rgba(61, 216, 141, 0.05), transparent 60%),
+            var(--bg-1);
+          padding: 32px;
+        }
+        .v2-digest-spotlight-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 24px;
+          flex-wrap: wrap;
+        }
+        .v2-digest-spotlight-metrics {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 24px;
+          margin-top: 32px;
+          padding-top: 24px;
+          border-top: 1px solid var(--line);
+        }
+        .v2-digest-spotlight-notable {
+          margin-top: 28px;
+          padding-top: 20px;
+          border-top: 1px solid var(--line);
+          color: var(--fg-dim);
+          font-size: 18px;
+          line-height: 1.5;
+        }
+        .v2-digest-health {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 12px 18px;
+          border: 1px solid var(--line-2);
+          min-width: 80px;
+        }
+        .v2-digest-health-label {
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          color: var(--muted);
+          text-transform: lowercase;
+        }
+        .v2-digest-health-value {
+          font-size: 28px;
+          font-weight: 500;
+          font-variant-numeric: tabular-nums;
+          margin-top: 4px;
+        }
+        .v2-digest-health-phosphor { border-color: var(--phosphor-dim); }
+        .v2-digest-health-phosphor .v2-digest-health-value { color: var(--phosphor); }
+        .v2-digest-health-amber { border-color: rgba(232, 160, 51, 0.3); }
+        .v2-digest-health-amber .v2-digest-health-value { color: var(--amber); }
+        .v2-digest-health-danger { border-color: rgba(230, 103, 103, 0.3); }
+        .v2-digest-health-danger .v2-digest-health-value { color: var(--danger); }
+        .v2-digest-health-neutral .v2-digest-health-value { color: var(--fg-dim); }
+
+        /* Protocol bar */
+        .v2-digest-bar-track {
+          flex: 1;
+          height: 4px;
+          background: var(--bg-2);
+          border: 1px solid var(--line);
+          overflow: hidden;
+        }
+        .v2-digest-bar-fill {
+          height: 100%;
+          background: var(--phosphor);
+          transition: width 0.3s;
+        }
+
+        /* Anomalies */
+        .v2-digest-anomalies {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .v2-digest-anomaly {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          padding: 20px 24px;
+        }
+        .v2-digest-anomaly-phosphor { border-left: 3px solid var(--phosphor); }
+        .v2-digest-anomaly-amber { border-left: 3px solid var(--amber); }
+        .v2-digest-anomaly-danger { border-left: 3px solid var(--danger); }
+        .v2-digest-anomaly-head {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+        .v2-digest-anomaly-name {
+          color: var(--fg);
+          font-weight: 500;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+        .v2-digest-anomaly-name:hover { color: var(--phosphor); }
+        .v2-digest-anomaly-detail {
+          margin-top: 10px;
+          color: var(--fg-dim);
+          font-size: 13px;
+          line-height: 1.7;
+        }
+
+        /* Quick stats */
+        .v2-digest-quickstats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        .v2-digest-quickstat {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .v2-digest-quickstat-label {
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          color: var(--muted);
+          text-transform: lowercase;
+        }
+        .v2-digest-quickstat-value {
+          font-size: 22px;
+          font-weight: 500;
+          color: var(--fg);
+          font-variant-numeric: tabular-nums;
+          letter-spacing: -0.02em;
+        }
+        .v2-digest-quickstat-sub {
+          font-size: 11px;
+          color: var(--fg-dim);
+          letter-spacing: 0.04em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* CTA */
+        .v2-digest-cta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 40px;
+          padding: 40px;
+          border: 1px solid var(--line-2);
+          background:
+            radial-gradient(ellipse at 90% 0%, rgba(61, 216, 141, 0.06), transparent 60%),
+            var(--bg-1);
+          flex-wrap: wrap;
+        }
+
+        /* Footer */
+        .v2-digest-footer {
+          border-top: 1px solid var(--line);
+          padding: 24px 0 48px;
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 0.04em;
+        }
+        .v2-digest-footer-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .v2-digest-footer-links {
+          display: flex;
+          gap: 20px;
+        }
+        .v2-digest-footer-links :global(a) {
+          color: var(--fg-dim);
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+        .v2-digest-footer-links :global(a:hover) { color: var(--phosphor); }
+
+        /* Coming soon */
+        .v2-digest-soon {
+          border: 1px solid var(--line-2);
+          background:
+            radial-gradient(ellipse at 50% 0%, rgba(61, 216, 141, 0.06), transparent 60%),
+            var(--bg-1);
+          padding: 64px 32px;
+          max-width: 720px;
+          margin: 0 auto;
+        }
+        .v2-digest-soon-tag {
+          font-size: 11px;
+          color: var(--phosphor);
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
+        .v2-digest-soon-sub {
+          margin-top: 20px;
+          color: var(--fg-dim);
+          font-size: 14px;
+          line-height: 1.7;
+          max-width: 520px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        /* Skeletons */
+        @keyframes v2-digest-pulse {
+          0%, 100% { opacity: 0.55; }
+          50% { opacity: 0.9; }
+        }
+        .v2-digest-skeleton {
+          background: var(--bg-2);
+          animation: v2-digest-pulse 1.5s ease-in-out infinite;
+        }
+        .v2-digest-skel-table {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+        }
+        .v2-digest-skel-row {
+          height: 44px;
+          margin: 8px;
+        }
+        .v2-digest-skel-spotlight {
+          height: 320px;
+        }
+        .v2-digest-skel-anomaly {
+          height: 70px;
+        }
+        .v2-digest-skel-stat {
+          height: 100px;
+        }
+
+        @media (max-width: 960px) {
+          .v2-digest-stats { grid-template-columns: repeat(2, 1fr); }
+          .v2-digest-spotlight-metrics { grid-template-columns: repeat(2, 1fr); }
+          .v2-digest-quickstats { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+          .v2-digest-spotlight { padding: 24px 20px; }
+        }
+      `}</style>
+    </PageShell>
   );
 }
