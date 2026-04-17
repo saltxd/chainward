@@ -6,72 +6,95 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { label: 'Overview', href: '/overview', icon: '◆' },
-  { label: 'Agents', href: '/agents', icon: '⬡' },
-  { label: 'Transactions', href: '/transactions', icon: '⇄' },
-  { label: 'Alerts', href: '/alerts', icon: '⚡' },
-  { label: 'Settings', href: '/settings', icon: '⚙' },
+  { label: 'overview', href: '/overview' },
+  { label: 'agents', href: '/agents' },
+  { label: 'transactions', href: '/transactions' },
+  { label: 'alerts', href: '/alerts' },
+  { label: 'settings', href: '/settings' },
 ];
 
-/* ------------------------------------------------------------------ */
-/*  Shared sidebar content used by both desktop and mobile drawers    */
-/* ------------------------------------------------------------------ */
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
     <>
-      <div className="flex h-14 items-center px-6 pt-[env(safe-area-inset-top)]">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight" onClick={onNavigate}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/chainward-logo.svg" alt="" className="h-6 w-6" />
-          <span>Chain<span className="text-accent-foreground">Ward</span></span>
+      <div className="flex h-14 items-center px-5 pt-[env(safe-area-inset-top)]">
+        <Link
+          href="/overview"
+          onClick={onNavigate}
+          className="flex items-center gap-2.5 text-sm font-semibold"
+          style={{ color: 'var(--fg)' }}
+        >
+          <span
+            aria-hidden
+            style={{
+              display: 'block',
+              width: 8,
+              height: 8,
+              background: 'var(--phosphor)',
+              boxShadow: '0 0 6px var(--phosphor)',
+              animation: 'v2-pulse 2s ease-in-out infinite',
+            }}
+          />
+          <span>
+            chainward<span style={{ color: 'var(--phosphor)' }}>.ai</span>
+          </span>
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => (
-          <Link
-            key={item.href + item.label}
-            href={item.href}
-            onClick={onNavigate}
-            className={cn(
-              'flex items-center gap-3 px-3 py-3 md:py-2 text-sm transition-colors min-h-[44px]',
-              pathname.startsWith(item.href)
-                ? 'border-l-2 border-accent-foreground text-accent-foreground bg-transparent'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
-          >
-            <span className="text-base">{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
+      <nav className="flex-1 px-3 py-4" style={{ fontFamily: 'var(--font-mono)' }}>
+        {navItems.map((item) => {
+          const active = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2.5 text-[13px] transition-colors min-h-[40px]',
+              )}
+              style={{
+                color: active ? 'var(--phosphor)' : 'var(--fg-dim)',
+                letterSpacing: '0.04em',
+                textDecoration: 'none',
+              }}
+            >
+              <span style={{ color: active ? 'var(--phosphor)' : 'transparent' }}>›</span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="px-3 pb-4" style={{ borderTop: '1px solid var(--line)' }}>
         <Link
           href="/agents?register=true"
           onClick={onNavigate}
-          className="flex w-full items-center justify-center gap-2 border border-dashed border-border px-3 py-3 md:py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground min-h-[44px]"
+          className="flex w-full items-center justify-center gap-2 px-3 py-3 text-[12px] transition-colors min-h-[44px]"
+          style={{
+            marginTop: 12,
+            background: 'var(--phosphor)',
+            color: 'var(--bg)',
+            fontWeight: 600,
+            letterSpacing: '0.04em',
+            textDecoration: 'none',
+          }}
         >
-          + Register Agent
+          + register agent
         </Link>
       </div>
-
     </>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Hamburger button — rendered by the dashboard layout on mobile     */
-/* ------------------------------------------------------------------ */
 export function MobileMenuButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label="Open menu"
-      className="inline-flex items-center justify-center p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden min-h-[44px] min-w-[44px]"
+      className="inline-flex items-center justify-center p-2 md:hidden min-h-[44px] min-w-[44px]"
+      style={{ color: 'var(--fg-dim)' }}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -92,9 +115,6 @@ export function MobileMenuButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Mobile slide-out drawer                                           */
-/* ------------------------------------------------------------------ */
 export function MobileDrawer({
   open,
   onClose,
@@ -102,7 +122,6 @@ export function MobileDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  // Close on Escape key
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -112,7 +131,6 @@ export function MobileDrawer({
     return () => window.removeEventListener('keydown', handleKey);
   }, [open, onClose]);
 
-  // Prevent body scroll when drawer is open
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -131,22 +149,25 @@ export function MobileDrawer({
         open ? 'pointer-events-auto' : 'pointer-events-none',
       )}
     >
-      {/* Backdrop */}
       <div
         className={cn(
-          'absolute inset-0 bg-black/60 transition-opacity duration-300',
+          'absolute inset-0 transition-opacity duration-300',
           open ? 'opacity-100' : 'opacity-0',
         )}
+        style={{ background: 'rgba(0,0,0,0.72)' }}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Drawer panel */}
       <aside
         className={cn(
-          'absolute left-0 top-0 flex h-full w-60 flex-col border-r border-border bg-card transition-transform duration-300 ease-in-out',
+          'absolute left-0 top-0 flex h-full w-64 flex-col transition-transform duration-300 ease-in-out',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
+        style={{
+          background: 'var(--bg-1)',
+          borderRight: '1px solid var(--line)',
+        }}
       >
         <SidebarContent onNavigate={onClose} />
       </aside>
@@ -154,14 +175,16 @@ export function MobileDrawer({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Mobile floating "Register Agent" button                           */
-/* ------------------------------------------------------------------ */
 export function MobileRegisterFab() {
   return (
     <Link
       href="/agents?register=true"
-      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95 md:hidden mb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center md:hidden mb-[env(safe-area-inset-bottom)]"
+      style={{
+        background: 'var(--phosphor)',
+        color: 'var(--bg)',
+        boxShadow: '0 0 24px rgba(61,216,141,0.35)',
+      }}
       aria-label="Register Agent"
     >
       <svg
@@ -182,20 +205,20 @@ export function MobileRegisterFab() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Desktop sidebar — unchanged layout, hidden on mobile              */
-/* ------------------------------------------------------------------ */
 export function Sidebar() {
   return (
-    <aside className="hidden md:flex h-screen w-60 flex-col border-r border-border bg-card">
+    <aside
+      className="hidden md:flex h-screen w-56 flex-col"
+      style={{
+        background: 'var(--bg-1)',
+        borderRight: '1px solid var(--line)',
+      }}
+    >
       <SidebarContent />
     </aside>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Hook for dashboard layout to manage mobile drawer state           */
-/* ------------------------------------------------------------------ */
 export function useMobileSidebar() {
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((v) => !v), []);

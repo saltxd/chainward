@@ -3,18 +3,17 @@
 import { useSession, logout } from '@/lib/auth-client';
 import { useDisconnect } from 'wagmi';
 import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   onMenuToggle?: () => void;
 }
 
-const pageTitles: Record<string, string> = {
-  '/overview': 'Overview',
-  '/agents': 'Agents',
-  '/transactions': 'Transactions',
-  '/alerts': 'Alerts',
-  '/settings': 'Settings',
+const pageTags: Record<string, string> = {
+  '/overview': 'overview',
+  '/agents': 'agents',
+  '/transactions': 'transactions',
+  '/alerts': 'alerts',
+  '/settings': 'settings',
 };
 
 export function Header({ onMenuToggle }: HeaderProps) {
@@ -22,62 +21,89 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const { data: session } = useSession();
   const { disconnect } = useDisconnect();
 
-  const title = Object.entries(pageTitles).find(([path]) => pathname.startsWith(path))?.[1] ?? '';
+  const tag =
+    Object.entries(pageTags).find(([path]) => pathname.startsWith(path))?.[1] ?? '';
 
   const walletAddress = session?.user?.walletAddress;
   const truncated = walletAddress
-    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+    ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`
     : null;
 
   async function handleDisconnect() {
-    try { await logout(); } catch {}
-    try { disconnect(); } catch {}
-    // Hard redirect to fully reset wagmi/RainbowKit client state
+    try {
+      await logout();
+    } catch {}
+    try {
+      disconnect();
+    } catch {}
     window.location.href = '/';
   }
 
   return (
     <header
-      className={cn(
-        'flex h-14 items-center justify-between border-b border-border px-4 md:px-6',
-        'pt-[env(safe-area-inset-top)]',
-      )}
+      className="flex h-12 items-center justify-between px-4 md:px-6"
+      style={{
+        borderBottom: '1px solid var(--line)',
+        background: 'var(--bg-1)',
+        paddingTop: 'env(safe-area-inset-top)',
+        fontSize: 12,
+        fontFamily: 'var(--font-mono)',
+      }}
     >
-      {/* Left side: hamburger (mobile) + page title */}
       <div className="flex items-center gap-3">
-        {/* Hamburger menu button — mobile only */}
         <button
           onClick={onMenuToggle}
           aria-label="Toggle menu"
-          className={cn(
-            'relative z-10 flex min-h-[44px] min-w-[44px] cursor-pointer flex-col items-center justify-center gap-[5px] md:hidden',
-            'text-muted-foreground transition-colors hover:text-foreground',
-          )}
+          className="md:hidden flex min-h-[40px] min-w-[40px] flex-col items-center justify-center gap-[5px]"
+          style={{ color: 'var(--fg-dim)' }}
         >
-          <span className="block h-[2px] w-5 rounded-full bg-current" />
-          <span className="block h-[2px] w-5 rounded-full bg-current" />
-          <span className="block h-[2px] w-5 rounded-full bg-current" />
+          <span style={{ display: 'block', height: 2, width: 20, background: 'currentColor' }} />
+          <span style={{ display: 'block', height: 2, width: 20, background: 'currentColor' }} />
+          <span style={{ display: 'block', height: 2, width: 20, background: 'currentColor' }} />
         </button>
 
-        <h1 className="text-sm font-medium">{title}</h1>
+        {tag && (
+          <span
+            style={{
+              color: 'var(--muted)',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+            }}
+          >
+            <span style={{ color: 'var(--fg-dim)' }}>[ </span>
+            <span style={{ color: 'var(--phosphor)' }}>{tag}</span>
+            <span style={{ color: 'var(--fg-dim)' }}> ]</span>
+          </span>
+        )}
       </div>
 
-      {/* Right side: wallet address (desktop only) + disconnect */}
       <div className="flex items-center gap-4">
         {truncated && (
-          <span className="hidden font-mono text-sm text-muted-foreground md:inline">
+          <span
+            className="hidden md:inline"
+            style={{
+              color: 'var(--fg-dim)',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
             {truncated}
           </span>
         )}
         <button
           onClick={handleDisconnect}
-          className={cn(
-            'relative z-10 min-h-[44px] min-w-[44px] cursor-pointer px-2',
-            'text-sm text-muted-foreground transition-colors hover:text-foreground',
-            'flex items-center justify-center',
-          )}
+          className="min-h-[40px] px-3 flex items-center justify-center"
+          style={{
+            color: 'var(--fg-dim)',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            letterSpacing: '0.04em',
+            transition: 'color 0.15s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--fg-dim)')}
         >
-          Disconnect
+          ./disconnect
         </button>
       </div>
     </header>

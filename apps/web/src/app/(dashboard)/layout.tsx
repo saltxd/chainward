@@ -9,6 +9,7 @@ import {
 } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { ToastProvider } from '@/components/ui/toast';
+import { PageShell, StatusTicker } from '@/components/v2';
 
 const Web3Provider = dynamic(
   () => import('@/providers/web3-provider').then((mod) => mod.Web3Provider),
@@ -21,21 +22,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <Web3Provider>
       <ToastProvider>
-        <div className="flex h-screen">
-          {/* Desktop sidebar — hidden on mobile */}
-          <Sidebar />
+        <PageShell>
+          <StatusTicker />
+          <div className="flex" style={{ minHeight: 'calc(100vh - 34px)' }}>
+            <Sidebar />
+            <MobileDrawer open={open} onClose={close} />
 
-          {/* Mobile slide-out drawer */}
-          <MobileDrawer open={open} onClose={close} />
-
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <Header onMenuToggle={toggle} />
-            <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">{children}</main>
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <Header onMenuToggle={toggle} />
+              <main
+                className="flex-1 overflow-y-auto"
+                style={{
+                  padding: '32px 32px 80px',
+                  paddingBottom: 'calc(80px + env(safe-area-inset-bottom))',
+                }}
+              >
+                {children}
+              </main>
+            </div>
           </div>
-
-          {/* Mobile floating action button for "Register Agent" */}
           <MobileRegisterFab />
-        </div>
+        </PageShell>
       </ToastProvider>
     </Web3Provider>
   );
