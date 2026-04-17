@@ -1,7 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { api, type FleetOverview, type Transaction, type TxVolumeBucket, type BalanceHistoryBucket, type GasBucket } from '@/lib/api';
+import {
+  api,
+  type FleetOverview,
+  type Transaction,
+  type TxVolumeBucket,
+  type BalanceHistoryBucket,
+  type GasBucket,
+} from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VolumeChart } from '@/components/charts/volume-chart';
@@ -9,23 +16,20 @@ import { BalanceChart } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { OnboardingBanner } from '@/components/onboarding-banner';
-import { cn } from '@/lib/utils';
-
-function TickerStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <span className="text-muted-foreground text-xs uppercase tracking-wide">{label}</span>
-      <span className="font-mono text-foreground text-sm font-semibold">{value}</span>
-      {sub && <span className="font-mono text-muted-foreground text-xs">{sub}</span>}
-    </div>
-  );
-}
+import {
+  SectionHead,
+  StatTile,
+  DataTable,
+  Badge,
+  type Column,
+} from '@/components/v2';
 
 export default function OverviewPage() {
-  const { data: overview, loading: overviewLoading, error: overviewError } = useApi<FleetOverview>(
-    () => api.getOverview(),
-    [],
-  );
+  const {
+    data: overview,
+    loading: overviewLoading,
+    error: overviewError,
+  } = useApi<FleetOverview>(() => api.getOverview(), []);
 
   const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -35,7 +39,11 @@ export default function OverviewPage() {
   );
 
   const { data: balanceData } = useApi<BalanceHistoryBucket[]>(
-    () => api.getBalanceHistory({ bucket: '1d', from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }),
+    () =>
+      api.getBalanceHistory({
+        bucket: '1d',
+        from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      }),
     [],
   );
 
@@ -49,152 +57,249 @@ export default function OverviewPage() {
     [],
   );
 
-  const hasVolumeData = volumeData && volumeData.some((d: TxVolumeBucket) => parseFloat(d.total_volume_usd ?? '0') > 0);
-  const hasGasData = gasData && gasData.some((d: GasBucket) => parseFloat(d.total_gas_usd ?? '0') > 0);
+  const hasVolumeData =
+    volumeData && volumeData.some((d) => parseFloat(d.total_volume_usd ?? '0') > 0);
+  const hasGasData = gasData && gasData.some((d) => parseFloat(d.total_gas_usd ?? '0') > 0);
+
+  const txColumns: Column<Transaction>[] = [
+    {
+      key: 'time',
+      header: 'time',
+      width: '140px',
+      render: (tx) => (
+        <span style={{ color: 'var(--muted)' }}>
+          {new Date(tx.timestamp).toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </span>
+      ),
+    },
+    {
+      key: 'dir',
+      header: 'dir',
+      width: '70px',
+      render: (tx) => (
+        <Badge tone={tx.direction === 'in' ? 'phosphor' : tx.direction === 'out' ? 'danger' : 'neutral'}>
+          {tx.direction === 'in' ? 'IN' : tx.direction === 'out' ? 'OUT' : 'SELF'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'tok',
+      header: 'token',
+      width: '80px',
+      render: (tx) => tx.tokenSymbol ?? 'ETH',
+    },
+    {
+      key: 'usd',
+      header: 'amount',
+      align: 'right',
+      render: (tx) =>
+        tx.amountUsd && parseFloat(tx.amountUsd) > 0.005 ? (
+          `$${parseFloat(tx.amountUsd).toFixed(2)}`
+        ) : (
+          <span style={{ color: 'var(--muted)' }}>—</span>
+        ),
+    },
+    {
+      key: 'gas',
+      header: 'gas',
+      align: 'right',
+      width: '90px',
+      render: (tx) =>
+        tx.gasCostUsd ? (
+          <span style={{ color: 'var(--fg-dim)' }}>
+            ${parseFloat(tx.gasCostUsd).toFixed(4)}
+          </span>
+        ) : (
+          '-'
+        ),
+    },
+    {
+      key: 'hash',
+      header: 'tx',
+      width: '120px',
+      render: (tx) => (
+        <a
+          href={`https://basescan.org/tx/${tx.txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--fg-dim)', textDecoration: 'none' }}
+        >
+          {tx.txHash.slice(0, 10)}…
+        </a>
+      ),
+    },
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold">Overview</h1>
-        <p className="text-sm text-muted-foreground">Fleet-wide agent monitoring dashboard</p>
-      </div>
-
-      {overviewError && <ErrorBanner message={overviewError} onRetry={() => window.location.reload()} />}
+    <div className="flex flex-col" style={{ gap: 40 }}>
+      {overviewError && (
+        <ErrorBanner message={overviewError} onRetry={() => window.location.reload()} />
+      )}
 
       {overview && overview.agents.total === 0 && <OnboardingBanner />}
 
-      {/* Compact ticker */}
+      <SectionHead
+        tag="fleet.overview"
+        title={
+          <>
+            Your agents,{' '}
+            <span className="serif" style={{ color: 'var(--phosphor)' }}>
+              at a glance.
+            </span>
+          </>
+        }
+        lede="Fleet-wide monitoring dashboard. Transaction volumes, gas analytics, and balance history — all on Base."
+      />
+
+      {/* Stats */}
       {overviewLoading ? (
-        <div className="flex items-center gap-6 border-b border-border pb-4 mb-6">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-32" />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 32,
+            paddingTop: 8,
+            borderTop: '1px solid var(--line)',
+          }}
+        >
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
         </div>
       ) : (
-        <div className="flex items-center gap-6 overflow-x-auto border-b border-border pb-4 mb-6">
-          <TickerStat label="Agents" value={String(overview?.agents.total ?? 0)} />
-          <div className="h-3 w-px bg-border" />
-          <TickerStat label="24h Txns" value={String(overview?.transactions24h ?? 0)} />
-          <div className="h-3 w-px bg-border" />
-          <TickerStat label="24h Gas" value={`$${(overview?.gasSpend24h ?? 0).toFixed(2)}`} />
-          <div className="h-3 w-px bg-border" />
-          <TickerStat
-            label="Portfolio"
+        <div className="v2-dash-stats">
+          <StatTile
+            label="agents.registered"
+            value={String(overview?.agents.total ?? 0)}
+            size="md"
+          />
+          <StatTile
+            label="tx.24h"
+            value={String(overview?.transactions24h ?? 0)}
+            size="md"
+          />
+          <StatTile
+            label="gas.24h"
+            value={`$${(overview?.gasSpend24h ?? 0).toFixed(2)}`}
+            size="md"
+          />
+          <StatTile
+            label="portfolio"
             value={`$${(overview?.totalValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            size="md"
           />
         </div>
       )}
 
-      {/* Charts row */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-sm border border-border bg-card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Volume (7d)</h2>
+      {/* Charts */}
+      <div className="v2-dash-grid">
+        <div className="v2-dash-card">
+          <SectionHead tag="volume.7d" title="Transaction volume." />
           {hasVolumeData ? (
             <VolumeChart data={volumeData!} />
           ) : (
-            <div className="flex h-[180px] items-center justify-center rounded-sm border border-border text-sm text-muted-foreground">
+            <div className="v2-dash-empty">
               No transaction volume yet. Data appears when your agents transact.
             </div>
           )}
         </div>
-        <div className="rounded-sm border border-border bg-card p-5">
-          <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Balance (30d)</h2>
+        <div className="v2-dash-card">
+          <SectionHead tag="balance.30d" title="Fleet balance." />
           {balanceData && balanceData.length > 0 ? (
             <BalanceChart data={balanceData} />
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No balance data yet</p>
+            <div className="v2-dash-empty">No balance data yet.</div>
           )}
         </div>
       </div>
 
-      {/* Gas chart full-width */}
-      <div className="rounded-sm border border-border bg-card p-5">
-        <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Gas Spend (7d)</h2>
+      <div className="v2-dash-card">
+        <SectionHead tag="gas.7d" title="Gas spend." />
         {hasGasData ? (
           <GasChart data={gasData!} />
         ) : (
-          <div className="flex h-[180px] items-center justify-center rounded-sm border border-border text-sm text-muted-foreground">
+          <div className="v2-dash-empty">
             No gas spend yet. Data appears when your agents transact.
           </div>
         )}
       </div>
 
-      {/* Recent transactions */}
-      <div className="rounded-sm border border-border bg-card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted-foreground">Recent Transactions</h2>
-          <Link
-            href="/transactions"
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            View all →
+      <div>
+        <div className="v2-dash-section-head">
+          <SectionHead
+            tag="recent.activity"
+            title={
+              <>
+                Last five <span className="serif">transactions.</span>
+              </>
+            }
+          />
+          <Link href="/transactions" className="v2-dash-link">
+            view all →
           </Link>
         </div>
-        {recentTxs && recentTxs.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="pb-3 pr-4">Time</th>
-                  <th className="pb-3 pr-4">Dir</th>
-                  <th className="pb-3 pr-4">Token</th>
-                  <th className="pb-3 pr-4 text-right">Amount (USD)</th>
-                  <th className="pb-3 pr-4 text-right">Gas (USD)</th>
-                  <th className="pb-3">Tx Hash</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentTxs.map((tx, i) => (
-                  <tr key={`${tx.txHash}-${i}`} className="border-b border-border/50 last:border-0">
-                    <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
-                      {new Date(tx.timestamp).toLocaleString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <span
-                        className={cn(
-                          'text-xs font-medium',
-                          tx.direction === 'in' && 'text-primary',
-                          tx.direction === 'out' && 'text-destructive',
-                          tx.direction === 'self' && 'text-muted-foreground',
-                        )}
-                      >
-                        {tx.direction === 'in' ? '↓ IN' : tx.direction === 'out' ? '↑ OUT' : '↔ SELF'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-4 font-mono text-xs">{tx.tokenSymbol ?? 'ETH'}</td>
-                    <td className="py-2.5 pr-4 text-right font-mono text-xs">
-                      {tx.amountUsd && parseFloat(tx.amountUsd) > 0.005
-                        ? `$${parseFloat(tx.amountUsd).toFixed(2)}`
-                        : <span className="text-muted-foreground">&mdash;</span>}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right font-mono text-xs text-muted-foreground">
-                      {tx.gasCostUsd ? `$${parseFloat(tx.gasCostUsd).toFixed(4)}` : '-'}
-                    </td>
-                    <td className="py-2.5">
-                      <a
-                        href={`https://basescan.org/tx/${tx.txHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {tx.txHash.slice(0, 10)}...
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">No transactions yet</p>
-        )}
+        <DataTable
+          columns={txColumns}
+          rows={recentTxs ?? []}
+          empty="No transactions yet."
+        />
       </div>
+
+      <style>{`
+        .v2-dash-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 32px;
+          padding-top: 8px;
+          border-top: 1px solid var(--line);
+        }
+        .v2-dash-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 32px;
+        }
+        .v2-dash-card {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          padding: 24px;
+        }
+        .v2-dash-empty {
+          padding: 48px 24px;
+          text-align: center;
+          font-size: 13px;
+          color: var(--muted);
+          border: 1px solid var(--line);
+          font-style: italic;
+        }
+        .v2-dash-section-head {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .v2-dash-section-head .v2-sh-head { margin-bottom: 0; }
+        .v2-dash-link {
+          color: var(--phosphor);
+          font-size: 12px;
+          letter-spacing: 0.04em;
+          text-decoration: none;
+          transition: color 0.15s;
+          font-family: var(--font-mono);
+        }
+        .v2-dash-link:hover { color: var(--fg); }
+        @media (max-width: 960px) {
+          .v2-dash-stats { grid-template-columns: repeat(2, 1fr); }
+          .v2-dash-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </div>
   );
 }

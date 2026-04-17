@@ -8,6 +8,7 @@ import { VolumeChart } from '@/components/charts/volume-chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { TxDetailPanel } from '@/components/dashboard/tx-detail-panel';
+import { SectionHead, Button } from '@/components/v2';
 
 const PAGE_SIZE = 50;
 
@@ -33,7 +34,12 @@ export default function TransactionsPage() {
   if (filters.type) filterParams.type = filters.type;
   if (filters.search) filterParams.search = filters.search;
 
-  const { data: txPage, loading, error, refetch } = useApi<TxPage>(
+  const {
+    data: txPage,
+    loading,
+    error,
+    refetch,
+  } = useApi<TxPage>(
     () =>
       api.getTransactions(filterParams).then((r) => ({
         data: { transactions: r.data, pagination: r.pagination },
@@ -57,19 +63,21 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold">Transactions</h1>
-        <p className="text-sm text-muted-foreground">
-          All on-chain transactions across your monitored agents
-        </p>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+      <SectionHead
+        tag="fleet.transactions"
+        title={
+          <>
+            Every <span className="serif">on-chain move.</span>
+          </>
+        }
+        lede="Unified ledger across every monitored agent. Filter by direction, type, or paste a tx hash to jump to it."
+      />
 
       {error && <ErrorBanner message={error} onRetry={refetch} />}
 
-      {/* Volume chart */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Transaction Volume (7d)</h2>
+      <div className="v2-dash-card">
+        <SectionHead tag="volume.7d" title="Transaction volume." />
         {volumeData && volumeData.length > 0 ? (
           <VolumeChart data={volumeData} />
         ) : (
@@ -78,33 +86,33 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
+      <div className="v2-tx-filters">
         <input
-          placeholder="Search by tx hash..."
+          placeholder="search by tx hash…"
           value={filters.search}
           onChange={(e) => handleFilterChange({ search: e.target.value })}
-          className="min-h-[44px] rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm placeholder:text-muted-foreground"
+          className="v2-tx-input"
         />
         <select
           value={filters.direction}
           onChange={(e) => handleFilterChange({ direction: e.target.value })}
-          className="min-h-[44px] rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          className="v2-tx-input"
         >
-          <option value="">All directions</option>
-          <option value="in">Incoming</option>
-          <option value="out">Outgoing</option>
-          <option value="self">Self</option>
+          <option value="">all directions</option>
+          <option value="in">incoming</option>
+          <option value="out">outgoing</option>
+          <option value="self">self</option>
         </select>
         <select
           value={filters.type}
           onChange={(e) => handleFilterChange({ type: e.target.value })}
-          className="min-h-[44px] rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          className="v2-tx-input"
         >
-          <option value="">All types</option>
-          <option value="transfer">Transfer</option>
-          <option value="swap">Swap</option>
-          <option value="approval">Approval</option>
-          <option value="contract_call">Contract Call</option>
+          <option value="">all types</option>
+          <option value="transfer">transfer</option>
+          <option value="swap">swap</option>
+          <option value="approval">approval</option>
+          <option value="contract_call">contract call</option>
         </select>
       </div>
 
@@ -112,36 +120,77 @@ export default function TransactionsPage() {
       {loading ? (
         <Skeleton className="h-96" />
       ) : (
-        <div className="rounded-lg border border-border bg-card p-5">
+        <div>
           <TxTable transactions={transactions} showWallet onSelectTx={setSelectedTx} />
 
-          {/* Pagination */}
           {pagination && pagination.total > 0 && (
-            <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                Showing {rangeStart}–{rangeEnd} of {pagination.total.toLocaleString()} transactions
+            <div className="v2-tx-pager">
+              <p style={{ color: 'var(--fg-dim)', fontSize: 12, margin: 0 }}>
+                showing {rangeStart}–{rangeEnd} of {pagination.total.toLocaleString()}
               </p>
-              <div className="flex gap-2">
-                <button
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setPage((p) => p - 1)}
                   disabled={page === 0}
-                  className="min-h-[44px] flex-1 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 sm:flex-none"
                 >
-                  ← Prev
-                </button>
-                <button
+                  ← prev
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setPage((p) => p + 1)}
                   disabled={!pagination.hasMore}
-                  className="min-h-[44px] flex-1 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 sm:flex-none"
                 >
-                  Next →
-                </button>
+                  next →
+                </Button>
               </div>
             </div>
           )}
         </div>
       )}
+
       <TxDetailPanel transaction={selectedTx} onClose={() => setSelectedTx(null)} />
+
+      <style>{`
+        .v2-dash-card {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          padding: 24px;
+        }
+        .v2-tx-filters {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .v2-tx-input {
+          background: transparent;
+          border: 1px solid var(--line-2);
+          color: var(--fg);
+          font-family: var(--font-mono);
+          font-size: 13px;
+          padding: 10px 14px;
+          min-height: 44px;
+          flex: 1;
+          min-width: 180px;
+        }
+        .v2-tx-input::placeholder { color: var(--muted); }
+        .v2-tx-input:focus {
+          outline: none;
+          border-color: var(--phosphor);
+        }
+        .v2-tx-pager {
+          margin-top: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
+          border-top: 1px solid var(--line);
+          padding-top: 16px;
+        }
+      `}</style>
     </div>
   );
 }
