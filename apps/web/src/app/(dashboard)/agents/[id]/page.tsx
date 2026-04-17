@@ -8,7 +8,7 @@ import { useApi } from '@/hooks/use-api';
 import { Address } from '@/components/ui/address';
 import { StatCard } from '@/components/ui/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BalanceChart } from '@/components/charts/balance-chart';
+import { BalanceChart, getBalanceSummary } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
 import { TxTable } from '@/components/dashboard/tx-table';
 import { EventTimeline } from '@/components/dashboard/event-timeline';
@@ -89,6 +89,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const { agent, stats } = agentStats;
+
+  const balanceSummary = getBalanceSummary(balanceHistory ?? []);
 
   async function saveName() {
     const trimmed = nameValue.trim();
@@ -224,7 +226,32 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Balance chart */}
       <div className="rounded-lg border border-border bg-card p-5">
-        <h2 className="mb-4 text-lg font-semibold">Balance History</h2>
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Balance History</h2>
+            {balanceSummary && (
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-3xl font-bold tracking-tight">
+                  ${balanceSummary.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </span>
+                {balanceSummary.hasDelta && (
+                  <span
+                    className={cn(
+                      'text-sm font-medium',
+                      balanceSummary.deltaAbs >= 0 ? 'text-primary' : 'text-red-400',
+                    )}
+                  >
+                    {balanceSummary.deltaAbs >= 0 ? '+' : ''}
+                    ${balanceSummary.deltaAbs.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {' '}
+                    ({balanceSummary.deltaPct >= 0 ? '+' : ''}
+                    {balanceSummary.deltaPct.toFixed(2)}%) · 7d
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
         {balanceHistory && balanceHistory.length > 0 ? (
           <BalanceChart data={balanceHistory} />
         ) : (

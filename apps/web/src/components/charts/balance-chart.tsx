@@ -7,6 +7,23 @@ interface BalanceChartProps {
   data: BalanceHistoryBucket[];
 }
 
+export function getBalanceSummary(data: BalanceHistoryBucket[]) {
+  if (!data || data.length === 0) return null;
+  const bucketTotals = new Map<string, number>();
+  for (const b of data) {
+    bucketTotals.set(b.bucket, (bucketTotals.get(b.bucket) ?? 0) + parseFloat(b.balance_usd ?? '0'));
+  }
+  const sorted = Array.from(bucketTotals.entries()).sort(
+    ([a], [b]) => new Date(a).getTime() - new Date(b).getTime(),
+  );
+  if (sorted.length === 0) return null;
+  const current = sorted[sorted.length - 1]![1];
+  const earliest = sorted[0]![1];
+  const deltaAbs = current - earliest;
+  const deltaPct = earliest > 0 ? (deltaAbs / earliest) * 100 : 0;
+  return { current, deltaAbs, deltaPct, hasDelta: sorted.length > 1 };
+}
+
 export function BalanceChart({ data }: BalanceChartProps) {
   // Sum all token balances per time bucket
   const bucketMap = new Map<string, number>();

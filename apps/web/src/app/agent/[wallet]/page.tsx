@@ -13,7 +13,8 @@ import { useApi } from '@/hooks/use-api';
 import { Address } from '@/components/ui/address';
 import { StatCard } from '@/components/ui/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BalanceChart } from '@/components/charts/balance-chart';
+import { BalanceChart, getBalanceSummary } from '@/components/charts/balance-chart';
+import { cn } from '@/lib/utils';
 import { GasChart } from '@/components/charts/gas-chart';
 import { TxTable } from '@/components/dashboard/tx-table';
 import { ErrorBanner } from '@/components/ui/error-banner';
@@ -107,6 +108,8 @@ export default function PublicAgentPage({
     avg_gas_price_gwei: String(row.avg_gas_price_gwei ?? '0'),
   }));
 
+  const balanceSummary = getBalanceSummary(balances);
+
   const monitoringSince = new Date(agent.createdAt).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
@@ -154,7 +157,32 @@ export default function PublicAgentPage({
 
       {/* Balance chart */}
       <div className="mt-6 rounded-lg border border-border bg-card p-5">
-        <h2 className="mb-4 text-lg font-semibold">Balance History</h2>
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Balance History</h2>
+            {balanceSummary && (
+              <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+                <span className="text-3xl font-bold tracking-tight">
+                  ${balanceSummary.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </span>
+                {balanceSummary.hasDelta && (
+                  <span
+                    className={cn(
+                      'text-sm font-medium',
+                      balanceSummary.deltaAbs >= 0 ? 'text-primary' : 'text-red-400',
+                    )}
+                  >
+                    {balanceSummary.deltaAbs >= 0 ? '+' : ''}
+                    ${balanceSummary.deltaAbs.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {' '}
+                    ({balanceSummary.deltaPct >= 0 ? '+' : ''}
+                    {balanceSummary.deltaPct.toFixed(2)}%) · 7d
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
         {balances.length > 0 ? (
           <BalanceChart data={balances} />
         ) : (
