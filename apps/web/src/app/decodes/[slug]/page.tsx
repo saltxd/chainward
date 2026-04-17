@@ -3,6 +3,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {
+  PageShell,
+  NavBar,
+  StatusTicker,
+} from '@/components/v2';
 import { getAllDecodes, getDecodeBySlug } from '@/lib/decodes';
 
 interface PageProps {
@@ -42,12 +47,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+function formatIsoDate(dateStr: string): string {
+  return new Date(dateStr).toISOString().slice(0, 10);
 }
 
 export default async function DecodePage({ params }: PageProps) {
@@ -58,49 +59,111 @@ export default async function DecodePage({ params }: PageProps) {
   const { meta, content } = decode;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Top bar */}
-      <nav className="border-b border-border px-4 py-4 md:px-6">
-        <div className="mx-auto flex max-w-4xl items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-white">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/chainward-logo.svg" alt="ChainWard" className="h-6 w-6" />
-            ChainWard
-          </Link>
-          <span className="text-text-muted">/</span>
-          <Link href="/decodes" className="text-sm text-muted-foreground hover:text-white transition-colors">
-            Decodes
-          </Link>
-        </div>
-      </nav>
+    <PageShell>
+      <StatusTicker />
 
-      <main className="mx-auto max-w-4xl px-4 py-10 md:px-6">
-        {/* Article header */}
-        <header className="mb-10 border-b border-border pb-8">
-          <time className="text-xs text-text-muted" dateTime={meta.date}>
-            {formatDate(meta.date)}
-          </time>
-          <h1 className="mt-2 text-3xl font-bold text-white">{meta.title}</h1>
-          {meta.subtitle && (
-            <p className="mt-2 text-lg text-muted-foreground">{meta.subtitle}</p>
-          )}
-        </header>
+      <div className="v2-shell" style={{ paddingBottom: 80 }}>
+        <NavBar ctaHref="/login" ctaLabel="./connect →" />
 
-        {/* Markdown content */}
-        <article className="decode-prose">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        <article style={{ paddingTop: 56 }}>
+          <header className="v2-decode-header">
+            <div className="v2-decode-meta">
+              <time className="v2-decode-date" dateTime={meta.date}>
+                // {formatIsoDate(meta.date)}
+              </time>
+              <span className="v2-decode-tag">on-chain · decode</span>
+            </div>
+            <h1 className="v2-decode-title display">{meta.title}</h1>
+            {meta.subtitle && (
+              <p className="v2-decode-sub serif">{meta.subtitle}</p>
+            )}
+            <div className="v2-decode-byline">
+              chainward.ai · human-verified against on-chain data
+            </div>
+          </header>
+
+          <div className="v2-decode-body">
+            <div className="decode-prose">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            </div>
+          </div>
+
+          <footer className="v2-decode-footer">
+            <Link href="/decodes" className="v2-decode-back">
+              ← all decodes
+            </Link>
+          </footer>
         </article>
+      </div>
 
-        {/* Back link */}
-        <div className="mt-16 border-t border-border pt-8">
-          <Link
-            href="/decodes"
-            className="text-sm text-muted-foreground hover:text-accent-foreground transition-colors"
-          >
-            &larr; All Decodes
-          </Link>
-        </div>
-      </main>
-    </div>
+      <style>{`
+        .v2-decode-header {
+          border-bottom: 1px solid var(--line);
+          padding-bottom: 32px;
+          margin-bottom: 40px;
+          max-width: 780px;
+        }
+        .v2-decode-meta {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          flex-wrap: wrap;
+        }
+        .v2-decode-date {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          color: var(--phosphor);
+        }
+        .v2-decode-tag {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .v2-decode-title {
+          margin-top: 20px;
+          font-size: clamp(32px, 5vw, 56px);
+          line-height: 1.02;
+          letter-spacing: -0.035em;
+          color: var(--fg);
+        }
+        .v2-decode-sub {
+          margin-top: 16px;
+          font-size: 22px;
+          line-height: 1.35;
+          color: var(--fg-dim);
+          max-width: 680px;
+        }
+        .v2-decode-byline {
+          margin-top: 24px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          color: var(--muted);
+        }
+        .v2-decode-body {
+          max-width: 780px;
+        }
+        .v2-decode-footer {
+          max-width: 780px;
+          margin-top: 56px;
+          padding-top: 24px;
+          border-top: 1px solid var(--line);
+        }
+        .v2-decode-back {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 12px;
+          color: var(--fg-dim);
+          text-decoration: none;
+          letter-spacing: 0.04em;
+          transition: color 0.15s;
+        }
+        .v2-decode-back:hover {
+          color: var(--phosphor);
+        }
+      `}</style>
+    </PageShell>
   );
 }
