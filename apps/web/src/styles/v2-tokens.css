@@ -1,0 +1,94 @@
+:root {
+  --bg: #0a0b0a;
+  --bg-1: #0f1110;
+  --bg-2: #141714;
+  --line: #1e231f;
+  --line-2: #2a312b;
+
+  --fg: #e8ebe4;
+  --fg-dim: #9ba397;
+  --muted: #585f56;
+
+  --phosphor: #3dd88d;
+  --phosphor-dim: #1d6b42;
+  --amber: #e8a033;
+  --danger: #e66767;
+  --cyan: #5ec4e6;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--phosphor);
+  color: var(--bg);
+}
+
+.display {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  font-variation-settings: 'opsz' 144, 'SOFT' 50, 'WONK' 0;
+}
+
+.serif {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
+@keyframes v2-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+}
+
+/* Shared v2 overlay effects (used by PageShell) */
+.v2-scanline {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  mix-blend-mode: overlay;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.v2-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 49;
+  background-image: radial-gradient(rgba(61, 216, 141, 0.012) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+/* Common shell container */
+.v2-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+@media (max-width: 720px) {
+  .v2-shell {
+    padding: 0 20px;
+  }
+}
