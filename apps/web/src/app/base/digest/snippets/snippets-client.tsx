@@ -2,7 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import {
+  PageShell,
+  NavBar,
+  StatusTicker,
+  SectionHead,
+  Button,
+  Badge,
+} from '@/components/v2';
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -20,11 +27,11 @@ interface DigestData {
 /* -------------------------------------------------------------------------- */
 
 const SNIPPET_IMAGE_MAP = [
-  { label: 'Headline', section: 'headline' },
-  { label: 'Leaderboard', section: 'leaderboard' },
-  { label: 'Spotlight', section: 'spotlight' },
-  { label: 'Anomalies', section: 'anomalies' },
-  { label: 'Quick Stats', section: 'stats' },
+  { label: 'headline', section: 'headline' },
+  { label: 'leaderboard', section: 'leaderboard' },
+  { label: 'spotlight', section: 'spotlight' },
+  { label: 'anomalies', section: 'anomalies' },
+  { label: 'quick.stats', section: 'stats' },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -34,7 +41,6 @@ const SNIPPET_IMAGE_MAP = [
 function formatWeekRange(weekStart: string, weekEnd: string): string {
   const start = new Date(weekStart + 'T00:00:00Z');
   const end = new Date(weekEnd + 'T00:00:00Z');
-  // weekEnd is exclusive Monday — show Sunday as last day
   end.setUTCDate(end.getUTCDate() - 1);
 
   const opts: Intl.DateTimeFormatOptions = { month: 'long', day: 'numeric', timeZone: 'UTC' };
@@ -63,7 +69,7 @@ function SnippetRow({
 
   const imageEntry = SNIPPET_IMAGE_MAP[index];
   const section = imageEntry?.section ?? null;
-  const label = imageEntry?.label ?? `Snippet ${index + 1}`;
+  const label = imageEntry?.label ?? `snippet.${index + 1}`;
 
   const charCount = snippet.length;
   const overLimit = charCount > 280;
@@ -93,32 +99,30 @@ function SnippetRow({
     } catch {
       // Silently fail
     }
-  }, [section, weekStart]);
+  }, [section, generatedAt, weekStart]);
 
   return (
-    <div className="rounded-xl border border-white/5 bg-muted p-5">
+    <div className="v2-snip-row">
       {/* Row label + copy button */}
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-accent-foreground">
-          {label}
-        </span>
-        <button
+      <div className="v2-snip-row-head">
+        <Badge tone="phosphor">{label}</Badge>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleCopy}
-          className="rounded px-3 py-1 text-xs font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
         >
-          {copied ? 'Copied!' : 'Copy'}
-        </button>
+          {copied ? 'copied ✓' : 'copy'}
+        </Button>
       </div>
 
       {/* Two-column layout: tweet text + image */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        {/* Tweet text card */}
-        <div className="flex-1 rounded-lg border border-white/[0.06] bg-background p-4">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{snippet}</p>
+      <div className="v2-snip-row-body">
+        {/* Tweet text */}
+        <div className="v2-snip-text">
+          <p className="v2-snip-text-content">{snippet}</p>
           <p
-            className={`mt-3 text-right text-xs font-mono ${
-              overLimit ? 'text-red-400' : 'text-gray-600'
-            }`}
+            className="v2-snip-count"
+            style={{ color: overLimit ? 'var(--danger)' : 'var(--muted)' }}
           >
             {charCount}/280
           </p>
@@ -126,27 +130,26 @@ function SnippetRow({
 
         {/* Image panel */}
         {section ? (
-          <div className="flex w-full flex-col items-center rounded-lg border border-white/[0.06] bg-background p-4 sm:w-[360px]">
+          <div className="v2-snip-image">
             {imgError ? (
-              <div className="flex h-[202px] w-full items-center justify-center rounded text-xs text-gray-600">
-                Image not available
-              </div>
+              <div className="v2-snip-image-error">image not available</div>
             ) : (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={`/api/digest/latest/image/${section}?v=${generatedAt}`}
                 alt={`${label} digest image`}
-                className="w-full rounded object-cover"
-                style={{ aspectRatio: '16 / 9' }}
+                className="v2-snip-image-img"
                 onError={() => setImgError(true)}
               />
             )}
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleDownload}
-              className="mt-3 w-full rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-white/20 hover:text-white"
+              fullWidth
             >
-              Download PNG
-            </button>
+              download png
+            </Button>
           </div>
         ) : null}
       </div>
@@ -206,78 +209,167 @@ export function SnippetsClient() {
   /* -- Loading / auth pending state -- */
   if (!authChecked || (loading && authChecked)) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-sm text-gray-500">Loading…</div>
-      </div>
+      <PageShell>
+        <StatusTicker />
+        <div className="v2-shell">
+          <NavBar ctaHref="/base/digest" ctaLabel="← digest" />
+          <div className="v2-snip-loading">
+            <span className="v2-snip-loading-dot" />
+            loading…
+          </div>
+        </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Subtle grid overlay */}
-      <div
-        className="pointer-events-none fixed inset-0 opacity-[0.02]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(74,222,128,1) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,1) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
-        }}
-      />
+    <PageShell>
+      <StatusTicker />
 
-      {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between border-b border-white/5 px-6 py-4 md:px-12">
-        <Link href="/" className="flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/chainward-logo.svg" alt="ChainWard" className="h-7 w-7" />
-          <span className="text-base font-semibold tracking-tight text-white">Chain<span className="text-accent-foreground">Ward</span></span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/base/digest"
-            className="text-sm text-gray-400 transition-colors hover:text-white"
-          >
-            ← Digest
-          </Link>
-        </div>
-      </nav>
+      <div className="v2-shell" style={{ paddingBottom: 80 }}>
+        <NavBar ctaHref="/base/digest" ctaLabel="← digest" />
 
-      <main className="relative z-10 mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-        {/* Header */}
-        <header className="mb-8">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Internal Content Dashboard
-          </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">
-            Social Snippets
-          </h1>
-          {digest && (
-            <p className="mt-1 text-sm text-gray-400">
-              Week of {formatWeekRange(digest.week_start, digest.week_end)}
-            </p>
+        <section style={{ paddingTop: 56 }}>
+          <SectionHead
+            tag="internal · content"
+            title={
+              <>
+                Social{' '}
+                <span className="serif" style={{ color: 'var(--phosphor)' }}>
+                  snippets.
+                </span>
+              </>
+            }
+            lede={
+              digest
+                ? `Ready-to-post threads, one per digest section. Week of ${formatWeekRange(digest.week_start, digest.week_end)}.`
+                : 'Ready-to-post threads, one per digest section.'
+            }
+          />
+
+          {!loading && snippets.length === 0 ? (
+            <div className="v2-snip-empty">// no snippets available for the current digest</div>
+          ) : (
+            <div className="v2-snip-list">
+              {snippets.map((snippet, i) => (
+                <SnippetRow
+                  key={i}
+                  snippet={snippet}
+                  index={i}
+                  weekStart={digest?.week_start ?? ''}
+                  generatedAt={digest?.generated_at ?? ''}
+                />
+              ))}
+            </div>
           )}
-        </header>
+        </section>
+      </div>
 
-        {/* Snippets */}
-        {!loading && snippets.length === 0 ? (
-          <div className="rounded-xl border border-white/5 bg-muted px-6 py-16 text-center">
-            <p className="text-sm text-gray-500">
-              No snippets available for the current digest.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {snippets.map((snippet, i) => (
-              <SnippetRow
-                key={i}
-                snippet={snippet}
-                index={i}
-                weekStart={digest?.week_start ?? ''}
-                generatedAt={digest?.generated_at ?? ''}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+      <style>{`
+        .v2-snip-loading {
+          min-height: 50vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          color: var(--muted);
+          font-size: 13px;
+          letter-spacing: 0.08em;
+        }
+        .v2-snip-loading-dot {
+          width: 8px;
+          height: 8px;
+          background: var(--phosphor);
+          box-shadow: 0 0 8px var(--phosphor);
+          animation: v2-pulse 1.4s ease-in-out infinite;
+          display: inline-block;
+        }
+
+        .v2-snip-empty {
+          padding: 48px 24px;
+          text-align: center;
+          color: var(--muted);
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          font-size: 13px;
+        }
+
+        .v2-snip-list {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .v2-snip-row {
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          padding: 24px;
+        }
+        .v2-snip-row-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .v2-snip-row-body {
+          display: grid;
+          grid-template-columns: 1fr 360px;
+          gap: 20px;
+          align-items: start;
+        }
+        @media (max-width: 720px) {
+          .v2-snip-row-body {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .v2-snip-text {
+          border: 1px solid var(--line);
+          background: var(--bg);
+          padding: 18px;
+        }
+        .v2-snip-text-content {
+          white-space: pre-wrap;
+          font-size: 13px;
+          line-height: 1.7;
+          color: var(--fg);
+          margin: 0;
+        }
+        .v2-snip-count {
+          margin-top: 14px;
+          text-align: right;
+          font-size: 11px;
+          letter-spacing: 0.04em;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .v2-snip-image {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          border: 1px solid var(--line);
+          background: var(--bg);
+          padding: 14px;
+        }
+        .v2-snip-image-img {
+          width: 100%;
+          aspect-ratio: 16 / 9;
+          object-fit: cover;
+          border: 1px solid var(--line);
+          display: block;
+        }
+        .v2-snip-image-error {
+          aspect-ratio: 16 / 9;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--muted);
+          font-size: 11px;
+          border: 1px dashed var(--line);
+          letter-spacing: 0.04em;
+        }
+      `}</style>
+    </PageShell>
   );
 }
