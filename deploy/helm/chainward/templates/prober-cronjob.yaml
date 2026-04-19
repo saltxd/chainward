@@ -41,6 +41,8 @@ spec:
                       key: PROBER_DISCORD_WEBHOOK
                 - name: STALE_MINUTES_THRESHOLD
                   value: "45"
+                - name: UNDELIVERED_THRESHOLD
+                  value: "5"
               command:
                 - /bin/sh
                 - -c
@@ -48,11 +50,20 @@ spec:
                   set -e
                   apk add --no-cache curl >/dev/null 2>&1
 
-                  send_alert() {
+                  # Discord colors
+                  RED=15105570       # crit
+                  AMBER=15158332     # warn (prober malfunction)
+                  GREEN=3066993      # resolved
+
+                  # Claude_Dev ping matches the Spidey Bot convention so the Discord bot picks it up
+                  CLAUDE_PING="@Claude_Dev"
+
+                  send_discord() {
                     local title="$1" desc="$2" color="$3"
                     curl -sf -X POST "$DISCORD_WEBHOOK" \
                       -H "Content-Type: application/json" \
                       -d "{
+                        \"content\": \"${CLAUDE_PING}\",
                         \"embeds\": [{
                           \"title\": \"$title\",
                           \"description\": \"$desc\",
@@ -62,15 +73,35 @@ spec:
                       }" >/dev/null 2>&1
                   }
 
-                  # psql query that fails loud — stderr goes to pod logs; empty string on error
                   pq() { psql "$DATABASE_URL" -t -A -c "$1"; }
 
-                  FIRED=0
+                  # Stateful alert helper. Transitions only; suppresses repeated fires + sends
+                  # a RESOLVED on recovery, both with a Claude_Dev ping so it mirrors Spidey Bot.
+                  #
+                  #   $1 = state key (e.g. indexer_stall_alerting)
+                  #   $2 = current-condition boolean ("true" or "false")
+                  #   $3 = fire title        $4 = fire desc        $5 = fire color
+                  #   $6 = resolve title     $7 = resolve desc
+                  alert_with_resolve() {
+                    local key="$1" firing="$2" f_title="$3" f_desc="$4" f_color="$5" r_title="$6" r_desc="$7"
+                    local prev
+                    prev=$(pq "SELECT value FROM prober_state WHERE key = '$key';")
+                    if [ "$firing" = "true" ] && [ "$prev" != "true" ]; then
+                      send_discord "$f_title" "$f_desc" "$f_color"
+                      pq "INSERT INTO prober_state (key, value) VALUES ('$key', 'true')
+                          ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = now();" >/dev/null
+                      echo "FIRED: $key"
+                    elif [ "$firing" = "false" ] && [ "$prev" = "true" ]; then
+                      send_discord "$r_title" "$r_desc" "$GREEN"
+                      pq "INSERT INTO prober_state (key, value) VALUES ('$key', 'false')
+                          ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = now();" >/dev/null
+                      echo "RESOLVED: $key"
+                    fi
+                  }
 
-                  # Check 1: indexer stall.
-                  # The watchdog itself must not fail-silent. If a query errors (schema drift, DB down),
-                  # we get an empty string back, which trips the numeric comparison and we send a
-                  # distinct "watchdog malfunction" alert rather than suppressing the real one.
+                  # ==============================
+                  # Check 1: indexer stall
+                  # ==============================
                   STALE_MINUTES=$(pq "
                     SELECT COALESCE(
                       EXTRACT(EPOCH FROM (now() - MAX(timestamp))) / 60,
@@ -80,35 +111,58 @@ spec:
                   ")
                   AGENT_COUNT=$(pq "SELECT COUNT(*) FROM agent_registry;")
 
+                  # Fail-loud: if either query returns non-numeric, send a distinct malfunction alert
+                  # instead of silently suppressing the real check. This is the exact bug class that
+                  # hid a 25h outage before — never fail silent.
                   if ! echo "$STALE_MINUTES" | grep -qE '^-?[0-9]+$' || ! echo "$AGENT_COUNT" | grep -qE '^[0-9]+$'; then
-                    send_alert \
+                    send_discord \
                       "HIGH: Prober Query Failed" \
-                      "psql query returned non-numeric result. stale=\`${STALE_MINUTES}\` agents=\`${AGENT_COUNT}\`. DB may be unreachable or schema changed. Watchdog is blind." \
-                      15158332
-                    FIRED=1
-                  elif [ "$STALE_MINUTES" -gt "$STALE_MINUTES_THRESHOLD" ] && [ "$AGENT_COUNT" -gt 0 ]; then
-                    send_alert \
+                      "psql returned non-numeric result. stale=\`${STALE_MINUTES}\` agents=\`${AGENT_COUNT}\`. DB unreachable or schema drift — watchdog is blind." \
+                      "$AMBER"
+                    echo "FIRED: prober query malfunction"
+                  else
+                    STALL_FIRING="false"
+                    if [ "$STALE_MINUTES" -gt "$STALE_MINUTES_THRESHOLD" ] && [ "$AGENT_COUNT" -gt 0 ]; then
+                      STALL_FIRING="true"
+                    fi
+                    alert_with_resolve \
+                      "indexer_stall_alerting" \
+                      "$STALL_FIRING" \
                       "HIGH: Indexer Stall Detected" \
-                      "No new transactions indexed in ${STALE_MINUTES} minutes. ${AGENT_COUNT} registered agents. Check Alchemy webhook \`is_active\` and API/indexer pod logs." \
-                      15105570
-                    FIRED=1
+                      "${CLAUDE_PING} No new transactions indexed in ${STALE_MINUTES} minutes. ${AGENT_COUNT} registered agents. Check Alchemy webhook \`is_active\` and API/indexer pod logs." \
+                      "$RED" \
+                      "RESOLVED: Indexer Stall" \
+                      "${CLAUDE_PING} Transactions flowing again. Current stale=${STALE_MINUTES}min (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents tracked. No action needed."
                   fi
 
+                  # ==============================
                   # Check 2: alert delivery failures
+                  # ==============================
                   UNDELIVERED=$(pq "
                     SELECT COUNT(*)
                     FROM alert_events
                     WHERE delivered = false
                       AND timestamp > now() - interval '1 hour';
                   ")
-                  if echo "$UNDELIVERED" | grep -qE '^[0-9]+$' && [ "$UNDELIVERED" -gt 5 ]; then
-                    send_alert \
+
+                  if ! echo "$UNDELIVERED" | grep -qE '^[0-9]+$'; then
+                    send_discord \
+                      "HIGH: Prober Query Failed" \
+                      "alert_events query returned non-numeric result: \`${UNDELIVERED}\`." \
+                      "$AMBER"
+                  else
+                    DELIV_FIRING="false"
+                    if [ "$UNDELIVERED" -gt "$UNDELIVERED_THRESHOLD" ]; then
+                      DELIV_FIRING="true"
+                    fi
+                    alert_with_resolve \
+                      "delivery_alerting" \
+                      "$DELIV_FIRING" \
                       "HIGH: Alert Delivery Failures" \
-                      "${UNDELIVERED} undelivered alerts in the last hour. Check alert-deliver worker and notification channels." \
-                      15105570
-                    FIRED=1
+                      "${CLAUDE_PING} ${UNDELIVERED} undelivered alerts in the last hour. Check alert-deliver worker + notification channels." \
+                      "$RED" \
+                      "RESOLVED: Alert Delivery" \
+                      "${CLAUDE_PING} Alert delivery recovered. Last hour undelivered=${UNDELIVERED} (threshold ${UNDELIVERED_THRESHOLD})."
                   fi
 
-                  if [ "$FIRED" -eq 0 ]; then
-                    echo "All checks passed. stale=${STALE_MINUTES}min agents=${AGENT_COUNT} undelivered=${UNDELIVERED}"
-                  fi
+                  echo "prober tick complete. stale=${STALE_MINUTES}min agents=${AGENT_COUNT} undelivered=${UNDELIVERED}"
