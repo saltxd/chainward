@@ -310,7 +310,7 @@ export default async function LandingPage() {
           border: 1px solid var(--line-2);
           padding: 48px;
           background:
-            radial-gradient(ellipse at 10% 0%, rgba(61, 216, 141, 0.06), transparent 60%),
+            radial-gradient(ellipse at 10% 0%, rgba(58, 167, 109, 0.06), transparent 60%),
             var(--bg-1);
           position: relative;
         }

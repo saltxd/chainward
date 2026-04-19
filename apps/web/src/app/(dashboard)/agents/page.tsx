@@ -400,7 +400,7 @@ function AgentsContent() {
           align-items: center;
         }
         .v2-agent-row:first-child { border-top: none; }
-        .v2-agent-row:hover { background: rgba(61, 216, 141, 0.03); }
+        .v2-agent-row:hover { background: rgba(58, 167, 109, 0.03); }
         .v2-agent-row-head {
           display: flex;
           align-items: center;

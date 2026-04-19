@@ -387,13 +387,13 @@ export function ObservatoryPage() {
                       fontSize: 11,
                     }}
                     labelStyle={{ color: '#9ba397' }}
-                    itemStyle={{ color: '#3dd88d' }}
+                    itemStyle={{ color: '#3aa76d' }}
                   />
                   <Area
                     type="monotone"
                     dataKey="count"
-                    stroke="#3dd88d"
-                    fill="#3dd88d"
+                    stroke="#3aa76d"
+                    fill="#3aa76d"
                     fillOpacity={0.1}
                     strokeWidth={1.5}
                     name="tx"
@@ -436,13 +436,13 @@ export function ObservatoryPage() {
                       fontSize: 11,
                     }}
                     labelStyle={{ color: '#9ba397' }}
-                    itemStyle={{ color: '#3dd88d' }}
+                    itemStyle={{ color: '#3aa76d' }}
                   />
                   <Area
                     type="monotone"
                     dataKey="gasUsd"
-                    stroke="#3dd88d"
-                    fill="#3dd88d"
+                    stroke="#3aa76d"
+                    fill="#3aa76d"
                     fillOpacity={0.1}
                     strokeWidth={1.5}
                     name="gas"
@@ -525,7 +525,7 @@ export function ObservatoryPage() {
         }
         .v2-obs-tab:last-child { border-right: none; }
         .v2-obs-tab:hover { color: var(--phosphor); }
-        .v2-obs-tab-active { color: var(--phosphor); background: rgba(61, 216, 141, 0.06); }
+        .v2-obs-tab-active { color: var(--phosphor); background: rgba(58, 167, 109, 0.06); }
         .v2-obs-cta {
           display: flex;
           align-items: center;

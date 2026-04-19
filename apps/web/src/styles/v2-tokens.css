@@ -9,8 +9,10 @@
   --fg-dim: #9ba397;
   --muted: #585f56;
 
-  --phosphor: #3dd88d;
+  --phosphor: #3aa76d;
+  --phosphor-hover: #4ec383;
   --phosphor-dim: #1d6b42;
+  --terminal-green: #3dd88d;
   --amber: #e8a033;
   --danger: #e66767;
   --cyan: #5ec4e6;
@@ -76,7 +78,7 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 49;
-  background-image: radial-gradient(rgba(61, 216, 141, 0.012) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(58, 167, 109, 0.012) 1px, transparent 1px);
   background-size: 3px 3px;
 }
 
@@ -115,8 +117,8 @@ body {
   display: block;
   width: 10px;
   height: 10px;
-  background: var(--phosphor);
-  box-shadow: 0 0 8px var(--phosphor);
+  background: var(--phosphor-hover);
+  box-shadow: 0 0 8px var(--phosphor-hover);
   animation: v2-pulse 2s ease-in-out infinite;
 }
 .v2-nav-links {
@@ -140,11 +142,12 @@ body {
   font-weight: 600;
   font-size: 12px;
   letter-spacing: 0.02em;
-  transition: box-shadow 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
   text-decoration: none;
 }
 .v2-nav-cta:hover {
-  box-shadow: 0 0 24px rgba(61, 216, 141, 0.4);
+  background: var(--phosphor-hover);
+  box-shadow: 0 0 24px rgba(78, 195, 131, 0.45);
 }
 @media (max-width: 720px) {
   .v2-nav-links {
@@ -224,7 +227,7 @@ body {
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 12.5px;
   line-height: 1.7;
-  box-shadow: 0 0 80px rgba(61, 216, 141, 0.04) inset;
+  box-shadow: 0 0 80px rgba(58, 167, 109, 0.04) inset;
 }
 .v2-term-bar {
   display: flex;
@@ -280,7 +283,7 @@ body {
   text-decoration: none;
 }
 .v2-tbl-row:hover {
-  background: rgba(61, 216, 141, 0.03);
+  background: rgba(58, 167, 109, 0.03);
 }
 .v2-tbl-row-link {
   cursor: pointer;
@@ -322,9 +325,11 @@ body {
 .v2-btn-primary {
   background: var(--phosphor);
   color: var(--bg);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .v2-btn-primary:hover {
-  box-shadow: 0 0 32px rgba(61, 216, 141, 0.35);
+  background: var(--phosphor-hover);
+  box-shadow: 0 0 32px rgba(78, 195, 131, 0.4);
   transform: translateY(-1px);
 }
 .v2-btn-primary:disabled {
@@ -408,7 +413,7 @@ body {
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 0.9em;
   color: var(--phosphor);
-  background: rgba(61, 216, 141, 0.08);
+  background: rgba(58, 167, 109, 0.08);
   padding: 1px 6px;
   border: 1px solid var(--line);
 }
@@ -457,8 +462,8 @@ body {
 .v2-ticker-pulse {
   width: 6px;
   height: 6px;
-  background: var(--phosphor);
-  box-shadow: 0 0 6px var(--phosphor);
+  background: var(--phosphor-hover);
+  box-shadow: 0 0 6px var(--phosphor-hover);
   animation: v2-pulse 1.4s ease-in-out infinite;
   display: inline-block;
 }
