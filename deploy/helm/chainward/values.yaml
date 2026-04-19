@@ -12,9 +12,14 @@ imagePullSecrets:
 
 postgres:
   image: timescale/timescaledb:2.25.1-pg16
-  storage: 10Gi
+  storage: 40Gi
   user: chainward
   database: chainward
+
+# Prober CronJob reads its Discord webhook URL from the `chainward-secrets` secret
+# under key `PROBER_DISCORD_WEBHOOK`. Create with:
+#   kubectl -n chainward patch secret chainward-secrets --type merge \
+#     --patch='{"stringData":{"PROBER_DISCORD_WEBHOOK":"<url>"}}'
 
 redis:
   image: redis:7-alpine

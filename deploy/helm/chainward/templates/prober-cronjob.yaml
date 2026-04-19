@@ -1,0 +1,114 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: chainward-prober
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: chainward
+    app.kubernetes.io/component: prober
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 120
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: prober
+              image: postgres:16-alpine
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: chainward-secrets
+                      key: DATABASE_URL
+                - name: DISCORD_WEBHOOK
+                  valueFrom:
+                    secretKeyRef:
+                      name: chainward-secrets
+                      key: PROBER_DISCORD_WEBHOOK
+                - name: STALE_MINUTES_THRESHOLD
+                  value: "15"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache curl >/dev/null 2>&1
+
+                  send_alert() {
+                    local title="$1" desc="$2" color="$3"
+                    curl -sf -X POST "$DISCORD_WEBHOOK" \
+                      -H "Content-Type: application/json" \
+                      -d "{
+                        \"embeds\": [{
+                          \"title\": \"$title\",
+                          \"description\": \"$desc\",
+                          \"color\": $color,
+                          \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+                        }]
+                      }" >/dev/null 2>&1
+                  }
+
+                  # psql query that fails loud — stderr goes to pod logs; empty string on error
+                  pq() { psql "$DATABASE_URL" -t -A -c "$1"; }
+
+                  FIRED=0
+
+                  # Check 1: indexer stall.
+                  # The watchdog itself must not fail-silent. If a query errors (schema drift, DB down),
+                  # we get an empty string back, which trips the numeric comparison and we send a
+                  # distinct "watchdog malfunction" alert rather than suppressing the real one.
+                  STALE_MINUTES=$(pq "
+                    SELECT COALESCE(
+                      EXTRACT(EPOCH FROM (now() - MAX(timestamp))) / 60,
+                      -1
+                    )::int
+                    FROM transactions;
+                  ")
+                  AGENT_COUNT=$(pq "SELECT COUNT(*) FROM agent_registry;")
+
+                  if ! echo "$STALE_MINUTES" | grep -qE '^-?[0-9]+$' || ! echo "$AGENT_COUNT" | grep -qE '^[0-9]+$'; then
+                    send_alert \
+                      "HIGH: Prober Query Failed" \
+                      "psql query returned non-numeric result. stale=\`${STALE_MINUTES}\` agents=\`${AGENT_COUNT}\`. DB may be unreachable or schema changed. Watchdog is blind." \
+                      15158332
+                    FIRED=1
+                  elif [ "$STALE_MINUTES" -gt "$STALE_MINUTES_THRESHOLD" ] && [ "$AGENT_COUNT" -gt 0 ]; then
+                    send_alert \
+                      "HIGH: Indexer Stall Detected" \
+                      "No new transactions indexed in ${STALE_MINUTES} minutes. ${AGENT_COUNT} registered agents. Check Alchemy webhook \`is_active\` and API/indexer pod logs." \
+                      15105570
+                    FIRED=1
+                  fi
+
+                  # Check 2: alert delivery failures
+                  UNDELIVERED=$(pq "
+                    SELECT COUNT(*)
+                    FROM alert_events
+                    WHERE delivered = false
+                      AND timestamp > now() - interval '1 hour';
+                  ")
+                  if echo "$UNDELIVERED" | grep -qE '^[0-9]+$' && [ "$UNDELIVERED" -gt 5 ]; then
+                    send_alert \
+                      "HIGH: Alert Delivery Failures" \
+                      "${UNDELIVERED} undelivered alerts in the last hour. Check alert-deliver worker and notification channels." \
+                      15105570
+                    FIRED=1
+                  fi
+
+                  if [ "$FIRED" -eq 0 ]; then
+                    echo "All checks passed. stale=${STALE_MINUTES}min agents=${AGENT_COUNT} undelivered=${UNDELIVERED}"
+                  fi

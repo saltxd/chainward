@@ -12,6 +12,7 @@ const envSchema = z.object({
   // RPC - Base
   BASE_RPC_URL: z.string().url(),
   BASE_RPC_FALLBACK_URL: z.string().url().optional(),
+  BASE_RPC_TERTIARY_URL: z.string().url().default('https://mainnet.base.org'),
   ALCHEMY_API_KEY: z.string().optional(),
 
   // External
