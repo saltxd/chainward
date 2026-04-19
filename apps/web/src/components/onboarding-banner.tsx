@@ -43,7 +43,7 @@ export function OnboardingBanner() {
       style={{
         border: '1px solid var(--phosphor-dim)',
         background:
-          'linear-gradient(180deg, rgba(61, 216, 141, 0.05), transparent 80%), var(--bg-1)',
+          'linear-gradient(180deg, rgba(58, 167, 109, 0.05), transparent 80%), var(--bg-1)',
         padding: '24px 28px',
         position: 'relative',
       }}
@@ -93,7 +93,7 @@ export function OnboardingBanner() {
               style={{
                 fontFamily: 'var(--font-mono)',
                 color: 'var(--fg)',
-                background: 'rgba(61, 216, 141, 0.08)',
+                background: 'rgba(58, 167, 109, 0.08)',
                 padding: '1px 6px',
                 border: '1px solid var(--line)',
               }}

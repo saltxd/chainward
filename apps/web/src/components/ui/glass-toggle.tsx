@@ -37,9 +37,9 @@ export function GlassToggle({
         // OFF: muted
         !enabled && 'bg-white/[0.06]',
         // ON: brand color, solid. No gradient, no glow.
-        enabled && 'bg-[#3dd88d]/80 ring-[#3dd88d]/20',
+        enabled && 'bg-[#3aa76d]/80 ring-[#3aa76d]/20',
         // Focus
-        'outline-none focus-visible:ring-2 focus-visible:ring-[#3dd88d]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'outline-none focus-visible:ring-2 focus-visible:ring-[#3aa76d]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
       )}
     >
       <span

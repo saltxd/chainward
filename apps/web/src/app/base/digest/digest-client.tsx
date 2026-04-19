@@ -960,14 +960,14 @@ export function DigestClient({ initialData }: { initialData: DigestData | null }
         .v2-obs-tab:hover { color: var(--phosphor); }
         .v2-obs-tab-active {
           color: var(--phosphor);
-          background: rgba(61, 216, 141, 0.06);
+          background: rgba(58, 167, 109, 0.06);
         }
 
         /* Spotlight */
         .v2-digest-spotlight {
           border: 1px solid var(--line-2);
           background:
-            radial-gradient(ellipse at 0% 0%, rgba(61, 216, 141, 0.05), transparent 60%),
+            radial-gradient(ellipse at 0% 0%, rgba(58, 167, 109, 0.05), transparent 60%),
             var(--bg-1);
           padding: 32px;
         }
@@ -1115,7 +1115,7 @@ export function DigestClient({ initialData }: { initialData: DigestData | null }
           padding: 40px;
           border: 1px solid var(--line-2);
           background:
-            radial-gradient(ellipse at 90% 0%, rgba(61, 216, 141, 0.06), transparent 60%),
+            radial-gradient(ellipse at 90% 0%, rgba(58, 167, 109, 0.06), transparent 60%),
             var(--bg-1);
           flex-wrap: wrap;
         }
@@ -1150,7 +1150,7 @@ export function DigestClient({ initialData }: { initialData: DigestData | null }
         .v2-digest-soon {
           border: 1px solid var(--line-2);
           background:
-            radial-gradient(ellipse at 50% 0%, rgba(61, 216, 141, 0.06), transparent 60%),
+            radial-gradient(ellipse at 50% 0%, rgba(58, 167, 109, 0.06), transparent 60%),
             var(--bg-1);
           padding: 64px 32px;
           max-width: 720px;

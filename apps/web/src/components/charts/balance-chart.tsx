@@ -62,8 +62,8 @@ export function BalanceChart({ data }: BalanceChartProps) {
       <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#3dd88d" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#3dd88d" stopOpacity={0} />
+            <stop offset="5%" stopColor="#3aa76d" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#3aa76d" stopOpacity={0} />
           </linearGradient>
         </defs>
         <XAxis
@@ -104,7 +104,7 @@ export function BalanceChart({ data }: BalanceChartProps) {
         <Area
           type="monotone"
           dataKey="value"
-          stroke="#3dd88d"
+          stroke="#3aa76d"
           fill="url(#balanceGradient)"
           strokeWidth={2}
         />

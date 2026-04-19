@@ -465,12 +465,12 @@ export default function SettingsPage() {
         .v2-settings-meter-fill {
           height: 100%;
           background: var(--phosphor);
-          box-shadow: 0 0 8px rgba(61, 216, 141, 0.4);
+          box-shadow: 0 0 8px rgba(58, 167, 109, 0.4);
           transition: width 0.3s;
         }
         .v2-settings-new-key {
           border: 1px solid var(--phosphor-dim);
-          background: rgba(61, 216, 141, 0.04);
+          background: rgba(58, 167, 109, 0.04);
           padding: 20px 22px;
           display: flex;
           flex-direction: column;

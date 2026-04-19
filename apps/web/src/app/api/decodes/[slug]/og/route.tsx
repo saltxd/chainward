@@ -2,7 +2,7 @@ import { ImageResponse } from '@vercel/og';
 import { getDecodeBySlug } from '@/lib/decodes';
 
 const BG = '#0a0b0a';
-const GREEN = '#3dd88d';
+const GREEN = '#3aa76d';
 const WHITE = '#ffffff';
 const GRAY = '#a1a1aa';
 const DARK_GRAY = '#52525b';

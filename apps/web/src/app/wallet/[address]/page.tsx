@@ -333,14 +333,14 @@ export default function WalletLookupResultPage({
                           fontSize: 11,
                         }}
                         labelStyle={{ color: '#9ba397' }}
-                        itemStyle={{ color: '#3dd88d' }}
+                        itemStyle={{ color: '#3aa76d' }}
                         labelFormatter={(v: number) => `block ${v.toLocaleString()}`}
                       />
                       <Area
                         type="monotone"
                         dataKey="value"
-                        stroke="#3dd88d"
-                        fill="#3dd88d"
+                        stroke="#3aa76d"
+                        fill="#3aa76d"
                         fillOpacity={0.1}
                         strokeWidth={1.5}
                         name="value"
