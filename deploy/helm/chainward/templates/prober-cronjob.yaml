@@ -40,7 +40,7 @@ spec:
                       name: chainward-secrets
                       key: PROBER_DISCORD_WEBHOOK
                 - name: STALE_MINUTES_THRESHOLD
-                  value: "15"
+                  value: "45"
               command:
                 - /bin/sh
                 - -c
