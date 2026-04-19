@@ -37,9 +37,21 @@ await setupAcpSyncSchedule(redis);
 await setupDigestSchedule(redis);
 await setupAcpWalletTracerSchedule(redis);
 
+// Heartbeat — telemetry reads this key to know the indexer process is alive.
+// TTL expires the key if the process dies so "key missing" == "indexer down".
+const HEARTBEAT_KEY = 'chainward:indexer:heartbeat';
+const writeHeartbeat = () =>
+  redis
+    .set(HEARTBEAT_KEY, Date.now().toString(), 'EX', 60)
+    .catch((err) => logger.warn({ err }, 'indexer heartbeat write failed'));
+void writeHeartbeat();
+const heartbeatInterval = setInterval(() => void writeHeartbeat(), 15_000);
+
 // Graceful shutdown
 async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down workers');
+  clearInterval(heartbeatInterval);
+  await redis.del(HEARTBEAT_KEY).catch(() => {});
   await Promise.all([
     baseIndexer.close(),
     balancePoller.close(),
