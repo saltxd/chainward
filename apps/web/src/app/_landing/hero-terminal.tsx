@@ -15,7 +15,7 @@ const SCRIPT: Line[] = [
   {
     kind: 'stdout',
     text: '✓ agent registered · indexing started',
-    color: 'var(--phosphor)',
+    color: 'var(--terminal-green)',
     delay: 400,
   },
   { kind: 'blank', text: '', delay: 200 },
@@ -27,7 +27,7 @@ const SCRIPT: Line[] = [
   {
     kind: 'stdout',
     text: '✓ alert armed · latency target <30s',
-    color: 'var(--phosphor)',
+    color: 'var(--terminal-green)',
     delay: 400,
   },
   { kind: 'blank', text: '', delay: 1200 },
@@ -71,7 +71,7 @@ export function HeroTerminal() {
       ))}
       {visible >= SCRIPT.length && (
         <div style={{ marginTop: 8, color: 'var(--fg-dim)', fontSize: 12 }}>
-          <span style={{ color: 'var(--phosphor)' }}>$</span> <Cursor />
+          <span style={{ color: 'var(--terminal-green)' }}>$</span> <Cursor />
         </div>
       )}
     </TerminalCard>
@@ -85,7 +85,7 @@ function Cursor() {
         display: 'inline-block',
         width: 8,
         height: 14,
-        background: 'var(--phosphor)',
+        background: 'var(--terminal-green)',
         verticalAlign: 'text-bottom',
         animation: 'v2-pulse 1s steps(2) infinite',
       }}
@@ -99,7 +99,7 @@ function TerminalLine({ line, isLast }: { line: Line; isLast: boolean }) {
   if (line.kind === 'prompt') {
     return (
       <div style={{ color: 'var(--fg)', wordBreak: 'break-word' }}>
-        <span style={{ color: 'var(--phosphor)', marginRight: 10 }}>$</span>
+        <span style={{ color: 'var(--terminal-green)', marginRight: 10 }}>$</span>
         {line.text}
         {isLast && (
           <span style={{ marginLeft: 4 }}>

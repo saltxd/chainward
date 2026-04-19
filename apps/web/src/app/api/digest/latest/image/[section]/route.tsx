@@ -3,7 +3,7 @@ import { ImageResponse } from '@vercel/og';
 // ── Design constants ──────────────────────────────────────────────────
 const BG = '#0a0b0a';
 const BG_CARD = '#0f1110';
-const GREEN = '#3dd88d';
+const GREEN = '#3aa76d';
 const WHITE = '#e8ebe4';
 const GRAY = '#9ba397';
 const DARK_GRAY = '#585f56';

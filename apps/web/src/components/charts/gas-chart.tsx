@@ -36,7 +36,7 @@ export function GasChart({ data }: GasChartProps) {
           }
         />
         <Tooltip
-          cursor={{ fill: 'rgba(61, 216, 141, 0.06)' }}
+          cursor={{ fill: 'rgba(58, 167, 109, 0.08)' }}
           contentStyle={{
             backgroundColor: '#0f1110',
             border: '1px solid #1e231f',
@@ -49,7 +49,7 @@ export function GasChart({ data }: GasChartProps) {
             name === 'gas' ? 'Gas Spend' : 'Tx Count',
           ]}
         />
-        <Bar dataKey="gas" fill="#3dd88d" />
+        <Bar dataKey="gas" fill="#3aa76d" />
       </BarChart>
     </ResponsiveContainer>
   );

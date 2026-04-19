@@ -13,11 +13,11 @@
   --color-card-foreground: #e8ebe4;
   --color-border: #1e231f;
 
-  --color-primary: #3dd88d;
+  --color-primary: #3aa76d;
   --color-primary-foreground: #0a0b0a;
   --color-accent: #1d6b42;
-  --color-accent-foreground: #3dd88d;
-  --color-ring: #3dd88d;
+  --color-accent-foreground: #3aa76d;
+  --color-ring: #3aa76d;
 
   --color-destructive: #e66767;
   --color-destructive-foreground: #0a0b0a;
@@ -101,7 +101,7 @@ a,
 
 .decode-prose code {
   color: var(--phosphor);
-  background: rgba(61,216,141,0.08);
+  background: rgba(58,167,109,0.08);
   padding: 1px 6px;
   border: 1px solid var(--line);
   font-family: var(--font-mono), ui-monospace, monospace;
@@ -112,7 +112,7 @@ a,
   border-left: 2px solid var(--phosphor);
   padding: 0.5rem 1rem;
   margin: 1.5rem 0;
-  background: rgba(61,216,141,0.04);
+  background: rgba(58,167,109,0.04);
   font-family: var(--font-serif), Georgia, serif;
   font-style: italic;
   font-size: 1.1rem;
@@ -183,7 +183,7 @@ a,
   padding: 10px 12px;
 }
 .decode-prose tr:hover td {
-  background: rgba(61,216,141,0.03);
+  background: rgba(58,167,109,0.03);
 }
 
 .decode-prose img {

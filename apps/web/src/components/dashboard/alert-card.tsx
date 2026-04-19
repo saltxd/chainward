@@ -134,7 +134,7 @@ export function AlertCard({
           flex-wrap: wrap;
         }
         .v2-alert-card:first-child { border-top: none; }
-        .v2-alert-card:hover { background: rgba(61, 216, 141, 0.03); }
+        .v2-alert-card:hover { background: rgba(58, 167, 109, 0.03); }
         .v2-alert-card-main {
           display: flex;
           flex-direction: column;

@@ -183,7 +183,7 @@ export function MobileRegisterFab() {
       style={{
         background: 'var(--phosphor)',
         color: 'var(--bg)',
-        boxShadow: '0 0 24px rgba(61,216,141,0.35)',
+        boxShadow: '0 0 24px rgba(58,167,109,0.35)',
       }}
       aria-label="Register Agent"
     >

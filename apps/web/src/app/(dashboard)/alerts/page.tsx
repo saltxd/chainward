@@ -755,7 +755,7 @@ function AlertsContent() {
         .v2-alerts-preset-btn-active {
           border-color: var(--phosphor);
           color: var(--phosphor);
-          background: rgba(61, 216, 141, 0.06);
+          background: rgba(58, 167, 109, 0.06);
         }
         .v2-alerts-preset-desc {
           font-size: 12px;
