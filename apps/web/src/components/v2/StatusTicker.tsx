@@ -7,8 +7,11 @@ type SignalStatus = 'online' | 'syncing' | 'degraded' | 'offline';
 interface Telemetry {
   sentinelTip: number | null;
   baseTip: number | null;
+  baseTipSource: 'base-public' | 'blockscout' | null;
   sentinelLag: number | null;
   sentinelStatus: SignalStatus;
+  indexerHeartbeatAt: string | null;
+  indexerHeartbeatAgeSeconds: number | null;
   indexerLastTxAt: string | null;
   indexerLagSeconds: number | null;
   indexerStatus: SignalStatus;
@@ -75,26 +78,30 @@ export function StatusTicker() {
     n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : `$${(n / 1000).toFixed(1)}k`;
 
   // Sentinel RPC node status (is our node keeping up with chain tip?)
+  // When no reference is available we don't claim degradation — we just say
+  // "unverified" since our sentinel is responding, we just can't compare.
   const sentinelLabel = (() => {
     if (!telemetry) return '…';
     const s = telemetry.sentinelStatus;
+    if (s === 'offline') return 'OFFLINE';
+    if (s === 'online' && telemetry.baseTip === null) return 'ONLINE · no ref';
     if (s === 'online') return 'ONLINE';
-    if (s === 'syncing')
-      return `SYNCING · lag ${telemetry.sentinelLag ?? '?'}`;
-    if (s === 'degraded')
-      return `DEGRADED · lag ${telemetry.sentinelLag ?? '?'}`;
+    if (s === 'syncing') return `SYNCING · lag ${telemetry.sentinelLag ?? '?'}`;
+    if (s === 'degraded') return `DEGRADED · lag ${telemetry.sentinelLag ?? '?'}`;
     return 'OFFLINE';
   })();
 
-  // Indexer status (is our ingestion pipeline actually processing txs?)
+  // Indexer status — based on process heartbeat, not tx activity.
+  // A quiet day (no txs) ≠ broken indexer. We show last-tx age as info text.
   const indexerLabel = (() => {
     if (!telemetry) return '…';
-    const age = formatAge(telemetry.indexerLagSeconds);
     const s = telemetry.indexerStatus;
-    if (s === 'online') return `LIVE · ${age}`;
-    if (s === 'syncing') return `LAG · ${age}`;
-    if (s === 'degraded') return `STALLED · ${age}`;
-    return 'OFFLINE';
+    const txAge = formatAge(telemetry.indexerLagSeconds);
+    const hbAge = formatAge(telemetry.indexerHeartbeatAgeSeconds);
+    if (s === 'offline') return 'OFFLINE';
+    if (s === 'degraded') return `STALLED · hb ${hbAge}`;
+    // online — heartbeat is fresh, show last-tx age so readers can see activity
+    return telemetry.indexerLastTxAt ? `LIVE · tx ${txAge}` : 'LIVE · no tx yet';
   })();
 
   const items: Array<{ label: string; value: string; live?: boolean; color?: string }> = [
