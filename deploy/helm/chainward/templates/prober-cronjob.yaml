@@ -55,8 +55,10 @@ spec:
                   AMBER=15158332     # warn (prober malfunction)
                   GREEN=3066993      # resolved
 
-                  # Claude_Dev ping matches the Spidey Bot convention so the Discord bot picks it up
-                  CLAUDE_PING="@Claude_Dev"
+                  # Claude_Dev ping — use Discord user-ID format + allowed_mentions to actually
+                  # trigger the mention (plain "@Claude_Dev" is just text and won't notify).
+                  CLAUDE_USER_ID="1484392008348074126"
+                  CLAUDE_PING="<@${CLAUDE_USER_ID}>"
 
                   send_discord() {
                     local title="$1" desc="$2" color="$3"
@@ -64,6 +66,7 @@ spec:
                       -H "Content-Type: application/json" \
                       -d "{
                         \"content\": \"${CLAUDE_PING}\",
+                        \"allowed_mentions\": {\"users\": [\"${CLAUDE_USER_ID}\"]},
                         \"embeds\": [{
                           \"title\": \"$title\",
                           \"description\": \"$desc\",
