@@ -1,6 +1,7 @@
 import { Worker, Queue, type Job } from 'bullmq';
 import { sql } from 'drizzle-orm';
 import { weeklyDigests, acpAgentSnapshots, acpAgentData } from '@chainward/db';
+import { renderDigestDiscord, type DigestSummary } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
@@ -32,6 +33,7 @@ interface HeadlineNumbers {
 interface LeaderboardEntry {
   name: string | null;
   walletAddress: string;
+  slug: string | null;
   revenue: number;
   gasCost: number;
   profit: number;
@@ -40,6 +42,7 @@ interface LeaderboardEntry {
 interface MoverEntry {
   name: string | null;
   walletAddress: string;
+  slug: string | null;
   previousRevenue: number;
   currentRevenue: number;
   changePct: number;
@@ -316,6 +319,7 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
     SELECT DISTINCT ON (acp.wallet_address)
       acp.name,
       acp.wallet_address,
+      ar.slug,
       COALESCE(CAST(acp.revenue AS numeric), 0) AS revenue,
       COALESCE((
         SELECT SUM(CAST(t.gas_cost_usd AS numeric))
@@ -337,6 +341,7 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
     .map((r) => ({
       name: r['name'] ?? null,
       walletAddress: r['wallet_address'] ?? '',
+      slug: r['slug'] ?? null,
       revenue: parseFloat(r['revenue'] ?? '0'),
       gasCost: parseFloat(r['gas_cost'] ?? '0'),
       profit: parseFloat(r['revenue'] ?? '0') - parseFloat(r['gas_cost'] ?? '0'),
@@ -349,6 +354,7 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
     SELECT
       acp.name,
       acp.wallet_address,
+      ar.slug,
       COALESCE(CAST(acp.revenue AS numeric), 0) AS revenue,
       sub.gas_cost,
       CASE WHEN sub.gas_cost > 0
@@ -376,6 +382,7 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
   const mostEfficient = (efficientRows as unknown as Array<Record<string, string>>).map((r) => ({
     name: r['name'] ?? null,
     walletAddress: r['wallet_address'] ?? '',
+    slug: r['slug'] ?? null,
     revenue: parseFloat(r['revenue'] ?? '0'),
     gasCost: parseFloat(r['gas_cost'] ?? '0'),
     profit: parseFloat(r['revenue'] ?? '0') - parseFloat(r['gas_cost'] ?? '0'),
@@ -387,6 +394,7 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
     SELECT
       curr.name,
       curr.wallet_address,
+      ar.slug,
       COALESCE(CAST(prev.revenue AS numeric), 0) AS prev_revenue,
       COALESCE(CAST(curr.revenue AS numeric), 0) AS curr_revenue,
       CASE
@@ -398,6 +406,9 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
     LEFT JOIN acp_agent_snapshots prev
       ON curr.wallet_address = prev.wallet_address
       AND prev.week_start = ${priorWeekStart}::date
+    LEFT JOIN agent_registry ar
+      ON ar.registry_id = curr.virtual_agent_id::text
+      AND ar.is_observatory = true
     WHERE curr.revenue IS NOT NULL
       AND CAST(curr.revenue AS numeric) > 0
       AND prev.revenue IS NOT NULL
@@ -410,6 +421,7 @@ async function buildLeaderboards(weekStart: string, weekEnd: string, priorWeekSt
     .map((r) => ({
       name: r['name'] ?? null,
       walletAddress: r['wallet_address'] ?? '',
+      slug: r['slug'] ?? null,
       previousRevenue: parseFloat(r['prev_revenue'] ?? '0'),
       currentRevenue: parseFloat(r['curr_revenue'] ?? '0'),
       changePct: parseFloat(r['change_pct'] ?? '0'),
@@ -1035,6 +1047,58 @@ async function generateWeeklyDigest() {
   `);
 
   logger.info({ weekStart, weekEnd }, 'Weekly digest generated and stored');
+
+  // Post thread-formatted digest to Discord webhook (non-fatal if it fails)
+  const webhookUrl = process.env.DIGEST_DISCORD_WEBHOOK;
+  if (webhookUrl) {
+    const summary: DigestSummary = {
+      weekStart,
+      weekEnd,
+      ecosystem: {
+        totalRevenue: headline.totalRevenue,
+        totalJobs: headline.totalJobs,
+        activeAgents: headline.activeAgents,
+      },
+      topEarners: leaderboards.mostProfitable.slice(0, 5).map((e) => ({
+        name: e.name ?? e.walletAddress,
+        slug: e.slug ?? e.walletAddress.slice(0, 10),
+        revenue: e.revenue,
+      })),
+      movers: [
+        ...leaderboards.biggestMovers.gainers.map((m) => ({
+          name: m.name ?? m.walletAddress,
+          slug: m.slug ?? m.walletAddress.slice(0, 10),
+          changePct: m.changePct,
+        })),
+        ...leaderboards.biggestMovers.decliners.map((m) => ({
+          name: m.name ?? m.walletAddress,
+          slug: m.slug ?? m.walletAddress.slice(0, 10),
+          changePct: m.changePct,
+        })),
+      ],
+    };
+
+    const payload = renderDigestDiscord(summary);
+
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        logger.warn({ status: res.status }, 'digestGenerator: Discord webhook failed');
+      } else {
+        logger.info('digestGenerator: posted weekly digest to Discord');
+      }
+    } catch (err) {
+      logger.error(
+        { err: err instanceof Error ? err.message : String(err) },
+        'digestGenerator: Discord webhook error',
+      );
+    }
+  }
+
   return digestData;
 }
 

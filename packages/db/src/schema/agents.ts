@@ -7,6 +7,7 @@ export const agentRegistry = pgTable(
     id: bigserial('id', { mode: 'number' }).primaryKey(),
     chain: text('chain').notNull(), // 'base' | 'solana'
     walletAddress: text('wallet_address').notNull(),
+    slug: text('slug').notNull(),
     agentName: text('agent_name'),
     agentFramework: text('agent_framework'), // 'elizaos' | 'olas' | 'virtuals' | 'agentkit' | 'custom'
     registrySource: text('registry_source').notNull().default('manual'), // 'erc8004' | 'olas' | 'virtuals' | 'manual' | 'heuristic'
@@ -31,6 +32,7 @@ export const agentRegistry = pgTable(
   },
   (table) => [
     uniqueIndex('idx_agent_registry_unique').on(table.chain, table.walletAddress, table.userId),
+    uniqueIndex('idx_agent_registry_chain_slug').on(table.chain, table.slug),
     index('idx_agent_registry_chain').on(table.chain),
     index('idx_agent_registry_framework').on(table.agentFramework),
     index('idx_agent_registry_user').on(table.userId),
