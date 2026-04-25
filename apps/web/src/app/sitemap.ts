@@ -1,5 +1,10 @@
 import type { MetadataRoute } from 'next';
 
+// Run per-request (with the inner fetch's cache) so the sitemap can reach the
+// internal API. Default behavior is to evaluate at build time, which can't see
+// API_INTERNAL_URL because it points at the in-cluster service.
+export const dynamic = 'force-dynamic';
+
 const SITE = 'https://chainward.ai';
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
