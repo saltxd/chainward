@@ -32,7 +32,10 @@ export const agentRegistry = pgTable(
   },
   (table) => [
     uniqueIndex('idx_agent_registry_unique').on(table.chain, table.walletAddress, table.userId),
-    uniqueIndex('idx_agent_registry_chain_slug').on(table.chain, table.slug),
+    // The actual DB index is PARTIAL (WHERE is_observatory=true AND is_public=true) — Drizzle
+    // doesn't have a clean way to express that, so we declare it as a regular index here.
+    // The uniqueness constraint lives in migration 0013_agent_slug.sql.
+    index('idx_agent_registry_chain_slug').on(table.chain, table.slug),
     index('idx_agent_registry_chain').on(table.chain),
     index('idx_agent_registry_framework').on(table.agentFramework),
     index('idx_agent_registry_user').on(table.userId),
