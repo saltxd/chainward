@@ -397,4 +397,119 @@ export class ObservatoryService {
       return { alertsFiredThisWeek, alertsByType };
     });
   }
+
+  // ── 6. Agent detail ───────────────────────────────────────────────────
+
+  async getAgentDetail(slug: string) {
+    return this.cached(`obs:agent:${slug}`, 120, async () => {
+      // 1. Resolve slug → agent
+      const agentRows = await this.db.execute(sql`
+        SELECT id, wallet_address, slug, agent_name, agent_framework,
+               twitter_handle, project_url, registry_source, acp_agent_id, first_seen_at
+        FROM agent_registry
+        WHERE chain = 'base' AND slug = ${slug} AND is_observatory = true AND is_public = true
+        LIMIT 1
+      `);
+      const agent = (agentRows as unknown as Array<Record<string, unknown>>)[0];
+      if (!agent) return null;
+
+      const wallet = String(agent.wallet_address);
+      const agentId = Number(agent.id);
+
+      // 2. Latest health score + breakdown
+      const healthRows = await this.db.execute(sql`
+        SELECT score, uptime_pct, gas_efficiency, failure_rate, consistency, date
+        FROM daily_agent_health
+        WHERE agent_id = ${agentId}
+        ORDER BY date DESC
+        LIMIT 1
+      `);
+      const health = (healthRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
+
+      // 3. 30-day daily balance series (native ETH only for chart simplicity)
+      const balanceRows = await this.db.execute(sql`
+        SELECT
+          time_bucket('1 day', timestamp) AS day,
+          AVG(CAST(balance_usd AS numeric))::float AS balance_usd,
+          AVG(CAST(balance_native AS numeric))::float AS balance_eth
+        FROM balance_snapshots
+        WHERE LOWER(wallet_address) = LOWER(${wallet})
+          AND token_address IS NULL
+          AND timestamp >= NOW() - INTERVAL '30 days'
+        GROUP BY day
+        ORDER BY day ASC
+      `);
+
+      // 4. Last 50 transactions
+      const txRows = await this.db.execute(sql`
+        SELECT timestamp, direction, token_symbol, amount_usd, gas_cost_usd,
+               tx_hash, tx_type, status
+        FROM transactions
+        WHERE LOWER(wallet_address) = LOWER(${wallet})
+        ORDER BY timestamp DESC
+        LIMIT 50
+      `);
+
+      // 5. ACP economics (if linked)
+      let acp = null;
+      if (agent.acp_agent_id) {
+        const acpRows = await this.db.execute(sql`
+          SELECT name, symbol, role, profile_pic, has_graduated, is_online,
+                 revenue, gross_agentic_amount AS agdp,
+                 successful_job_count AS jobs, success_rate, unique_buyer_count
+          FROM acp_agent_data
+          WHERE virtual_agent_id = ${agent.acp_agent_id}
+          LIMIT 1
+        `);
+        acp = (acpRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
+      }
+
+      return {
+        slug: String(agent.slug),
+        walletAddress: wallet,
+        agentName: agent.agent_name != null ? String(agent.agent_name) : null,
+        agentFramework: agent.agent_framework != null ? String(agent.agent_framework) : null,
+        twitterHandle: agent.twitter_handle != null ? String(agent.twitter_handle) : null,
+        projectUrl: agent.project_url != null ? String(agent.project_url) : null,
+        registrySource: String(agent.registry_source),
+        firstSeenAt: String(agent.first_seen_at),
+        health: health ? {
+          score: Number(health.score),
+          uptimePct: parseFloat(String(health.uptime_pct ?? '0')),
+          gasEfficiency: parseFloat(String(health.gas_efficiency ?? '0')),
+          failureRate: parseFloat(String(health.failure_rate ?? '0')),
+          consistency: parseFloat(String(health.consistency ?? '0')),
+          date: String(health.date),
+        } : null,
+        balanceSeries: (balanceRows as unknown as Array<Record<string, unknown>>).map((r) => ({
+          date: String(r.day),
+          balanceUsd: r.balance_usd != null ? Number(r.balance_usd) : null,
+          balanceEth: r.balance_eth != null ? Number(r.balance_eth) : null,
+        })),
+        transactions: (txRows as unknown as Array<Record<string, unknown>>).map((r) => ({
+          timestamp: String(r.timestamp),
+          direction: String(r.direction),
+          tokenSymbol: r.token_symbol != null ? String(r.token_symbol) : null,
+          amountUsd: parseFloat(String(r.amount_usd ?? '0')),
+          gasCostUsd: parseFloat(String(r.gas_cost_usd ?? '0')),
+          txHash: String(r.tx_hash),
+          txType: r.tx_type != null ? String(r.tx_type) : 'unknown',
+          status: String(r.status),
+        })),
+        acp: acp ? {
+          name: String(acp.name ?? ''),
+          symbol: acp.symbol != null ? String(acp.symbol) : null,
+          role: acp.role != null ? String(acp.role) : null,
+          profilePic: acp.profile_pic != null ? String(acp.profile_pic) : null,
+          hasGraduated: Boolean(acp.has_graduated),
+          isOnline: Boolean(acp.is_online),
+          revenue: parseFloat(String(acp.revenue ?? '0')),
+          agdp: parseFloat(String(acp.agdp ?? '0')),
+          jobs: Number(acp.jobs ?? 0),
+          successRate: parseFloat(String(acp.success_rate ?? '0')),
+          uniqueBuyers: Number(acp.unique_buyer_count ?? 0),
+        } : null,
+      };
+    });
+  }
 }
