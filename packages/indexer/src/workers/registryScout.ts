@@ -1,5 +1,7 @@
 import { Worker, Queue, type Job } from 'bullmq';
 import { sql } from 'drizzle-orm';
+import { type Database } from '@chainward/db';
+import { agentSlug } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { getBaseClient } from '../lib/viem.js';
@@ -13,6 +15,8 @@ import { type Abi, type Address, parseAbiItem, formatEther } from 'viem';
 const ERC8004_IDENTITY_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as Address;
 const MIN_TX_COUNT = 5;
 const REDIS_LAST_BLOCK_KEY = 'registry-scout:last-block';
+const PROMOTE_TX_THRESHOLD = 100;
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 // How far back to start on first run (roughly 1 day of Base blocks at 2s/block)
 const INITIAL_LOOKBACK_BLOCKS = 43200n;
 // Max blocks to scan per poll (avoid huge log queries)
@@ -253,11 +257,74 @@ async function scanRegistrations() {
     },
     'Registry scout scan complete',
   );
+
+  // Auto-promote high-activity candidates to observatory
+  const { promoted, failed } = await autoPromoteCandidates(db);
+  logger.info({ promoted, failed }, 'registryScout: auto-promote complete');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
+
+async function autoPromoteCandidates(db: Database): Promise<{ promoted: number; failed: number }> {
+  const rows = await db.execute(sql`
+    SELECT id, chain, wallet_address, agent_name, registry_token_id
+    FROM observatory_candidates
+    WHERE status = 'pending' AND tx_count > ${PROMOTE_TX_THRESHOLD}
+    LIMIT 100
+  `);
+
+  const typed = rows as unknown as Array<{
+    id: number;
+    chain: string;
+    wallet_address: string;
+    agent_name: string | null;
+    registry_token_id: number | null;
+  }>;
+
+  let promoted = 0;
+  let failed = 0;
+
+  for (const r of typed) {
+    const slug = agentSlug(r.agent_name, r.wallet_address);
+
+    try {
+      await db.execute(sql`
+        INSERT INTO agent_registry
+          (chain, wallet_address, slug, agent_name, agent_framework,
+           registry_source, registry_id, is_public, is_observatory, user_id)
+        VALUES
+          (${r.chain}, LOWER(${r.wallet_address}), ${slug}, ${r.agent_name},
+           'erc8004', 'erc8004', ${r.registry_token_id !== null ? String(r.registry_token_id) : null},
+           true, true, ${SYSTEM_USER_ID})
+        ON CONFLICT (chain, wallet_address, user_id) DO UPDATE
+          SET is_observatory = true, is_public = true, updated_at = NOW()
+      `);
+
+      await db.execute(sql`
+        UPDATE observatory_candidates
+        SET status = 'approved', reviewed_at = NOW(),
+            notes = COALESCE(notes, '') || ${` [auto-promoted: tx_count > ${PROMOTE_TX_THRESHOLD}]`}
+        WHERE id = ${r.id}
+      `);
+
+      promoted++;
+    } catch (err) {
+      failed++;
+      logger.error(
+        { walletAddress: r.wallet_address, candidateId: r.id, err: err instanceof Error ? err.message : String(err) },
+        'registryScout: failed to promote candidate',
+      );
+    }
+  }
+
+  if (failed > 0) {
+    logger.warn({ failed, total: typed.length }, 'registryScout: auto-promote completed with row-level failures');
+  }
+
+  return { promoted, failed };
+}
 
 function parseAgentName(uri: string | undefined): string | null {
   if (!uri) return null;
