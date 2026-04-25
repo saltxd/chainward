@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeHealthScore } from '../healthScore.js';
+import { computeHealthScore } from '../healthScore-formula.js';
 
 describe('computeHealthScore', () => {
   it('returns max score for a perfect agent', () => {
