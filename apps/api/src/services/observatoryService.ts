@@ -188,6 +188,7 @@ export class ObservatoryService {
           t.wallet_address,
           COALESCE(a.agent_name, t.wallet_address) AS agent_name,
           a.agent_framework,
+          a.slug,
           COUNT(*) AS tx_count
         FROM transactions t
         LEFT JOIN agent_registry a ON a.wallet_address = t.wallet_address
@@ -195,7 +196,7 @@ export class ObservatoryService {
         WHERE t.wallet_address = ANY(${walletArray}::text[])
           AND t.timestamp >= ${weekAgo}::timestamptz
           ${spamExclusion}
-        GROUP BY t.wallet_address, a.agent_name, a.agent_framework
+        GROUP BY t.wallet_address, a.agent_name, a.agent_framework, a.slug
         ORDER BY tx_count DESC
         LIMIT 10
       `);
@@ -204,6 +205,7 @@ export class ObservatoryService {
         walletAddress: String(r.wallet_address),
         agentName: String(r.agent_name),
         agentFramework: r.agent_framework != null ? String(r.agent_framework) : null,
+        slug: String(r.slug),
         txCount: parseInt(String(r.tx_count), 10),
         rank: i + 1,
       }));
@@ -214,6 +216,7 @@ export class ObservatoryService {
           t.wallet_address,
           COALESCE(a.agent_name, t.wallet_address) AS agent_name,
           a.agent_framework,
+          a.slug,
           COALESCE(SUM(CAST(t.gas_cost_usd AS numeric)), 0) AS gas_spend_usd
         FROM transactions t
         LEFT JOIN agent_registry a ON a.wallet_address = t.wallet_address
@@ -221,7 +224,7 @@ export class ObservatoryService {
         WHERE t.wallet_address = ANY(${walletArray}::text[])
           AND t.timestamp >= ${weekAgo}::timestamptz
           ${spamExclusion}
-        GROUP BY t.wallet_address, a.agent_name, a.agent_framework
+        GROUP BY t.wallet_address, a.agent_name, a.agent_framework, a.slug
         ORDER BY gas_spend_usd DESC
         LIMIT 10
       `);
@@ -230,6 +233,7 @@ export class ObservatoryService {
         walletAddress: String(r.wallet_address),
         agentName: String(r.agent_name),
         agentFramework: r.agent_framework != null ? String(r.agent_framework) : null,
+        slug: String(r.slug),
         gasSpendUsd: parseFloat(String(r.gas_spend_usd ?? '0')),
         rank: i + 1,
       }));
@@ -240,6 +244,7 @@ export class ObservatoryService {
           bs.wallet_address,
           COALESCE(a.agent_name, bs.wallet_address) AS agent_name,
           a.agent_framework,
+          a.slug,
           COALESCE(CAST(bs.balance_usd AS numeric), 0) AS portfolio_value_usd
         FROM (
           SELECT DISTINCT ON (wallet_address) wallet_address, balance_usd
@@ -258,6 +263,7 @@ export class ObservatoryService {
         walletAddress: String(r.wallet_address),
         agentName: String(r.agent_name),
         agentFramework: r.agent_framework != null ? String(r.agent_framework) : null,
+        slug: String(r.slug),
         portfolioValueUsd: parseFloat(String(r.portfolio_value_usd ?? '0')),
         rank: i + 1,
       }));
@@ -269,6 +275,7 @@ export class ObservatoryService {
           a.wallet_address,
           COALESCE(a.agent_name, a.wallet_address) AS agent_name,
           a.agent_framework,
+          a.slug,
           h.score AS health_score,
           h.uptime_pct,
           h.gas_efficiency,
@@ -287,6 +294,7 @@ export class ObservatoryService {
         walletAddress: String(r.wallet_address),
         agentName: String(r.agent_name),
         agentFramework: r.agent_framework != null ? String(r.agent_framework) : null,
+        slug: String(r.slug),
         healthScore: parseInt(String(r.health_score), 10),
         uptimePct: parseFloat(String(r.uptime_pct ?? '0')),
         gasEfficiency: parseFloat(String(r.gas_efficiency ?? '0')),

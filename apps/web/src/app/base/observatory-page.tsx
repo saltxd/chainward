@@ -52,6 +52,7 @@ interface LeaderboardEntry {
   walletAddress: string;
   agentName: string;
   agentFramework: string | null;
+  slug: string;
   txCount?: number;
   gasSpendUsd?: number;
   portfolioValueUsd?: number;
@@ -184,8 +185,9 @@ export function ObservatoryPage() {
       header: 'agent',
       render: (r) => (
         <Link
-          href={`/agent/${r.walletAddress}`}
+          href={`/base/${r.slug}`}
           style={{ color: 'var(--fg)', textDecoration: 'none' }}
+          className="hover:underline"
         >
           {r.agentName || truncateAddress(r.walletAddress)}
           <span style={{ marginLeft: 10, color: 'var(--muted)', fontSize: 11 }}>
