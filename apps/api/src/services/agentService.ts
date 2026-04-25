@@ -1,6 +1,6 @@
 import { eq, and, count } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
-import { validateAddress } from '@chainward/common';
+import { validateAddress, agentSlug } from '@chainward/common';
 import { TIER_LIMITS } from '@chainward/common';
 import type { CreateAgentInput, UpdateAgentInput } from '@chainward/common';
 import type { Tier } from '@chainward/common';
@@ -55,6 +55,7 @@ export class AgentService {
       .values({
         chain: input.chain,
         walletAddress: normalized,
+        slug: agentSlug(input.agentName ?? null, normalized),
         agentName: input.agentName ?? null,
         agentFramework: input.agentFramework ?? null,
         tags: input.tags ?? [],
