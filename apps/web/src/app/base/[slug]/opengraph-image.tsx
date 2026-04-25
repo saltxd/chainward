@@ -45,10 +45,17 @@ export default async function og({ params }: { params: Promise<{ slug: string }>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ fontSize: 18, color: '#888' }}>health score</div>
               <div
-                style={{ fontSize: 120, color: scoreColor, fontWeight: 700, lineHeight: 1 }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  fontSize: 120,
+                  color: scoreColor,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                }}
               >
                 {score}
-                <span style={{ fontSize: 36, color: '#666' }}> /100</span>
+                <span style={{ fontSize: 36, color: '#666', marginLeft: 8 }}>/100</span>
               </div>
             </div>
           )}
