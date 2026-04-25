@@ -283,6 +283,19 @@ observatory.get('/report', async (c) => {
   return c.json({ success: true, data });
 });
 
+observatory.get('/agent/:slug', async (c) => {
+  const slug = c.req.param('slug');
+
+  if (!/^[a-z0-9][a-z0-9-]{0,59}$/i.test(slug)) {
+    return c.json({ success: false, error: 'invalid slug' }, 400);
+  }
+
+  const data = await getService().getAgentDetail(slug);
+  if (!data) return c.json({ success: false, error: 'agent not found' }, 404);
+
+  return c.json({ success: true, data });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Candidates — auth required, for reviewing ERC-8004 scout results
 // ═══════════════════════════════════════════════════════════════════════════════
