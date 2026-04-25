@@ -13,7 +13,7 @@
 export function agentSlug(name: string | null | undefined, walletAddress: string): string {
   const fromName = (name ?? '')
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip combining marks (Unicode escape for clarity)
+    .replace(/[\u0300-\u036F]/g, '') // strip combining marks
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .slice(0, 60)
