@@ -27,4 +27,12 @@ describe('agentSlug', () => {
     const long = 'a'.repeat(120);
     expect(agentSlug(long, '0xabc')).toBe('a'.repeat(60));
   });
+
+  it('does not produce a trailing dash when slice(60) cuts mid-dash-run', () => {
+    // 'a'×59 + '!' + 'a' → after lower+replace: 'a'×59 + '-' + 'a'
+    // slice(60) gives 'a'×59 + '-' (ends in dash). Old code returns this.
+    // New code trims after slice, returning 'a'×59.
+    const input = 'a'.repeat(59) + '!a';
+    expect(agentSlug(input, '0xabc')).toBe('a'.repeat(59));
+  });
 });

@@ -13,11 +13,11 @@
 export function agentSlug(name: string | null | undefined, walletAddress: string): string {
   const fromName = (name ?? '')
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip combining marks
+    .replace(/[̀-ͯ]/g, '') // strip combining marks (Unicode escape for clarity)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
+    .slice(0, 60)
+    .replace(/^-+|-+$/g, '');
 
   if (fromName.length > 0) return fromName;
 
