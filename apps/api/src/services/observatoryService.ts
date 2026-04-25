@@ -434,12 +434,12 @@ export class ObservatoryService {
       `);
       const health = (healthRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
 
-      // 3. 30-day daily balance series (native ETH only for chart simplicity)
+      // 3. 30-day daily balance series. balance_snapshots only stores raw +
+      // USD; we don't carry a separate native column. The chart uses USD.
       const balanceRows = await this.db.execute(sql`
         SELECT
           time_bucket('1 day', timestamp) AS day,
-          AVG(CAST(balance_usd AS numeric))::float AS balance_usd,
-          AVG(CAST(balance_native AS numeric))::float AS balance_eth
+          AVG(CAST(balance_usd AS numeric))::float AS balance_usd
         FROM balance_snapshots
         WHERE LOWER(wallet_address) = LOWER(${wallet})
           AND token_address IS NULL
@@ -492,7 +492,6 @@ export class ObservatoryService {
         balanceSeries: (balanceRows as unknown as Array<Record<string, unknown>>).map((r) => ({
           date: String(r.day),
           balanceUsd: r.balance_usd != null ? Number(r.balance_usd) : null,
-          balanceEth: r.balance_eth != null ? Number(r.balance_eth) : null,
         })),
         transactions: (txRows as unknown as Array<Record<string, unknown>>).map((r) => ({
           timestamp: String(r.timestamp),
