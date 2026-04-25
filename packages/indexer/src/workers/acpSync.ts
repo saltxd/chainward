@@ -1,9 +1,12 @@
 import { Worker, Queue, type Job } from 'bullmq';
 import { sql } from 'drizzle-orm';
-import { acpAgentData, acpInteractions, acpEcosystemMetrics, agentRegistry } from '@chainward/db';
+import { acpAgentData, acpInteractions, acpEcosystemMetrics, agentRegistry, type Database } from '@chainward/db';
+import { agentSlug } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
+
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 const ACP_API = 'https://acpx.virtuals.io/api';
 const PAGE_SIZE = 100;
@@ -303,6 +306,84 @@ async function syncMetrics() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Observatory bridge — promote graduated ACP agents into agent_registry
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Bridge graduated ACP agents into agent_registry as observatory entries.
+ * Idempotent — uses ON CONFLICT (chain, wallet_address, user_id) DO UPDATE.
+ * Only graduates are bridged because non-graduated rows are unverified noise.
+ */
+async function bridgeAcpToObservatory(db: Database): Promise<{ inserted: number; updated: number; failed: number }> {
+  const rows = await db.execute(sql`
+    SELECT
+      acp.wallet_address,
+      acp.name,
+      acp.virtual_agent_id,
+      acp.twitter_handle,
+      acp.profile_pic
+    FROM acp_agent_data acp
+    WHERE acp.has_graduated = true
+      AND acp.wallet_address IS NOT NULL
+      AND LENGTH(acp.wallet_address) = 42
+  `);
+
+  const typed = rows as unknown as Array<{
+    wallet_address: string;
+    name: string | null;
+    virtual_agent_id: number | null;
+    twitter_handle: string | null;
+    profile_pic: string | null;
+  }>;
+
+  let inserted = 0;
+  let updated = 0;
+  let failed = 0;
+
+  for (const r of typed) {
+    const slug = agentSlug(r.name, r.wallet_address);
+
+    try {
+      const result = await db.execute(sql`
+        INSERT INTO agent_registry
+          (chain, wallet_address, slug, agent_name, agent_framework,
+           registry_source, registry_id, twitter_handle, is_public, is_observatory,
+           acp_agent_id, user_id)
+        VALUES
+          ('base', LOWER(${r.wallet_address}), ${slug}, ${r.name},
+           'virtuals', 'virtuals', ${r.virtual_agent_id?.toString() ?? null},
+           ${r.twitter_handle}, true, true,
+           ${r.virtual_agent_id}, ${SYSTEM_USER_ID})
+        ON CONFLICT (chain, wallet_address, user_id) DO UPDATE
+          SET agent_name = EXCLUDED.agent_name,
+              twitter_handle = EXCLUDED.twitter_handle,
+              acp_agent_id = EXCLUDED.acp_agent_id,
+              is_observatory = true,
+              is_public = true,
+              updated_at = NOW()
+        RETURNING (xmax = 0) AS was_inserted
+      `);
+
+      const wasInserted = (result as unknown as Array<{ was_inserted: boolean }>)[0]?.was_inserted;
+      if (wasInserted) inserted++;
+      else updated++;
+    } catch (err) {
+      failed++;
+      logger.error(
+        { wallet: r.wallet_address, name: r.name, slug, err: err instanceof Error ? err.message : String(err) },
+        'acpSync: failed to bridge agent to observatory',
+      );
+    }
+  }
+
+  if (failed > 0) {
+    logger.warn({ failed, total: typed.length }, 'acpSync: bridge completed with row-level failures');
+  }
+
+  return { inserted, updated, failed };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Worker setup
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -315,10 +396,14 @@ export function createAcpSyncWorker() {
     'acp-sync',
     async (job: Job<AcpSyncJobData>) => {
       switch (job.data.type) {
-        case 'agents':
+        case 'agents': {
+          const db = getDb();
           await syncAgents();
           await matchWallets();
+          const bridge = await bridgeAcpToObservatory(db);
+          logger.info({ inserted: bridge.inserted, updated: bridge.updated, failed: bridge.failed }, 'acpSync: bridged graduates to observatory');
           break;
+        }
         case 'interactions':
           await syncInteractions();
           break;

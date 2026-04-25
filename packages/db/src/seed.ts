@@ -37,6 +37,7 @@ async function seed() {
     {
       chain: 'base',
       walletAddress: '0x1234567890abcdef1234567890abcdef12345678',
+      slug: 'trading-bot-alpha',
       agentName: 'Trading Bot Alpha',
       agentFramework: 'agentkit',
       registrySource: 'manual',
@@ -46,6 +47,7 @@ async function seed() {
     {
       chain: 'base',
       walletAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+      slug: 'prediction-market-agent',
       agentName: 'Prediction Market Agent',
       agentFramework: 'olas',
       registrySource: 'olas',
@@ -55,6 +57,7 @@ async function seed() {
     {
       chain: 'base',
       walletAddress: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      slug: 'data-collector',
       agentName: 'Data Collector',
       agentFramework: 'elizaos',
       registrySource: 'manual',
