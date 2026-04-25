@@ -18,7 +18,7 @@ interface AgentDetail {
     failureRate: number;
     consistency: number;
   } | null;
-  balanceSeries: Array<{ date: string; balanceUsd: number | null; balanceEth: number | null }>;
+  balanceSeries: Array<{ date: string; balanceUsd: number | null }>;
   transactions: Array<{
     timestamp: string;
     direction: string;
