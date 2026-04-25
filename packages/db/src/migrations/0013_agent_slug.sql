@@ -3,18 +3,24 @@
 ALTER TABLE agent_registry
   ADD COLUMN IF NOT EXISTS slug TEXT;
 
--- Backfill existing rows. Mirrors the algorithm in packages/common/src/slug.ts —
--- keep these in sync if the rules ever change.
+-- Note: Postgres doesn't have NFKD/unaccent built-in, so this backfill does NOT
+-- strip diacritics like the JS agentSlug() helper does. Acceptable because
+-- existing rows have ASCII names. Future agents are inserted via TypeScript
+-- which DOES strip diacritics. If we ever need to backfill agents with
+-- accented names, install the `unaccent` extension first.
 UPDATE agent_registry
-SET slug = COALESCE(
-  NULLIF(
-    regexp_replace(
-      regexp_replace(LOWER(agent_name), '[^a-z0-9]+', '-', 'g'),
-      '(^-+|-+$)', '', 'g'
+SET slug = LEFT(
+  COALESCE(
+    NULLIF(
+      regexp_replace(
+        regexp_replace(LOWER(agent_name), '[^a-z0-9]+', '-', 'g'),
+        '(^-+|-+$)', '', 'g'
+      ),
+      ''
     ),
-    ''
+    'agent-' || SUBSTRING(REGEXP_REPLACE(wallet_address, '^0x', '', 'i') FROM 1 FOR 8)
   ),
-  'agent-' || SUBSTRING(REGEXP_REPLACE(wallet_address, '^0x', '', 'i') FROM 1 FOR 8)
+  60
 )
 WHERE slug IS NULL;
 
