@@ -8,6 +8,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   BASE_RPC_URL: z.string().url(),
   BASE_RPC_FALLBACK_URL: z.string().url().optional(),
+  BASE_RPC_TERTIARY_URL: z.string().url().default('https://mainnet.base.org'),
   ALCHEMY_API_KEY: z.string().optional(),
   // Webhook signing key still required — webhooks stay on Alchemy regardless of CHAIN_PROVIDER
   ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().min(1),
