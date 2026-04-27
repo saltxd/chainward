@@ -2,7 +2,7 @@
 title: "AIXBT On-Chain Decode"
 subtitle: "The most famous AI agent in crypto has earned $52.92 — and what its Apr 15 wallet activity can and cannot tell us"
 date: "2026-04-25"
-slug: "aixbt"
+slug: "aixbt-decode"
 ---
 
 # AIXBT On-Chain Decode
