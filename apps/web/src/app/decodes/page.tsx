@@ -41,7 +41,7 @@ export default function DecodesPage() {
       <StatusTicker />
 
       <div className="v2-shell" style={{ paddingBottom: 80 }}>
-        <NavBar ctaHref="/login" ctaLabel="./connect →" />
+        <NavBar ctaHref="/login" ctaLabel="./connect" />
 
         <section style={{ paddingTop: 56 }}>
           <SectionHead

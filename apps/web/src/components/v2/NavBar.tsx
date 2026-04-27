@@ -11,6 +11,11 @@ export interface NavLink {
 interface NavBarProps {
   links?: NavLink[];
   ctaHref: string;
+  /**
+   * Text portion of the CTA, e.g. "./connect" or "dashboard".
+   * The trailing arrow is rendered separately and hidden at ≤480px
+   * via the `v2-nav-cta-arrow` class.
+   */
   ctaLabel: string;
   brandHref?: string;
 }
@@ -54,7 +59,8 @@ export function NavBar({
           ),
         )}
         <Link href={ctaHref} className="v2-nav-cta">
-          {ctaLabel}
+          <span>{ctaLabel}</span>
+          <span className="v2-nav-cta-arrow" aria-hidden> →</span>
         </Link>
       </div>
     </nav>
