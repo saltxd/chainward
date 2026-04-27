@@ -342,6 +342,7 @@ export function ObservatoryPage() {
               columns={leaderboardColumns}
               rows={leaderboardRows}
               empty="No leaderboard data yet."
+              mobileCard
             />
           </div>
 
@@ -354,6 +355,7 @@ export function ObservatoryPage() {
               columns={feedColumns}
               rows={feed ?? []}
               empty="No recent activity."
+              mobileCard
             />
           </div>
         </section>
@@ -541,6 +543,31 @@ export function ObservatoryPage() {
         @media (max-width: 960px) {
           .v2-obs-stats { grid-template-columns: repeat(2, 1fr); }
           .v2-obs-grid, .v2-obs-charts { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 480px) {
+          .v2-obs-stats {
+            gap: 16px 20px !important;
+            padding-top: 24px !important;
+          }
+          .v2-obs-tabs {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x mandatory;
+          }
+          .v2-obs-tab {
+            padding: 8px 12px !important;
+            font-size: 10px !important;
+            scroll-snap-align: start;
+            flex: 0 0 auto !important;
+          }
+          .v2-obs-cta {
+            padding: 24px !important;
+            gap: 20px !important;
+          }
+          .v2-obs-chart-card {
+            padding: 8px !important;
+          }
         }
       `}</style>
     </PageShell>
