@@ -473,3 +473,49 @@ body {
     gap: 14px;
   }
 }
+
+/* New mobile-only helpers used by NavBar + StatusTicker components.
+   Defined here so the React tree references stable class names; the
+   actual responsive behavior is in the ≤480px media block below. */
+.v2-ticker-item--mobile-hide { /* shown by default */ }
+.v2-nav-cta-arrow { /* shown by default */ }
+
+@media (max-width: 480px) {
+  .v2-ticker-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 16px;
+    gap: 14px;
+  }
+  .v2-ticker-item {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+  .v2-ticker-item--mobile-hide {
+    display: none;
+  }
+
+  .v2-nav {
+    padding: 14px 0;
+    font-size: 11px;
+  }
+  .v2-nav-brand {
+    font-size: 11px;
+  }
+  .v2-nav-links {
+    gap: 10px;
+  }
+  .v2-nav-cta {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+  .v2-nav-cta-arrow {
+    display: none;
+  }
+
+  .v2-tile-value {
+    /* Tighter line-height already inherited; rely on per-size font tweaks. */
+  }
+}
