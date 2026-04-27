@@ -212,7 +212,7 @@ export function SnippetsClient() {
       <PageShell>
         <StatusTicker />
         <div className="v2-shell">
-          <NavBar ctaHref="/base/digest" ctaLabel="← digest" />
+          <NavBar ctaHref="/base/digest" ctaLabel="← digest" hideArrow />
           <div className="v2-snip-loading">
             <span className="v2-snip-loading-dot" />
             loading…
@@ -227,7 +227,7 @@ export function SnippetsClient() {
       <StatusTicker />
 
       <div className="v2-shell" style={{ paddingBottom: 80 }}>
-        <NavBar ctaHref="/base/digest" ctaLabel="← digest" />
+        <NavBar ctaHref="/base/digest" ctaLabel="← digest" hideArrow />
 
         <section style={{ paddingTop: 56 }}>
           <SectionHead
