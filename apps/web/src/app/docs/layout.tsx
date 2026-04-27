@@ -31,7 +31,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
       <div className="v2-shell">
         <NavBar
           ctaHref={isAuthenticated ? '/overview' : '/login'}
-          ctaLabel={isAuthenticated ? 'dashboard →' : './connect →'}
+          ctaLabel={isAuthenticated ? 'dashboard' : './connect'}
         />
       </div>
 

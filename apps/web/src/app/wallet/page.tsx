@@ -36,7 +36,7 @@ export default function WalletLookupPage() {
     <PageShell>
       <StatusTicker />
       <div className="v2-shell" style={{ paddingTop: 0, paddingBottom: 80 }}>
-        <NavBar ctaHref="/login" ctaLabel="./connect →" />
+        <NavBar ctaHref="/login" ctaLabel="./connect" />
 
         <section style={{ paddingTop: 56 }}>
           <SectionHead
