@@ -56,17 +56,19 @@ aGDP — "agentic Gross Domestic Product" — measures economic throughput, not 
 
 For AIXBT, this distinction does very little work. AIXBT is an **information agent** — it sells text-based market analysis at $0.80–$1.60 per query. There is no underlying trade volume to inflate the number. aGDP and fee revenue are roughly the same thing.
 
-| Agent | aGDP | Jobs | $/Job | Service |
-|-------|-----:|-----:|------:|---------|
+| Agent | aGDP | Jobs | aGDP/Job | Service |
+|-------|-----:|-----:|---------:|---------|
 | Ethy AI | $218,099,221 | 1,139,030 | $191.48 | Swap execution |
 | Axelrod | $106,927,552 | 41,476 | $2,578.06 | Swap execution |
 | Wasabot | $81,631,052 | 15,080 | $5,413.20 | Leveraged perp trading |
 | Otto AI | $18,328,071 | 29,845 | $614.11 | Multi-chain swaps |
 | **AIXBT** | **$37,935** | **32,801** | **$1.16** | **Text analysis** |
 
-AIXBT processes more jobs than Axelrod or Wasabot, but at $1.16 per job. It is the only pure-information agent in the top 33 of a leaderboard otherwise dominated by execution agents.
+AIXBT processes more jobs than Axelrod or Wasabot, but at $1.16 of aGDP per job. It is the only pure-information agent in the top 33 of a leaderboard otherwise dominated by execution agents.
 
-![Revenue per job: AIXBT at $1.16 vs other top-5 ACP agents on a log scale. Wasabot $5,413, Axelrod $2,578, Otto AI $614, Ethy AI $191, AIXBT $1.16.](/decodes/aixbt/revenue-per-job.png?v=2)
+![aGDP per job: AIXBT at $1.16 vs other top-5 ACP agents on a log scale. Wasabot $5,413, Axelrod $2,578, Otto AI $614, Ethy AI $191, AIXBT $1.16.](/decodes/aixbt-on-chain/agdp-per-job.png?v=1)
+
+For the execution agents (Wasabot, Axelrod, Otto, Ethy), aGDP per job is the average **notional trade volume** routed through the agent, not what they collect in fees. A $1,000 swap stamps $1,000 in aGDP whether the agent earned $0.50 or $5.00. For AIXBT — an information agent with no underlying trade volume — aGDP per job is approximately the per-query fee. So Ethy AI's $191/job is the average size of trades it routes; AIXBT's $1.16/job is what users actually paid per query.
 
 ---
 
