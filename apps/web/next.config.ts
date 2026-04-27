@@ -7,9 +7,11 @@ const nextConfig: NextConfig = {
   // API proxying handled by app/api/[...path]/route.ts (preserves Set-Cookie for auth)
   async redirects() {
     return [
-      // Slug renamed to bypass Twitter's stuck "no image" cache against the
-      // old URL after a botched first scrape. Old URL → new permanently.
-      { source: '/decodes/aixbt', destination: '/decodes/aixbt-decode', permanent: true },
+      // Slug renamed (twice) to bypass Twitter's stuck "no image" cache. The
+      // dynamic /api/decodes/<slug>/og route was silently failing X's scraper,
+      // so we switched to a pre-rendered static og.png. Old slugs redirect.
+      { source: '/decodes/aixbt', destination: '/decodes/aixbt-on-chain', permanent: true },
+      { source: '/decodes/aixbt-decode', destination: '/decodes/aixbt-on-chain', permanent: true },
     ];
   },
   async headers() {
