@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   transpilePackages: ['@chainward/common'],
   // API proxying handled by app/api/[...path]/route.ts (preserves Set-Cookie for auth)
+  async redirects() {
+    return [
+      // Slug renamed to bypass Twitter's stuck "no image" cache against the
+      // old URL after a botched first scrape. Old URL → new permanently.
+      { source: '/decodes/aixbt', destination: '/decodes/aixbt-decode', permanent: true },
+    ];
+  },
   async headers() {
     return [
       {
