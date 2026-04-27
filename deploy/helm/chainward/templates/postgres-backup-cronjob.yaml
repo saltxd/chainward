@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup-postgres
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "chainward.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  # 03:30 MDT (09:30 UTC). Was 09:00 — moved 2026-04-24 to unstagger from ouramate.
+  # Cluster-wide schedule lives in BookStack page 96 (Database Backups).
+  schedule: "30 9 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-backup
+              # pg16 client matches the TimescaleDB server (timescale/timescaledb:2.25.1-pg16).
+              # Plain pg_dump handles TimescaleDB hypertables natively in 2.x — restore target
+              # just needs the timescaledb extension installed.
+              image: postgres:16-alpine
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  BACKUP_DIR=/backups/{{ .Values.namespace }}
+                  mkdir -p $BACKUP_DIR
+                  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+                  FILENAME="{{ .Values.postgres.database }}-${TIMESTAMP}.sql.gz"
+                  pg_dump -h postgres -U {{ .Values.postgres.user }} -d {{ .Values.postgres.database }} | gzip > "$BACKUP_DIR/$FILENAME"
+                  if [ $? -eq 0 ]; then
+                    echo "Backup successful: $BACKUP_DIR/$FILENAME ($(du -h $BACKUP_DIR/$FILENAME | cut -f1))"
+                    find $BACKUP_DIR -name "*.sql.gz" -mtime +14 -delete
+                    echo "Cleaned up backups >14d"
+                  else
+                    echo "Backup FAILED"
+                    exit 1
+                  fi
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.externalSecret }}
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: backup-storage
+              # fortzero NFS — picked up by PBS via VM-level backup of fortzero.
+              # See BookStack page 96 (Database Backups).
+              nfs:
+                server: 192.168.1.185
+                path: /mnt/nfs-storage/db-dumps

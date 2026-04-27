@@ -206,7 +206,10 @@ export function createAcpWalletTracerWorker() {
   const worker = new Worker<TracerJobData>(
     'acp-wallet-tracer',
     async (job: Job<TracerJobData>) => {
-      // Skip when sentinel is unavailable — eth_getLogs is too expensive on third-party RPCs
+      // Only run when cw-sentinel is the PRIMARY RPC. Wide-window eth_getLogs against
+      // Alchemy/public Base burns rate budget; cw-sentinel has the data and no quota.
+      // Disabled by design while sentinel is secondary (post-2026-04-18 RPC reorder, see
+      // BookStack page 182). Re-enabled automatically when BASE_RPC_URL points back at sentinel.
       const env = getEnv();
       if (!env.BASE_RPC_URL.includes('192.168.1.194')) {
         logger.info('Skipping wallet tracer — sentinel node not primary RPC');
