@@ -11,9 +11,9 @@ interface StatTileProps {
 export function StatTile({ label, value, unit, size = 'lg', tone = 'default' }: StatTileProps) {
   const fontSize =
     size === 'lg'
-      ? 'clamp(32px, 4vw, 52px)'
+      ? 'clamp(24px, 6vw, 52px)'
       : size === 'md'
-        ? 'clamp(22px, 2.6vw, 34px)'
+        ? 'clamp(20px, 3.5vw, 34px)'
         : '20px';
 
   const valueColor =
