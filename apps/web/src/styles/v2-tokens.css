@@ -296,6 +296,19 @@ body {
   font-size: 13px;
 }
 
+/* Cell wrappers (used by both desktop and mobile-card layouts).
+   On desktop the wrapper collapses (display: contents) so the existing
+   grid layout is unaffected; the label is hidden. */
+.v2-tbl-cell {
+  display: contents;
+}
+.v2-tbl-cell-label {
+  display: none;
+}
+.v2-tbl-cell-value {
+  display: contents;
+}
+
 /* ── Button ───────────────────────────────────────────────────────── */
 .v2-btn {
   display: inline-flex;
@@ -517,5 +530,45 @@ body {
 
   .v2-tile-value {
     /* Tighter line-height already inherited; rely on per-size font tweaks. */
+  }
+
+  .v2-tbl--mobile-card {
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+  }
+  .v2-tbl--mobile-card .v2-tbl-header {
+    display: none;
+  }
+  .v2-tbl--mobile-card .v2-tbl-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--line);
+    grid-template-columns: none !important;
+  }
+  .v2-tbl--mobile-card .v2-tbl-row:first-of-type {
+    border-top: none;
+  }
+  .v2-tbl--mobile-card .v2-tbl-cell {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left !important;
+  }
+  .v2-tbl--mobile-card .v2-tbl-cell-label {
+    display: inline-block;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .v2-tbl--mobile-card .v2-tbl-cell-value {
+    display: inline-block;
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }

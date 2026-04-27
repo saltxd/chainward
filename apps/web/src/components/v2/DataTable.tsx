@@ -17,6 +17,12 @@ interface DataTableProps<T> {
   empty?: ReactNode;
   rowHref?: (row: T) => string | undefined;
   onRowClick?: (row: T, index: number) => void;
+  /**
+   * When true, the table renders as stacked label/value cards at ≤480px.
+   * Header row is hidden on mobile; each cell shows its column header inline.
+   * Desktop layout is unchanged.
+   */
+  mobileCard?: boolean;
 }
 
 export function DataTable<T>({
@@ -25,10 +31,13 @@ export function DataTable<T>({
   empty,
   rowHref,
   onRowClick,
+  mobileCard,
 }: DataTableProps<T>) {
   const grid = columns.map((c) => c.width ?? '1fr').join(' ');
+  const tableClass = `v2-tbl${mobileCard ? ' v2-tbl--mobile-card' : ''}`;
+
   return (
-    <div className="v2-tbl">
+    <div className={tableClass}>
       <div className="v2-tbl-header" style={{ gridTemplateColumns: grid }}>
         {columns.map((c) => (
           <div key={c.key} style={{ textAlign: c.align ?? 'left' }}>
@@ -44,12 +53,16 @@ export function DataTable<T>({
         const content = columns.map((c) => (
           <div
             key={c.key}
+            className="v2-tbl-cell"
             style={{
               textAlign: c.align ?? 'left',
               color: c.accent ? 'var(--phosphor)' : 'var(--fg)',
             }}
           >
-            {c.render(row, i)}
+            <span className="v2-tbl-cell-label" aria-hidden>
+              {c.header}
+            </span>
+            <span className="v2-tbl-cell-value">{c.render(row, i)}</span>
           </div>
         ));
         if (href) {
