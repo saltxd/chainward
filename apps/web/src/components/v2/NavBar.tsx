@@ -18,6 +18,12 @@ interface NavBarProps {
    */
   ctaLabel: string;
   brandHref?: string;
+  /**
+   * When true, suppress the auto-appended `→` after `ctaLabel`.
+   * Use for back-link CTAs like `← digest` where the label already
+   * carries its own glyph.
+   */
+  hideArrow?: boolean;
 }
 
 const DEFAULT_LINKS: NavLink[] = [
@@ -31,6 +37,7 @@ export function NavBar({
   ctaHref,
   ctaLabel,
   brandHref = '/',
+  hideArrow,
 }: NavBarProps) {
   return (
     <nav className="v2-nav">
@@ -60,7 +67,9 @@ export function NavBar({
         )}
         <Link href={ctaHref} className="v2-nav-cta">
           <span>{ctaLabel}</span>
-          <span className="v2-nav-cta-arrow" aria-hidden> →</span>
+          {!hideArrow && (
+            <span className="v2-nav-cta-arrow" aria-hidden> →</span>
+          )}
         </Link>
       </div>
     </nav>
