@@ -1,3 +1,5 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,6 +11,17 @@ import {
   StatusTicker,
 } from '@/components/v2';
 import { getAllDecodes, getDecodeBySlug } from '@/lib/decodes';
+
+// Some scrapers (notably X/Twitter) reliably fetch static OG assets but
+// silently fail on the @vercel/og dynamic Edge route. If a decode has a
+// pre-rendered og.png in public/decodes/<slug>/, prefer it.
+function resolveOgImageUrl(slug: string): string {
+  const staticOgPath = join(process.cwd(), 'public', 'decodes', slug, 'og.png');
+  if (existsSync(staticOgPath)) {
+    return `https://chainward.ai/decodes/${slug}/og.png`;
+  }
+  return `https://chainward.ai/api/decodes/${slug}/og`;
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -24,7 +37,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!decode) return {};
 
   const { meta } = decode;
-  const ogImageUrl = `https://chainward.ai/api/decodes/${slug}/og`;
+  const ogImageUrl = resolveOgImageUrl(slug);
 
   return {
     title: meta.title,
