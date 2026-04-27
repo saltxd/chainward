@@ -104,7 +104,13 @@ export function StatusTicker() {
     return telemetry.indexerLastTxAt ? `LIVE · tx ${txAge}` : 'LIVE · no tx yet';
   })();
 
-  const items: Array<{ label: string; value: string; live?: boolean; color?: string }> = [
+  const items: Array<{
+    label: string;
+    value: string;
+    live?: boolean;
+    color?: string;
+    mobileHide?: boolean;
+  }> = [
     {
       label: 'base.tip',
       value: telemetry?.baseTip ? `#${telemetry.baseTip.toLocaleString()}` : '…',
@@ -113,14 +119,24 @@ export function StatusTicker() {
     {
       label: 'sentinel.tip',
       value: telemetry?.sentinelTip ? `#${telemetry.sentinelTip.toLocaleString()}` : '…',
+      mobileHide: true,
     },
-    { label: 'fleet.size', value: observatory ? String(observatory.agentsTracked) : '…' },
-    { label: 'tx.7d', value: observatory ? observatory.transactions7d.toLocaleString() : '…' },
+    {
+      label: 'fleet.size',
+      value: observatory ? String(observatory.agentsTracked) : '…',
+      mobileHide: true,
+    },
+    {
+      label: 'tx.7d',
+      value: observatory ? observatory.transactions7d.toLocaleString() : '…',
+      mobileHide: true,
+    },
     {
       label: 'tvl.watched',
       value: observatory ? formatUsd(observatory.totalPortfolioValue) : '…',
+      mobileHide: true,
     },
-    { label: 'utc', value: now || '…' },
+    { label: 'utc', value: now || '…', mobileHide: true },
     {
       label: 'rpc',
       value: sentinelLabel,
@@ -137,9 +153,15 @@ export function StatusTicker() {
     <div className="v2-ticker">
       <div className="v2-ticker-row">
         {items.map((item, i) => (
-          <span key={i} className="v2-ticker-item">
+          <span
+            key={i}
+            className={`v2-ticker-item${item.mobileHide ? ' v2-ticker-item--mobile-hide' : ''}`}
+          >
             <span className="v2-ticker-label">{item.label}</span>
-            <span className="v2-ticker-value" style={{ color: item.color ?? 'var(--fg)' }}>
+            <span
+              className="v2-ticker-value"
+              style={{ color: item.color ?? 'var(--fg)' }}
+            >
               {item.value}
             </span>
             {item.live && <span className="v2-ticker-pulse" aria-hidden />}
