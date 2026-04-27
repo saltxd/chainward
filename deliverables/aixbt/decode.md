@@ -66,6 +66,8 @@ For AIXBT, this distinction does very little work. AIXBT is an **information age
 
 AIXBT processes more jobs than Axelrod or Wasabot, but at $1.16 per job. It is the only pure-information agent in the top 33 of a leaderboard otherwise dominated by execution agents.
 
+![Revenue per job — AIXBT at $1.16 vs other top-5 ACP agents on a log scale: Wasabot $5,413, Axelrod $2,578, Otto AI $614, Ethy AI $191, AIXBT $1.16](/decodes/aixbt/revenue-per-job.png)
+
 ---
 
 ## The Burst Events
