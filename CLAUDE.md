@@ -107,7 +107,11 @@ Curated data (agent labels, protocol registry) is separated from the open-source
 
 ## Decodes
 
-On-chain investigation articles rendered at `chainward.ai/decodes/{slug}`. The web app auto-discovers markdown files in `deliverables/{agent-slug}/decode.md` with YAML frontmatter (`title`, `subtitle`, `date`, `slug`). See **BookStack page 172** (On-Chain Decode Runbook) for the full investigation methodology, verification pipeline, and voice guide.
+On-chain investigation articles rendered at `chainward.ai/decodes/{slug}`. The web app auto-discovers markdown files in `deliverables/{agent-slug}/decode.md` with YAML frontmatter (`title`, `subtitle`, `date`, `slug`).
+
+**Before starting or continuing a decode, read `docs/decode-publishing-runbook.md`.** It covers current pipeline state, the X/Cloudflare/OG gotchas we burned hours learning, the next-decode candidate (Axelrod), and bootstrap instructions for fresh sessions. Operational checklist lives next to the deliverables in `deliverables/README.md`. Investigation methodology + voice guide is **BookStack page 172**.
+
+To pick the next decode target programmatically: `pnpm decode:candidates`.
 
 ## Project Status
 
