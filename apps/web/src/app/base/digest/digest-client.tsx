@@ -793,7 +793,7 @@ export function DigestClient({ initialData }: { initialData: DigestData | null }
       <StatusTicker />
 
       <div className="v2-shell" style={{ paddingBottom: 80 }}>
-        <NavBar ctaHref="/login" ctaLabel="./connect →" />
+        <NavBar ctaHref="/login" ctaLabel="./connect" />
 
         {!hasData && !loading ? (
           <ComingSoon />

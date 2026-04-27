@@ -76,7 +76,7 @@ export default async function DecodePage({ params }: PageProps) {
       <StatusTicker />
 
       <div className="v2-shell" style={{ paddingBottom: 80 }}>
-        <NavBar ctaHref="/login" ctaLabel="./connect →" />
+        <NavBar ctaHref="/login" ctaLabel="./connect" />
 
         <article style={{ paddingTop: 56 }}>
           <header className="v2-decode-header">

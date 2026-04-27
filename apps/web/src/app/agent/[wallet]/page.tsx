@@ -220,7 +220,7 @@ export default function PublicAgentPage({
     <PageShell>
       <StatusTicker />
       <div className="v2-shell" style={{ paddingTop: 0, paddingBottom: 80 }}>
-        <NavBar ctaHref="/login" ctaLabel="./connect →" />
+        <NavBar ctaHref="/login" ctaLabel="./connect" />
 
         {loading && (
           <section style={{ paddingTop: 96 }}>
