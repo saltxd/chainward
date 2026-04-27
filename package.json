@@ -13,6 +13,7 @@
     "db:push": "pnpm --filter @chainward/db push",
     "db:seed": "pnpm --filter @chainward/db seed",
     "db:studio": "pnpm --filter @chainward/db studio",
+    "decode:candidates": "tsx scripts/decode-candidates.ts",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
