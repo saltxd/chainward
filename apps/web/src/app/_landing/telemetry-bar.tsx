@@ -68,6 +68,7 @@ export function TelemetryBar() {
     >
       {/* Left-edge kicker */}
       <div
+        className="v2-telemetry-kicker"
         style={{
           position: 'absolute',
           top: '50%',
@@ -87,7 +88,6 @@ export function TelemetryBar() {
         style={{
           maxWidth: 1280,
           margin: '0 auto',
-          padding: '56px 32px 56px 88px',
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: 40,
@@ -140,11 +140,18 @@ export function TelemetryBar() {
       </div>
 
       <style>{`
+        .v2-telemetry-grid {
+          padding: 56px 32px 56px 88px;
+        }
         @media (max-width: 720px) {
           .v2-telemetry-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 32px !important;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 32px;
           }
+        }
+        @media (max-width: 480px) {
+          .v2-telemetry-kicker { display: none; }
+          .v2-telemetry-grid { padding: 32px 20px; gap: 20px; }
         }
       `}</style>
     </div>

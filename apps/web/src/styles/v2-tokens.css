@@ -481,11 +481,8 @@ body {
   }
 }
 
-/* New mobile-only helpers used by NavBar + StatusTicker components.
-   Defined here so the React tree references stable class names; the
-   actual responsive behavior is in the ≤480px media block below. */
-.v2-ticker-item--mobile-hide { /* shown by default */ }
-.v2-nav-cta-arrow { /* shown by default */ }
+/* `.v2-ticker-item--mobile-hide` and `.v2-nav-cta-arrow` are visible by
+   default — only the ≤480px block below hides them. */
 
 @media (max-width: 480px) {
   .v2-ticker-row {
@@ -520,10 +517,6 @@ body {
   }
   .v2-nav-cta-arrow {
     display: none;
-  }
-
-  .v2-tile-value {
-    /* Tighter line-height already inherited; rely on per-size font tweaks. */
   }
 
   .v2-tbl--mobile-card {
