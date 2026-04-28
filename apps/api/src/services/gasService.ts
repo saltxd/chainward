@@ -1,9 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
-import { SPAM_TOKENS } from '@chainward/common';
-
-const spamList = [...SPAM_TOKENS];
+import { spamExclusionSql as spamExclusion } from '../lib/spamFilter.js';
 
 export class GasService {
   constructor(private db: Database) {}
@@ -33,10 +31,6 @@ export class GasService {
     const fromStr = (from ?? defaultFrom).toISOString();
     const toStr = (to ?? new Date()).toISOString();
 
-    const spamExclusion =
-      spamList.length > 0
-        ? sql`AND (token_address IS NULL OR token_address NOT IN (${sql.join(spamList.map((s) => sql`${s}`), sql`, `)})) AND (token_symbol IS NULL OR token_symbol ~ '^[ -~]+$')`
-        : sql`AND (token_symbol IS NULL OR token_symbol ~ '^[ -~]+$')`;
 
     const result = await this.db.execute(sql`
       SELECT

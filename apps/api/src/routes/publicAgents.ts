@@ -1,13 +1,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, and, gte, count, sum, sql, or, isNull, notInArray } from 'drizzle-orm';
+import { eq, and, gte, count, sum, sql } from 'drizzle-orm';
 import { agentRegistry, transactions } from '@chainward/db';
-import { SPAM_TOKENS } from '@chainward/common';
 import { getDb } from '../lib/db.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
-
-const spamList = [...SPAM_TOKENS];
+import { spamFilter, spamExclusionSql } from '../lib/spamFilter.js';
 
 const walletParamSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
 
@@ -53,10 +51,7 @@ publicAgents.get('/:wallet', async (c) => {
   const weekAgoIso = weekAgo.toISOString();
   const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
 
-  const spamFilter =
-    spamList.length > 0
-      ? or(isNull(transactions.tokenAddress), notInArray(transactions.tokenAddress, spamList))
-      : undefined;
+  const spam = spamFilter();
 
   // 2. Stats — 24h tx count, gas spend, volume
   const [txStats24h] = await db
@@ -70,7 +65,7 @@ publicAgents.get('/:wallet', async (c) => {
       and(
         sql`lower(${transactions.walletAddress}) = ${wallet}`,
         gte(transactions.timestamp, dayAgo),
-        spamFilter,
+        spam,
       ),
     );
 
@@ -85,7 +80,7 @@ publicAgents.get('/:wallet', async (c) => {
       and(
         sql`lower(${transactions.walletAddress}) = ${wallet}`,
         gte(transactions.timestamp, weekAgo),
-        spamFilter,
+        spam,
       ),
     );
 
@@ -109,6 +104,7 @@ publicAgents.get('/:wallet', async (c) => {
       coalesce(avg(gas_cost_usd), 0) AS avg_gas_usd
     FROM transactions
     WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${thirtyDaysAgoIso}::timestamptz
+      ${spamExclusionSql}
     GROUP BY bucket ORDER BY bucket ASC
   `);
 
@@ -118,6 +114,7 @@ publicAgents.get('/:wallet', async (c) => {
       counterparty, token_symbol, amount_usd, gas_cost_usd, tx_type,
       method_name, status
     FROM transactions WHERE lower(wallet_address) = ${wallet}
+      ${spamExclusionSql}
     ORDER BY timestamp DESC LIMIT 20
   `);
 

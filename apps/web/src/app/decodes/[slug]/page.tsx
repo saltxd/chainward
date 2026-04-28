@@ -97,7 +97,18 @@ export default async function DecodePage({ params }: PageProps) {
 
           <div className="v2-decode-body">
             <div className="decode-prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  table: ({ node: _node, ...props }) => (
+                    <div className="decode-table-scroll">
+                      <table {...props} />
+                    </div>
+                  ),
+                }}
+              >
+                {content}
+              </ReactMarkdown>
             </div>
           </div>
 

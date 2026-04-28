@@ -33,6 +33,15 @@ export default function LoginPage() {
 
   return (
     <div className="v2-auth-card">
+      <noscript>
+        <div className="v2-auth-noscript">
+          <strong>JavaScript required.</strong> ChainWard signs you in with your
+          Ethereum wallet (SIWE) — that flow needs JS enabled and a wallet
+          extension installed.{' '}
+          <a href="/docs">Read the docs</a> for context, or enable JS and reload.
+        </div>
+      </noscript>
+
       {/* Brand */}
       <Link href="/" className="v2-auth-brand" aria-label="ChainWard home">
         <span className="v2-auth-dot" aria-hidden />
@@ -182,6 +191,18 @@ export default function LoginPage() {
           color: var(--muted);
           letter-spacing: 0.04em;
           text-align: center;
+        }
+        .v2-auth-noscript {
+          padding: 16px 18px;
+          border: 1px solid var(--amber);
+          background: rgba(212, 167, 64, 0.06);
+          color: var(--fg);
+          font-size: 13px;
+          line-height: 1.6;
+        }
+        .v2-auth-noscript a {
+          color: var(--phosphor);
+          text-decoration: underline;
         }
       `}</style>
     </div>
