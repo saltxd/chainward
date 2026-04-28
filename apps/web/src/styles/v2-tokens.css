@@ -296,17 +296,11 @@ body {
   font-size: 13px;
 }
 
-/* Cell wrappers (used by both desktop and mobile-card layouts).
-   On desktop the wrapper collapses (display: contents) so the existing
-   grid layout is unaffected; the label is hidden. */
-.v2-tbl-cell {
-  display: contents;
-}
+/* Cell wrappers — desktop renders a normal grid cell; the label is
+   only emitted in DOM when the table opts into mobile-card mode and is
+   hidden by default. Mobile-card CSS below reshapes the cell. */
 .v2-tbl-cell-label {
   display: none;
-}
-.v2-tbl-cell-value {
-  display: contents;
 }
 
 /* ── Button ───────────────────────────────────────────────────────── */
@@ -565,11 +559,5 @@ body {
     letter-spacing: 0.14em;
     text-transform: uppercase;
     flex-shrink: 0;
-  }
-  .v2-tbl--mobile-card .v2-tbl-cell-value {
-    display: inline-block;
-    text-align: right;
-    min-width: 0;
-    overflow-wrap: anywhere;
   }
 }
