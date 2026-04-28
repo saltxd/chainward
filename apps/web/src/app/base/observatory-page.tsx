@@ -351,12 +351,14 @@ export function ObservatoryPage() {
               tag="live.tx"
               title={<span className="display">Live tx feed.</span>}
             />
-            <DataTable
-              columns={feedColumns}
-              rows={feed ?? []}
-              empty="No recent activity."
-              mobileCard
-            />
+            <div className="v2-obs-feed-scroll">
+              <DataTable
+                columns={feedColumns}
+                rows={feed ?? []}
+                empty="No recent activity."
+                mobileCard
+              />
+            </div>
           </div>
         </section>
 
@@ -496,6 +498,34 @@ export function ObservatoryPage() {
           display: grid;
           grid-template-columns: 1.4fr 1fr;
           gap: 32px;
+          align-items: start;
+        }
+        .v2-obs-feed-scroll {
+          max-height: 720px;
+          overflow-y: auto;
+          border: 1px solid var(--line);
+        }
+        .v2-obs-feed-scroll .v2-tbl {
+          border: none;
+        }
+        .v2-obs-feed-scroll .v2-tbl-header {
+          position: sticky;
+          top: 0;
+          background: var(--bg-1);
+          z-index: 1;
+        }
+        @media (max-width: 1100px) {
+          .v2-obs-feed-scroll {
+            max-height: none;
+            overflow: visible;
+            border: none;
+          }
+          .v2-obs-feed-scroll .v2-tbl {
+            border: 1px solid var(--line);
+          }
+          .v2-obs-feed-scroll .v2-tbl-header {
+            position: static;
+          }
         }
         .v2-obs-charts {
           display: grid;
