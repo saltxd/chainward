@@ -1,18 +1,8 @@
 import { sql, eq, and } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
-import { SPAM_TOKENS } from '@chainward/common';
 import type IORedis from 'ioredis';
-
-const spamList = [...SPAM_TOKENS];
-
-// Filters known spam contracts AND any token whose symbol contains non-ASCII
-// characters — homoglyph dust tokens (ÚSDС, ỤSDC, etc.) routinely target
-// observatory wallets and pollute the live feed with fake-looking $0 transfers.
-const spamExclusion =
-  spamList.length > 0
-    ? sql`AND (token_address IS NULL OR token_address NOT IN (${sql.join(spamList.map((s) => sql`${s}`), sql`, `)})) AND (token_symbol IS NULL OR token_symbol ~ '^[ -~]+$')`
-    : sql`AND (token_symbol IS NULL OR token_symbol ~ '^[ -~]+$')`;
+import { spamExclusionSql as spamExclusion } from '../lib/spamFilter.js';
 
 export class ObservatoryService {
   constructor(
