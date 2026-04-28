@@ -236,33 +236,6 @@ export default async function LandingPage() {
         @media (max-width: 960px) {
           .v2-landing-hero { grid-template-columns: 1fr; gap: 40px; }
         }
-        @media (max-width: 480px) {
-          .v2-landing-hero {
-            padding-top: 32px;
-            padding-bottom: 24px;
-            gap: 28px;
-          }
-          .v2-landing-section {
-            padding: 48px 0;
-          }
-          .v2-landing-bottom {
-            padding: 32px 0 56px;
-          }
-          .v2-landing-final {
-            padding: 32px 20px;
-          }
-          .v2-landing-final::before {
-            top: 10px;
-            left: 16px;
-            font-size: 10px;
-          }
-          .v2-landing-meta {
-            gap: 14px 18px;
-          }
-          .v2-landing-cta {
-            gap: 8px;
-          }
-        }
         .v2-landing-kicker {
           display: inline-flex;
           align-items: center;
@@ -383,6 +356,33 @@ export default async function LandingPage() {
         .v2-landing-footer-links {
           display: flex;
           gap: 20px;
+        }
+        @media (max-width: 480px) {
+          .v2-landing-hero {
+            padding-top: 32px;
+            padding-bottom: 24px;
+            gap: 28px;
+          }
+          .v2-landing-section {
+            padding: 48px 0;
+          }
+          .v2-landing-bottom {
+            padding: 32px 0 56px;
+          }
+          .v2-landing-final {
+            padding: 32px 20px;
+          }
+          .v2-landing-final::before {
+            top: 10px;
+            left: 16px;
+            font-size: 10px;
+          }
+          .v2-landing-meta {
+            gap: 14px 18px;
+          }
+          .v2-landing-cta {
+            gap: 8px;
+          }
         }
       `}</style>
     </PageShell>
