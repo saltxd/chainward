@@ -6,10 +6,13 @@ import type IORedis from 'ioredis';
 
 const spamList = [...SPAM_TOKENS];
 
+// Filters known spam contracts AND any token whose symbol contains non-ASCII
+// characters — homoglyph dust tokens (ÚSDС, ỤSDC, etc.) routinely target
+// observatory wallets and pollute the live feed with fake-looking $0 transfers.
 const spamExclusion =
   spamList.length > 0
-    ? sql`AND (token_address IS NULL OR token_address NOT IN (${sql.join(spamList.map((s) => sql`${s}`), sql`, `)}))`
-    : sql``;
+    ? sql`AND (token_address IS NULL OR token_address NOT IN (${sql.join(spamList.map((s) => sql`${s}`), sql`, `)})) AND (token_symbol IS NULL OR token_symbol ~ '^[\x20-\x7E]+$')`
+    : sql`AND (token_symbol IS NULL OR token_symbol ~ '^[\x20-\x7E]+$')`;
 
 export class ObservatoryService {
   constructor(
