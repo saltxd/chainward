@@ -512,7 +512,7 @@ export function ObservatoryPage() {
           position: sticky;
           top: 0;
           background: var(--bg-1);
-          z-index: 1;
+          z-index: 2;
         }
         @media (max-width: 1100px) {
           .v2-obs-feed-scroll {
