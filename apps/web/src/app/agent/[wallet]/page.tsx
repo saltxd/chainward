@@ -386,6 +386,7 @@ export default function PublicAgentPage({
                 columns={txColumns}
                 rows={transactions}
                 empty="No transactions yet."
+                mobileCard
               />
             </section>
 
