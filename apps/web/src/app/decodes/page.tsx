@@ -150,6 +150,10 @@ export default function DecodesPage() {
           font-family: var(--font-mono), ui-monospace, monospace;
           font-size: 13px;
         }
+        @media (max-width: 480px) {
+          .v2-decode-card { padding: 22px; min-height: 180px; }
+          .v2-decode-card-title { font-size: 22px; }
+        }
       `}</style>
     </PageShell>
   );
