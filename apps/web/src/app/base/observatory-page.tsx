@@ -540,9 +540,12 @@ export function ObservatoryPage() {
           background: var(--bg-1);
           flex-wrap: wrap;
         }
+        @media (max-width: 1100px) {
+          .v2-obs-grid { grid-template-columns: 1fr !important; }
+        }
         @media (max-width: 960px) {
           .v2-obs-stats { grid-template-columns: repeat(2, 1fr); }
-          .v2-obs-grid, .v2-obs-charts { grid-template-columns: 1fr !important; }
+          .v2-obs-charts { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 480px) {
           .v2-obs-stats {
