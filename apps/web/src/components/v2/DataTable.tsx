@@ -59,10 +59,12 @@ export function DataTable<T>({
               color: c.accent ? 'var(--phosphor)' : 'var(--fg)',
             }}
           >
-            <span className="v2-tbl-cell-label" aria-hidden>
-              {c.header}
-            </span>
-            <span className="v2-tbl-cell-value">{c.render(row, i)}</span>
+            {mobileCard && (
+              <span className="v2-tbl-cell-label" aria-hidden>
+                {c.header}
+              </span>
+            )}
+            {c.render(row, i)}
           </div>
         ));
         if (href) {

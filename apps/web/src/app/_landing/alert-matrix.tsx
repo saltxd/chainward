@@ -80,5 +80,5 @@ const columns: Column<AlertRow>[] = [
 ];
 
 export function AlertMatrix() {
-  return <DataTable columns={columns} rows={alerts} />;
+  return <DataTable columns={columns} rows={alerts} mobileCard />;
 }
