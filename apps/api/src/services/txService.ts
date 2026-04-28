@@ -105,8 +105,8 @@ export class TxService {
 
     const spamExclusion =
       spamList.length > 0
-        ? sql`AND (token_address IS NULL OR token_address NOT IN (${sql.join(spamList.map((s) => sql`${s}`), sql`, `)})) AND (token_symbol IS NULL OR token_symbol ~ '^[\x20-\x7E]+$')`
-        : sql`AND (token_symbol IS NULL OR token_symbol ~ '^[\x20-\x7E]+$')`;
+        ? sql`AND (token_address IS NULL OR token_address NOT IN (${sql.join(spamList.map((s) => sql`${s}`), sql`, `)})) AND (token_symbol IS NULL OR token_symbol ~ '^[ -~]+$')`
+        : sql`AND (token_symbol IS NULL OR token_symbol ~ '^[ -~]+$')`;
 
     const result = await this.db.execute(sql`
       SELECT
