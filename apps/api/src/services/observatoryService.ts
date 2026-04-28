@@ -145,7 +145,7 @@ export class ObservatoryService {
           AND (t.amount_usd IS NULL OR CAST(t.amount_usd AS numeric) >= 0)
           ${spamExclusion}
         ORDER BY t.timestamp DESC
-        LIMIT 50
+        LIMIT 10
       `);
 
       return (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
