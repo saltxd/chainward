@@ -365,6 +365,7 @@ export default function WalletLookupResultPage({
                   columns={tokenColumns}
                   rows={nonNativeTokens.slice(0, 10)}
                   empty="No token balances."
+                  mobileCard
                 />
                 {nonNativeTokens.length > 10 && (
                   <p className="v2-wa-table-note">
@@ -387,6 +388,7 @@ export default function WalletLookupResultPage({
                 columns={txColumns}
                 rows={data.transactions}
                 empty="No recent transactions."
+                mobileCard
               />
             </section>
 
