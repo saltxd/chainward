@@ -1,9 +1,7 @@
-import { eq, sql, and, gte, count, sum, inArray, notInArray, isNull, or } from 'drizzle-orm';
+import { eq, sql, and, gte, count, sum, inArray } from 'drizzle-orm';
 import { agentRegistry, transactions, balanceSnapshots } from '@chainward/db';
 import type { Database } from '@chainward/db';
-import { SPAM_TOKENS } from '@chainward/common';
-
-const spamList = [...SPAM_TOKENS];
+import { spamFilter } from '../lib/spamFilter.js';
 
 export class StatsService {
   constructor(private db: Database) {}
@@ -31,10 +29,7 @@ export class StatsService {
     let totalValue = 0;
 
     if (wallets.length > 0) {
-      const spamFilter =
-        spamList.length > 0
-          ? or(isNull(transactions.tokenAddress), notInArray(transactions.tokenAddress, spamList))
-          : undefined;
+      const spam = spamFilter();
 
       const [txStats] = await this.db
         .select({
@@ -46,7 +41,7 @@ export class StatsService {
           and(
             inArray(transactions.walletAddress, wallets),
             gte(transactions.timestamp, dayAgo),
-            spamFilter,
+            spam,
           ),
         );
 
@@ -91,10 +86,7 @@ export class StatsService {
     const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const spamFilter =
-      spamList.length > 0
-        ? or(isNull(transactions.tokenAddress), notInArray(transactions.tokenAddress, spamList))
-        : undefined;
+    const spam = spamFilter();
 
     const [txStats24h] = await this.db
       .select({
@@ -107,7 +99,7 @@ export class StatsService {
         and(
           eq(transactions.walletAddress, agent.walletAddress),
           gte(transactions.timestamp, dayAgo),
-          spamFilter,
+          spam,
         ),
       );
 
@@ -121,7 +113,7 @@ export class StatsService {
         and(
           eq(transactions.walletAddress, agent.walletAddress),
           gte(transactions.timestamp, weekAgo),
-          spamFilter,
+          spam,
         ),
       );
 
