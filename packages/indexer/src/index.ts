@@ -11,6 +11,7 @@ import { createAcpSyncWorker, setupAcpSyncSchedule } from './workers/acpSync.js'
 import { createDigestWorker, setupDigestSchedule } from './workers/digestGenerator.js';
 import { createAcpWalletTracerWorker, setupAcpWalletTracerSchedule } from './workers/acpWalletTracer.js';
 import { createHealthScoreWorker, setupHealthScoreSchedule } from './workers/healthScore.js';
+import { createWebhookHealthWorker, setupWebhookHealthSchedule } from './workers/webhookHealth.js';
 
 // Validate env on startup
 getEnv();
@@ -28,6 +29,7 @@ const acpSync = createAcpSyncWorker();
 const digest = createDigestWorker();
 const acpTracer = createAcpWalletTracerWorker();
 const healthScore = createHealthScoreWorker();
+const webhookHealth = createWebhookHealthWorker();
 
 // Set up repeatable jobs
 const redis = getRedis();
@@ -39,6 +41,7 @@ await setupAcpSyncSchedule(redis);
 await setupDigestSchedule(redis);
 await setupAcpWalletTracerSchedule(redis);
 await setupHealthScoreSchedule(redis);
+await setupWebhookHealthSchedule(redis);
 
 // Heartbeat — telemetry reads this key to know the indexer process is alive.
 // TTL expires the key if the process dies so "key missing" == "indexer down".
@@ -66,6 +69,7 @@ async function shutdown(signal: string) {
     digest.close(),
     acpTracer.close(),
     healthScore.close(),
+    webhookHealth.close(),
   ]);
   process.exit(0);
 }

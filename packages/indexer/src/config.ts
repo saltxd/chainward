@@ -17,6 +17,12 @@ const envSchema = z.object({
 
   // External
   COINGECKO_API_KEY: z.string().optional(),
+
+  // Alchemy webhook ops — used by the webhook-health worker to detect
+  // and auto-recover from TOO_MANY_ERRORS deactivations.
+  ALCHEMY_AUTH_TOKEN: z.string().optional(),
+  ALCHEMY_WEBHOOK_ID: z.string().optional(),
+  OPS_DISCORD_WEBHOOK: z.string().url().optional(),
 });
 
 export type IndexerEnv = z.infer<typeof envSchema>;
