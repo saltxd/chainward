@@ -555,6 +555,7 @@ body {
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
+    width: 100%;
     text-align: left !important;
   }
   .v2-tbl--mobile-card .v2-tbl-cell-label {
