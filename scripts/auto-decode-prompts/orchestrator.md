@@ -36,11 +36,30 @@ After all three complete, verify the three expected files exist in `<DELIVERABLE
 
 If any artifact is missing, retry that one subagent ONCE. If still missing on retry, halt — emit DISCORD_SUMMARY with `result=halt-research-failed`, reason naming the missing artifact, and exit 0.
 
-(Phase 2-5 to be added in later tasks. For now, after Phase 1 verification, emit:
-```
-PHASE_1_DONE: artifacts at <DELIVERABLES_DIR>
-```
-and exit 0.)
+### Phase 2: Write
+
+Spawn ONE Task subagent (general-purpose, prompt: contents of `<REPO_ROOT>/scripts/auto-decode-prompts/writer.md` with inputs substituted).
+
+After completion, verify:
+- `<DELIVERABLES_DIR>/decode.md` exists and contains valid YAML frontmatter (title, subtitle, date, slug)
+- `<DELIVERABLES_DIR>/tweet.md` exists and contains exactly 5 tweets separated by `---`
+
+If either is missing or malformed, retry the writer ONCE. If still bad, halt with `result=halt-writer-failed`.
+
+### Phase 3: Verify gauntlet
+
+Spawn **three parallel Task subagents** in a single message:
+
+- subagent type: general-purpose, prompt: `citation-verifier.md` with inputs
+- subagent type: general-purpose, prompt: `failure-mode-verifier.md` with inputs
+- subagent type: general-purpose, prompt: `voice-verifier.md` with inputs
+
+After all complete, verify the three verification files exist:
+- `verification-citation.md`
+- `verification-failure-mode.md`
+- `verification-voice.md`
+
+If any missing, retry that one ONCE. If still missing, halt with `result=halt-verifier-failed`.
 
 ## Discord summary block format
 
