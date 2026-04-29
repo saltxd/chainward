@@ -109,12 +109,11 @@ function formatChartDate(dateStr: string): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+import { fetchDedup } from '@/lib/api-dedup';
+
 async function fetchObservatory<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`/api/observatory${path}`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data;
+    return await fetchDedup<T>(`/api/observatory${path}`);
   } catch {
     return null;
   }
