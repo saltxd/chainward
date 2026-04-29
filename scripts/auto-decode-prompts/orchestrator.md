@@ -23,11 +23,11 @@ You execute these phases strictly in order. Do not skip.
 
 ### Phase 1: Research fan-out
 
-Spawn **three parallel Task subagents** in a single message (parallel tool calls). Each gets the target inputs and writes its artifact:
+Spawn **three parallel Task subagents** in a single message (parallel tool calls). For each, build the subagent prompt by reading the prompt file and string-replacing the angle-bracketed placeholders `<TARGET_ADDRESS>`, `<TARGET_NAME>`, `<SLUG>`, `<DELIVERABLES_DIR>` with the values you received as inputs. Then pass the resulting string as the subagent's prompt.
 
-- subagent type: general-purpose, prompt: contents of `<REPO_ROOT>/scripts/auto-decode-prompts/identity-chain.md` with `TARGET_ADDRESS`, `TARGET_NAME`, `SLUG`, `DELIVERABLES_DIR` substituted.
-- subagent type: general-purpose, prompt: contents of `token-economics.md` similarly.
-- subagent type: general-purpose, prompt: contents of `utility-audit.md` similarly.
+- subagent type: general-purpose, prompt source file: `<REPO_ROOT>/scripts/auto-decode-prompts/identity-chain.md`
+- subagent type: general-purpose, prompt source file: `<REPO_ROOT>/scripts/auto-decode-prompts/token-economics.md`
+- subagent type: general-purpose, prompt source file: `<REPO_ROOT>/scripts/auto-decode-prompts/utility-audit.md`
 
 After all three complete, verify the three expected files exist in `<DELIVERABLES_DIR>`:
 - `identity-chain.md`
@@ -38,7 +38,7 @@ If any artifact is missing, retry that one subagent ONCE. If still missing on re
 
 ### Phase 2: Write
 
-Spawn ONE Task subagent (general-purpose, prompt: contents of `<REPO_ROOT>/scripts/auto-decode-prompts/writer.md` with inputs substituted).
+Spawn ONE Task subagent (general-purpose). Build the prompt by reading `<REPO_ROOT>/scripts/auto-decode-prompts/writer.md` and string-replacing the angle-bracketed placeholders `<TARGET_ADDRESS>`, `<TARGET_NAME>`, `<SLUG>`, `<DELIVERABLES_DIR>` with their actual values.
 
 After completion, verify:
 - `<DELIVERABLES_DIR>/decode.md` exists and contains valid YAML frontmatter (title, subtitle, date, slug)
@@ -48,11 +48,11 @@ If either is missing or malformed, retry the writer ONCE. If still bad, halt wit
 
 ### Phase 3: Verify gauntlet
 
-Spawn **three parallel Task subagents** in a single message:
+Spawn **three parallel Task subagents** in a single message. For each, read the prompt file and string-replace `<TARGET_ADDRESS>`, `<TARGET_NAME>`, `<SLUG>`, `<DELIVERABLES_DIR>` before passing as the subagent prompt:
 
-- subagent type: general-purpose, prompt: `citation-verifier.md` with inputs
-- subagent type: general-purpose, prompt: `failure-mode-verifier.md` with inputs
-- subagent type: general-purpose, prompt: `voice-verifier.md` with inputs
+- subagent type: general-purpose, prompt source file: `<REPO_ROOT>/scripts/auto-decode-prompts/citation-verifier.md`
+- subagent type: general-purpose, prompt source file: `<REPO_ROOT>/scripts/auto-decode-prompts/failure-mode-verifier.md`
+- subagent type: general-purpose, prompt source file: `<REPO_ROOT>/scripts/auto-decode-prompts/voice-verifier.md`
 
 After all complete, verify the three verification files exist:
 - `verification-citation.md`
@@ -64,6 +64,8 @@ If any missing, retry that one ONCE. If still missing, halt with `result=halt-ve
 ### Phase 4: Decision gate
 
 Read `verification-citation.md` and `verification-failure-mode.md` (NOT voice — voice is advisory).
+
+**Aggregate verifier stats** for the DISCORD_SUMMARY: parse the `CITATION_VERIFIER_DONE: pass=A correctable=B fundamental=C` and `FAILURE_MODE_VERIFIER_DONE: pass=A correctable=B fundamental=C` lines from each report. Sum them: `total_pass = citation.pass + failure_mode.pass`, same for correctable and fundamental. Read `VOICE_VERIFIER_DONE: avg_score=X.X low_units=N` for the voice average. These four numbers populate the `verifier_stats:` line later.
 
 - If both citation and failure-mode show ZERO FAILs (correctable + fundamental both = 0): proceed to Phase 5.
 - If any FAILs exist:
@@ -129,8 +131,10 @@ Poll `https://chainward.ai/decodes/<SLUG>` up to 60 times at 5-second intervals.
 
 **Step 6 (live only): Post launch tweet**
 
+Tweet 1 may span multiple lines (SOLD-era voice often uses stacked fragments). Extract the entire first tweet — everything before the first `---` separator — not just the first line:
+
 ```bash
-TWEET_TEXT=$(cat <DELIVERABLES_DIR>/tweet.md | head -1)  # tweet 1 only for the launch post
+TWEET_TEXT=$(awk '/^---$/{exit} {print}' <DELIVERABLES_DIR>/tweet.md)
 gh workflow run post-digest.yml \
   --repo saltxd/chainward-bot \
   -f text="$TWEET_TEXT [DECODE_URL https://chainward.ai/decodes/<SLUG>]"
@@ -146,13 +150,15 @@ At end of run, emit:
 <DISCORD_SUMMARY>
 target: <TARGET_NAME> (<TARGET_ADDRESS>)
 slug: <SLUG>
-result: <ship | halt-research-failed | halt-verification | halt-publish>
+result: <one of: ship | ship-dryrun | halt-research-failed | halt-writer-failed | halt-verifier-failed | halt-verification | halt-og-render | halt-deploy | halt-deploy-verify | halt-tweet>
 deploy_url: <https://chainward.ai/decodes/<slug>> | n/a
 tweet_url: <X status URL> | n/a
 verifier_stats: pass=A correctable=B fundamental=C voice_avg=X.X
 notes: <one short paragraph>
 </DISCORD_SUMMARY>
 ```
+
+`pass`, `correctable`, `fundamental` are the aggregated totals from Phase 4 (sum of citation + failure-mode verifier outputs). `voice_avg` comes from the voice verifier's DONE line. Use `n/a` for `deploy_url` / `tweet_url` on any halt result OR on `ship-dryrun`.
 
 ## Hard rules (enforced across all phases)
 
