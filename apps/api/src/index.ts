@@ -59,6 +59,32 @@ app.use('*', bodyLimit({ maxSize: 1024 * 1024 }));
 // Rate limiting on API routes (100 req/min per client)
 app.use('/api/*', rateLimit({ max: 100, windowSec: 60, prefix: 'rl:api' }));
 
+// Request-timing log for hot read paths so we can spot backend slowdowns
+// (e.g. /base showing blank for 15s on mobile). Logs only when the route
+// takes >100ms to keep noise down.
+app.use('/api/observatory/*', async (c, next) => {
+  const start = Date.now();
+  await next();
+  const dur = Date.now() - start;
+  if (dur > 100) {
+    logger.info(
+      { path: c.req.path, status: c.res.status, durationMs: dur },
+      'observatory slow response',
+    );
+  }
+});
+app.use('/api/observatory', async (c, next) => {
+  const start = Date.now();
+  await next();
+  const dur = Date.now() - start;
+  if (dur > 100) {
+    logger.info(
+      { path: c.req.path, status: c.res.status, durationMs: dur },
+      'observatory slow response',
+    );
+  }
+});
+
 // Routes
 app.route('/api/health', health);
 app.route('/api/auth', auth);
