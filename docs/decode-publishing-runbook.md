@@ -22,6 +22,27 @@ ls deliverables/                      # see what's already shipped
 
 That's the entire context for picking up mid-flight.
 
+## Auto-decode pipeline (preferred path)
+
+As of 2026-04-28 (first ship: Axelrod), the entire decode pipeline is automated. Trigger via:
+
+- **Discord DM** to Claude_Dev: `decode @<name>` or `decode 0x<address>`
+- **Direct CLI** on sg-scribe: `pnpm decode:auto @<name>`
+- **From any Claude with homelab MCP**: `ssh sg-scribe '~/Forge/chainward && pnpm decode:auto @<name>'`
+
+The pipeline produces deliverables, runs a 3-verifier gauntlet, pre-renders OG, deploys, and posts the launch tweet. End-to-end ~20-30 min.
+
+**Discord output:** every run posts a `<DISCORD_SUMMARY>` block to the dedicated webhook channel. `result` field tells you what happened: `ship`, `halt-research-failed`, `halt-writer-failed`, `halt-verifier-failed`, `halt-verification`, `halt-og-render`, `halt-deploy`, `halt-deploy-verify`, `halt-tweet`.
+
+**On halt:** read the verification reports in `deliverables/<slug>/`, decide whether to:
+- Re-launch (if it was a transient — e.g., sentinel was lagging)
+- Fix the prompt (if a verifier produced false positives or false negatives)
+- Hand-finish the decode using the manual flow below (the artifacts are still useful)
+
+The full pipeline spec is at `docs/superpowers/specs/2026-04-28-auto-decode-design.md`.
+
+## Manual flow (fallback for halts)
+
 ## Current state (as of 2026-04-27)
 
 **Shipped decodes:**
@@ -39,6 +60,8 @@ That's the entire context for picking up mid-flight.
 - Auto-recharge: **OFF** — top up via dev portal Billing → Credits before balance hits 0
 
 **Tooling:**
+- `pnpm decode:auto @<name>` (`scripts/auto-decode/index.ts`) — fully automated decode pipeline
+- `pnpm decode:og-render <slug>` (`scripts/auto-decode/og-render.ts`) — pre-render OG card locally (used internally by auto-decode)
 - `pnpm decode:candidates` (`scripts/decode-candidates.ts`) — ranks next-decode candidates
 - `pnpm decode:candidates --top 200 --json` — deeper pool, machine-readable
 
@@ -107,13 +130,14 @@ Rank Agent       aGDP     Role     Score Rationale
 - Fresh angle: HYBRID swap-execution agent, will let us compare to Wasabot's leveraged-perp pattern
 
 **Suggested workflow:**
-1. Spawn `decode-agent` (Task tool) on Axelrod's wallet `0x999a1b60...` (need to confirm via ACP API)
-2. Three review checkpoints with the human:
-   - After research (wallet map, fund flows, ACP economics)
-   - After draft markdown (full decode.md before publishing)
-   - Before launch tweet (final tweet copy + verify static OG renders pre-tweet)
-3. **Pre-render the static OG before the launch tweet** — this is the step we kept skipping
-4. Slug suggestion: `axelrod-on-chain` (consistent with `aixbt-on-chain` pattern)
+```bash
+ssh sg-scribe
+set -a; source ~/.config/systemd/user/auto-decode.env; set +a
+pnpm decode:auto @Axelrod
+```
+Or DM Claude_Dev: `decode @Axelrod`.
+
+The auto-decode pipeline handles all three review checkpoints algorithmically. If it halts, fall back to the manual flow.
 
 **Open question for the next session:**
 The candidate-finder uses ACP API's `walletBalance` field, which reports "0" for many agents whose ACP wallets actually hold USDC (per chainward sentinel). Worth tightening: cross-reference against `chainward.ai/api/observatory/agent/<slug>` for true on-chain balance before scoring.
