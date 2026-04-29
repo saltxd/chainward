@@ -543,7 +543,18 @@ body {
     justify-content: space-between;
     gap: 12px;
     width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
     text-align: left !important;
+  }
+  /* Direct children of a mobile-card cell (everything to the right of the
+     label) can shrink/wrap so long values like "Luna's Daddy - NVIDIA
+     0xeae7…5cf5" don't bust the row out past the viewport. */
+  .v2-tbl--mobile-card .v2-tbl-cell > *:not(.v2-tbl-cell-label) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .v2-tbl--mobile-card .v2-tbl-cell-label {
     display: inline-block;
