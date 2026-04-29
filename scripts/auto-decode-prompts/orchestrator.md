@@ -61,6 +61,25 @@ After all complete, verify the three verification files exist:
 
 If any missing, retry that one ONCE. If still missing, halt with `result=halt-verifier-failed`.
 
+### Phase 4: Decision gate
+
+Read `verification-citation.md` and `verification-failure-mode.md` (NOT voice — voice is advisory).
+
+- If both citation and failure-mode show ZERO FAILs (correctable + fundamental both = 0): proceed to Phase 5.
+- If any FAILs exist:
+  - **Construct a retry brief** — a markdown file at `<DELIVERABLES_DIR>/writer-retry-brief.md` listing each failed claim with classification and surgical fix instruction (correctable) or removal scope (fundamental).
+  - **Spawn the writer subagent ONCE more**, passing the retry brief as additional context. The writer must produce a revised `decode.md` and `tweet.md`.
+  - **Re-run the citation-verifier and failure-mode-verifier in parallel** on the revised draft.
+  - **If the retry verifications show ANY remaining citation or failure-mode FAIL** (regardless of whether retry reduced count) → halt with `result=halt-verification`. Include the retry verification stats in DISCORD_SUMMARY.
+  - **If the retry verifications all PASS** → proceed to Phase 5.
+- **Voice failures never block.** Voice low_units is surfaced in DISCORD_SUMMARY but does not affect the decision.
+
+## Verification policy — non-negotiable
+
+- Verifier output is read-only to you. You DO NOT spawn a "verifier check" subagent or otherwise litigate verifier conclusions. Verifier said FAIL → it's FAIL.
+- The retry budget is exactly 1. You do NOT iterate to convergence. Convergence is rationalization.
+- After the retry pass, you halt-or-publish based on the retry's verifier output. There is no third pass.
+
 ## Discord summary block format
 
 At end of run, emit:
