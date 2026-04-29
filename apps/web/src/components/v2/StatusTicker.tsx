@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fetchDedup } from '@/lib/api-dedup';
 
 type SignalStatus = 'online' | 'syncing' | 'degraded' | 'offline';
 
@@ -47,15 +48,17 @@ export function StatusTicker() {
 
   useEffect(() => {
     const loadObservatory = () =>
-      fetch('/api/observatory')
-        .then((r) => (r.ok ? r.json() : null))
-        .then((j) => j?.data && setObservatory(j.data))
+      fetchDedup<{
+        agentsTracked: number;
+        transactions7d: number;
+        totalPortfolioValue: number;
+      }>('/api/observatory')
+        .then((d) => d && setObservatory(d))
         .catch(() => {});
 
     const loadTelemetry = () =>
-      fetch('/api/telemetry')
-        .then((r) => (r.ok ? r.json() : null))
-        .then((j) => j?.data && setTelemetry(j.data))
+      fetchDedup<Telemetry>('/api/telemetry')
+        .then((d) => d && setTelemetry(d))
         .catch(() => {});
 
     loadObservatory();
