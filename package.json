@@ -15,9 +15,11 @@
     "db:studio": "pnpm --filter @chainward/db studio",
     "decode:candidates": "tsx scripts/decode-candidates.ts",
     "decode:og-render": "tsx scripts/auto-decode/og-render.ts",
+    "decode:auto": "tsx scripts/auto-decode/index.ts",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "tsx": "^4.0.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0"
   }
