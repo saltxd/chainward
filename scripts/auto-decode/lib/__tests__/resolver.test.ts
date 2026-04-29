@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { resolveTarget, type ResolverDeps } from "../resolver";
 
 const acpFixture = {
-  agents: [
+  data: [
     {
       id: 1048,
       name: "Wasabot",

@@ -18,10 +18,8 @@ interface AcpAgentRecord {
   walletAddress: string;
 }
 
-// The API may return { agents: [...] } (test fixtures) or { data: [...] } (live API)
 interface AcpAgentsResponse {
-  agents?: AcpAgentRecord[];
-  data?: AcpAgentRecord[];
+  data: AcpAgentRecord[];
 }
 
 export async function resolveTarget(
@@ -38,9 +36,8 @@ export async function resolveTarget(
   }
 
   const body = (await res.json()) as AcpAgentsResponse;
-  const agents = body.agents ?? body.data ?? [];
   const wanted = target.value.toLowerCase();
-  const match = agents.find((a) => a.name.toLowerCase() === wanted);
+  const match = body.data.find((a) => a.name.toLowerCase() === wanted);
   if (!match) {
     throw new Error(`@${target.value} not found in ACP registry`);
   }
