@@ -497,6 +497,13 @@ export function ObservatoryPage() {
           gap: 32px;
           align-items: start;
         }
+        /* Grid children default to min-width: auto, which lets long unbroken
+           strings (addresses, badge text) overflow the column track. Force
+           min-width: 0 so columns can actually shrink to their declared 1fr. */
+        .v2-obs-grid > *,
+        .v2-obs-charts > * {
+          min-width: 0;
+        }
         .v2-obs-charts {
           display: grid;
           grid-template-columns: 1fr 1fr;
