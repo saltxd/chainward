@@ -80,6 +80,64 @@ Read `verification-citation.md` and `verification-failure-mode.md` (NOT voice â€
 - The retry budget is exactly 1. You do NOT iterate to convergence. Convergence is rationalization.
 - After the retry pass, you halt-or-publish based on the retry's verifier output. There is no third pass.
 
+### Phase 5: Publish
+
+This phase has multiple steps; execute them strictly in order. If `DRY_RUN=true`, run steps 1-3 (the reversible ones) and SKIP steps 4-6 (the publish ones).
+
+**Step 1: OG pre-render (always run, even in DRY_RUN)**
+
+Invoke via Bash from the repo root: `pnpm decode:og-render <SLUG>`. The wrapper handles:
+- `pnpm --filter @chainward/web build`
+- Spawning the local server
+- Fetching OG card with Twitterbot UA
+- Validating PNG magic
+- Saving to `apps/web/public/decodes/<SLUG>/og.png`
+- Killing the server
+
+If exit code != 0, retry ONCE. If still failing, halt with `result=halt-og-render`.
+
+**Step 2: Verify OG file exists and is a valid PNG**
+
+```bash
+file <REPO_ROOT>/apps/web/public/decodes/<SLUG>/og.png | grep -q "PNG image data"
+```
+
+If fails, halt with `result=halt-og-render`.
+
+**Step 3: Stage commit**
+
+```bash
+cd <REPO_ROOT>
+git add deliverables/<SLUG> apps/web/public/decodes/<SLUG>
+git commit -m "feat: add <TARGET_NAME> on-chain decode"
+```
+
+If `DRY_RUN=true`, STOP HERE. Emit DISCORD_SUMMARY with `result=ship-dryrun`, deploy_url=n/a, tweet_url=n/a, and a notes line: "Dry-run complete; artifacts staged but not pushed."
+
+**Step 4 (live only): Push and deploy**
+
+```bash
+git push origin main
+./deploy/deploy.sh --skip-migrate
+```
+
+If push or deploy fails, halt with `result=halt-deploy` and detailed reason in notes.
+
+**Step 5 (live only): Wait for chainward.ai to serve the new page**
+
+Poll `https://chainward.ai/decodes/<SLUG>` up to 60 times at 5-second intervals. Match the response body against the title from frontmatter. If timeout, halt with `result=halt-deploy-verify`.
+
+**Step 6 (live only): Post launch tweet**
+
+```bash
+TWEET_TEXT=$(cat <DELIVERABLES_DIR>/tweet.md | head -1)  # tweet 1 only for the launch post
+gh workflow run post-digest.yml \
+  --repo saltxd/chainward-bot \
+  -f text="$TWEET_TEXT [DECODE_URL https://chainward.ai/decodes/<SLUG>]"
+```
+
+The chainward-bot workflow handles URL substitution. If `gh workflow run` fails, halt with `result=halt-tweet`. NOTE: this is a partial-publish state â€” the article is up, the tweet didn't post. The DISCORD_SUMMARY notes line must call this out.
+
 ## Discord summary block format
 
 At end of run, emit:
