@@ -66,10 +66,18 @@ export const productionDeps: OgDeps = {
     });
   },
   startWeb(port, repoRoot) {
+    // The web app is configured `output: 'standalone'` in next.config.ts, so
+    // `next start` doesn't work — we have to run the standalone server.js.
+    // It starts in <1s vs `next start` taking >60s.
     return spawn(
-      "pnpm",
-      ["--filter", "@chainward/web", "start", "--", "--port", String(port)],
-      { cwd: repoRoot, stdio: "ignore", detached: false },
+      "node",
+      [join(repoRoot, "apps/web/.next/standalone/apps/web/server.js")],
+      {
+        cwd: repoRoot,
+        stdio: "ignore",
+        detached: false,
+        env: { ...process.env, PORT: String(port) },
+      },
     );
   },
   async waitForReady(url, timeoutMs) {
