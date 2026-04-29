@@ -131,16 +131,19 @@ Poll `https://chainward.ai/decodes/<SLUG>` up to 60 times at 5-second intervals.
 
 **Step 6 (live only): Post launch tweet**
 
-Tweet 1 may span multiple lines (SOLD-era voice often uses stacked fragments). Extract the entire first tweet — everything before the first `---` separator — not just the first line:
+Tweet 1 may span multiple lines (SOLD-era voice often uses stacked fragments). Extract the entire first tweet — everything before the first `---` separator — and append the canonical decode URL on its own line so X picks up the OG card. The chainward-bot does NOT substitute placeholders; pass the final tweet text as it should appear on X.
 
 ```bash
 TWEET_TEXT=$(awk '/^---$/{exit} {print}' <DELIVERABLES_DIR>/tweet.md)
+FINAL_TEXT="$TWEET_TEXT
+
+https://chainward.ai/decodes/<SLUG>"
 gh workflow run post-digest.yml \
   --repo saltxd/chainward-bot \
-  -f text="$TWEET_TEXT [DECODE_URL https://chainward.ai/decodes/<SLUG>]"
+  -f text="$FINAL_TEXT"
 ```
 
-The chainward-bot workflow handles URL substitution. If `gh workflow run` fails, halt with `result=halt-tweet`. NOTE: this is a partial-publish state — the article is up, the tweet didn't post. The DISCORD_SUMMARY notes line must call this out.
+`@chainwardai` is X Premium-verified, so the 280-char limit does not apply (chainward-bot enforces a 25K cap as of `a053565`). If `gh workflow run` fails, halt with `result=halt-tweet`. NOTE: this is a partial-publish state — the article is up, the tweet didn't post. The DISCORD_SUMMARY notes line must call this out.
 
 ## Discord summary block format
 
