@@ -114,6 +114,16 @@ type QuickDecodeResult = {
       agent_token: { symbol: string; amount: number; usd: number } | null;
     };
 
+    token_trading: {                              // null if agent has no token or token is not graduated
+      contract_address: string;
+      symbol: string;
+      fdv_usd: number | null;
+      volume_24h_usd: number | null;
+      holder_count: number | null;
+      source: 'geckoterminal' | 'virtuals_api' | 'blockscout';
+      fetched_at: string;                         // ISO — token data may be stale by minutes
+    } | null;
+
     activity: {
       latest_transfer_at: string | null;          // ISO 8601
       latest_transfer_age_hours: number | null;
@@ -207,23 +217,33 @@ Same string also appears in the offering description shown to buyers pre-purchas
 
 ### Sample report
 
+Every claim below ties to a field in `data` or `token_trading`. Verify by cross-referencing the bracketed source field after each line.
+
 ```markdown
 # Director Lucien (ACP #59) — dormant
 
-This Virtuals agent has been dark for **19 days** (last on-chain activity: 2026-04-11).
-$74 USDC sits in the wallet. The Virtuals dashboard still shows `lastActiveAt: 2999-12-31`
-— that's a backend migration artifact, not a real timestamp. Ignore it.
+This Virtuals agent has been dark for **19 days**: last on-chain activity 2026-04-11
+[data.activity.latest_transfer_at]. $74 USDC sits in the wallet
+[data.balances.usdc.usd]. The Virtuals dashboard still shows `lastActiveAt: 2999-12-31`
+[data.discrepancies, severity:info, reason:migration_artifact] — that's a backend
+migration placeholder, not a real timestamp. Ignore it.
 
-Lucien is part of a cluster failure. The **mediahouse** cluster collapsed April 11:
-Luna went dark within hours, Sympson within 72. None of these were exploits — operators
-stopped running them. Token (LUCIEN) still trades ~$24/day, so speculative interest
-hasn't caught up to operational reality.
+Lucien is part of a cluster failure. The **mediahouse** cluster
+[data.peers.cluster] is in `collapsed` state [data.peers.cluster_status]:
+≥75% of mediahouse-cluster agents are dormant. Luna and Sympson went dark within the
+same week. None of these were exploits — operators stopped running them. Token
+(LUCIEN) FDV is $X.XM with 24h volume ~$24 [data.token_trading.fdv_usd,
+data.token_trading.volume_24h_usd] — speculative interest hasn't caught up to
+operational reality.
 
-Active peers in the same swap/trade execution category include Axelrod, Otto AI, Nox,
-and Capminal. None of those are in the mediahouse cluster.
+Active peers in the same swap/trade execution category include Axelrod, Otto AI,
+Nox, and Capminal [data.peers.similar_active]. None of those are in the
+mediahouse cluster.
 
 [Full structured data + sources below]
 ```
+
+The bracketed field references are illustrative for this spec; the actual rendered report does not include them inline. They demonstrate that every factual claim is backed by a populated schema field. The prompt scaffold's "every claim must be backed by the data block" rule is enforced by structure, not by hope.
 
 ### Report-writer voice spec
 
@@ -271,6 +291,8 @@ Output format: pure markdown. No prefix, no suffix, no explanation. Begin with t
 
 **Failure mode:** if `claude --print` returns empty, errors, or violates the H1-format constraint, `report-writer.ts` falls back to a deterministic templated report assembled from the structured data. Empty `report` is forbidden; we always deliver SOMETHING readable.
 
+**Fallback template:** lives at `packages/decode/src/templates/report-fallback.md.ts` as a TypeScript template-literal function `renderFallbackReport(data: QuickDecodeResultData): string`. No external template engine (Mustache/Handlebars) — TS template literals are sufficient and already idiomatic in chainward. The fallback produces a structurally valid markdown report (correct H1, 3-5 paragraphs of factual prose drawn deterministically from `data`). Same shape as the AI report; less voice. Tested explicitly with the same fixtures the AI path uses.
+
 ### Special-case handlers
 
 Specific data-quality artifacts the classifiers must explicitly handle:
@@ -278,7 +300,7 @@ Specific data-quality artifacts the classifiers must explicitly handle:
 | Artifact | Handler | Where |
 |---|---|---|
 | ACP `lastActiveAt: 2999-12-31` (Virtuals migration placeholder) | Filter from recency math entirely; emit `{ field: 'lastActiveAt', severity: 'info', reason: 'migration_artifact' }` discrepancy | `survival.ts` and `discrepancies.ts` |
-| Inbound HUB token airdrops from `0xD152f549545093347A162Dce210e7293f1452150` (mass distribution 2026-04-11) | Filter from `latest_transfer_at` and `transfers_24h/7d/30d` calculations — these are unsolicited, do not represent agent activity | `chain-audit.ts` |
+| Inbound HUB token airdrops from `0xD152f549545093347A162Dce210e7293f1452150` (mass distribution 2026-04-11) | Filter from `latest_transfer_at` and `transfers_24h/7d/30d` calculations — these are unsolicited, do not represent agent activity. **Maintenance treadmill: each new airdrop wave needs a one-off filter until we ship a generic spam-token classifier in Phase 2.** Track new spam waves in `packages/decode/src/spam-tokens.ts` as a static list initially. | `chain-audit.ts` |
 | ACP API returns null for `revenue` / `totalJobs` (per the dashboard audit) | Pass null through; do not infer from aGDP. `claims` reflects exactly what the API returned. | `chain-audit.ts` |
 
 ### Boundary tables (locked at classifier_version 1.0.0)
@@ -290,7 +312,7 @@ Survival classification:
 | `active` | `transfers_7d ≥ 5` AND `latest_transfer_age_hours ≤ 48` |
 | `at_risk` | `transfers_7d in [1, 4]` OR `latest_transfer_age_hours in (48, 168]` |
 | `dormant` | `transfers_7d == 0` AND `latest_transfer_age_hours > 168` |
-| `unknown` | wallet has zero history (should have rejected; this is a degenerate case) |
+| `unknown` | `latest_transfer_age_hours == null` (no token transfers ever, even if `transactions_count > 0` — e.g., ETH-only EOA). REQUEST-phase reject covers most of this case via `no_history`, but a wallet with ETH transactions but zero ERC-20 token transfers slips through and lands here. Document in `survival.ts`. |
 
 USDC pattern:
 
