@@ -59,9 +59,23 @@ Headroom is 5-10× normal pipeline runtime, generous for first launch.
 |---|---|
 | Input doesn't match `^0x[a-fA-F0-9]{40}$` | `invalid_address` |
 | Wallet has zero history on Base (Blockscout `transactions_count=0` AND `token_transfers_count=0`) | `no_history` |
-| Wallet is on the ChainWard internal allowlist (Struktur, our own infra) | `cannot_decode_self` |
+| Buyer-wallet rate limit exceeded (see Concurrency & rate limits below) | `rate_limited` |
 
 We don't reject on "we couldn't enrich it" — sparse wallets get a result with sparse data. Rejection is for impossible jobs only.
+
+**Note on self-decode:** ChainWard's own wallets (Struktur, infrastructure addresses) are *not* rejected. Hard-rejecting them would leak our wallet allowlist via negative-space probing — a buyer could enumerate "decode this; rejected" responses to identify our addresses. Self-decodes return normal output. Anyone curious about our agents gets the same data anyone curious about anyone's agents gets. Impartiality is a strategic asset.
+
+### Concurrency & rate limits
+
+| Limit | Value | Rationale |
+|---|---|---|
+| Max concurrent decodes per pod | 3 | Initial bound; tune empirically based on sentinel/Blockscout strain |
+| Per-buyer concurrent in-flight jobs | 3 | Stops a buyer with $2,500 in escrow from queueing 100 jobs we can't deliver in 15min SLA |
+| Per-buyer max submitted in last 60s | 5 | Stops fast-burst submissions overwhelming the queue |
+| Beyond-limit jobs at REQUEST | reject with `rate_limited` | Buyer doesn't fund escrow → no money lost on either side |
+| Internal queue depth (within pod) | 10 | Beyond this, additional accepts are rejected to preserve SLA |
+
+In-flight tracking lives in Redis (existing chainward dependency); keys keyed on `buyer_wallet`. Per-pod concurrent semaphore is in-process. None of these matter at MVP volume (10-50 jobs/month) but document now so we can tune without re-spec.
 
 ## `QuickDecodeResult` schema (the deliverable)
 
@@ -132,12 +146,21 @@ type QuickDecodeResult = {
       acp_says: string;
       chain_says: string;
       severity: 'info' | 'warn' | 'critical';
+      reason?: string;                            // 'migration_artifact' | 'stale_metric' | …
     }>;
 
+    checks_performed: string[];                   // e.g. ['lastActiveAt', 'isOnline',
+                                                  // 'agdp_chain_match']. Empty discrepancies
+                                                  // + populated checks_performed = verified clean.
+                                                  // Empty discrepancies + empty checks_performed
+                                                  // = unknown / not checked. Disambiguates.
+
     survival: {
-      score: number;                              // 0-1
       classification: 'active' | 'at_risk' | 'dormant' | 'unknown';
       rationale: string;                          // short sentence
+      // Note: numeric `score` deliberately not in public deliverable. Survival is opinion;
+      // chain_reality is fact. Score lives internally for analytics/tuning, not exposed
+      // to buyers. Adding later is easy; pulling back after launch is not.
     };
 
     usdc_pattern: 'running' | 'accumulating' | 'graveyard' | 'inactive' | 'unknown';
@@ -154,20 +177,33 @@ type QuickDecodeResult = {
   sources: Array<{
     label: string;                                // e.g. "Sentinel eth_call USDC.balanceOf"
     url: string;                                  // resolvable URL or rpc:// reference
+    block_number: number | null;                  // null for off-chain sources (ACP API, etc.)
+    block_hash: string | null;                    // pinned hash for third-party verifiability
     timestamp: string;                            // ISO when fetched
   }>;
 
   meta: {
-    schema_version: string;                       // semver — bump on breaking changes
+    schema_version: string;                       // semver. Bumps on QuickDecodeResult shape change.
+    classifier_version: string;                   // semver. Bumps when survival/usdc-pattern/cluster
+                                                  // boundaries change. Decouples shape from
+                                                  // classification — same wallet decoded twice
+                                                  // across versions can be diffed cleanly.
     tier: 'quick';
     pipeline_version: string;                     // git SHA
     generated_at: string;                         // ISO
-    as_of_block: number;
+    as_of_block: { number: number; hash: string };
     target_input: string;
     job_id: string;
+    disclosure: string;                           // standard data-rights footer text — see below
   };
 };
 ```
+
+The `meta.disclosure` field carries the standard text:
+
+> "Decode requests and results are stored by ChainWard and may inform aggregate intelligence. Individual buyer-target pairs are never disclosed."
+
+Same string also appears in the offering description shown to buyers pre-purchase, so consent is granted before payment.
 
 ### Sample report
 
@@ -183,11 +219,99 @@ Luna went dark within hours, Sympson within 72. None of these were exploits — 
 stopped running them. Token (LUCIEN) still trades ~$24/day, so speculative interest
 hasn't caught up to operational reality.
 
-**Survival score: 0.12 (dormant).** Active peers in the same swap/trade execution
-category include Axelrod, Otto AI, Nox, Capminal. None of those are mediahouse-cluster.
+Active peers in the same swap/trade execution category include Axelrod, Otto AI, Nox,
+and Capminal. None of those are in the mediahouse cluster.
 
 [Full structured data + sources below]
 ```
+
+### Report-writer voice spec
+
+The markdown report is the buyer's first impression. Every word is the product. This subsection locks the prompt scaffold, model, and determinism guarantees so the voice doesn't drift between deliveries.
+
+**Model:** Claude Sonnet (latest), invoked via Claude Code OAuth subscription using `claude --print` — same pattern as `scripts/auto-decode/`, bookstack-curator (K3s CronJob), and Claude_Dev (sg-scribe Discord bot). Cost: $0/decode under the OAuth subscription. NOT direct Anthropic API.
+
+**Determinism:**
+- `claude --print` invoked with deterministic prompt (no time-based variability)
+- Single-turn (no tool use, no agent loop)
+- Same input → same output, modulo Sonnet's inherent sampling variance (we accept ~5% prose drift between runs as the cost of LLM-generated narrative)
+- For exact reproducibility (e.g., regression tests), `report-writer.ts` exposes a `replayMode: true` option that uses a deterministic stub instead of Claude — used in tests, never in production
+
+**Prompt scaffold (locked at v1):**
+
+```
+You are a wallet decoder for ChainWard, an intelligence platform for the AI agent
+economy on Base. You are writing a markdown report from VERIFIED on-chain data
+about an AI agent's wallet.
+
+Voice constraints:
+- Authoritative, terse, evidence-first. Every claim must be backed by the data block.
+- Never use accusatory language ("dirty", "scam", "fake", "broken"). Use neutral
+  descriptive framing.
+- Lead with chain reality (active_today / active_7d / active_30d).
+- Then claim discrepancies (what the Virtuals dashboard says vs. what the chain says).
+- Then context (peer cohort, cluster status if applicable).
+- Highlight the failure mode if dormant: "operator silence, not exploit."
+- 3 to 5 paragraphs. No more, no less.
+- Open with a single H1: "# {name} (ACP #{id}) — {classification}".
+- Markdown only. No emoji. No tables in the prose body. No bullet lists in body.
+
+Forbidden:
+- Numeric "survival scores". The schema deliberately omits them; the report must too.
+- Any phrase starting "It seems", "It appears", "Likely". Be definite or omit.
+- Speculation about operator intent or token holder behavior beyond what the data shows.
+
+Data you have:
+{structured_data_json}
+
+Output format: pure markdown. No prefix, no suffix, no explanation. Begin with the H1.
+```
+
+**Versioning:** the prompt scaffold is itself a versioned asset. `report-writer.ts` exports a `PROMPT_VERSION` constant. When the prompt changes, that constant bumps and `meta.classifier_version` bumps with it (since prose framing is a classifier in the same sense as numeric thresholds).
+
+**Failure mode:** if `claude --print` returns empty, errors, or violates the H1-format constraint, `report-writer.ts` falls back to a deterministic templated report assembled from the structured data. Empty `report` is forbidden; we always deliver SOMETHING readable.
+
+### Special-case handlers
+
+Specific data-quality artifacts the classifiers must explicitly handle:
+
+| Artifact | Handler | Where |
+|---|---|---|
+| ACP `lastActiveAt: 2999-12-31` (Virtuals migration placeholder) | Filter from recency math entirely; emit `{ field: 'lastActiveAt', severity: 'info', reason: 'migration_artifact' }` discrepancy | `survival.ts` and `discrepancies.ts` |
+| Inbound HUB token airdrops from `0xD152f549545093347A162Dce210e7293f1452150` (mass distribution 2026-04-11) | Filter from `latest_transfer_at` and `transfers_24h/7d/30d` calculations — these are unsolicited, do not represent agent activity | `chain-audit.ts` |
+| ACP API returns null for `revenue` / `totalJobs` (per the dashboard audit) | Pass null through; do not infer from aGDP. `claims` reflects exactly what the API returned. | `chain-audit.ts` |
+
+### Boundary tables (locked at classifier_version 1.0.0)
+
+Survival classification:
+
+| Classification | Condition |
+|---|---|
+| `active` | `transfers_7d ≥ 5` AND `latest_transfer_age_hours ≤ 48` |
+| `at_risk` | `transfers_7d in [1, 4]` OR `latest_transfer_age_hours in (48, 168]` |
+| `dormant` | `transfers_7d == 0` AND `latest_transfer_age_hours > 168` |
+| `unknown` | wallet has zero history (should have rejected; this is a degenerate case) |
+
+USDC pattern:
+
+| Pattern | Condition |
+|---|---|
+| `running` | active classification AND USDC balance < $50 (continuously turning inventory) |
+| `accumulating` | active classification AND USDC balance ≥ $50 (settled but not redeployed) |
+| `graveyard` | dormant classification AND USDC balance ≥ $100 (the stranded-value finding) |
+| `inactive` | dormant classification AND USDC balance < $100 |
+| `unknown` | classification is unknown |
+
+Cluster status:
+
+| Status | Condition |
+|---|---|
+| `collapsed` | ≥75% of cluster members are dormant by survival classifier |
+| `active` | ≥50% of cluster members are active by survival classifier |
+| `mixed` | neither of the above |
+| `null` | wallet has no `cluster` field |
+
+The 75% / 50% thresholds are picked to surface the mediahouse-style cluster failure (4 of 5 dormant) without false-flagging mixed clusters. Tune as more cluster data accumulates; bumps `classifier_version`.
 
 ## File layout
 
@@ -337,9 +461,12 @@ type: Opaque
 stringData:
   LITE_AGENT_API_KEY: "<from acp setup>"
   WALLET_ADDRESS: "<provisioned by Virtuals>"
+  CLAUDE_CODE_OAUTH_TOKEN: "<copy from existing chainward/curator/discord-bot Secret — same token>"
 ```
 
-Created manually after `acp setup` runs. Never committed to git. Same pattern as the existing chainward secrets.
+Created manually after `acp setup` runs. Never committed to git. The `CLAUDE_CODE_OAUTH_TOKEN` is the same token already used by `auto-decode`, `bookstack-curator`, and `Claude_Dev` — when it expires (~2027-04-02 per memory), all four services rotate together.
+
+Same pattern as existing chainward secrets.
 
 ## Helm chart additions
 
@@ -359,6 +486,38 @@ Single Deployment, 1 replica. Socket.io affinity matters; if we ever need HA, le
 ## CI / image build
 
 Add `chainward-acp-decoder` to the existing GitHub Actions workflow that builds api/web/indexer. New Dockerfile in `apps/acp-decoder/`. `deploy.sh` already polls GHCR for image readiness — add this image to its check list.
+
+The Dockerfile installs the **Claude Code CLI** as a runtime dep so `report-writer.ts` can `spawn('claude', ['--print', …])`. Same pattern as the bookstack-curator image. Install path: download the official Claude Code binary in the build stage and copy into the runtime image. Verify with `claude --version` during build.
+
+## Service definition (ACP offering)
+
+Registered via `acp sell create wallet_decode`. The offering JSON the buyer sees pre-purchase:
+
+```json
+{
+  "name": "wallet_decode",
+  "description": "Verified on-chain audit of an AI agent wallet on Base. Returns chain-grounded balances, activity, dashboard discrepancies, peer cohort analysis, and a short readable report. ChainWard's intelligence layer surfaces what the platform's own dashboard doesn't show. Decode requests and results are stored by ChainWard and may inform aggregate intelligence; individual buyer-target pairs are never disclosed.",
+  "jobFee": 25,
+  "jobFeeType": "fixed",
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "required": ["wallet_address"],
+    "properties": {
+      "wallet_address": {
+        "type": "string",
+        "description": "EVM wallet address to audit (0x + 40 hex chars). Agent name accepted via @handle."
+      },
+      "agent_name": {
+        "type": "string",
+        "description": "Optional: Virtuals agent name for metadata enrichment."
+      }
+    }
+  }
+}
+```
+
+The data-rights disclosure in the description is what a buyer sees before spending $25. By submitting the job, the buyer consents. This is also reflected in `meta.disclosure` on the deliverable for record.
 
 ## Testing strategy
 
@@ -403,15 +562,16 @@ These are documented for post-launch discovery, not blockers for shipping:
 
 ## Success criteria for MVP launch
 
-The MVP is shipped when:
+The MVP is shipped when ALL of the following are true:
 
 1. `acp setup` completed; agent registered on Virtuals with `chainward-decoder` listing
 2. K8s Deployment running, Socket.io connected, observability green
 3. End-to-end test passed: we submit a job to ourselves, full lifecycle completes, deliverable matches schema
 4. First 24h of operation runs cleanly without crash loops or stuck jobs
 5. Soft launch announcement on `@chainwardai` X account
+6. **Playbook walkthrough committed to `docs/playbook/acp-registration-walkthrough.md`** — every step, error, gotcha, and resolution from the `acp setup` flow. This is the seed for `/build`'s "How to launch on Virtuals" page in Phase 2. The strategic value of going first leaks unless captured at the time.
 
-Shipped does NOT mean "we generated revenue." Zero jobs in month one is a market signal, not a failure of the launch.
+Shipped does NOT mean "we generated revenue." Zero jobs in month one is a market signal, not a failure of the launch — the counter-cyclical thesis treats every job as accumulated data, not a per-unit revenue line. Discoverability concerns are deliberately not gating; they're a Phase 1.5 marketing concern, not a launch concern.
 
 ## References
 
