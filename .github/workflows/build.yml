@@ -52,6 +52,9 @@ jobs:
           - image: chainward-indexer
             context: .
             dockerfile: packages/indexer/Dockerfile
+          - image: chainward-acp-decoder
+            context: .
+            dockerfile: apps/acp-decoder/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
