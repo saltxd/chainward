@@ -1,4 +1,5 @@
 import { PrivyAlchemyEvmProviderAdapter, AcpAgent } from '@virtuals-protocol/acp-node-v2';
+import { base } from 'viem/chains';
 import { logger } from './logger.js';
 import type { Config } from './config.js';
 import type { HandlerContext } from './handler.js';
@@ -12,6 +13,7 @@ export async function startSeller(
     walletAddress: config.walletAddress as `0x${string}`,
     walletId: config.walletId,
     signerPrivateKey: config.signerPrivateKey,
+    chains: [base],
   });
 
   const agent = await AcpAgent.create({ provider });
