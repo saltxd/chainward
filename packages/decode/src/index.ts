@@ -7,3 +7,4 @@ export * from './discrepancies.js';
 export * from './survival.js';
 export * from './usdc-pattern.js';
 export * from './peers.js';
+export * from './token-trading.js';
