@@ -8,6 +8,7 @@ import { classifyUsdcPattern } from './usdc-pattern.js';
 import { findPeers, computeClusterStatus, type ObservatoryAgent } from './peers.js';
 import { extractTokenTrading } from './token-trading.js';
 import { writeReport } from './report-writer.js';
+import { parseSentinelBlock } from './sentinel-block.js';
 
 export interface QuickDecodeInput {
   input: string;
@@ -23,6 +24,7 @@ export interface QuickDecodeInput {
     sentinel_nonce: { result: string };
     geckoterminal?: any;
     observatory?: ObservatoryAgent[];
+    sentinel_block?: { number: string; hash: string };
   };
   replayMode?: boolean;
 }
@@ -153,7 +155,9 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
       tier: 'quick',
       pipeline_version: input.pipeline_version,
       generated_at: now.toISOString(),
-      as_of_block: { number: 0, hash: '' }, // TODO populated when sentinel adapter ships (Task 32)
+      as_of_block: input.fixtures.sentinel_block
+        ? parseSentinelBlock(input.fixtures.sentinel_block)
+        : { number: 0, hash: '' },
       target_input: input.input,
       job_id: input.job_id,
       disclosure: DISCLOSURE_TEXT,

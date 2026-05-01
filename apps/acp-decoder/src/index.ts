@@ -1,7 +1,7 @@
 import IORedis from 'ioredis';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { quickDecode } from '@chainward/decode';
+import { quickDecode, fetchCurrentBlock } from '@chainward/decode';
 import { loadConfig } from './config.js';
 import { logger } from './logger.js';
 import { RateLimiter } from './rate-limit.js';
@@ -28,6 +28,7 @@ async function checkHistoryViaBlockscout(walletAddress: string) {
 
 async function main() {
   const config = loadConfig();
+  const SENTINEL_RPC = process.env.SENTINEL_RPC ?? 'http://cw-sentinel:8545';
   logger.info({ wallet: config.walletAddress }, 'chainward-acp-decoder starting');
 
   const sql = postgres(config.databaseUrl);
@@ -71,12 +72,18 @@ async function main() {
       // TODO: replace empty fixtures with live data fetch from sentinel + Blockscout + ACP API.
       // quickDecode currently expects fixtures shape; production needs a fetch layer.
       // Live integration deferred to Task 30 (e2e test) which will validate the whole path.
-      quickDecode: (input: any) =>
-        quickDecode({
+      quickDecode: async (input: any) => {
+        const sentinelBlock = await fetchCurrentBlock(SENTINEL_RPC).catch(() => undefined);
+        return quickDecode({
           ...input,
           pipeline_version: process.env.GIT_SHA ?? 'dev',
-          fixtures: {} as any,
-        }),
+          fixtures: {
+            sentinel_block: sentinelBlock
+              ? { number: '0x' + sentinelBlock.number.toString(16), hash: sentinelBlock.hash }
+              : undefined,
+          } as any,
+        });
+      },
     },
     chainHistory: { checkHistory: checkHistoryViaBlockscout },
     config: { feeUsdc: 25 },
