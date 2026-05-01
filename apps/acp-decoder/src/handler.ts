@@ -29,6 +29,9 @@ export interface HandlerContext {
     persistRejected(input: any): Promise<void>;
   };
   decode: { quickDecode(input: any): Promise<any> };
+  chainHistory: {
+    checkHistory(walletAddress: string): Promise<{ transactions_count: number; token_transfers_count: number }>;
+  };
   config: { feeUsdc: number };
 }
 
@@ -55,6 +58,19 @@ export async function handleNewTask(ctx: HandlerContext, job: any): Promise<void
         targetInput: job.requirement.wallet_address,
         targetWallet: job.requirement.wallet_address,
         rejectReason: 'rate_limited',
+      });
+      return;
+    }
+    const history = await ctx.chainHistory.checkHistory(v.wallet_address);
+    if (history.transactions_count === 0 && history.token_transfers_count === 0) {
+      await ctx.rateLimiter.release(job.buyerWallet); // give back the slot
+      await ctx.api.reject(job.id, { reason: 'no_history' });
+      await ctx.persist.persistRejected({
+        jobId: job.id,
+        buyerWallet: job.buyerWallet,
+        targetInput: job.requirement.wallet_address,
+        targetWallet: v.wallet_address,
+        rejectReason: 'no_history',
       });
       return;
     }
