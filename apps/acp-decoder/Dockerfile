@@ -24,6 +24,8 @@ RUN pnpm --filter @chainward/acp-decoder build && \
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Install Claude Code CLI for OAuth-backed report-writer
+RUN npm install -g @anthropic-ai/claude-code
 COPY --from=build /prod .
 
 CMD ["node", "dist/index.js"]
