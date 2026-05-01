@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   computeActivity,
   computeBalances,
   filterSpamTransfers,
 } from '../src/chain-audit.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const fx = (name: string) =>
   JSON.parse(readFileSync(join(__dirname, 'fixtures', name), 'utf8'));
@@ -18,7 +21,7 @@ describe('filterSpamTransfers', () => {
     ];
     const filtered = filterSpamTransfers(transfers);
     expect(filtered).toHaveLength(1);
-    expect(filtered[0].from.hash.toLowerCase()).toBe('0xef4364fe4487353df46eb7c811d4fac78b856c7f');
+    expect(filtered[0]?.from.hash.toLowerCase()).toBe('0xef4364fe4487353df46eb7c811d4fac78b856c7f');
   });
 });
 
