@@ -16,7 +16,6 @@ describe('extractTokenTrading', () => {
           attributes: {
             fdv_usd: '6128400.0',
             volume_usd: { h24: '24.50' },
-            total_supply: '1000000000',
           },
         },
       },

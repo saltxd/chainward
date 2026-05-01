@@ -71,9 +71,9 @@ async function runClaudePrint(prompt: string, timeoutMs: number): Promise<string
       reject(new Error('claude --print timed out'));
     }, timeoutMs);
 
-    child.stdout.on('data', (b) => (stdout += b.toString()));
-    child.stderr.on('data', (b) => (stderr += b.toString()));
-    child.on('exit', (code) => {
+    child.stdout.on('data', (b: Buffer) => (stdout += b.toString()));
+    child.stderr.on('data', (b: Buffer) => (stderr += b.toString()));
+    child.on('exit', (code: number | null) => {
       clearTimeout(timer);
       if (code === 0) resolve(stdout);
       else reject(new Error(`claude exited ${code}: ${stderr.slice(0, 200)}`));

@@ -273,6 +273,9 @@ importers:
         specifier: ^2.21.0
         version: 2.47.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.3.6)
     devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.13
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
