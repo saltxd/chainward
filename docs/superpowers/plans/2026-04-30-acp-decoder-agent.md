@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-30-acp-decoder-agent-design.md` (commit 0fcda83). Reference brief: `scripts/auto-decode/acp-service-brief.md`.
 
+**Time estimate (honest):** 5-7 days at focused full-time pace, or 2-3 weeks at side-project pace. The spec said "2-3 days to first registration" — that estimate is optimistic given 33 TDD tasks averaging 4-5 substeps each. Calibrate accordingly so Day 4 doesn't feel like a slip.
+
 ---
 
 ## File structure
@@ -2978,6 +2980,240 @@ git commit -m "feat(acp-decoder): handler state machine (REQUEST/TRANSACTION)"
 
 ---
 
+## Task 21a: `no_history` reject — Blockscout history check before accept
+
+**Files:**
+- Modify: `apps/acp-decoder/src/handler.ts`
+- Modify: `apps/acp-decoder/__tests__/handler.test.ts`
+
+The spec lists `no_history` as a REQUEST-phase reject reason but Task 21 only validates address format. This task wires the chain-side check.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `apps/acp-decoder/__tests__/handler.test.ts`:
+```typescript
+describe('handleNewTask (REQUEST phase) — no_history reject', () => {
+  it('rejects when wallet has zero history on Base', async () => {
+    const ctx = makeCtx({
+      rateLimitResult: 'ok',
+      historyResult: { transactions_count: 0, token_transfers_count: 0 },
+    });
+    await handleNewTask(ctx, makeJob('REQUEST', { wallet_address: '0x' + '1'.repeat(40) }));
+    expect(ctx.api.reject).toHaveBeenCalledWith(expect.any(String), { reason: 'no_history' });
+  });
+
+  it('accepts when wallet has any history', async () => {
+    const ctx = makeCtx({
+      rateLimitResult: 'ok',
+      historyResult: { transactions_count: 5, token_transfers_count: 0 },
+    });
+    await handleNewTask(ctx, makeJob('REQUEST', { wallet_address: '0x' + '1'.repeat(40) }));
+    expect(ctx.api.accept).toHaveBeenCalled();
+  });
+});
+```
+
+Update `makeCtx` factory to include `chainHistory.checkHistory` mock:
+```typescript
+function makeCtx(overrides: any = {}): any {
+  return {
+    api: { /* unchanged */ },
+    rateLimiter: { /* unchanged */ },
+    persist: { /* unchanged */ },
+    decode: { /* unchanged */ },
+    chainHistory: {
+      checkHistory: vi.fn().mockResolvedValue(
+        overrides.historyResult ?? { transactions_count: 1, token_transfers_count: 1 },
+      ),
+    },
+    config: { feeUsdc: 25 },
+  };
+}
+```
+
+- [ ] **Step 2: Run test (should fail — handler doesn't call chainHistory)**
+
+```bash
+pnpm --filter @chainward/acp-decoder test handler
+```
+
+Expected: FAIL on the new test cases.
+
+- [ ] **Step 3: Extend the handler**
+
+In `apps/acp-decoder/src/handler.ts`, add `chainHistory` to `HandlerContext`:
+```typescript
+export interface HandlerContext {
+  // ... existing fields ...
+  chainHistory: {
+    checkHistory(walletAddress: string): Promise<{ transactions_count: number; token_transfers_count: number }>;
+  };
+}
+```
+
+In the `REQUEST` branch, after rate-limit acquisition and before `accept`, add:
+```typescript
+const history = await ctx.chainHistory.checkHistory(v.wallet_address);
+if (history.transactions_count === 0 && history.token_transfers_count === 0) {
+  await ctx.rateLimiter.release(job.buyerWallet); // give back the slot
+  await ctx.api.reject(job.id, { reason: 'no_history' });
+  await ctx.persist.persistRejected({
+    jobId: job.id,
+    buyerWallet: job.buyerWallet,
+    targetInput: job.requirement.wallet_address,
+    targetWallet: v.wallet_address,
+    rejectReason: 'no_history',
+  });
+  return;
+}
+```
+
+- [ ] **Step 4: Implement `chainHistory.checkHistory()` in the entrypoint**
+
+In `apps/acp-decoder/src/index.ts`, add a chain-history adapter that calls Blockscout:
+```typescript
+async function checkHistoryViaBlockscout(walletAddress: string) {
+  const resp = await fetch(`https://base.blockscout.com/api/v2/addresses/${walletAddress}/counters`);
+  if (!resp.ok) return { transactions_count: 1, token_transfers_count: 0 }; // fail open
+  const body: any = await resp.json();
+  return {
+    transactions_count: parseInt(body.transactions_count ?? '0', 10),
+    token_transfers_count: parseInt(body.token_transfers_count ?? '0', 10),
+  };
+}
+
+// Wire into handlerCtx:
+const handlerCtx: HandlerContext = {
+  // ... existing fields ...
+  chainHistory: { checkHistory: checkHistoryViaBlockscout },
+  // ...
+};
+```
+
+(Fail-open is intentional: a Blockscout 5xx during onboarding shouldn't reject a paying buyer's job. The downside — accepting a no-history wallet — is small; we deliver a sparse decode and they get the JSON. The reverse — rejecting valid jobs because Blockscout is flapping — is worse.)
+
+- [ ] **Step 5: Run tests**
+
+```bash
+pnpm --filter @chainward/acp-decoder test handler
+```
+
+Expected: all handler tests pass (now 8 — original 6 plus the 2 new).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/acp-decoder/src/handler.ts apps/acp-decoder/src/index.ts apps/acp-decoder/__tests__/handler.test.ts
+git commit -m "feat(acp-decoder): no_history reject via Blockscout counters"
+```
+
+---
+
+## Task 21b: 5-minute execution watchdog wrapping `quickDecode`
+
+**Files:**
+- Modify: `apps/acp-decoder/src/handler.ts`
+- Modify: `apps/acp-decoder/__tests__/handler.test.ts`
+
+Per the spec error-handling matrix: pipeline normal runtime is 30-60s; ACP SLA is 15min. Internal watchdog at 5min ensures we deliver SOMETHING (partial-result envelope) before the SLA kills us. EXPIRED costs us $0 + reputation hit; partial delivery costs nothing.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `apps/acp-decoder/__tests__/handler.test.ts`:
+```typescript
+describe('handleNewTask (TRANSACTION) — execution watchdog', () => {
+  it('delivers partial result when quickDecode exceeds 5min watchdog', async () => {
+    vi.useFakeTimers();
+    const ctx = makeCtx();
+    // quickDecode returns a never-resolving promise — should hit watchdog
+    ctx.decode.quickDecode = vi.fn(() => new Promise(() => {}));
+    const handlerPromise = handleNewTask(ctx, makeJob('TRANSACTION', { wallet_address: '0x' + '1'.repeat(40) }));
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 1000);
+    await handlerPromise;
+    expect(ctx.api.deliver).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        type: 'json',
+        value: expect.objectContaining({
+          status: 'partial',
+          error: 'timeout',
+        }),
+      }),
+    );
+    vi.useRealTimers();
+  });
+
+  it('delivers normal result when quickDecode finishes under 5min', async () => {
+    const ctx = makeCtx({ decodeResult: { report: '# x', data: { target: { name: 'x' } }, sources: [], meta: {} } });
+    await handleNewTask(ctx, makeJob('TRANSACTION', { wallet_address: '0x' + '1'.repeat(40) }));
+    expect(ctx.api.deliver).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        type: 'json',
+        value: expect.objectContaining({ report: '# x' }),
+      }),
+    );
+  });
+});
+```
+
+- [ ] **Step 2: Run test (should fail — handler doesn't enforce watchdog)**
+
+```bash
+pnpm --filter @chainward/acp-decoder test handler
+```
+
+Expected: FAIL on the watchdog test.
+
+- [ ] **Step 3: Wrap `quickDecode` in Promise.race**
+
+In `apps/acp-decoder/src/handler.ts`, add a constant and modify the TRANSACTION branch:
+```typescript
+const DECODE_WATCHDOG_MS = 5 * 60 * 1000; // 5 minutes — see spec error-handling matrix
+
+function timeoutAfter<T>(ms: number, value: T): Promise<T> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(value), ms);
+  });
+}
+
+// In the TRANSACTION branch, replace:
+//   const result = await ctx.decode.quickDecode({ ... });
+// with:
+const decodePromise = ctx.decode.quickDecode({
+  input: job.requirement.wallet_address,
+  wallet_address: job.requirement.wallet_address,
+  job_id: job.id,
+});
+const partialResult = {
+  status: 'partial' as const,
+  error: 'timeout' as const,
+  job_id: job.id,
+  message: 'Decode pipeline exceeded 5-minute internal watchdog. Partial delivery to preserve ACP SLA.',
+};
+const result = await Promise.race([
+  decodePromise,
+  timeoutAfter(DECODE_WATCHDOG_MS, partialResult),
+]);
+```
+
+- [ ] **Step 4: Run tests**
+
+```bash
+pnpm --filter @chainward/acp-decoder test handler
+```
+
+Expected: all 10 handler tests pass (8 from Task 21a plus the 2 new).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/acp-decoder/src/handler.ts apps/acp-decoder/__tests__/handler.test.ts
+git commit -m "feat(acp-decoder): 5-min execution watchdog around quickDecode"
+```
+
+---
+
 ## Task 22: `seller` — Socket.io connection to acpx.virtuals.io
 
 **Files:**
@@ -3395,14 +3631,60 @@ git commit -m "ci: build chainward-acp-decoder image alongside api/web/indexer"
 
 ---
 
-## Task 28: Run `acp setup` and capture the Playbook walkthrough
+## Task 28: Run `acp setup` and write the Playbook walkthrough live
 
 **Files:**
 - Create: `docs/playbook/acp-registration-walkthrough.md`
 
-This is a manual task. Document every step, error, and resolution as you go — this becomes the seed for the Phase 2 `/build` Playbook surface.
+This is a manual task. **The playbook is captured AS YOU GO, not after.** Each numbered step below ends with appending observations to the playbook file before moving to the next. The strategic value of going first is the playbook — if it's reconstructed two weeks later from memory, the gotchas evaporate. This is the success criterion #6 deliverable.
 
-- [ ] **Step 1: Clone the openclaw-acp CLI**
+- [ ] **Step 1: Initialize the playbook with skeleton up-front (BEFORE running any CLI)**
+
+`docs/playbook/acp-registration-walkthrough.md`:
+```markdown
+# ACP Registration Walkthrough — chainward-decoder
+
+> Captured live during the registration of ChainWard's decoder agent on Virtuals'
+> Agentic Commerce Protocol. This is the seed for the Phase 2 `/build` "How to
+> launch on Virtuals" page. Sections are appended in real time as each step runs.
+
+## Environment
+- Date started: [timestamp]
+- ACP CLI version: [from `acp --version`]
+- Node version: [from `node --version`]
+- OS: [macOS / Linux]
+
+## Step-by-step log
+(appended live during each step below)
+
+## What worked
+(filled in as we go)
+
+## What didn't
+(filled in as we go — this is the actually-useful section)
+
+## Time taken
+- Step 1 (clone CLI): [filled at end]
+- Step 2 (acp setup): [filled at end]
+- Step 3 (profile): [filled at end]
+- Step 4 (offering init): [filled at end]
+- Step 5 (offering register): [filled at end]
+- Step 6 (k8s secrets): [filled at end]
+- Total: [filled at end]
+- Time spent debugging: [filled at end]
+
+## What I'd tell a new builder
+(filled at end — the punchline section that becomes /build copy)
+```
+
+Commit the skeleton now so it exists and shows up as a blocker if the rest of Task 28 stalls:
+```bash
+mkdir -p docs/playbook
+git add docs/playbook/acp-registration-walkthrough.md
+git commit -m "docs(playbook): initialize acp-registration-walkthrough skeleton"
+```
+
+- [ ] **Step 2: Clone the openclaw-acp CLI**
 
 ```bash
 cd /tmp
@@ -3412,7 +3694,9 @@ npm install
 npm link
 ```
 
-- [ ] **Step 2: Run `acp setup`**
+**Append to playbook** (before moving on): under "Step-by-step log", note the install command, any errors, the npm-link path, and how long it took. Append any "what worked" / "what didn't" entries as they happen.
+
+- [ ] **Step 3: Run `acp setup`**
 
 ```bash
 acp setup
@@ -3425,13 +3709,17 @@ Browser OAuth opens. Complete the flow. The CLI returns:
 
 Stash the API key in 1Password / equivalent. Note the wallet address.
 
-- [ ] **Step 3: Set the agent's profile description**
+**Append to playbook**: every screen of the OAuth flow (screenshot to `docs/playbook/img/acp-setup-N.png` if useful), the exact CLI output, and especially any error/retry. The browser flow is where new builders get stuck — capture it.
+
+- [ ] **Step 4: Set the agent's profile description**
 
 ```bash
 acp profile update description "Verified on-chain audit of an AI agent wallet on Base. Returns chain-grounded balances, activity, dashboard discrepancies, peer cohort analysis, and a short readable report. ChainWard's intelligence layer surfaces what the platform's own dashboard doesn't show. Decode requests and results are stored by ChainWard and may inform aggregate intelligence; individual buyer-target pairs are never disclosed."
 ```
 
-- [ ] **Step 4: Initialize the wallet_decode offering**
+**Append to playbook**: any character limits hit, any rejected formatting, response from the CLI.
+
+- [ ] **Step 5: Initialize the wallet_decode offering**
 
 ```bash
 acp sell init wallet_decode
@@ -3439,13 +3727,17 @@ acp sell init wallet_decode
 
 Edit the generated `offering.json` to match the schema in the spec (Service Definition section).
 
-- [ ] **Step 5: Register the offering**
+**Append to playbook**: where the file landed, what the scaffold looked like, what we changed and why.
+
+- [ ] **Step 6: Register the offering**
 
 ```bash
 acp sell create wallet_decode
 ```
 
-- [ ] **Step 6: Push secrets to the chainward namespace**
+**Append to playbook**: success/error, any minimum-fee enforcement (the spec flags $25 as empirically unverified), discoverability state — does `acp browse` find us yet?
+
+- [ ] **Step 7: Push secrets to the chainward namespace**
 
 ```bash
 kubectl -n chainward create secret generic acp-decoder-secrets \
@@ -3456,39 +3748,24 @@ kubectl -n chainward create secret generic acp-decoder-secrets \
 
 (Adjust namespace names to match your actual setup.)
 
-- [ ] **Step 7: Capture the walkthrough**
+**Append to playbook**: source-namespace gotchas for the OAuth token copy, any kubectl errors.
 
-`docs/playbook/acp-registration-walkthrough.md`:
-```markdown
-# ACP Registration Walkthrough — chainward-decoder
+- [ ] **Step 8: Final pass on the playbook — fill in summary sections**
 
-> Captured during the launch of the ChainWard ACP decoder agent. This is the seed
-> for the Phase 2 `/build` "How to launch on Virtuals" page.
+With Steps 1-7 captured live, now fill in:
+- **What worked** — clean things, in 3-7 bullets
+- **What didn't** — gotchas, in 3-7 bullets
+- **Time taken** — actual minutes, including debugging
+- **What I'd tell a new builder** — the punchline section. This is what gets pasted into chainward.ai/build's "How to launch on Virtuals" page in Phase 2. Three to five sentences max.
 
-[Document everything that happened during steps 1-6 above. Include screenshots
-of the OAuth flow, exact CLI output, any errors and how you resolved them, and
-the time it took. Be honest — gotchas teach more than smooth flows.]
-
-## What worked
-- ...
-
-## What didn't
-- ...
-
-## Time taken
-- Total: X minutes
-- Time spent debugging: Y minutes
-
-## What I'd tell a new builder
-- ...
-```
-
-- [ ] **Step 8: Commit the walkthrough**
+- [ ] **Step 9: Commit the populated walkthrough**
 
 ```bash
 git add docs/playbook/acp-registration-walkthrough.md
-git commit -m "docs: ACP registration walkthrough — Playbook seed material"
+git commit -m "docs(playbook): live acp setup walkthrough — Phase 2 /build seed"
 ```
+
+The playbook walkthrough commit is the success criterion #6 deliverable. Task 29 (deploy) is blocked until this commit lands — deploy without the playbook captured live means the strategic asset leaks.
 
 ---
 
@@ -3621,7 +3898,175 @@ Add a section noting that the auto-decode pipeline now powers the public Decoder
 
 ---
 
-## Self-review
+## Task 32: Sentinel block-pinning for `as_of_block` (post-MVP polish)
+
+**Files:**
+- Create: `packages/decode/src/sentinel-block.ts`
+- Modify: `packages/decode/src/quick-decode.ts`
+- Modify: `packages/decode/__tests__/quick-decode.test.ts`
+
+The MVP ships with `meta.as_of_block: { number: 0, hash: '' }` as a documented limitation. This task fills it in with real values from the sentinel node, so the disclosure language ("verified on-chain audit") matches what we actually deliver. Run after Task 31 ships and the agent is live.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `packages/decode/__tests__/quick-decode.test.ts`:
+```typescript
+describe('quickDecode meta.as_of_block', () => {
+  it('populates a non-zero block number and non-empty hash', async () => {
+    const result = await quickDecode({
+      input: '@axelrod',
+      wallet_address: '0x999A1B6033998A05F7e37e4BD471038dF46624E1',
+      job_id: 'block-test-1',
+      pipeline_version: 'test',
+      now: new Date('2026-04-30T12:00:00Z'),
+      fixtures: {
+        ...JSON.parse(readFileSync(join(__dirname, 'fixtures/axelrod-active.json'), 'utf8')),
+        sentinel_block: {
+          number: '0x2a7d3cf', // 44621775 in hex
+          hash: '0x9954b825e40a5fc0dac606b764924a27527843fc176cf8c8d2deb341945a1b8c',
+        },
+      },
+      replayMode: true,
+    });
+    expect(result.meta.as_of_block.number).toBeGreaterThan(0);
+    expect(result.meta.as_of_block.hash).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+});
+```
+
+- [ ] **Step 2: Run test (should fail — quickDecode still stubs the field)**
+
+```bash
+pnpm --filter @chainward/decode test quick-decode
+```
+
+Expected: FAIL.
+
+- [ ] **Step 3: Implement the sentinel-block module**
+
+`packages/decode/src/sentinel-block.ts`:
+```typescript
+export interface SentinelBlock {
+  number: number;
+  hash: string;
+}
+
+export interface SentinelBlockInput {
+  number: string; // hex from eth_blockNumber
+  hash: string;   // from eth_getBlockByNumber
+}
+
+export function parseSentinelBlock(input: SentinelBlockInput): SentinelBlock {
+  return {
+    number: parseInt(input.number, 16),
+    hash: input.hash,
+  };
+}
+
+// Live RPC fetch — used in production, not tests.
+export async function fetchCurrentBlock(rpcUrl: string): Promise<SentinelBlock> {
+  const headers = { 'Content-Type': 'application/json' };
+  const blockNumberResp = await fetch(rpcUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+  });
+  const blockNumberJson: any = await blockNumberResp.json();
+  const number = blockNumberJson.result;
+
+  const blockResp = await fetch(rpcUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: [number, false], id: 1 }),
+  });
+  const blockJson: any = await blockResp.json();
+  return parseSentinelBlock({ number, hash: blockJson.result.hash });
+}
+```
+
+- [ ] **Step 4: Thread into `quickDecode`**
+
+In `packages/decode/src/quick-decode.ts`, update the `QuickDecodeInput.fixtures` type:
+```typescript
+fixtures: {
+  // ... existing fields ...
+  sentinel_block?: { number: string; hash: string };
+};
+```
+
+Replace the `as_of_block` line in `meta`:
+```typescript
+import { parseSentinelBlock } from './sentinel-block.js';
+
+// Inside quickDecode, when building meta:
+const blockInput = input.fixtures.sentinel_block;
+const as_of_block = blockInput
+  ? parseSentinelBlock(blockInput)
+  : { number: 0, hash: '' };
+
+// In the meta object:
+meta: {
+  // ...
+  as_of_block,
+  // ...
+},
+```
+
+Add `export * from './sentinel-block.js';` to `packages/decode/src/index.ts`.
+
+- [ ] **Step 5: Wire into `apps/acp-decoder/`**
+
+In `apps/acp-decoder/src/index.ts`, before each `quickDecode` call, fetch the current block from the sentinel:
+```typescript
+import { fetchCurrentBlock } from '@chainward/decode';
+
+const SENTINEL_RPC = process.env.SENTINEL_RPC ?? 'http://cw-sentinel:8545';
+
+// In handlerCtx.decode.quickDecode:
+quickDecode: async (input: any) => {
+  const sentinelBlock = await fetchCurrentBlock(SENTINEL_RPC).catch(() => undefined);
+  return quickDecode({
+    ...input,
+    pipeline_version: process.env.GIT_SHA ?? 'dev',
+    fixtures: {
+      // populated in production by chain-audit module's data-fetch step
+      sentinel_block: sentinelBlock
+        ? { number: '0x' + sentinelBlock.number.toString(16), hash: sentinelBlock.hash }
+        : undefined,
+    } as any,
+  });
+},
+```
+
+- [ ] **Step 6: Run tests**
+
+```bash
+pnpm --filter @chainward/decode test
+pnpm --filter @chainward/acp-decoder typecheck
+```
+
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/decode/src/sentinel-block.ts packages/decode/src/quick-decode.ts packages/decode/src/index.ts packages/decode/__tests__/quick-decode.test.ts apps/acp-decoder/src/index.ts
+git commit -m "feat(decode): sentinel block-pinning for meta.as_of_block"
+```
+
+- [ ] **Step 8: Deploy + verify in a live decode**
+
+```bash
+./deploy/deploy.sh
+```
+
+Submit a fresh test job (from the e2e fixture buyer wallet). Inspect the deliverable's `meta.as_of_block` — should now have a real block number and hash. Update the BookStack page 199 / 202 entry noting the polish landed.
+
+---
+
+## Self-review (post-review-pass-2)
+
+Plan now has **34 tasks** (originally 31 + Task 21a no_history + Task 21b watchdog + Task 32 sentinel block-pin).
 
 **Spec coverage check:**
 
@@ -3630,11 +4075,11 @@ Walking through the spec section by section against the plan:
 - Goal — ✓ covered (Tasks 28, 29, 30 = ship)
 - Strategic context — covered in plan header
 - Architecture & job sequence — ✓ Tasks 21 (handler), 22 (seller), 23 (reconcile), 24 (index)
-- One-time bootstrap — ✓ Task 28
+- One-time bootstrap — ✓ Task 28 (now write-as-you-go playbook)
 - Runtime sequence — ✓ Task 22
 - Reconciliation on pod restart — ✓ Task 23
-- SLA + execution watchdog — handler.ts has the timeout-guard pattern; explicitly add to Task 21 review notes (handler test does not currently assert watchdog; runtime watchdog wraps `quickDecode` with `Promise.race` against a 5min timeout — implementer note to add inline, not a separate task)
-- Reject conditions — ✓ Task 21 tests cover invalid_address + rate_limited; no_history is a Task 21 follow-up — **gap**, see addendum below
+- SLA + execution watchdog — ✓ Task 21b (5-min Promise.race with partial-result fallthrough)
+- Reject conditions — ✓ Task 21 (invalid_address, rate_limited) + Task 21a (no_history via Blockscout counters)
 - Concurrency & rate limits — ✓ Task 19
 - QuickDecodeResult schema — ✓ Task 2
 - Sample report — ✓ used as fixture in Task 13
@@ -3644,32 +4089,26 @@ Walking through the spec section by section against the plan:
 - Token-trading — ✓ Task 12
 - Fallback template — ✓ Task 13
 - File layout — ✓ matches header
-- Error handling — partial: ETH-only EOA edge case ✓ Task 9; Sentinel timeout / Blockscout 5xx fallthroughs need wiring in `chain-audit.ts` retry logic — **gap, addendum**
+- Error handling — ETH-only EOA ✓ Task 9; 5-min watchdog ✓ Task 21b; Sentinel/Blockscout retry-once is the one remaining implementer note (small helper in `chain-audit.ts`, not its own task — see Implementer notes below)
 - Observability metrics — pino logger ✓ Task 22; Prometheus metrics not added — **deliberately deferred to Phase 1.5**
 - Persistence — ✓ Tasks 16, 20
-- Secrets — ✓ Task 25, Task 28
+- Secrets — ✓ Task 25, Task 28 (Step 7)
 - Helm — ✓ Task 25
 - CI — ✓ Task 27
-- Service definition (offering JSON) — ✓ Task 28
+- Service definition (offering JSON) — ✓ Task 28 (Step 5)
 - Testing strategy — ✓ Tasks 5-15 are TDD per module
-- Success criteria — Playbook walkthrough ✓ Task 28; deploy ✓ Task 29; E2E ✓ Task 30; soft launch ✓ Task 31
+- Success criteria — Playbook walkthrough ✓ Task 28 (now write-as-you-go, blocking Task 29 deploy); deploy ✓ Task 29; E2E ✓ Task 30; soft launch ✓ Task 31; sentinel block-pinning ✓ Task 32 (post-MVP polish, replaces the as_of_block stub)
 
-**Gaps identified — addendum:**
+**Implementer notes (kept inline, NOT promoted to tasks):**
 
-Three gaps found that should be resolved during execution rather than re-spec:
-
-1. **`no_history` reject** — handler.ts validateRequest() should also call out to Blockscout to check `transactions_count` AND `token_transfers_count`. Currently the test only covers invalid_address. **Add to Task 21**: extend `validateRequest` to accept an async hook for chain-side checks, or add a separate `checkHistory()` step before `accept`. Not blocking — implementer should adjust Task 21 inline.
-
-2. **Sentinel/Blockscout retry logic** — chain-audit.ts in Task 7 doesn't include the retry-once-then-fall-through pattern from the spec's error-handling matrix. **Implementer note:** add a small `retryOnce<T>()` helper at the top of chain-audit.ts and wrap the network calls.
-
-3. **5-minute execution watchdog** — handler.ts in Task 21 calls quickDecode without a timeout wrapper. **Implementer note:** wrap with `Promise.race(quickDecode(...), timeout(5*60*1000))` in TRANSACTION phase.
+1. **Sentinel/Blockscout retry logic** — `chain-audit.ts` in Task 7 doesn't have the retry-once-then-fall-through pattern. **Add inline:** small `retryOnce<T>()` helper at the top of `chain-audit.ts` wrapping each network call. Behavior: try once, on network/5xx wait 5s, try once more, then return a "degraded: true" sentinel result. Five lines of helper code; doesn't warrant a separate task.
 
 **Placeholder scan:**
 
 Searched the plan for "TODO", "TBD", "implement later", "fill in details", "Add appropriate", "handle edge cases", "Similar to Task". Found:
 
-- Task 24 has one `// TODO` in the as_of_block in quickDecode — that's a known limitation noted explicitly (we don't have a sentinel block-pinning layer yet; populating real values requires a separate task to wire `eth_blockNumber` + `eth_getBlockByNumber`). Acceptable as a documented limitation.
-- Task 24 has `api: { accept, reject, requirement, deliver }` as stubs with a comment to wire the SDK. This is honest documentation of an integration step the implementer must do against live SDK surface; cannot be fully written without the SDK in hand. The exact moonshot-cyber reference is cited.
+- Task 24's `// TODO populated when sentinel adapter ships` — now resolved by Task 32. Acceptable until Task 32 lands.
+- Task 24 has `api: { accept, reject, requirement, deliver }` as stubs with a comment to wire the SDK. Honest documentation of an integration step the implementer must do against live SDK surface; cannot be fully written without the SDK in hand. The exact moonshot-cyber reference is cited.
 
 No "TBD"-style placeholders.
 
@@ -3683,6 +4122,8 @@ No "TBD"-style placeholders.
 - `meta.disclosure` used in Task 2 (test fixture) matches `DISCLOSURE_TEXT` constant in Task 2 module — same string. ✓
 - `PROMPT_VERSION` exported in Task 14, asserted in tests. ✓
 - `RateLimiter` interface in Task 19 matches `rateLimiter` field in `HandlerContext` in Task 21. ✓
+- `chainHistory` interface added in Task 21a matches the live Blockscout adapter wired in same task. ✓
+- `SentinelBlock` shape from Task 32 matches the `as_of_block` field type in Task 2 schema. ✓
 
 No type drift identified.
 
