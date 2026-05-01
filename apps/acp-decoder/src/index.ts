@@ -8,6 +8,7 @@ import { RateLimiter } from './rate-limit.js';
 import { persistAccepted, persistDelivered, persistRejected } from './persist.js';
 import { startSeller } from './seller.js';
 import { reconcile } from './reconcile.js';
+import { AcpApi } from './api.js';
 import type { HandlerContext } from './handler.js';
 
 // Blockscout adapter for chainHistory check (Task 21a).
@@ -41,26 +42,17 @@ async function main() {
     perBuyerSubmissionLimit60s: config.perBuyerSubmissionLimit60s,
   });
 
+  const acpApi = new AcpApi({
+    clawApiHost: config.clawApiHost,
+    liteAgentApiKey: config.liteAgentApiKey,
+  });
+
   const handlerCtx: HandlerContext = {
     api: {
-      // TODO: wire @virtuals-protocol/acp-node REST API for accept/reject/requirement/deliver.
-      // Per the brief at scripts/auto-decode/acp-service-brief.md, this should use
-      // AcpClient from @virtuals-protocol/acp-node. Reference implementation:
-      // moonshot-cyber/virtuals-acp/src/seller/runtime/sellerApi.ts.
-      // These stubs typecheck but do NOT actually invoke the ACP REST API. Live integration
-      // is exercised end-to-end in Task 30.
-      accept: async (jobId: string) => {
-        logger.info({ jobId }, 'STUB: api.accept');
-      },
-      reject: async (jobId: string, opts: { reason: string }) => {
-        logger.info({ jobId, reason: opts.reason }, 'STUB: api.reject');
-      },
-      requirement: async (jobId: string, _opts: any) => {
-        logger.info({ jobId }, 'STUB: api.requirement');
-      },
-      deliver: async (jobId: string, _payload: any) => {
-        logger.info({ jobId }, 'STUB: api.deliver');
-      },
+      accept: (jobId: string) => acpApi.accept(jobId),
+      reject: (jobId: string, opts: { reason: string }) => acpApi.reject(jobId, opts.reason),
+      requirement: (jobId: string, opts: any) => acpApi.requirement(jobId, opts),
+      deliver: (jobId: string, payload: any) => acpApi.deliver(jobId, payload),
     },
     rateLimiter,
     persist: {
