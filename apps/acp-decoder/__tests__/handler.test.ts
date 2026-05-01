@@ -15,7 +15,12 @@ function makeEntry(type: string): any {
   return { kind: 'system', event: { type }, onChainJobId: 'job-1', chainId: 8453, timestamp: Date.now() };
 }
 
-function makeSession(opts: { jobExists?: boolean; requirement?: any } = {}): any {
+// MessageEntry: { kind: 'message', contentType, content, from }
+function makeMessageEntry(contentType: string, content: string): any {
+  return { kind: 'message', contentType, content, from: '0xbuyer' };
+}
+
+function makeSession(opts: { jobExists?: boolean; requirement?: any; status?: string; chainId?: number } = {}): any {
   const job = opts.jobExists !== false
     ? { id: BigInt(1), clientAddress: '0xbuyer' }
     : null;
@@ -31,10 +36,13 @@ function makeSession(opts: { jobExists?: boolean; requirement?: any } = {}): any
   return {
     job,
     entries,
+    chainId: opts.chainId ?? 8453,
+    status: opts.status ?? 'open',
     setBudget: vi.fn().mockResolvedValue(undefined),
     submit: vi.fn().mockResolvedValue(undefined),
     reject: vi.fn().mockResolvedValue(undefined),
     complete: vi.fn().mockResolvedValue(undefined),
+    sendMessage: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -56,34 +64,59 @@ function makeCtx(overrides: any = {}): any {
   };
 }
 
-describe('handleEntry — job.created', () => {
+describe('handleEntry — requirement message', () => {
   it('rejects invalid wallet address', async () => {
     const ctx = makeCtx();
-    const session = makeSession({ requirement: { wallet_address: 'bad' } });
-    await handleEntry(ctx, session, makeEntry('job.created'));
+    const session = makeSession();
+    await handleEntry(ctx, session, makeMessageEntry('requirement', JSON.stringify({ wallet_address: 'bad' })));
     expect(session.reject).toHaveBeenCalledWith('invalid_address');
   });
 
   it('rejects when rate limiter denies', async () => {
     const ctx = makeCtx({ rateLimitResult: 'rate_limited' });
-    const session = makeSession({ requirement: { wallet_address: '0x' + '1'.repeat(40) } });
-    await handleEntry(ctx, session, makeEntry('job.created'));
+    const session = makeSession();
+    await handleEntry(ctx, session, makeMessageEntry('requirement', JSON.stringify({ wallet_address: '0x' + '1'.repeat(40) })));
     expect(session.reject).toHaveBeenCalledWith('rate_limited');
   });
 
   it('rejects when wallet has zero history', async () => {
     const ctx = makeCtx({ historyResult: { transactions_count: 0, token_transfers_count: 0 } });
-    const session = makeSession({ requirement: { wallet_address: '0x' + '1'.repeat(40) } });
-    await handleEntry(ctx, session, makeEntry('job.created'));
+    const session = makeSession();
+    await handleEntry(ctx, session, makeMessageEntry('requirement', JSON.stringify({ wallet_address: '0x' + '1'.repeat(40) })));
     expect(session.reject).toHaveBeenCalledWith('no_history');
   });
 
   it('sets budget when validation passes', async () => {
     const ctx = makeCtx();
-    const session = makeSession({ requirement: { wallet_address: '0x' + '1'.repeat(40) } });
-    await handleEntry(ctx, session, makeEntry('job.created'));
+    const session = makeSession({ chainId: 8453 });
+    await handleEntry(ctx, session, makeMessageEntry('requirement', JSON.stringify({ wallet_address: '0x' + '1'.repeat(40) })));
     expect(session.setBudget).toHaveBeenCalled();
     expect(ctx.persist.persistAccepted).toHaveBeenCalled();
+  });
+
+  it('passes session.chainId to assetTokenForUsdc', async () => {
+    const ctx = makeCtx();
+    const session = makeSession({ chainId: 8453 });
+    await handleEntry(ctx, session, makeMessageEntry('requirement', JSON.stringify({ wallet_address: '0x' + '1'.repeat(40) })));
+    expect(ctx.assetTokenForUsdc).toHaveBeenCalledWith(25, 8453);
+  });
+
+  it('does not double-process when session.status is not open', async () => {
+    const ctx = makeCtx();
+    const session = makeSession({ status: 'funded' });
+    await handleEntry(ctx, session, makeMessageEntry('requirement', JSON.stringify({ wallet_address: '0x' + '1'.repeat(40) })));
+    expect(session.setBudget).not.toHaveBeenCalled();
+    expect(session.reject).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleEntry — job.created', () => {
+  it('does nothing (log only) on job.created', async () => {
+    const ctx = makeCtx();
+    const session = makeSession({ requirement: { wallet_address: '0x' + '1'.repeat(40) } });
+    await handleEntry(ctx, session, makeEntry('job.created'));
+    expect(session.setBudget).not.toHaveBeenCalled();
+    expect(session.reject).not.toHaveBeenCalled();
   });
 });
 
@@ -110,11 +143,11 @@ describe('handleEntry — job.funded', () => {
   });
 });
 
-describe('handleEntry — message entries ignored', () => {
-  it('does nothing for message entries', async () => {
+describe('handleEntry — non-requirement message entries ignored', () => {
+  it('does nothing for plain text message entries', async () => {
     const ctx = makeCtx();
     const session = makeSession();
-    const msgEntry: any = { kind: 'message', contentType: 'text', content: 'hello', onChainJobId: 'job-1', chainId: 8453, timestamp: Date.now() };
+    const msgEntry: any = { kind: 'message', contentType: 'text', content: 'hello', from: '0xbuyer' };
     await handleEntry(ctx, session, msgEntry);
     expect(session.reject).not.toHaveBeenCalled();
     expect(session.setBudget).not.toHaveBeenCalled();

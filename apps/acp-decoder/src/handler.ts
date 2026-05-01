@@ -48,23 +48,14 @@ export async function handleEntry(
   session: JobSession,
   entry: JobRoomEntry,
 ): Promise<void> {
-  // Only act on system entries — message entries are chat noise we don't process
-  if (entry.kind !== 'system') return;
-
   const job = session.job;
   if (!job) return;
 
-  const eventType = entry.event.type;
-
-  // job.created — incoming job from buyer
-  if (eventType === 'job.created') {
-    // Extract requirement from session entries (kind 'message', contentType 'requirement')
-    const reqMsg = session.entries.find(
-      (e) => e.kind === 'message' && e.contentType === 'requirement',
-    );
+  // requirement message — buyer describes the job; we validate and set budget or reject
+  if (entry.kind === 'message' && entry.contentType === 'requirement' && session.status === 'open') {
     let requirement: any = {};
-    if (reqMsg?.kind === 'message' && reqMsg.content) {
-      try { requirement = JSON.parse(reqMsg.content); } catch { requirement = { wallet_address: reqMsg.content }; }
+    if (entry.content) {
+      try { requirement = JSON.parse(entry.content); } catch { requirement = { wallet_address: entry.content }; }
     }
 
     const v = validateRequest(requirement);
@@ -107,8 +98,8 @@ export async function handleEntry(
       return;
     }
 
-    // Accept: set budget = our offering price
-    const budget = await ctx.assetTokenForUsdc(ctx.config.feeUsdc, ctx.config.defaultChainId);
+    // Accept: set budget = our offering price, using the chain the buyer chose
+    const budget = await ctx.assetTokenForUsdc(ctx.config.feeUsdc, session.chainId);
     await session.setBudget(budget);
     await ctx.persist.persistAccepted({
       jobId: job.id.toString(),
@@ -120,9 +111,19 @@ export async function handleEntry(
     return;
   }
 
+  // Only act on system entries beyond this point
+  if (entry.kind !== 'system') return;
+
+  const eventType = entry.event.type;
+
+  // job.created — log only; requirement arrives as a separate message entry
+  if (eventType === 'job.created') {
+    return;
+  }
+
   // job.funded — buyer has put USDC in escrow → run the work
   if (eventType === 'job.funded') {
-    // Extract requirement again (defensive — entries may have grown)
+    // Extract requirement from session entries (entries have grown by now — funded comes after requirement)
     const reqMsg = session.entries.find(
       (e) => e.kind === 'message' && e.contentType === 'requirement',
     );
