@@ -9,3 +9,4 @@ export * from './usdc-pattern.js';
 export * from './peers.js';
 export * from './token-trading.js';
 export * from './report-writer.js';
+export * from './quick-decode.js';
