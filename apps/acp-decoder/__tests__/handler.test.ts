@@ -63,6 +63,31 @@ function makeCtx(overrides: any = {}): any {
       persistRejected: vi.fn().mockResolvedValue(undefined),
     },
     decode: { quickDecode: vi.fn().mockResolvedValue(overrides.decodeResult ?? { report: '', data: {}, sources: [], meta: {} }) },
+    chainHistory: {
+      checkHistory: vi.fn().mockResolvedValue(
+        overrides.historyResult ?? { transactions_count: 1, token_transfers_count: 1 },
+      ),
+    },
     config: { feeUsdc: 25 },
   };
 }
+
+describe('handleNewTask (REQUEST phase) — no_history reject', () => {
+  it('rejects when wallet has zero history on Base', async () => {
+    const ctx = makeCtx({
+      rateLimitResult: 'ok',
+      historyResult: { transactions_count: 0, token_transfers_count: 0 },
+    });
+    await handleNewTask(ctx, makeJob('REQUEST', { wallet_address: '0x' + '1'.repeat(40) }));
+    expect(ctx.api.reject).toHaveBeenCalledWith(expect.any(String), { reason: 'no_history' });
+  });
+
+  it('accepts when wallet has any history', async () => {
+    const ctx = makeCtx({
+      rateLimitResult: 'ok',
+      historyResult: { transactions_count: 5, token_transfers_count: 0 },
+    });
+    await handleNewTask(ctx, makeJob('REQUEST', { wallet_address: '0x' + '1'.repeat(40) }));
+    expect(ctx.api.accept).toHaveBeenCalled();
+  });
+});
