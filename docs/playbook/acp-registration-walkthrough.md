@@ -57,3 +57,22 @@ Either (a) Virtuals' wallet-provisioning backend is down, or (b) user account re
 ### Failed phantom agents
 The 4 failed CLI POST attempts left phantom records in the public ACP API search (id 42101, 42102, 42107, 42108 — all named `chainward-decoder` with `walletAddress: null`). These are legacy-lite-system shadow records and don't correspond to a usable agent. They cannot be deleted via the CLI.
 
+
+### Step 3: Migration to ACP v2 (✓ wired)
+- Found `@virtuals-protocol/acp-node-v2@0.0.6` on npm — completely separate from the deprecated `@virtuals-protocol/acp-node@0.3.0-beta.x` we initially installed
+- Auth model changed: legacy `LITE_AGENT_API_KEY` (single secret) → non-custodial wallet + P256 signer (3 fields: `WALLET_ADDRESS`, `WALLET_ID` (Privy), `WALLET_SIGNER_PRIVATE_KEY` (P256 PEM))
+- Integration shape changed: phase-based REST (`accept`/`reject`/`requirement`/`deliver` POSTs) → event-driven SDK (`AcpAgent.on('entry', handler)` + `JobSession` methods `setBudget`/`submit`/`complete`/`reject`)
+- New SDK uses `PrivyAlchemyEvmProviderAdapter.create({ walletAddress, walletId, signerPrivateKey })` for non-custodial signing
+- Useful SDK details discovered:
+  - `SystemEntry.event.type` (nested), not flat `.type`
+  - `AssetToken.usdc(amount, chainId)` static factory (no on-chain call needed)
+  - SDK auto-hydrates sessions on `agent.start()` — our previous `reconcile.ts` is no longer needed
+- **Local connection verified**: `acp v2 connected` logged within ~1s of `pnpm dev` against the new credentials
+
+### Step 4: Key rotation (TODO before any USDC touches the wallet)
+- The signer private key generated during step 2 was inadvertently pasted in chat for wiring debugging
+- Wallet currently holds $0 USDC — no immediate financial exposure
+- BLOCKING action before deploy + buyer test: use the EconomyOS UI's "Add Signer" / "Rotate Keys" flow to generate a fresh P256 key pair
+- The wallet address `0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127` stays the same; only the signer key changes
+- Save the new private key directly to 1Password — never paste in chat or commit messages
+
