@@ -1,3 +1,7 @@
+export type Target =
+  | { kind: 'address'; value: string }
+  | { kind: 'handle'; value: string };
+
 export type Framework = 'virtuals_acp' | 'olas' | 'eliza' | 'agentkit' | 'unknown';
 
 export type WalletType = 'eoa' | 'erc1967_proxy' | 'erc4337' | 'contract' | 'unknown';
