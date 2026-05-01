@@ -1,29 +1,30 @@
-import { io, type Socket } from 'socket.io-client';
+import { PrivyAlchemyEvmProviderAdapter, AcpAgent } from '@virtuals-protocol/acp-node-v2';
 import { logger } from './logger.js';
 import type { Config } from './config.js';
 import type { HandlerContext } from './handler.js';
-import { handleNewTask } from './handler.js';
+import { handleEntry } from './handler.js';
 
-export function startSeller(config: Config, handlerCtx: HandlerContext): Socket {
-  const socket = io(config.acpHost, {
-    auth: { walletAddress: config.walletAddress, apiKey: config.liteAgentApiKey },
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionDelay: 1000,
+export async function startSeller(
+  config: Config,
+  handlerCtx: HandlerContext,
+): Promise<AcpAgent> {
+  const provider = await PrivyAlchemyEvmProviderAdapter.create({
+    walletAddress: config.walletAddress as `0x${string}`,
+    walletId: config.walletId,
+    signerPrivateKey: config.signerPrivateKey,
   });
 
-  socket.on('connect', () => logger.info({ id: socket.id }, 'acp socket connected'));
-  socket.on('disconnect', (reason) => logger.warn({ reason }, 'acp socket disconnected'));
-  socket.on('connect_error', (err) => logger.error({ err: err.message }, 'acp socket error'));
+  const agent = await AcpAgent.create({ provider });
 
-  socket.on('onNewTask', async (job: any) => {
-    logger.info({ jobId: job.id, phase: job.phase }, 'acp onNewTask');
+  agent.on('entry', async (session, entry) => {
     try {
-      await handleNewTask(handlerCtx, job);
+      await handleEntry(handlerCtx, session, entry);
     } catch (err: any) {
-      logger.error({ err: err.message, jobId: job.id }, 'handler failed');
+      logger.error({ err: err.message, jobId: session.job?.id?.toString() }, 'handler failed');
     }
   });
 
-  return socket;
+  await agent.start(() => logger.info({ address: config.walletAddress }, 'acp v2 connected'));
+
+  return agent;
 }
