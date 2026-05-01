@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseTarget, slugify } from "./lib/validators.js";
-import { resolveTarget } from "./lib/resolver.js";
+import { resolveTarget } from "@chainward/decode";
 import {
   checkSlugCollision,
   productionDeps as collisionDeps,

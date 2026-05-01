@@ -380,6 +380,10 @@ importers:
         version: 5.9.3
 
   scripts/auto-decode:
+    dependencies:
+      '@chainward/decode':
+        specifier: workspace:*
+        version: link:../../packages/decode
     devDependencies:
       vitest:
         specifier: ^4.0.18
