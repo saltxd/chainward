@@ -6,6 +6,7 @@ images:
   api: ghcr.io/saltxd/chainward-api:latest
   web: ghcr.io/saltxd/chainward-web:latest
   indexer: ghcr.io/saltxd/chainward-indexer:latest
+  acpDecoder: ghcr.io/saltxd/chainward-acp-decoder:latest
 
 imagePullSecrets:
   - name: ghcr-pull
@@ -56,6 +57,19 @@ indexer:
     limits:
       cpu: 500m
       memory: 512Mi
+
+acpDecoder:
+  enabled: false  # opt-in; flip after first acp-decoder setup completes
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  acpHost: https://acpx.virtuals.io
+  clawApiHost: https://claw-api.virtuals.io
 
 # External secret name (created via kubectl, not managed by Helm)
 externalSecret: chainward-secrets
