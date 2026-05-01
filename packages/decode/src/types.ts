@@ -115,5 +115,16 @@ export interface QuickDecodeResult {
 
 export const SCHEMA_VERSION = '1.0.0';
 export const CLASSIFIER_VERSION = '1.0.0';
+
+/**
+ * Canonical data-rights disclosure text. Used in TWO places that must stay
+ * in sync:
+ *   1. Every deliverable's `meta.disclosure` field (post-purchase record)
+ *   2. The ACP offering description shown to buyers pre-purchase (Task 28)
+ *
+ * Both locations MUST reference this constant — never duplicate the string.
+ * Buyer consent is granted by submitting the job, which means the same text
+ * has to appear before and after payment.
+ */
 export const DISCLOSURE_TEXT =
   'Decode requests and results are stored by ChainWard and may inform aggregate intelligence. Individual buyer-target pairs are never disclosed.';

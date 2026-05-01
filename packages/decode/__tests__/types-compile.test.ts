@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { QuickDecodeResult } from '../src/index.js';
+import { DISCLOSURE_TEXT } from '../src/index.js';
 
 describe('QuickDecodeResult type shape', () => {
   it('compiles a complete object literal', () => {
@@ -76,7 +77,7 @@ describe('QuickDecodeResult type shape', () => {
         as_of_block: { number: 44545679, hash: '0x9954b825e40a5fc0dac606b764924a27527843fc176cf8c8d2deb341945a1b8c' },
         target_input: '@axelrod',
         job_id: 'job-1',
-        disclosure: 'Decode requests and results are stored by ChainWard and may inform aggregate intelligence. Individual buyer-target pairs are never disclosed.',
+        disclosure: DISCLOSURE_TEXT,
       },
     };
     expect(sample.meta.tier).toBe('quick');
