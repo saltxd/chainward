@@ -1,5 +1,13 @@
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
+const DECODE_WATCHDOG_MS = 5 * 60 * 1000; // 5 minutes — see spec error-handling matrix
+
+function timeoutAfter<T>(ms: number, value: T): Promise<T> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(value), ms);
+  });
+}
+
 export interface ValidateInput { wallet_address: string }
 export type ValidateResult =
   | { ok: true; wallet_address: string }
@@ -88,11 +96,21 @@ export async function handleNewTask(ctx: HandlerContext, job: any): Promise<void
 
   if (job.phase === 'TRANSACTION') {
     try {
-      const result = await ctx.decode.quickDecode({
+      const decodePromise = ctx.decode.quickDecode({
         input: job.requirement.wallet_address,
         wallet_address: job.requirement.wallet_address,
         job_id: job.id,
       });
+      const partialResult = {
+        status: 'partial' as const,
+        error: 'timeout' as const,
+        job_id: job.id,
+        message: 'Decode pipeline exceeded 5-minute internal watchdog. Partial delivery to preserve ACP SLA.',
+      };
+      const result = await Promise.race([
+        decodePromise,
+        timeoutAfter(DECODE_WATCHDOG_MS, partialResult),
+      ]);
       await ctx.api.deliver(job.id, { type: 'json', value: result });
       await ctx.persist.persistDelivered({ jobId: job.id, result });
     } finally {
