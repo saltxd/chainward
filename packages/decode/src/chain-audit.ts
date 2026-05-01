@@ -35,7 +35,7 @@ export function computeActivity(
   const sorted = [...transfers].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
   );
-  const latest = sorted[0];
+  const latest = sorted[0]!;
   const latestT = new Date(latest.timestamp).getTime();
   const ageHours = (now.getTime() - latestT) / HOUR_MS;
 
