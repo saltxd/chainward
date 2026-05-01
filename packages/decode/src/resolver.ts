@@ -1,5 +1,5 @@
-// scripts/auto-decode/lib/resolver.ts
-import type { Target } from "./validators";
+// packages/decode/src/resolver.ts
+import type { Target } from "./types.js";
 
 const ACP_API_BASE = "https://acpx.virtuals.io/api";
 const PAGE_SIZE = 100;
