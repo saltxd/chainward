@@ -1,0 +1,29 @@
+{
+  "name": "@chainward/acp-decoder",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@chainward/common": "workspace:*",
+    "@chainward/db": "workspace:*",
+    "@chainward/decode": "workspace:*",
+    "@virtuals-protocol/acp-node": "0.3.0-beta.40",
+    "ioredis": "^5.4.0",
+    "pino": "^9.5.0",
+    "socket.io-client": "^4.8.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
+  }
+}
