@@ -3,8 +3,7 @@ import type { JobSession } from '@virtuals-protocol/acp-node-v2';
 import type { JobRoomEntry } from '@virtuals-protocol/acp-node-v2';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-
-const DECODE_WATCHDOG_MS = 5 * 60 * 1000; // 5 minutes — see spec error-handling matrix
+const HANDLE_RE = /^@?[A-Za-z0-9_]{1,15}$/;
 
 function timeoutAfter<T>(ms: number, value: T): Promise<T> {
   return new Promise((resolve) => {
@@ -12,16 +11,44 @@ function timeoutAfter<T>(ms: number, value: T): Promise<T> {
   });
 }
 
-export interface ValidateInput { wallet_address: string }
-export type ValidateResult =
-  | { ok: true; wallet_address: string }
-  | { ok: false; reason: 'invalid_address' };
+export interface ParsedTarget {
+  raw: string;            // exactly what the buyer sent ("@axelrod" or "0x47...")
+  kind: 'address' | 'handle';
+  address?: string;       // resolved 0x... when kind === 'address' or after handle resolution
+  handle?: string;        // bare handle without @ when kind === 'handle'
+}
 
-export function validateRequest(input: ValidateInput): ValidateResult {
-  if (!ADDRESS_RE.test(input.wallet_address ?? '')) {
+export interface ValidateResult {
+  ok: boolean;
+  target?: ParsedTarget;
+  reason?: 'invalid_address' | 'invalid_handle' | 'missing_target';
+}
+
+// Parses the requirement payload to find the target. Accepts:
+//   - Documented schema: {"target": "0x..."} or {"target": "@handle"}
+//   - Legacy/raw forms: {"wallet_address": "0x..."} or bare string content
+export function parseTarget(rawContent: string): ValidateResult {
+  let body: any = {};
+  try {
+    body = JSON.parse(rawContent);
+  } catch {
+    body = { target: rawContent };
+  }
+  const target = body.target ?? body.wallet_address ?? '';
+  if (typeof target !== 'string' || target.length === 0) {
+    return { ok: false, reason: 'missing_target' };
+  }
+  // Handle form: must start with @ (explicit). We don't auto-promote bare strings
+  // to handles — too easy to confuse a typo'd address ('0xabc') for a handle.
+  if (target.startsWith('@')) {
+    const handle = target.slice(1);
+    if (!HANDLE_RE.test(handle)) return { ok: false, reason: 'invalid_handle' };
+    return { ok: true, target: { raw: target, kind: 'handle', handle } };
+  }
+  if (!ADDRESS_RE.test(target)) {
     return { ok: false, reason: 'invalid_address' };
   }
-  return { ok: true, wallet_address: input.wallet_address };
+  return { ok: true, target: { raw: target, kind: 'address', address: target } };
 }
 
 export interface HandlerContext {
@@ -33,14 +60,22 @@ export interface HandlerContext {
     persistAccepted(input: any): Promise<void>;
     persistDelivered(input: any): Promise<void>;
     persistRejected(input: any): Promise<void>;
+    persistSettled(jobId: string): Promise<void>;
   };
   decode: { quickDecode(input: any): Promise<any> };
+  resolver: {
+    // Resolves an @handle to a 0x... address using the ACP API. Returns null if not found.
+    resolveHandle(handle: string): Promise<string | null>;
+  };
   chainHistory: {
     checkHistory(walletAddress: string): Promise<{ transactions_count: number; token_transfers_count: number }>;
   };
-  config: { feeUsdc: number; defaultChainId: number };
+  config: { feeUsdc: number; defaultChainId: number; decodeWatchdogMs: number };
   // Helper to construct AssetToken for setBudget
   assetTokenForUsdc(amount: number, chainId: number): Promise<AssetToken>;
+  // Lifecycle hooks for the host process to track drain state
+  onJobStart?(jobId: string): void;
+  onJobEnd?(jobId: string): void;
 }
 
 export async function handleEntry(
@@ -50,64 +85,99 @@ export async function handleEntry(
 ): Promise<void> {
   const job = session.job;
   if (!job) return;
+  const buyer = job.clientAddress;
+  const jobId = job.id.toString();
 
   // requirement message — buyer describes the job; we validate and set budget or reject
   if (entry.kind === 'message' && entry.contentType === 'requirement' && session.status === 'open') {
-    let requirement: any = {};
-    if (entry.content) {
-      try { requirement = JSON.parse(entry.content); } catch { requirement = { wallet_address: entry.content }; }
-    }
-
-    const v = validateRequest(requirement);
-    if (!v.ok) {
-      await session.reject(v.reason);
+    const parsed = parseTarget(entry.content ?? '');
+    if (!parsed.ok || !parsed.target) {
+      await session.reject(parsed.reason ?? 'invalid_address');
       await ctx.persist.persistRejected({
-        jobId: job.id.toString(),
-        buyerWallet: job.clientAddress,
-        targetInput: requirement.wallet_address ?? '',
-        targetWallet: requirement.wallet_address ?? '',
-        rejectReason: v.reason,
+        jobId,
+        buyerWallet: buyer,
+        targetInput: entry.content ?? '',
+        targetWallet: '',
+        rejectReason: parsed.reason ?? 'invalid_address',
       });
       return;
     }
 
-    const limit = await ctx.rateLimiter.tryAcquire(job.clientAddress);
+    // Resolve @handle → wallet address before validation. Fail-closed: if we can't
+    // resolve the handle, reject the job rather than accepting and decoding nothing.
+    let walletAddress: string | undefined = parsed.target.address;
+    if (parsed.target.kind === 'handle' && parsed.target.handle) {
+      const resolved = await ctx.resolver.resolveHandle(parsed.target.handle);
+      if (!resolved) {
+        await session.reject('handle_not_found');
+        await ctx.persist.persistRejected({
+          jobId,
+          buyerWallet: buyer,
+          targetInput: parsed.target.raw,
+          targetWallet: '',
+          rejectReason: 'handle_not_found',
+        });
+        return;
+      }
+      walletAddress = resolved;
+    }
+    if (!walletAddress) {
+      await session.reject('invalid_address');
+      await ctx.persist.persistRejected({
+        jobId,
+        buyerWallet: buyer,
+        targetInput: parsed.target.raw,
+        targetWallet: '',
+        rejectReason: 'invalid_address',
+      });
+      return;
+    }
+
+    const limit = await ctx.rateLimiter.tryAcquire(buyer);
     if (limit === 'rate_limited') {
       await session.reject('rate_limited');
       await ctx.persist.persistRejected({
-        jobId: job.id.toString(),
-        buyerWallet: job.clientAddress,
-        targetInput: requirement.wallet_address,
-        targetWallet: requirement.wallet_address,
+        jobId,
+        buyerWallet: buyer,
+        targetInput: parsed.target.raw,
+        targetWallet: walletAddress,
         rejectReason: 'rate_limited',
       });
       return;
     }
 
-    const history = await ctx.chainHistory.checkHistory(v.wallet_address);
-    if (history.transactions_count === 0 && history.token_transfers_count === 0) {
-      await ctx.rateLimiter.release(job.clientAddress);
-      await session.reject('no_history');
-      await ctx.persist.persistRejected({
-        jobId: job.id.toString(),
-        buyerWallet: job.clientAddress,
-        targetInput: requirement.wallet_address,
-        targetWallet: v.wallet_address,
-        rejectReason: 'no_history',
-      });
-      return;
-    }
+    let acquiredSlot = true;
+    try {
+      const history = await ctx.chainHistory.checkHistory(walletAddress);
+      if (history.transactions_count === 0 && history.token_transfers_count === 0) {
+        await session.reject('no_history');
+        await ctx.persist.persistRejected({
+          jobId,
+          buyerWallet: buyer,
+          targetInput: parsed.target.raw,
+          targetWallet: walletAddress,
+          rejectReason: 'no_history',
+        });
+        await ctx.rateLimiter.release(buyer);
+        acquiredSlot = false;
+        return;
+      }
 
-    // Accept: set budget = our offering price, using the chain the buyer chose
-    const budget = await ctx.assetTokenForUsdc(ctx.config.feeUsdc, session.chainId);
-    await session.setBudget(budget);
-    await ctx.persist.persistAccepted({
-      jobId: job.id.toString(),
-      buyerWallet: job.clientAddress,
-      targetInput: requirement.wallet_address,
-      targetWallet: v.wallet_address,
-      feeUsdc: ctx.config.feeUsdc,
-    });
+      // Accept: set budget = our offering price, using the chain the buyer chose
+      const budget = await ctx.assetTokenForUsdc(ctx.config.feeUsdc, session.chainId);
+      await session.setBudget(budget);
+      await ctx.persist.persistAccepted({
+        jobId,
+        buyerWallet: buyer,
+        targetInput: parsed.target.raw,
+        targetWallet: walletAddress,
+        feeUsdc: ctx.config.feeUsdc,
+      });
+    } catch (err) {
+      // Anything between acquire and accept failed; release the slot so we don't strand the buyer
+      if (acquiredSlot) await ctx.rateLimiter.release(buyer);
+      throw err;
+    }
     return;
   }
 
@@ -123,47 +193,108 @@ export async function handleEntry(
 
   // job.funded — buyer has put USDC in escrow → run the work
   if (eventType === 'job.funded') {
-    // Extract requirement from session entries (entries have grown by now — funded comes after requirement)
     const reqMsg = session.entries.find(
       (e) => e.kind === 'message' && e.contentType === 'requirement',
     );
-    let requirement: any = {};
-    if (reqMsg?.kind === 'message' && reqMsg.content) {
-      try { requirement = JSON.parse(reqMsg.content); } catch { requirement = { wallet_address: reqMsg.content }; }
+    const parsed = parseTarget(
+      reqMsg?.kind === 'message' ? (reqMsg.content ?? '') : '',
+    );
+    if (!parsed.ok || !parsed.target) {
+      // Shouldn't happen — we only got here after accepting at requirement time.
+      // Fail-closed: reject the job so the buyer is refunded.
+      await session.reject('decode_failed');
+      await ctx.persist.persistRejected({
+        jobId,
+        buyerWallet: buyer,
+        targetInput: '',
+        targetWallet: '',
+        rejectReason: 'decode_failed',
+      });
+      await ctx.rateLimiter.release(buyer);
+      return;
     }
 
+    // Resolve again from the requirement (handler runs may be re-entrant after restart)
+    let walletAddress: string | undefined = parsed.target.address;
+    if (parsed.target.kind === 'handle' && parsed.target.handle) {
+      const resolved = await ctx.resolver.resolveHandle(parsed.target.handle);
+      if (resolved) walletAddress = resolved;
+    }
+    if (!walletAddress) {
+      await session.reject('decode_failed');
+      await ctx.persist.persistRejected({
+        jobId,
+        buyerWallet: buyer,
+        targetInput: parsed.target.raw,
+        targetWallet: '',
+        rejectReason: 'decode_failed',
+      });
+      await ctx.rateLimiter.release(buyer);
+      return;
+    }
+
+    ctx.onJobStart?.(jobId);
     try {
       const decodePromise = ctx.decode.quickDecode({
-        input: requirement.wallet_address,
-        wallet_address: requirement.wallet_address,
-        job_id: job.id.toString(),
+        input: parsed.target.raw,
+        wallet_address: walletAddress,
+        agent_handle: parsed.target.handle,
+        job_id: jobId,
       });
-      const partialResult = {
-        status: 'partial' as const,
-        error: 'timeout' as const,
-        job_id: job.id.toString(),
-        message: 'Decode pipeline exceeded 5-minute internal watchdog. Partial delivery to preserve ACP SLA.',
-      };
-      const result = await Promise.race([
-        decodePromise,
-        timeoutAfter(DECODE_WATCHDOG_MS, partialResult),
-      ]);
-      // SDK submit accepts a string; serialize the JSON envelope
+      const watchdog = timeoutAfter(ctx.config.decodeWatchdogMs, '__watchdog__' as const);
+      const result: any = await Promise.race([decodePromise, watchdog]);
+
+      if (result === '__watchdog__') {
+        // Decode is still running but exceeded SLA. Reject so the buyer is refunded
+        // rather than shipping a stub envelope they paid for.
+        await session.reject('decode_failed');
+        await ctx.persist.persistRejected({
+          jobId,
+          buyerWallet: buyer,
+          targetInput: parsed.target.raw,
+          targetWallet: walletAddress,
+          rejectReason: 'decode_timeout',
+        });
+        return;
+      }
+
       await session.submit(JSON.stringify(result));
-      await ctx.persist.persistDelivered({ jobId: job.id.toString(), result });
+      await ctx.persist.persistDelivered({ jobId, result });
+    } catch (err) {
+      // Decode threw (network failure cascade, classifier crash, etc.) → reject so
+      // the buyer is refunded rather than charged for nothing.
+      await session.reject('decode_failed');
+      await ctx.persist.persistRejected({
+        jobId,
+        buyerWallet: buyer,
+        targetInput: parsed.target.raw,
+        targetWallet: walletAddress,
+        rejectReason: 'decode_failed',
+      });
+      throw err;
     } finally {
-      await ctx.rateLimiter.release(job.clientAddress);
+      ctx.onJobEnd?.(jobId);
+      await ctx.rateLimiter.release(buyer);
     }
     return;
   }
 
   // job.completed — buyer accepted, escrow released to us
   if (eventType === 'job.completed') {
-    await ctx.persist.persistDelivered({ jobId: job.id.toString(), result: { settled: true } });
+    await ctx.persist.persistSettled(jobId);
     return;
   }
 
-  // job.rejected — buyer rejected (we lose the fee)
-  // job.expired  — SLA exceeded
-  // For these: already persisted at delivery; log only
+  // job.rejected / job.expired — release any held slot and persist the terminal status
+  if (eventType === 'job.rejected' || eventType === 'job.expired') {
+    await ctx.persist.persistRejected({
+      jobId,
+      buyerWallet: buyer,
+      targetInput: '',
+      targetWallet: '',
+      rejectReason: eventType === 'job.rejected' ? 'buyer_rejected' : 'expired',
+    });
+    await ctx.rateLimiter.release(buyer);
+    return;
+  }
 }

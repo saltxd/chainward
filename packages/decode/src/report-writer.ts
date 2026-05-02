@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { renderFallbackReport } from './templates/report-fallback.md.js';
-import type { QuickDecodeResultData } from './types.js';
+import type { QuickDecodeResultData, ReportSource } from './types.js';
 
 export const PROMPT_VERSION = '1.0.0';
 
@@ -35,12 +35,22 @@ export interface WriteReportOptions {
   timeoutMs?: number;
 }
 
+export interface WriteReportResult {
+  markdown: string;
+  source: ReportSource;
+}
+
+/**
+ * Renders the markdown report. Returns both the text and a source flag so
+ * the caller can record in meta whether claude actually answered or we fell
+ * back to the template — buyers and operators can tell which they got.
+ */
 export async function writeReport(
   data: QuickDecodeResultData,
   options: WriteReportOptions = {},
-): Promise<string> {
+): Promise<WriteReportResult> {
   if (options.replayMode) {
-    return renderFallbackReport(data);
+    return { markdown: renderFallbackReport(data), source: 'fallback' };
   }
 
   const prompt = PROMPT_SCAFFOLD.replace('{data}', JSON.stringify(data, null, 2));
@@ -50,18 +60,30 @@ export async function writeReport(
     const md = await runClaudePrint(prompt, timeoutMs);
     if (!md || !md.trim().startsWith('# ')) {
       // violates H1 constraint or empty — fallback
-      return renderFallbackReport(data);
+      return { markdown: renderFallbackReport(data), source: 'fallback' };
     }
-    return md.trim() + '\n';
+    return { markdown: md.trim() + '\n', source: 'claude' };
   } catch {
-    return renderFallbackReport(data);
+    return { markdown: renderFallbackReport(data), source: 'fallback' };
   }
 }
 
 async function runClaudePrint(prompt: string, timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
+    // Pass only the env the CLI needs. The pod has the signer private key, DB
+    // password, Privy creds, etc. in process.env — we don't want any of those
+    // leaking into a subprocess that could be tricked into echoing them via
+    // a hostile prompt.
+    const restrictedEnv: NodeJS.ProcessEnv = {
+      HOME: process.env.HOME ?? '/root',
+      PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+    };
+    if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+      restrictedEnv.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    }
+
     const child = spawn('claude', ['--print'], {
-      env: process.env,
+      env: restrictedEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stdout = '';

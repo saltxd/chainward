@@ -46,6 +46,10 @@ spec:
                   optional: true
             - name: DEFAULT_CHAIN_ID
               value: {{ .Values.acpDecoder.defaultChainId | quote }}
+            - name: SENTINEL_RPC
+              value: {{ .Values.acpDecoder.sentinelRpc | quote }}
+            - name: ACP_FEE_USDC
+              value: {{ .Values.acpDecoder.feeUsdc | quote }}
           resources:
             {{- toYaml .Values.acpDecoder.resources | nindent 12 }}
 {{- end }}
