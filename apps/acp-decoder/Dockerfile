@@ -28,4 +28,4 @@ ENV NODE_ENV=production
 RUN npm install -g @anthropic-ai/claude-code
 COPY --from=build /prod .
 
-CMD ["node", "--import", "tsx/esm", "dist/index.js"]
+CMD ["node", "dist/index.js"]
