@@ -45,7 +45,7 @@ describe('fetchFixtures', () => {
     }) as any;
 
     const result = await fetchFixtures('0x' + '1'.repeat(40), {
-      sentinelRpc: 'http://cw-sentinel:8545',
+      sentinelRpc: 'http://cw-sentinel:8545', fetchTimeoutMs: 8000,
     });
 
     expect(result.acp_details).toBeDefined();
@@ -68,7 +68,7 @@ describe('fetchFixtures', () => {
     }) as any;
 
     const result = await fetchFixtures('0x' + '1'.repeat(40), {
-      sentinelRpc: 'http://cw-sentinel:8545',
+      sentinelRpc: 'http://cw-sentinel:8545', fetchTimeoutMs: 8000,
     });
 
     expect(result.blockscout_counters).toEqual({
@@ -95,7 +95,7 @@ describe('fetchFixtures', () => {
     global.fetch = fetchMock;
 
     const result = await fetchFixtures('0x' + '2'.repeat(40), {
-      sentinelRpc: 'http://cw-sentinel:8545',
+      sentinelRpc: 'http://cw-sentinel:8545', fetchTimeoutMs: 8000,
     });
 
     expect(result.geckoterminal).toBeNull();

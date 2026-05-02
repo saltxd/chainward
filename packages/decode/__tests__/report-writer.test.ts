@@ -19,8 +19,9 @@ const minimalData = {
 
 describe('writeReport (replayMode)', () => {
   it('uses fallback template when replayMode: true (no claude call)', async () => {
-    const md = await writeReport(minimalData, { replayMode: true });
-    expect(md).toMatch(/^# Axelrod \(ACP #129\) — active/m);
+    const result = await writeReport(minimalData, { replayMode: true });
+    expect(result.markdown).toMatch(/^# Axelrod \(ACP #129\) — active/m);
+    expect(result.source).toBe('fallback');
   });
   it('exports a PROMPT_VERSION constant', () => {
     expect(PROMPT_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
