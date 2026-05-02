@@ -34,7 +34,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     sentinelRpc: env.SENTINEL_RPC ?? 'https://mainnet.base.org',
     feeUsdc: parseFloat(env.ACP_FEE_USDC ?? '10'),
     decodeWatchdogMs: parseInt(env.DECODE_WATCHDOG_MS ?? '300000', 10),
-    fetchTimeoutMs: parseInt(env.FETCH_TIMEOUT_MS ?? '8000', 10),
+    fetchTimeoutMs: parseInt(env.FETCH_TIMEOUT_MS ?? '15000', 10),
     maxConcurrentDecodes: parseInt(env.MAX_CONCURRENT_DECODES ?? '3', 10),
     perBuyerInflightLimit: parseInt(env.PER_BUYER_INFLIGHT_LIMIT ?? '3', 10),
     perBuyerSubmissionLimit60s: parseInt(env.PER_BUYER_SUBMISSION_LIMIT_60S ?? '5', 10),
