@@ -17,8 +17,8 @@ Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for 
 | Signer key rotation | ⏳ **Required before any USDC funding** (NOT before deploy — wallet stays at $0 through deploy + connection verification) |
 | Offering registered on marketplace | ⏳ Not yet — `wallet_decode @ $25 USDC fixed` planned |
 | Helm secret schema | ⏳ Needs update (swap `LITE_AGENT_API_KEY` → `WALLET_ID` + `WALLET_SIGNER_PRIVATE_KEY`) |
-| Production deploy (K3s) | ✅ Live as `ce0cb93` — pod 1/1 Running, 4 TCP ESTABLISHED to Virtuals + Redis |
-| Production logs visible | ⚠️ NOT working — kubelet log file 0 bytes despite pod healthy. Node stdio buffering interaction with tsx/esm loader hooks; agent runs fine but can't observe via `kubectl logs`. See Open Items |
+| Production deploy (K3s) | ✅ Live as `e596ca5` — pod 1/1 Running, connected to Virtuals + Redis |
+| Production logs visible | ✅ `kubectl logs deployment/acp-decoder` shows `chainward-acp-decoder starting` + `acp v2 connected` |
 | First buyer-side test job | ⏳ Pending wallet funding (rotate key first) |
 | Soft launch tweet (@chainwardai) | ⏳ Pending shipped lifecycle |
 
@@ -241,7 +241,7 @@ If you're a future Claude session picking this up cold, read in this order:
 
 ## Open Items / Known TODOs
 
-- [ ] **HIGH: Logs not surfacing in `kubectl logs`.** Pod is healthy (1/1 Running, TCP connections established to Virtuals + Redis, CPU time accumulating, R state) but kubelet log file is 0 bytes. Smoke tests via `docker run` show logs immediately because the container exits and stdio buffers flush; in K8s the pod runs forever and Node's libuv async-write to a pipe never flushes. Tried `pino.destination({sync:true})` (broke startup), custom stdout-direct logger (still buffered), `_handle.setBlocking(true)` (didn't work either). Next attempt: bundle the SDK with tsup so we can drop the tsx/esm loader entirely, or run the binary under `node --enable-source-maps` with a custom stdout TTY shim. Investigate in a fresh debugging session — separate from feature work.
+- [x] ~~Logs not surfacing in `kubectl logs`~~ — fixed in commit e596ca5 by bundling the SDK into our tsup output via `noExternal`. Root cause was the `--import tsx/esm` loader (needed for the SDK's broken extensionless imports) interfering with Node's pipe stdio. With the SDK pre-bundled, esbuild rewrites the imports at build time, the tsx loader is gone, and `node dist/index.js` has normal stdio. Bundle is 1.85 MB. Required adding a `createRequire(import.meta.url)` banner so CJS transitive deps (object-inspect, side-channel, deep-equal) can resolve `require('node:util')` from inside the ESM bundle.
 - [x] ~~Helm secret template still references the legacy `LITE_AGENT_API_KEY`~~ — migrated 2026-05-01 to v2 fields
 - [ ] No real `acp-cli` needed — v2 offering registration is dashboard-only. The legacy `openclaw-acp` CLI remains deprecated; remove `/tmp/openclaw-acp` from local dev environments
 - [ ] `apps/acp-decoder/src/seller.ts` pins `chains: [base]` to Base mainnet — fine for production, but multi-chain expansion would need adjustment
