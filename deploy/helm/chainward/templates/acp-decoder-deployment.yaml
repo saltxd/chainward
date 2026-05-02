@@ -44,10 +44,8 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: REDIS_URL
                   optional: true
-            - name: ACP_HOST
-              value: {{ .Values.acpDecoder.acpHost | quote }}
-            - name: CLAW_API_HOST
-              value: {{ .Values.acpDecoder.clawApiHost | quote }}
+            - name: DEFAULT_CHAIN_ID
+              value: {{ .Values.acpDecoder.defaultChainId | quote }}
           resources:
             {{- toYaml .Values.acpDecoder.resources | nindent 12 }}
 {{- end }}

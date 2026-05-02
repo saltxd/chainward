@@ -68,8 +68,12 @@ acpDecoder:
     limits:
       cpu: 500m
       memory: 512Mi
-  acpHost: https://acpx.virtuals.io
-  clawApiHost: https://claw-api.virtuals.io
+  defaultChainId: 8453  # Base mainnet
+  # createSecret stays false by default — acp-decoder-secrets is created
+  # manually via kubectl (see templates/acp-decoder-secret.yaml header).
+  # Set createSecret: true + walletAddress / walletId / walletSignerPrivateKey
+  # / claudeOauthToken only with sealed-secrets or external-secrets-operator.
+  createSecret: false
 
 # External secret name (created via kubectl, not managed by Helm)
 externalSecret: chainward-secrets
