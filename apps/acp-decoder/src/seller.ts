@@ -22,7 +22,18 @@ export async function startSeller(
     try {
       await handleEntry(handlerCtx, session, entry);
     } catch (err: any) {
-      logger.error({ err: err.message, jobId: session.job?.id?.toString() }, 'handler failed');
+      logger.error(
+        {
+          err: err.message,
+          stack: err.stack,
+          cause: err.cause?.message,
+          jobId: session.job?.id?.toString(),
+          entryKind: entry.kind,
+          entryContentType: (entry as any).contentType,
+          entryEventType: (entry as any).event?.type,
+        },
+        'handler failed',
+      );
     }
   });
 
