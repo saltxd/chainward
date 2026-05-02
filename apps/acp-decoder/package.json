@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/index.ts",
+    "simulate": "tsx scripts/simulate-decode.ts",
     "start": "node dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
