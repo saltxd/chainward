@@ -22,10 +22,17 @@ export interface QuickDecodeInput {
     blockscout_transfers: any;
     sentinel_code: { result: string };
     sentinel_nonce: { result: string };
+    sentinel_eth_balance?: { result: string };
+    sentinel_usdc_balance?: { result: string };
     geckoterminal?: any;
     observatory?: ObservatoryAgent[];
     sentinel_block?: { number: string; hash: string };
   };
+  // Optional spot prices for ETH and USDC, used to USD-quote balances.
+  // Defaulting USDC to 1 is fine; ETH defaults to 0 and yields a $0 USD
+  // figure rather than a misleading hardcoded number.
+  ethUsdPrice?: number;
+  usdcUsdPrice?: number;
   replayMode?: boolean;
 }
 
@@ -40,10 +47,10 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
   });
 
   const balances = computeBalances({
-    ethBalanceWei: '0x0',
-    usdcRawBalance: '0x0',
-    ethUsdPrice: 0,
-    usdcUsdPrice: 1,
+    ethBalanceWei: input.fixtures.sentinel_eth_balance?.result ?? '0x0',
+    usdcRawBalance: input.fixtures.sentinel_usdc_balance?.result ?? '0x0',
+    ethUsdPrice: input.ethUsdPrice ?? 0,
+    usdcUsdPrice: input.usdcUsdPrice ?? 1,
   });
 
   const activity = computeActivity(
@@ -126,7 +133,7 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
     peers: { ...peerResult, cluster, cluster_status },
   };
 
-  const report = await writeReport(data, { replayMode: input.replayMode });
+  const reportResult = await writeReport(data, { replayMode: input.replayMode });
 
   const sources: Source[] = [
     {
@@ -146,7 +153,7 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
   ];
 
   return {
-    report,
+    report: reportResult.markdown,
     data,
     sources,
     meta: {
@@ -161,6 +168,7 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
       target_input: input.input,
       job_id: input.job_id,
       disclosure: DISCLOSURE_TEXT,
+      report_source: reportResult.source,
     },
   };
 }

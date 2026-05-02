@@ -62,13 +62,26 @@ acpDecoder:
   enabled: false  # opt-in; flip after first acp-decoder setup completes
   replicas: 1
   resources:
+    # Sized for the claude --print subprocess spawned during report-writing.
+    # Claude Code CLI launches its own Node + tooling subprocesses; the
+    # previous 512Mi cap was tight enough to OOMKill mid-decode, which means
+    # the buyer's USDC is locked while we crash-recover. 1.5 GiB gives
+    # headroom for 1-2 concurrent decodes.
     requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
       cpu: 500m
       memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1536Mi
   defaultChainId: 8453  # Base mainnet
+  # Public Base RPC. cw-sentinel (our internal node) is intentionally paused
+  # for a RAM upgrade; the agent falls through to mainnet.base.org until it
+  # comes back. Override via SENTINEL_RPC env var if needed.
+  sentinelRpc: https://mainnet.base.org
+  # Launch price in USD. MUST match the price of the offering registered on
+  # the Virtuals dashboard. Mismatched values either fail the budget call
+  # or charge the wrong amount.
+  feeUsdc: 10
   # createSecret stays false by default — acp-decoder-secrets is created
   # manually via kubectl (see templates/acp-decoder-secret.yaml header).
   # Set createSecret: true + walletAddress / walletId / walletSignerPrivateKey

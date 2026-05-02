@@ -78,6 +78,7 @@ describe('QuickDecodeResult type shape', () => {
         target_input: '@axelrod',
         job_id: 'job-1',
         disclosure: DISCLOSURE_TEXT,
+        report_source: 'claude',
       },
     };
     expect(sample.meta.tier).toBe('quick');

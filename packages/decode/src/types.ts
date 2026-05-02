@@ -100,6 +100,8 @@ export interface QuickDecodeResultData {
   };
 }
 
+export type ReportSource = 'claude' | 'fallback';
+
 export interface QuickDecodeResult {
   report: string;
   data: QuickDecodeResultData;
@@ -114,6 +116,12 @@ export interface QuickDecodeResult {
     target_input: string;
     job_id: string;
     disclosure: string;
+    /**
+     * Whether the markdown report came from claude --print (richer prose) or
+     * the deterministic fallback template (used when claude was unavailable
+     * or produced output that violated the H1 constraint).
+     */
+    report_source: ReportSource;
   };
 }
 
