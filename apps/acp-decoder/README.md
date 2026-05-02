@@ -17,8 +17,9 @@ Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for 
 | Signer key rotation | ⏳ **Required before any USDC funding** (NOT before deploy — wallet stays at $0 through deploy + connection verification) |
 | Offering registered on marketplace | ⏳ Not yet — `wallet_decode @ $25 USDC fixed` planned |
 | Helm secret schema | ⏳ Needs update (swap `LITE_AGENT_API_KEY` → `WALLET_ID` + `WALLET_SIGNER_PRIVATE_KEY`) |
-| Production deploy (K3s) | ⏳ Pending secret update + image build |
-| First buyer-side test job | ⏳ Pending deploy |
+| Production deploy (K3s) | ✅ Live as `ce0cb93` — pod 1/1 Running, 4 TCP ESTABLISHED to Virtuals + Redis |
+| Production logs visible | ⚠️ NOT working — kubelet log file 0 bytes despite pod healthy. Node stdio buffering interaction with tsx/esm loader hooks; agent runs fine but can't observe via `kubectl logs`. See Open Items |
+| First buyer-side test job | ⏳ Pending wallet funding (rotate key first) |
 | Soft launch tweet (@chainwardai) | ⏳ Pending shipped lifecycle |
 
 ---
@@ -240,11 +241,13 @@ If you're a future Claude session picking this up cold, read in this order:
 
 ## Open Items / Known TODOs
 
-- [ ] Helm secret template still references the legacy `LITE_AGENT_API_KEY` — needs migration to v2 fields
-- [ ] No real `acp-cli` installed yet — only the deprecated `openclaw-acp` is in `/tmp/openclaw-acp`. The migration guide mentioned a new `acp-cli` but its npm/install path isn't yet identified
+- [ ] **HIGH: Logs not surfacing in `kubectl logs`.** Pod is healthy (1/1 Running, TCP connections established to Virtuals + Redis, CPU time accumulating, R state) but kubelet log file is 0 bytes. Smoke tests via `docker run` show logs immediately because the container exits and stdio buffers flush; in K8s the pod runs forever and Node's libuv async-write to a pipe never flushes. Tried `pino.destination({sync:true})` (broke startup), custom stdout-direct logger (still buffered), `_handle.setBlocking(true)` (didn't work either). Next attempt: bundle the SDK with tsup so we can drop the tsx/esm loader entirely, or run the binary under `node --enable-source-maps` with a custom stdout TTY shim. Investigate in a fresh debugging session — separate from feature work.
+- [x] ~~Helm secret template still references the legacy `LITE_AGENT_API_KEY`~~ — migrated 2026-05-01 to v2 fields
+- [ ] No real `acp-cli` needed — v2 offering registration is dashboard-only. The legacy `openclaw-acp` CLI remains deprecated; remove `/tmp/openclaw-acp` from local dev environments
 - [ ] `apps/acp-decoder/src/seller.ts` pins `chains: [base]` to Base mainnet — fine for production, but multi-chain expansion would need adjustment
 - [ ] `data-fetch.ts` falls back gracefully on individual API failures — but ACP API search-by-wallet filter (`filters[walletAddress][$eqi]=`) is empirically inferred, not docs-verified
 - [ ] Persist integration tests skip without local Postgres in CI (handler unit tests still cover persist mock interactions)
+- [ ] CI doesn't build the `acp-decoder` image (private mirror only). Production image is built locally via `docker buildx build --platform linux/amd64 ... --push`. If we want CI builds, push the branch publicly to `saltxd/chainward` — currently held private until we're ready to publicize the offering
 
 ---
 
