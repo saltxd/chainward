@@ -1,6 +1,6 @@
 # ChainWard Decoder Agent (ACP v2)
 
-A registered service-provider agent on Virtuals' Agentic Commerce Protocol that takes paid wallet-decode jobs ($25 USDC each) and delivers JSON envelopes containing a markdown report, structured chain-grounded data, and verifiable sources.
+A registered service-provider agent on Virtuals' Agentic Commerce Protocol that takes paid wallet-decode jobs (planned launch price: $10 USDC; raise after volume signal) and delivers JSON envelopes containing a markdown report, structured chain-grounded data, and verifiable sources.
 
 Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for agent builders on Base." See [BookStack page 202](http://docs.k3s.nox/books/chainward/page/strategic-direction-intelligence-platform-pivot-2026-04-29) for the full strategic context.
 
@@ -14,7 +14,7 @@ Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for 
 | Local connection | ✅ Verified — `acp v2 connected` logs in ~1s against Virtuals' production |
 | Agent registered on Virtuals | ✅ UUID `019de3bb-4e95-7438-b6cb-bfe68fed68ec` |
 | ACP v2 migration | ✅ Confirmed via UI dialog after spec compliance check |
-| Signer key rotation | ⏳ **Required before any USDC funding** — initial key was inadvertently exposed during wiring |
+| Signer key rotation | ⏳ **Required before any USDC funding** (NOT before deploy — wallet stays at $0 through deploy + connection verification) |
 | Offering registered on marketplace | ⏳ Not yet — `wallet_decode @ $25 USDC fixed` planned |
 | Helm secret schema | ⏳ Needs update (swap `LITE_AGENT_API_KEY` → `WALLET_ID` + `WALLET_SIGNER_PRIVATE_KEY`) |
 | Production deploy (K3s) | ⏳ Pending secret update + image build |
@@ -156,14 +156,26 @@ K3s namespace: `chainward`. Helm chart: `deploy/helm/chainward/`.
 
 ### Step 1 — Push secrets
 
-After **rotating** the signer key (see "Resume runbook" below), push the new credentials to K8s:
+For the **initial deploy**, the wallet stays at $0 — there's nothing to steal even if the current (leaked) key is compromised. Use the existing key:
 
 ```bash
 kubectl -n chainward create secret generic acp-decoder-secrets \
   --from-literal=WALLET_ADDRESS='0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127' \
   --from-literal=WALLET_ID='t28edruo4nzkhdbzt8csicyb' \
-  --from-literal=WALLET_SIGNER_PRIVATE_KEY='<NEW key from Virtuals UI after rotation>' \
+  --from-literal=WALLET_SIGNER_PRIVATE_KEY='<current key>' \
   --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$(kubectl -n <ns-with-curator-secret> get secret bookstack-curator-secrets -o jsonpath='{.data.CLAUDE_CODE_OAUTH_TOKEN}' | base64 -d)"
+```
+
+**Before funding the wallet for the e2e buyer test, rotate the signer key** (see Next-up tasks). Then re-apply the secret with the new key and restart the pod:
+
+```bash
+kubectl -n chainward create secret generic acp-decoder-secrets \
+  --from-literal=WALLET_ADDRESS='0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127' \
+  --from-literal=WALLET_ID='t28edruo4nzkhdbzt8csicyb' \
+  --from-literal=WALLET_SIGNER_PRIVATE_KEY='<NEW rotated key>' \
+  --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$(...)" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n chainward rollout restart deployment/acp-decoder
 ```
 
 ### Step 2 — Update Helm secret schema
@@ -204,16 +216,25 @@ If you're a future Claude session picking this up cold, read in this order:
 
 ### Next-up tasks (in order)
 
+**Pre-deploy (no rotation yet — wallet stays $0):**
 1. User clicks "Confirm Workdone" in Virtuals' Upgrade-to-v2 UI dialog (asserting code-side migration complete)
-2. **User rotates signer key** via the Signers tab on the dashboard. Save new key directly to 1Password — never paste in chat or log
-3. Register `wallet_decode` offering at $25 USDC fixed via the new acp-cli (the legacy `openclaw-acp` CLI is deprecated; new CLI install path needs probing — likely shipped with `@virtuals-protocol/acp-node-v2` or a separate package)
-4. Update `deploy/helm/chainward/templates/acp-decoder-secret.yaml` schema to swap `LITE_AGENT_API_KEY` for the three v2 fields
-5. Push secrets to K3s `chainward` namespace
-6. Deploy via `./deploy/deploy.sh --set acpDecoder.enabled=true`
-7. Verify production logs show `acp v2 connected`
-8. Buyer-side E2E test from a separate wallet ($25 USDC out, ~$22.50 back after Virtuals fee)
-9. Soft launch tweet from `@chainwardai`
-10. Update BookStack pages 202 and 199 with shipped state
+2. Update `deploy/helm/chainward/templates/acp-decoder-secret.yaml` schema to swap `LITE_AGENT_API_KEY` for the three v2 fields
+3. Push secrets to K3s `chainward` namespace (current key is fine — wallet has $0)
+4. Deploy via `./deploy/deploy.sh --set acpDecoder.enabled=true`
+5. Verify production logs show `acp v2 connected`
+6. Register `wallet_decode` offering at $10 USDC fixed (lowered from $25 to reduce first-test friction; raise after volume signal) via the new acp-cli (the legacy `openclaw-acp` CLI is deprecated; new CLI install path needs probing — likely shipped with `@virtuals-protocol/acp-node-v2` or a separate package)
+
+**Pre-funding (rotation gate):**
+7. **User rotates signer key** via the Signers tab on the dashboard — `+ Add Key`, save new private key to a password manager (Apple Passwords / Bitwarden / FileVault-protected `.env.local`); never paste in chat or commit
+8. Re-apply K8s secret with new key + `kubectl rollout restart deployment/acp-decoder`
+9. Confirm pod logs `acp v2 connected` with new key
+10. Delete old (leaked) key from Signers tab
+
+**Test + launch:**
+11. Fund agent wallet with $10 USDC (from a separate wallet, swap ETH→USDC on Aerodrome or similar)
+12. Buyer-side E2E test from a separate wallet ($10 USDC out, ~$9 back after Virtuals 10% fee)
+13. Soft launch tweet from `@chainwardai`
+14. Update BookStack pages 202 and 199 with shipped state
 
 ---
 
