@@ -11,14 +11,13 @@ Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for 
 | | |
 |---|---|
 | Code | ✅ Built, 84 tests passing across `packages/decode/` + `apps/acp-decoder/` |
-| Agent registered on Virtuals | ✅ UUID `019de3c0-349c-7d7c-8ef3-78cf06318ffc` (display name `Chainward`, wallet `0x55a24a57...`) |
+| Agent registered on Virtuals | ✅ UUID `019dee5e-bfca-79bb-add9-6d8bb38d91f3` (display name `Chainward`, wallet `0x7eae90d4...`) |
 | Offering registered on marketplace | ✅ `walletDecode @ $10 USDC fixed, 5min SLA` |
 | Helm secret schema (v2) | ✅ Migrated — `WALLET_ADDRESS / WALLET_ID / WALLET_SIGNER_PRIVATE_KEY` + `CLAUDE_CODE_OAUTH_TOKEN` |
-| Production deploy (K3s) | ✅ Live on `271e80a` — pod 1/1 Running, smart wallet deployed via EIP-7702 |
+| Production deploy (K3s) | ✅ Live on `05e960d` — pod 1/1 Running, smart wallet deployed via EIP-7702 |
 | Production logs visible | ✅ `kubectl logs deployment/acp-decoder` |
-| End-to-end seller flow | ✅ Verified — jobs 5107 + 5110 went through `requirement → setBudget → persistAccepted` cleanly |
-| First paid buyer-side test job | ⏳ Pending — wallet ready, just need to fund a buyer with $10 USDC and place an order |
-| Soft launch tweet (@chainwardai) | ⏳ Pending lifecycle test |
+| End-to-end paid lifecycle | ✅ **Job 5424 (2026-05-03)**: created → budget.set → funded → submitted → completed; $9 USDC received by seller wallet, real chain-grounded decode delivered |
+| Soft launch tweet (@chainwardai) | ⏳ Pending |
 
 ---
 
@@ -26,12 +25,15 @@ Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for 
 
 Public, safe to share:
 
-- **Seller agent UUID** (`Chainward`, our service-provider): `019de3c0-349c-7d7c-8ef3-78cf06318ffc`
-- **Seller wallet:** `0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127`
-- **Privy wallet ID:** `t28edruo4nzkhdbzt8csicyb`
-- **Buyer agent UUID** (`chainward-decoder`, the orphan we repurposed for testing): `019de3bb-4e95-7438-b6cb-bfe68fed68ec`
+- **Seller agent UUID** (`Chainward`, our service-provider): `019dee5e-bfca-79bb-add9-6d8bb38d91f3`
+- **Seller wallet:** `0x7eae90d4aac511491694e2f1854db54f53d59e92`
+- **Privy wallet ID:** `dt14bea23m0alqlou6pxxvtm`
+- **walletDecode offering ID:** `019dee79-204e-7608-a8cf-0fe634d64979`
+- **Buyer agent UUID** (`chainward-decoder`, our test client): `019de3bb-4e95-7438-b6cb-bfe68fed68ec`
 - **Buyer wallet:** `0x88d181346cd79c1631adf03a87d97e9d425bf9f8`
-- **Dashboard:** https://app.virtuals.io/acp/agents/019de3c0-349c-7d7c-8ef3-78cf06318ffc
+- **Dashboard:** https://app.virtuals.io/acp/agents/019dee5e-bfca-79bb-add9-6d8bb38d91f3
+
+> **Retired seller (do not use):** UUID `019de3c0-349c-7d7c-8ef3-78cf06318ffc`, wallet `0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127`. Created via the deprecated `openclaw-acp` flow on 2026-05-01 — got tagged `cluster: OPENCLAW` and `lastActiveAt: 2999-12-31` sentinel, which causes the v2 backend to auto-reject every incoming job with reason `invalid_address`. Migration to the fresh agent (above) on 2026-05-03 fixed it. Always create v2 agents via the canonical `acp agent create` command from `Virtual-Protocol/acp-cli` (GitHub) — never `openclaw-acp` (npm `virtuals-protocol-acp`).
 
 ---
 
@@ -157,24 +159,15 @@ K3s namespace: `chainward`. Helm chart: `deploy/helm/chainward/`.
 
 ### Step 1 — Push secrets
 
-For the **initial deploy**, the wallet stays at $0 — there's nothing to steal even if the current (leaked) key is compromised. Use the existing key:
+The signer private key is backed up at `~/.config/chainward-secrets/acp-decoder-signer.json` (mode 600, gitignored). Apply to K8s:
 
 ```bash
+PRIV=$(jq -r .privateKey ~/.config/chainward-secrets/acp-decoder-signer.json)
 kubectl -n chainward create secret generic acp-decoder-secrets \
-  --from-literal=WALLET_ADDRESS='0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127' \
-  --from-literal=WALLET_ID='t28edruo4nzkhdbzt8csicyb' \
-  --from-literal=WALLET_SIGNER_PRIVATE_KEY='<current key>' \
-  --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$(kubectl -n <ns-with-curator-secret> get secret bookstack-curator-secrets -o jsonpath='{.data.CLAUDE_CODE_OAUTH_TOKEN}' | base64 -d)"
-```
-
-**Before funding the wallet for the e2e buyer test, rotate the signer key** (see Next-up tasks). Then re-apply the secret with the new key and restart the pod:
-
-```bash
-kubectl -n chainward create secret generic acp-decoder-secrets \
-  --from-literal=WALLET_ADDRESS='0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127' \
-  --from-literal=WALLET_ID='t28edruo4nzkhdbzt8csicyb' \
-  --from-literal=WALLET_SIGNER_PRIVATE_KEY='<NEW rotated key>' \
-  --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$(...)" \
+  --from-literal=WALLET_ADDRESS='0x7eae90d4aac511491694e2f1854db54f53d59e92' \
+  --from-literal=WALLET_ID='dt14bea23m0alqlou6pxxvtm' \
+  --from-literal=WALLET_SIGNER_PRIVATE_KEY="$PRIV" \
+  --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$(kubectl -n <ns-with-curator-secret> get secret bookstack-curator-secrets -o jsonpath='{.data.CLAUDE_CODE_OAUTH_TOKEN}' | base64 -d)" \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n chainward rollout restart deployment/acp-decoder
 ```
