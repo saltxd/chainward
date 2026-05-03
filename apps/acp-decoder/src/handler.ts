@@ -165,29 +165,7 @@ export async function handleEntry(
 
       // Accept: set budget = our offering price, using the chain the buyer chose
       const budget = await ctx.assetTokenForUsdc(ctx.config.feeUsdc, session.chainId);
-      // DEBUG: dump everything the SDK gets to track down the "Expected bigint, got: 0" error
-      try {
-        await session.setBudget(budget);
-      } catch (sbErr: any) {
-        // eslint-disable-next-line no-console
-        console.error('[setBudget-debug]', JSON.stringify({
-          jobId: jobId,
-          chainId: session.chainId,
-          chainIdType: typeof session.chainId,
-          feeUsdc: ctx.config.feeUsdc,
-          budget_amount: budget.amount,
-          budget_amount_type: typeof budget.amount,
-          budget_decimals: budget.decimals,
-          budget_decimals_type: typeof budget.decimals,
-          budget_address: budget.address,
-          budget_symbol: budget.symbol,
-          budget_rawAmount: budget.rawAmount?.toString(),
-          budget_rawAmount_type: typeof budget.rawAmount,
-        }));
-        // eslint-disable-next-line no-console
-        console.error('[setBudget-debug-error]', sbErr.stack);
-        throw sbErr;
-      }
+      await session.setBudget(budget);
       await ctx.persist.persistAccepted({
         jobId,
         buyerWallet: buyer,
