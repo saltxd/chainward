@@ -25,7 +25,8 @@
   },
   "pnpm": {
     "patchedDependencies": {
-      "@alchemy/wallet-apis@5.0.0-beta.25": "patches/@alchemy__wallet-apis@5.0.0-beta.25.patch"
+      "@alchemy/wallet-apis@5.0.0-beta.25": "patches/@alchemy__wallet-apis@5.0.0-beta.25.patch",
+      "@alchemy/wallet-api-types@0.1.0-alpha.30": "patches/@alchemy__wallet-api-types@0.1.0-alpha.30.patch"
     }
   }
 }
