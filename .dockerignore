@@ -1,0 +1,17 @@
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+**/.cache
+**/coverage
+**/.vitest-cache
+.git
+.gitignore
+.github
+.husky
+.vscode
+.idea
+*.log
+.DS_Store

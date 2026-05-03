@@ -19,7 +19,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 NAMESPACE="chainward"
 REGISTRY="ghcr.io/saltxd"
-SERVICES=(api web indexer)
+SERVICES=(api web indexer acp-decoder)
 
 # Parse args
 TAG=""
@@ -187,6 +187,10 @@ for svc in "${SERVICES[@]}"; do
   if $DRY_RUN; then
     echo "  [dry-run] kubectl -n $NAMESPACE set image deployment/$svc $svc=$IMAGE"
   else
+    if ! kubectl -n "$NAMESPACE" get "deployment/$svc" &>/dev/null; then
+      echo "  SKIP $svc (deployment not found — acpDecoder.enabled may be false)"
+      continue
+    fi
     kubectl -n "$NAMESPACE" set image "deployment/$svc" "$svc=$IMAGE"
     echo "  UPDATED  $svc -> $IMAGE"
   fi
@@ -198,6 +202,10 @@ echo ""
 if ! $DRY_RUN; then
   echo "--- Waiting for rollouts ---"
   for svc in "${SERVICES[@]}"; do
+    if ! kubectl -n "$NAMESPACE" get "deployment/$svc" &>/dev/null; then
+      echo "  SKIP $svc (deployment not found)"
+      continue
+    fi
     if kubectl -n "$NAMESPACE" rollout status "deployment/$svc" --timeout=120s; then
       echo "  OK  $svc"
     else
