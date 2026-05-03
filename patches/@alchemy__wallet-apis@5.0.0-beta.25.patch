@@ -1,8 +1,8 @@
 diff --git a/dist/esm/actions/sendPreparedCalls.js b/dist/esm/actions/sendPreparedCalls.js
-index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..9e68a622c222a8ad94d3010e66523423e40a800f 100644
+index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..3e46268d5b1a596657c37bd215b9b09f95388cf3 100644
 --- a/dist/esm/actions/sendPreparedCalls.js
 +++ b/dist/esm/actions/sendPreparedCalls.js
-@@ -3,49 +3,60 @@ import { mergeClientCapabilities, toRpcCapabilities, } from "../utils/capabiliti
+@@ -3,49 +3,34 @@ import { mergeClientCapabilities, toRpcCapabilities, } from "../utils/capabiliti
  import { wallet_sendPreparedCalls as MethodSchema } from "@alchemy/wallet-api-types/rpc";
  import { methodSchema, encode, decode, } from "../utils/schema.js";
  const schema = methodSchema(MethodSchema);
@@ -37,46 +37,21 @@ index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..9e68a622c222a8ad94d3010e66523423
 - * });
 - * ```
 - */
-+const __USER_OP_BIGINT_KEYS = new Set([
-+    "nonce", "callGasLimit", "verificationGasLimit", "preVerificationGas",
-+    "maxFeePerGas", "maxPriorityFeePerGas",
-+    "paymasterVerificationGasLimit", "paymasterPostOpGasLimit", "maxAmount",
-+]);
-+function __coerceLeaf(v) {
-+    if (typeof v === "number") return BigInt(v);
-+    if (typeof v === "string" && v.startsWith("0x")) return BigInt(v);
-+    return v;
-+}
-+function __coerceInUserOp(o) {
++// PATCH: drop stray feePayment fields from signed userOps before encode.
++// SendPreparedCalls schema's PreparedCall_UserOpV070_Signed Omits feePayment,
++// but the SDK's signing pass forgets to remove it from the runtime value.
++// Without this, the encode goes through the value unmodified — harmless on
++// its own, but it's bookkeeping. The actual bigint-coercion fix lives in
++// the wallet-api-types HexBigInt codec (see that package's patch).
++function __strip(o) {
 +    if (o == null || typeof o !== "object") return o;
-+    if (Array.isArray(o)) return o.map(__coerceInUserOp);
++    if (Array.isArray(o)) return o.map(__strip);
 +    const out = {};
 +    for (const [k, v] of Object.entries(o)) {
-+        if (__USER_OP_BIGINT_KEYS.has(k)) out[k] = __coerceLeaf(v);
-+        else out[k] = __coerceInUserOp(v);
++        if (k === "feePayment") continue;
++        out[k] = __strip(v);
 +    }
 +    return out;
-+}
-+function __walk(o) {
-+    if (o == null || typeof o !== "object") return o;
-+    if (Array.isArray(o)) return o.map(__walk);
-+    const stripped = { ...o };
-+    delete stripped.feePayment;
-+    if (stripped.type === "user-operation-v070" || stripped.type === "user-operation-v060") {
-+        const out = { ...stripped };
-+        if (out.data && typeof out.data === "object") {
-+            out.data = __coerceInUserOp(out.data);
-+        }
-+        return out;
-+    }
-+    const out = {};
-+    for (const [k, v] of Object.entries(stripped)) {
-+        out[k] = __walk(v);
-+    }
-+    return out;
-+}
-+function __serialize(obj) {
-+    return JSON.stringify(obj, (_, v) => typeof v === "bigint" ? `__bigint:${v}` : v, 2);
 +}
  export async function sendPreparedCalls(client, params) {
      const capabilities = mergeClientCapabilities(client, params.capabilities);
@@ -86,14 +61,13 @@ index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..9e68a622c222a8ad94d3010e66523423
      const fullParams = restParams.type === "array"
 -        ? { ...restParams, capabilities: toRpcCapabilities(capabilities) }
 -        : {
-+        ? __walk({ ...restParams, capabilities: toRpcCapabilities(capabilities) })
-+        : __walk({
++        ? __strip({ ...restParams, capabilities: toRpcCapabilities(capabilities) })
++        : __strip({
              ...restParams,
              chainId,
              capabilities: toRpcCapabilities(capabilities),
 -        };
 +        });
-+    console.error("[fullParams-json]", __serialize(fullParams));
      const rpcParams = encode(schema.request, fullParams);
      const rpcResp = await client.request({
          method: "wallet_sendPreparedCalls",
