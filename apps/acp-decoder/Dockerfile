@@ -4,6 +4,7 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY patches/ patches/
 COPY apps/acp-decoder/package.json apps/acp-decoder/
 COPY packages/common/package.json packages/common/
 COPY packages/db/package.json packages/db/
