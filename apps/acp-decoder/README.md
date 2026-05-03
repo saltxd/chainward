@@ -11,16 +11,14 @@ Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for 
 | | |
 |---|---|
 | Code | ✅ Built, 84 tests passing across `packages/decode/` + `apps/acp-decoder/` |
-| Local connection | ✅ Verified — `acp v2 connected` logs in ~1s against Virtuals' production |
-| Agent registered on Virtuals | ✅ UUID `019de3bb-4e95-7438-b6cb-bfe68fed68ec` |
-| ACP v2 migration | ✅ Confirmed via UI dialog after spec compliance check |
-| Signer key rotation | ⏳ **Required before any USDC funding** (NOT before deploy — wallet stays at $0 through deploy + connection verification) |
-| Offering registered on marketplace | ⏳ Not yet — `wallet_decode @ $25 USDC fixed` planned |
-| Helm secret schema | ⏳ Needs update (swap `LITE_AGENT_API_KEY` → `WALLET_ID` + `WALLET_SIGNER_PRIVATE_KEY`) |
-| Production deploy (K3s) | ✅ Live as `e596ca5` — pod 1/1 Running, connected to Virtuals + Redis |
-| Production logs visible | ✅ `kubectl logs deployment/acp-decoder` shows `chainward-acp-decoder starting` + `acp v2 connected` |
-| First buyer-side test job | ⏳ Pending wallet funding (rotate key first) |
-| Soft launch tweet (@chainwardai) | ⏳ Pending shipped lifecycle |
+| Agent registered on Virtuals | ✅ UUID `019de3c0-349c-7d7c-8ef3-78cf06318ffc` (display name `Chainward`, wallet `0x55a24a57...`) |
+| Offering registered on marketplace | ✅ `walletDecode @ $10 USDC fixed, 5min SLA` |
+| Helm secret schema (v2) | ✅ Migrated — `WALLET_ADDRESS / WALLET_ID / WALLET_SIGNER_PRIVATE_KEY` + `CLAUDE_CODE_OAUTH_TOKEN` |
+| Production deploy (K3s) | ✅ Live on `271e80a` — pod 1/1 Running, smart wallet deployed via EIP-7702 |
+| Production logs visible | ✅ `kubectl logs deployment/acp-decoder` |
+| End-to-end seller flow | ✅ Verified — jobs 5107 + 5110 went through `requirement → setBudget → persistAccepted` cleanly |
+| First paid buyer-side test job | ⏳ Pending — wallet ready, just need to fund a buyer with $10 USDC and place an order |
+| Soft launch tweet (@chainwardai) | ⏳ Pending lifecycle test |
 
 ---
 
@@ -28,10 +26,12 @@ Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for 
 
 Public, safe to share:
 
-- **Agent UUID:** `019de3bb-4e95-7438-b6cb-bfe68fed68ec`
-- **Agent wallet:** `0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127`
+- **Seller agent UUID** (`Chainward`, our service-provider): `019de3c0-349c-7d7c-8ef3-78cf06318ffc`
+- **Seller wallet:** `0x55a24a57cc662e180c5bb2e0f4ee2496f5ab7127`
 - **Privy wallet ID:** `t28edruo4nzkhdbzt8csicyb`
-- **Dashboard:** https://app.virtuals.io/acp/agents/019de3bb-4e95-7438-b6cb-bfe68fed68ec
+- **Buyer agent UUID** (`chainward-decoder`, the orphan we repurposed for testing): `019de3bb-4e95-7438-b6cb-bfe68fed68ec`
+- **Buyer wallet:** `0x88d181346cd79c1631adf03a87d97e9d425bf9f8`
+- **Dashboard:** https://app.virtuals.io/acp/agents/019de3c0-349c-7d7c-8ef3-78cf06318ffc
 
 ---
 
@@ -217,37 +217,51 @@ If you're a future Claude session picking this up cold, read in this order:
 
 ### Next-up tasks (in order)
 
-**Pre-deploy (no rotation yet — wallet stays $0):**
-1. User clicks "Confirm Workdone" in Virtuals' Upgrade-to-v2 UI dialog (asserting code-side migration complete)
-2. Update `deploy/helm/chainward/templates/acp-decoder-secret.yaml` schema to swap `LITE_AGENT_API_KEY` for the three v2 fields
-3. Push secrets to K3s `chainward` namespace (current key is fine — wallet has $0)
-4. Deploy via `./deploy/deploy.sh --set acpDecoder.enabled=true`
-5. Verify production logs show `acp v2 connected`
-6. Register `wallet_decode` offering at $10 USDC fixed (lowered from $25 to reduce first-test friction; raise after volume signal) via the new acp-cli (the legacy `openclaw-acp` CLI is deprecated; new CLI install path needs probing — likely shipped with `@virtuals-protocol/acp-node-v2` or a separate package)
+**All pre-launch infra complete.** Remaining steps before public launch:
 
-**Pre-funding (rotation gate):**
-7. **User rotates signer key** via the Signers tab on the dashboard — `+ Add Key`, save new private key to a password manager (Apple Passwords / Bitwarden / FileVault-protected `.env.local`); never paste in chat or commit
-8. Re-apply K8s secret with new key + `kubectl rollout restart deployment/acp-decoder`
-9. Confirm pod logs `acp v2 connected` with new key
-10. Delete old (leaked) key from Signers tab
-
-**Test + launch:**
-11. Fund agent wallet with $10 USDC (from a separate wallet, swap ETH→USDC on Aerodrome or similar)
-12. Buyer-side E2E test from a separate wallet ($10 USDC out, ~$9 back after Virtuals 10% fee)
-13. Soft launch tweet from `@chainwardai`
-14. Update BookStack pages 202 and 199 with shipped state
+1. Fund a separate buyer wallet with $10 USDC + send a real `walletDecode` order to validate the full happy path produces a Claude-rendered markdown report and on-chain settlement (~$1 net cost per test)
+2. Soft launch tweet from `@chainwardai`
+3. Update BookStack pages 202 and 199 with shipped state
 
 ---
 
+## SDK Patches (load-bearing — DO NOT REMOVE)
+
+Two `pnpm patch` files in `patches/` work around real bugs in pre-release Alchemy/Virtuals tooling. They survive `pnpm install` via `package.json` `pnpm.patchedDependencies`. Both must be in place — without either, the seller's first `setBudget` call will fail.
+
+### `patches/@alchemy__wallet-api-types@0.1.0-alpha.30.patch`
+
+**Bug**: `HexBigInt.Encode` (in `dist/esm/schemas.js`) added a strict `typeof value !== "bigint"` check on 2026-05-01 (alpha.30 release). The companion `@alchemy/wallet-apis@5.0.0-beta.25` still emits some HexBigInt-typed fields as plain `number 0` — most reliably during the EIP-7702 deployment + first userOp combined call (`count: 2` signed prepared calls), where `prepareCalls` returns numeric defaults that survive `Optional` decode and fail the strict re-encode.
+
+**Fix**: coerce `number → BigInt(number)` at the codec boundary before the strict type check. Equivalent semantics for the wire format.
+
+### `patches/@alchemy__wallet-apis@5.0.0-beta.25.patch`
+
+**Bug**: `sendPreparedCalls` in `dist/esm/actions/sendPreparedCalls.js` round-trips signed prepared calls through `encode(schema.request, fullParams)`. The `PreparedCall_UserOpV070_Signed` schema explicitly `Type.Omit`s `feePayment`, but the SDK's signing pass doesn't strip it from the runtime value before passing it to `sendPreparedCalls`.
+
+**Fix**: walk `fullParams` and drop any `feePayment` keys before encode.
+
+### Why we can't just upgrade
+
+Working v2 sellers in the wild (Wasabot, Capminal, MORSE) all deployed before alpha.30 landed and are pinned to older versions via their lockfiles. Alpha.30 is the only published version of `wallet-api-types` that has this regression. We're shipping the day the regression landed; bypass via patch until Virtuals/Alchemy ship a fix upstream.
+
+### What to do when the upstream fix lands
+
+1. Bump `@virtuals-protocol/acp-node-v2` to whatever new version pulls a fixed `@alchemy/wallet-api-types` (likely alpha.31+).
+2. Delete `patches/@alchemy__wallet-api-types@*.patch` and `patches/@alchemy__wallet-apis@*.patch`.
+3. Remove the `pnpm.patchedDependencies` block from root `package.json`.
+4. `pnpm install` and verify a fresh seller wallet (use `chainward-decoder`'s pattern — generate a new test agent and try `setBudget` end-to-end before declaring victory).
+
 ## Open Items / Known TODOs
 
-- [x] ~~Logs not surfacing in `kubectl logs`~~ — fixed in commit e596ca5 by bundling the SDK into our tsup output via `noExternal`. Root cause was the `--import tsx/esm` loader (needed for the SDK's broken extensionless imports) interfering with Node's pipe stdio. With the SDK pre-bundled, esbuild rewrites the imports at build time, the tsx loader is gone, and `node dist/index.js` has normal stdio. Bundle is 1.85 MB. Required adding a `createRequire(import.meta.url)` banner so CJS transitive deps (object-inspect, side-channel, deep-equal) can resolve `require('node:util')` from inside the ESM bundle.
-- [x] ~~Helm secret template still references the legacy `LITE_AGENT_API_KEY`~~ — migrated 2026-05-01 to v2 fields
-- [ ] No real `acp-cli` needed — v2 offering registration is dashboard-only. The legacy `openclaw-acp` CLI remains deprecated; remove `/tmp/openclaw-acp` from local dev environments
-- [ ] `apps/acp-decoder/src/seller.ts` pins `chains: [base]` to Base mainnet — fine for production, but multi-chain expansion would need adjustment
-- [ ] `data-fetch.ts` falls back gracefully on individual API failures — but ACP API search-by-wallet filter (`filters[walletAddress][$eqi]=`) is empirically inferred, not docs-verified
-- [ ] Persist integration tests skip without local Postgres in CI (handler unit tests still cover persist mock interactions)
-- [ ] CI doesn't build the `acp-decoder` image (private mirror only). Production image is built locally via `docker buildx build --platform linux/amd64 ... --push`. If we want CI builds, push the branch publicly to `saltxd/chainward` — currently held private until we're ready to publicize the offering
+- [x] ~~Logs not surfacing in `kubectl logs`~~ — fixed in commit e596ca5 by bundling the SDK via tsup `noExternal`, dropping the `--import tsx/esm` loader. With the SDK pre-bundled, esbuild rewrites the SDK's broken extensionless imports at build time and Node's pipe stdio works normally. Required a `createRequire(import.meta.url)` banner so CJS transitive deps (object-inspect, side-channel, deep-equal) can resolve `require('node:util')` from inside the ESM bundle.
+- [x] ~~Helm secret template still references the legacy `LITE_AGENT_API_KEY`~~ — migrated 2026-05-01 to v2 fields.
+- [x] ~~Seller `setBudget` throws "Expected bigint, got: 0" on first userOp~~ — fixed via the two `pnpm patch` files documented above.
+- [x] ~~No real `acp-cli` needed~~ — v2 offering registration is dashboard-only; for buyer-side testing, install `Virtual-Protocol/acp-cli` from GitHub (not on npm).
+- [ ] `apps/acp-decoder/src/seller.ts` pins `chains: [base]` to Base mainnet — fine for production, but multi-chain expansion would need adjustment.
+- [ ] `data-fetch.ts` falls back gracefully on individual API failures — but the ACP API search-by-wallet filter (`filters[walletAddress][$eqi]=`) is empirically inferred, not docs-verified.
+- [ ] Persist integration tests skip without local Postgres in CI (handler unit tests still cover persist mock interactions).
+- [ ] CI doesn't build the `acp-decoder` image (private mirror only). Production image is built locally via `docker buildx build --platform linux/amd64 ... --push`.
 
 ---
 
