@@ -91,6 +91,18 @@ export async function handleEntry(
   // requirement message — buyer describes the job; we validate and set budget or reject
   if (entry.kind === 'message' && entry.contentType === 'requirement' && session.status === 'open') {
     const parsed = parseTarget(entry.content ?? '');
+    // eslint-disable-next-line no-console
+    console.error('[handler-requirement]', JSON.stringify({
+      jobId,
+      sessionStatus: session.status,
+      entryContent: entry.content?.slice(0, 200),
+      contentType: entry.contentType,
+      parsedOk: parsed.ok,
+      parsedReason: parsed.reason,
+      parsedKind: parsed.target?.kind,
+      parsedAddress: parsed.target?.address,
+      parsedHandle: parsed.target?.handle,
+    }));
     if (!parsed.ok || !parsed.target) {
       await session.reject(parsed.reason ?? 'invalid_address');
       await ctx.persist.persistRejected({
@@ -122,6 +134,8 @@ export async function handleEntry(
       walletAddress = resolved;
     }
     if (!walletAddress) {
+      // eslint-disable-next-line no-console
+      console.error('[handler-no-wallet]', JSON.stringify({ jobId, parsed }));
       await session.reject('invalid_address');
       await ctx.persist.persistRejected({
         jobId,
