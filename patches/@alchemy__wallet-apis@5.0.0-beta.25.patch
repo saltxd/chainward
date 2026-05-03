@@ -1,8 +1,8 @@
 diff --git a/dist/esm/actions/sendPreparedCalls.js b/dist/esm/actions/sendPreparedCalls.js
-index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7617e4c45758215c46f438884c407fbfc4d66e92 100644
+index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7914891066d5ed66acece1774758d9caf49f229d 100644
 --- a/dist/esm/actions/sendPreparedCalls.js
 +++ b/dist/esm/actions/sendPreparedCalls.js
-@@ -3,49 +3,44 @@ import { mergeClientCapabilities, toRpcCapabilities, } from "../utils/capabiliti
+@@ -3,49 +3,70 @@ import { mergeClientCapabilities, toRpcCapabilities, } from "../utils/capabiliti
  import { wallet_sendPreparedCalls as MethodSchema } from "@alchemy/wallet-api-types/rpc";
  import { methodSchema, encode, decode, } from "../utils/schema.js";
  const schema = methodSchema(MethodSchema);
@@ -38,28 +38,54 @@ index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7617e4c45758215c46f438884c407fbf
 - * ```
 - */
 +// PATCH: alpha.30 of @alchemy/wallet-api-types added strict HexBigInt encoding
-+// that rejects numeric 0 even where Alchemy returns it as 0 (number) in the
-+// signed prepared-call response. Coerce known bigint-typed userOp gas fields
-+// before encode, and strip the stray feePayment field that the SDK signing
-+// pass forgets to remove (the schema for SendPreparedCalls omits it).
-+const __HEX_BIGINT_KEYS = new Set([
++// that rejects numeric values. When count=2 prepared calls (EIP-7702 deploy +
++// userOp) come back from prepareCalls, the array path of sendPreparedCalls
++// round-trips data with numeric 0 values surviving the Optional decoder, then
++// strict HexBigInt.Encode throws.
++//
++// Coerce only fields that are HexBigInt in their schema context. Some field
++// names (nonce, chainId) are HexNumber in EIP-7702 auths but HexBigInt in
++// userOps — disambiguate via the parent's `type` discriminator.
++const __USER_OP_BIGINT_KEYS = new Set([
 +    "nonce", "callGasLimit", "verificationGasLimit", "preVerificationGas",
 +    "maxFeePerGas", "maxPriorityFeePerGas",
 +    "paymasterVerificationGasLimit", "paymasterPostOpGasLimit", "maxAmount",
 +]);
-+function __coerceBigInts(o) {
++function __coerceLeaf(v) {
++    if (typeof v === "number") return BigInt(v);
++    if (typeof v === "string" && v.startsWith("0x")) return BigInt(v);
++    return v;
++}
++function __coerceInUserOp(o) {
 +    if (o == null || typeof o !== "object") return o;
-+    if (Array.isArray(o)) return o.map(__coerceBigInts);
++    if (Array.isArray(o)) return o.map(__coerceInUserOp);
 +    const out = {};
 +    for (const [k, v] of Object.entries(o)) {
-+        if (k === "feePayment") continue;
-+        if (__HEX_BIGINT_KEYS.has(k)) {
-+            if (typeof v === "number") out[k] = BigInt(v);
-+            else if (typeof v === "string" && v.startsWith("0x")) out[k] = BigInt(v);
-+            else out[k] = v;
-+        } else {
-+            out[k] = __coerceBigInts(v);
++        if (__USER_OP_BIGINT_KEYS.has(k)) out[k] = __coerceLeaf(v);
++        else out[k] = __coerceInUserOp(v);
++    }
++    return out;
++}
++function __walk(o) {
++    if (o == null || typeof o !== "object") return o;
++    if (Array.isArray(o)) return o.map(__walk);
++    // Strip stray feePayment that the SDK signing pass forgot to remove —
++    // SendPreparedCalls schema omits it.
++    const stripped = { ...o };
++    delete stripped.feePayment;
++    // If this looks like a userOp signed call, coerce its data; otherwise
++    // recurse without coercion (so EIP-7702 auth's HexNumber fields stay
++    // as numbers).
++    if (stripped.type === "user-operation-v070" || stripped.type === "user-operation-v060") {
++        const out = { ...stripped };
++        if (out.data && typeof out.data === "object") {
++            out.data = __coerceInUserOp(out.data);
 +        }
++        return out;
++    }
++    const out = {};
++    for (const [k, v] of Object.entries(stripped)) {
++        out[k] = __walk(v);
 +    }
 +    return out;
 +}
@@ -71,8 +97,8 @@ index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7617e4c45758215c46f438884c407fbf
      const fullParams = restParams.type === "array"
 -        ? { ...restParams, capabilities: toRpcCapabilities(capabilities) }
 -        : {
-+        ? __coerceBigInts({ ...restParams, capabilities: toRpcCapabilities(capabilities) })
-+        : __coerceBigInts({
++        ? __walk({ ...restParams, capabilities: toRpcCapabilities(capabilities) })
++        : __walk({
              ...restParams,
              chainId,
              capabilities: toRpcCapabilities(capabilities),
