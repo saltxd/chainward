@@ -19,6 +19,26 @@ export async function startSeller(
   const agent = await AcpAgent.create({ provider });
 
   agent.on('entry', async (session, entry) => {
+    // Wide-net dispatch logging — captures every entry the SDK delivers, so we can
+    // reconstruct the exact sequence that triggered any reject. Truncate content at
+    // 1000 chars (well above any real requirement payload).
+    logger.info(
+      {
+        jobId: session.job?.id?.toString(),
+        sessionStatus: session.status,
+        roles: session.roles,
+        entryKind: entry.kind,
+        entryFrom: (entry as any).from,
+        entryContentType: (entry as any).contentType,
+        entryEventType: (entry as any).event?.type,
+        entryContent:
+          (entry as any).content !== undefined
+            ? String((entry as any).content).slice(0, 1000)
+            : undefined,
+        entryTimestamp: (entry as any).timestamp,
+      },
+      'dispatch:entry',
+    );
     try {
       await handleEntry(handlerCtx, session, entry);
     } catch (err: any) {
