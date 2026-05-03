@@ -1,8 +1,8 @@
 diff --git a/dist/esm/actions/sendPreparedCalls.js b/dist/esm/actions/sendPreparedCalls.js
-index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7914891066d5ed66acece1774758d9caf49f229d 100644
+index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..df88f768835dbca8e8f0961d166818bcca04f10d 100644
 --- a/dist/esm/actions/sendPreparedCalls.js
 +++ b/dist/esm/actions/sendPreparedCalls.js
-@@ -3,49 +3,70 @@ import { mergeClientCapabilities, toRpcCapabilities, } from "../utils/capabiliti
+@@ -3,49 +3,75 @@ import { mergeClientCapabilities, toRpcCapabilities, } from "../utils/capabiliti
  import { wallet_sendPreparedCalls as MethodSchema } from "@alchemy/wallet-api-types/rpc";
  import { methodSchema, encode, decode, } from "../utils/schema.js";
  const schema = methodSchema(MethodSchema);
@@ -37,15 +37,6 @@ index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7914891066d5ed66acece1774758d9ca
 - * });
 - * ```
 - */
-+// PATCH: alpha.30 of @alchemy/wallet-api-types added strict HexBigInt encoding
-+// that rejects numeric values. When count=2 prepared calls (EIP-7702 deploy +
-+// userOp) come back from prepareCalls, the array path of sendPreparedCalls
-+// round-trips data with numeric 0 values surviving the Optional decoder, then
-+// strict HexBigInt.Encode throws.
-+//
-+// Coerce only fields that are HexBigInt in their schema context. Some field
-+// names (nonce, chainId) are HexNumber in EIP-7702 auths but HexBigInt in
-+// userOps — disambiguate via the parent's `type` discriminator.
 +const __USER_OP_BIGINT_KEYS = new Set([
 +    "nonce", "callGasLimit", "verificationGasLimit", "preVerificationGas",
 +    "maxFeePerGas", "maxPriorityFeePerGas",
@@ -69,13 +60,8 @@ index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7914891066d5ed66acece1774758d9ca
 +function __walk(o) {
 +    if (o == null || typeof o !== "object") return o;
 +    if (Array.isArray(o)) return o.map(__walk);
-+    // Strip stray feePayment that the SDK signing pass forgot to remove —
-+    // SendPreparedCalls schema omits it.
 +    const stripped = { ...o };
 +    delete stripped.feePayment;
-+    // If this looks like a userOp signed call, coerce its data; otherwise
-+    // recurse without coercion (so EIP-7702 auth's HexNumber fields stay
-+    // as numbers).
 +    if (stripped.type === "user-operation-v070" || stripped.type === "user-operation-v060") {
 +        const out = { ...stripped };
 +        if (out.data && typeof out.data === "object") {
@@ -88,6 +74,23 @@ index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7914891066d5ed66acece1774758d9ca
 +        out[k] = __walk(v);
 +    }
 +    return out;
++}
++function __dumpTypes(obj, depth = 0, prefix = "") {
++    if (depth > 4) return;
++    if (obj == null || typeof obj !== "object") return;
++    if (Array.isArray(obj)) {
++        obj.forEach((v, i) => __dumpTypes(v, depth + 1, `${prefix}[${i}]`));
++        return;
++    }
++    for (const [k, v] of Object.entries(obj)) {
++        if (typeof v === "number" || typeof v === "bigint") {
++            console.error(`[fullParams-dump] ${prefix}.${k} = ${typeof v} ${v}`);
++        } else if (typeof v === "string" && v.startsWith("0x") && v.length < 80) {
++            console.error(`[fullParams-dump] ${prefix}.${k} = string "${v}"`);
++        } else if (typeof v === "object") {
++            __dumpTypes(v, depth + 1, `${prefix}.${k}`);
++        }
++    }
 +}
  export async function sendPreparedCalls(client, params) {
      const capabilities = mergeClientCapabilities(client, params.capabilities);
@@ -104,6 +107,8 @@ index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..7914891066d5ed66acece1774758d9ca
              capabilities: toRpcCapabilities(capabilities),
 -        };
 +        });
++    console.error("[fullParams-pre-encode] type=" + fullParams.type);
++    __dumpTypes(fullParams);
      const rpcParams = encode(schema.request, fullParams);
      const rpcResp = await client.request({
          method: "wallet_sendPreparedCalls",
