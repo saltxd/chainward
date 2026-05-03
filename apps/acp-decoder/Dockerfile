@@ -1,5 +1,9 @@
 FROM node:22-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Native deps (utf-8-validate / bufferutil) need python+make+g++ to compile
+# from source — prebuilds aren't always available for this node/alpine combo.
+# Install in base so both `deps` and `build` stages can run pnpm install.
+RUN apk add --no-cache python3 make g++ && \
+    corepack enable && corepack prepare pnpm@latest --activate
 
 FROM base AS deps
 WORKDIR /app
