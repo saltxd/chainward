@@ -13,6 +13,13 @@ const navItems = [
   { label: 'settings', href: '/settings' },
 ];
 
+const publicNavItems = [
+  { label: 'observatory', href: '/base' },
+  { label: 'decodes', href: '/decodes' },
+  { label: 'lookup', href: '/wallet' },
+  { label: 'home', href: '/' },
+];
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
@@ -20,7 +27,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <>
       <div className="flex h-14 items-center px-5 pt-[env(safe-area-inset-top)]">
         <Link
-          href="/overview"
+          href="/"
           onClick={onNavigate}
           className="flex items-center gap-2.5 text-sm font-semibold"
           style={{ color: 'var(--fg)' }}
@@ -42,9 +49,39 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-4" style={{ fontFamily: 'var(--font-mono)' }}>
+      <nav className="flex-1 px-3 py-4 flex flex-col" style={{ fontFamily: 'var(--font-mono)' }}>
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2.5 text-[13px] transition-colors min-h-[40px]',
+              )}
+              style={{
+                color: active ? 'var(--phosphor)' : 'var(--fg-dim)',
+                letterSpacing: '0.04em',
+                textDecoration: 'none',
+              }}
+            >
+              <span style={{ color: active ? 'var(--phosphor)' : 'transparent' }}>›</span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+
+        <div
+          className="mt-6 px-3 pb-2 text-[10px] uppercase"
+          style={{ color: 'var(--fg-dim)', letterSpacing: '0.12em', opacity: 0.6 }}
+        >
+          public
+        </div>
+        {publicNavItems.map((item) => {
+          // For public links, "active" only matches exact path or for root only when on root
+          const active =
+            item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
