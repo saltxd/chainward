@@ -1,0 +1,55 @@
+{{- if .Values.acpDecoder.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acp-decoder
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "chainward.labels" . | nindent 4 }}
+    app.kubernetes.io/component: acp-decoder
+spec:
+  replicas: {{ .Values.acpDecoder.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/component: acp-decoder
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: acp-decoder
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: acp-decoder
+          image: {{ .Values.images.acpDecoder }}
+          envFrom:
+            - configMapRef:
+                name: chainward-config
+            - secretRef:
+                name: acp-decoder-secrets
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: REDIS_URL
+                  optional: true
+            - name: DEFAULT_CHAIN_ID
+              value: {{ .Values.acpDecoder.defaultChainId | quote }}
+            - name: SENTINEL_RPC
+              value: {{ .Values.acpDecoder.sentinelRpc | quote }}
+            - name: ACP_FEE_USDC
+              value: {{ .Values.acpDecoder.feeUsdc | quote }}
+          resources:
+            {{- toYaml .Values.acpDecoder.resources | nindent 12 }}
+{{- end }}

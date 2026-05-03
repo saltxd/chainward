@@ -1,8 +1,6 @@
 // scripts/auto-decode/lib/validators.ts
 
-export type Target =
-  | { kind: "address"; value: string }
-  | { kind: "handle"; value: string };
+export type { Target } from '@chainward/decode';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const HANDLE_RE = /^@[A-Za-z0-9_-]+$/;

@@ -1,0 +1,32 @@
+{
+  "name": "@chainward/acp-decoder",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "simulate": "tsx scripts/simulate-decode.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@chainward/common": "workspace:*",
+    "@chainward/db": "workspace:*",
+    "@chainward/decode": "workspace:*",
+    "@virtuals-protocol/acp-node-v2": "0.0.6",
+    "drizzle-orm": "^0.45.0",
+    "ioredis": "^5.4.0",
+    "pino": "^9.5.0",
+    "postgres": "^3.4.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
+  }
+}

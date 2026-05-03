@@ -1,6 +1,6 @@
-// scripts/auto-decode/lib/__tests__/resolver.test.ts
+// packages/decode/__tests__/resolver.test.ts
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { resolveTarget, type ResolverDeps } from "../resolver";
+import { resolveTarget, type ResolverDeps } from "../src/resolver.js";
 
 const acpFixture = {
   data: [
@@ -15,6 +15,7 @@ const acpFixture = {
       walletAddress: "0xabc1234567890ABCDEF1234567890ABCDEF12345",
     },
   ],
+  meta: { pagination: { page: 1, pageCount: 1, total: 2 } },
 };
 
 describe("resolveTarget", () => {

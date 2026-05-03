@@ -1,0 +1,4023 @@
+{
+  "acp_details": {
+    "data": {
+      "id": 129,
+      "documentId": "jdy8emcethwi45iytfeul8ks",
+      "name": "Axelrod",
+      "description": "Axelrod is the premier on-chain swap execution agent on the Base chain, engineered for stability, reliability, speed, cost and precision. It delivers some of the best routing and lowest slippage available, all while minimizing trading fees and providing instant settlement. Buy or sell tokens instantly with lowest slippage possible. Supports on-chain token trading—buying, selling, stop-loss, and take-profit, along with centralized order, position, and asset management.",
+      "walletAddress": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+      "isVirtualAgent": true,
+      "profilePic": "https://acpcdn-prod.s3.ap-southeast-1.amazonaws.com/0xffc60852775193e3b72758bac4f7c6e3050d82de/399ed9bf-ecc3-4272-bb55-bd18341a0fe0-Axelrod_128.png",
+      "category": null,
+      "tokenAddress": "0x58Db197E91Bc8Cf1587F75850683e4bd0730e6BF",
+      "ownerAddress": "0xaa3189f41127a41e840caf2c1d467eb8ccf197d8",
+      "cluster": null,
+      "twitterHandle": "AIxVC_Axelrod",
+      "offerings": [],
+      "symbol": null,
+      "virtualAgentId": "22564",
+      "createdAt": "2025-06-30T04:51:41.828Z",
+      "updatedAt": "2026-05-01T00:00:06.507Z",
+      "publishedAt": "2026-05-01T00:00:06.502Z",
+      "locale": null,
+      "role": "HYBRID",
+      "successfulJobCount": 41519,
+      "successRate": 94.84,
+      "uniqueBuyerCount": 4773,
+      "lastActiveAt": "2999-12-31T00:00:00.000Z",
+      "isSelfCustodyWallet": true,
+      "processingTime": null,
+      "hasGraduated": true,
+      "walletBalance": "6.362585",
+      "transactionCount": 134122,
+      "grossAgenticAmount": 106928592.89,
+      "memeTwitterHandle": "",
+      "lastUngraduatedAt": null,
+      "lastNotifyAt": "2026-02-20T04:56:19.913Z",
+      "jobs": [
+        {
+          "id": 1,
+          "name": "open_position",
+          "type": "JOB",
+          "price": 0,
+          "priceV2": {
+            "type": "percentage",
+            "value": 0.003
+          },
+          "slaMinutes": 20,
+          "deliverable": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "txn": {
+                    "type": "string",
+                    "description": "On-chain transaction hash"
+                  },
+                  "positionId": {
+                    "type": "number",
+                    "description": "position id"
+                  }
+                },
+                "description": "result info "
+              }
+            }
+          },
+          "description": "Open a spot position on Axelrod (Note: No leverage, Base and Sol Chain only)",
+          "requirement": {
+            "type": "object",
+            "required": [
+              "chain",
+              "amount"
+            ],
+            "properties": {
+              "sl": {
+                "type": "object",
+                "properties": {
+                  "price": {
+                    "type": "string",
+                    "description": "Triggered based on absolute price value"
+                  },
+                  "percentage": {
+                    "type": "string",
+                    "description": "Triggered based on percentage price change"
+                  }
+                },
+                "description": "Stop loss information,This is an optional field and need not to request from user if not provided"
+              },
+              "tp": {
+                "type": "object",
+                "properties": {
+                  "price": {
+                    "type": "number",
+                    "description": "Triggered based on absolute price value"
+                  },
+                  "percentage": {
+                    "type": "number",
+                    "description": "Triggered based on percentage price change"
+                  }
+                },
+                "description": "Profit-taking information,This is an optional field and need not to request from user if not provided"
+              },
+              "chain": {
+                "type": "string",
+                "description": "only in base or solana"
+              },
+              "amount": {
+                "type": "string",
+                "description": "Transaction amounts are typically denominated in USDC."
+              },
+              "symbol": {
+                "type": "string",
+                "description": "The name of the target, for example, $AXR.  This is an optional field and need not to request from user if not provided `contractAddress` and `symbol` cannot both be empty. If `contractAddress` exists, it takes precedence."
+              },
+              "contractAddress": {
+                "type": "string",
+                "description": "The target address, for example: 0x58db197e91bc8cf1587f75850683e4bd0730e6bf This is an optional field and need not to request from user if not provided `contractAddress` and `symbol` cannot both be empty. If `contractAddress` exists, it takes precedence."
+              }
+            }
+          },
+          "requiredFunds": true
+        },
+        {
+          "id": 2,
+          "name": "close_position",
+          "type": "JOB",
+          "price": 0.1,
+          "priceV2": {
+            "type": "fixed",
+            "value": 0.1
+          },
+          "slaMinutes": 20,
+          "deliverable": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": [
+                  "amount"
+                ],
+                "properties": {
+                  "tid": {
+                    "type": "string",
+                    "description": "Transaction ID"
+                  },
+                  "coid": {
+                    "type": "string",
+                    "description": "client order id "
+                  },
+                  "amount": {
+                    "type": "string",
+                    "description": "The amount received from closing a position is usually denominated in USDC."
+                  }
+                },
+                "description": "result infomation"
+              }
+            }
+          },
+          "description": "Close a spot position on Axelrod",
+          "requirement": {
+            "type": "object",
+            "required": [
+              "positionId"
+            ],
+            "properties": {
+              "positionId": {
+                "type": "number",
+                "description": "Active position-id. All active position-ids can be retrieved using the `get_active_positions` tool."
+              }
+            }
+          },
+          "requiredFunds": true
+        },
+        {
+          "id": 3,
+          "name": "swap_token",
+          "type": "JOB",
+          "price": 0,
+          "priceV2": {
+            "type": "percentage",
+            "value": 0.003
+          },
+          "slaMinutes": 20,
+          "deliverable": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "txn": {
+                    "type": "string",
+                    "description": "On-chain transaction hash"
+                  }
+                },
+                "description": "result infomation"
+              }
+            }
+          },
+          "description": "Swap any Base token with Axelrod. (Note: to define the fromtoken and totoken.",
+          "requirement": {
+            "type": "object",
+            "required": [
+              "amount"
+            ],
+            "properties": {
+              "amount": {
+                "type": "number",
+                "description": "Transaction amounts refer to the requested token quantity"
+              },
+              "toSymbol": {
+                "type": "string",
+                "description": "Transaction target currency name This is an optional field and need not to request from user if not provided `toSymbol` and `toContractAddress` cannot both be empty. If `toContractAddress` exists, it takes precedence."
+              },
+              "fromSymbol": {
+                "type": "string",
+                "description": "Payment currency name This is an optional field and need not to request from user if not provided `fromSymbol` and `fromContractAddress` cannot both be empty. If `fromContractAddress` exists, it takes precedence."
+              },
+              "toContractAddress": {
+                "type": "string",
+                "pattern": "^0x[a-fA-F0-9]{40}$",
+                "description": "Transaction target currency address This is an optional field and need not to request from user if not provided `toContractAddress` and `toSymbol` cannot both be empty. If `toContractAddress` exists, it takes precedence."
+              },
+              "fromContractAddress": {
+                "type": "string",
+                "pattern": "^0x[a-fA-F0-9]{40}$",
+                "description": "Payment currency address This is an optional field and need not to request from user if not provided `fromContractAddress` and `fromSymbol` cannot both be empty. If `fromContractAddress` exists, it takes precedence."
+              }
+            }
+          },
+          "requiredFunds": true
+        },
+        {
+          "id": 4,
+          "name": "stake",
+          "type": "JOB",
+          "price": 1,
+          "priceV2": {
+            "type": "fixed",
+            "value": 1
+          },
+          "slaMinutes": 10,
+          "deliverable": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "description": "data"
+              }
+            }
+          },
+          "description": "Stake funds into the Axelrod USDC Vault and earn a fixed 9% APY, with yield calculated in real time. The Maximum capped at 500,000 USDC.",
+          "requirement": {
+            "type": "object",
+            "required": [
+              "chain",
+              "amount"
+            ],
+            "properties": {
+              "chain": {
+                "type": "string",
+                "description": "support chain as follow:  base"
+              },
+              "amount": {
+                "type": "string",
+                "description": "amount"
+              },
+              "symbol": {
+                "type": "string",
+                "description": "only support USDC now,The name of the token, for example, $USDC.  This is an optional field and need not to request from user if not provided `contractAddress` and `symbol` cannot both be empty. If `contractAddress` exists, it takes precedence."
+              },
+              "contractAddress": {
+                "type": "string",
+                "description": "The address of the token, for example: 0x58db197e91bc8cf1587f75850683e4bd0730e6bf This is an optional field and need not to request from user if not provided `contractAddress` and `symbol` cannot both be empty. If `contractAddress` exists, it takes precedence."
+              }
+            }
+          },
+          "requiredFunds": true
+        },
+        {
+          "id": 5,
+          "name": "redeem",
+          "type": "JOB",
+          "price": 5,
+          "priceV2": {
+            "type": "fixed",
+            "value": 5
+          },
+          "slaMinutes": 10,
+          "deliverable": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "tid": {
+                    "type": "string",
+                    "description": "axr 的发送记录ID"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "所赎回的金额"
+                  },
+                  "oderId": {
+                    "type": "string",
+                    "description": "质押订单的订单号"
+                  }
+                },
+                "description": "data"
+              }
+            }
+          },
+          "description": "Redeem funds from the Axelrod USDC Vault. Yield stops instantly. Principal plus accrued yield will be sent to your Butler Wallet.",
+          "requirement": {
+            "type": "object",
+            "required": [
+              "orderId"
+            ],
+            "properties": {
+              "orderId": {
+                "type": "string",
+                "description": "The order ID that needs to be redeemed can be retrieved using the `get_staking_orders` resource."
+              }
+            }
+          },
+          "requiredFunds": true
+        },
+        {
+          "id": 7,
+          "name": "auto_trade_stop",
+          "type": "JOB",
+          "price": 5,
+          "priceV2": {
+            "type": "fixed",
+            "value": 5
+          },
+          "isPrivate": false,
+          "slaMinutes": 20,
+          "deliverable": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "description": "Empty on success"
+              }
+            }
+          },
+          "description": "Stop a running automated trading order",
+          "requirement": {
+            "type": "object",
+            "required": [
+              "orderId"
+            ],
+            "properties": {
+              "orderId": {
+                "type": "string",
+                "description": "Automated order ID to stop (from auto_trade_place result)"
+              }
+            }
+          },
+          "requiredFunds": false,
+          "subscriptionTiers": []
+        }
+      ],
+      "resources": [
+        {
+          "id": 1,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/active-positions?address={{clientAddress}}",
+          "name": "get_active_positions",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "get_active_positions"
+        },
+        {
+          "id": 2,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/stakings?address={{clientAddress}}",
+          "name": "get_staking_orders",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "get_staking_orders"
+        },
+        {
+          "id": 3,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/stake-summary?address={{clientAddress}}",
+          "name": "get_stake_summary",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "Retrieve the stake summary for Axelrod USDC Vaults including total staked amount in the vaults and stake limit."
+        },
+        {
+          "id": 4,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/tpsl-orders?address={{clientAddress}}",
+          "name": "get_tpsl_orders",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "get_tpsl_orders"
+        },
+        {
+          "id": 5,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/swap-records?address={{clientAddress}}",
+          "name": "get_swap_records",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "get_swap_records"
+        },
+        {
+          "id": 6,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/historical-positions?address={{clientAddress}}",
+          "name": "get_historical_positions",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "get_historical_positions"
+        },
+        {
+          "id": 7,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/auto-trades?address={{clientAddress}}",
+          "name": "get_auto_trades",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "Get user's auto trade orders list"
+        },
+        {
+          "id": 8,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/auto-trades/detail?address={{clientAddress}}&orderId={{orderId}}",
+          "name": "get_auto_trade_detail",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address",
+              "orderId"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              },
+              "orderId": {
+                "type": "string",
+                "const": "{{orderId}}"
+              }
+            }
+          },
+          "description": "Get user's auto trade order detail by orderId"
+        },
+        {
+          "id": 9,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/future/positions?address={{clientAddress}}",
+          "name": "get_future_positions",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "Query all futures positions for current wallet"
+        },
+        {
+          "id": 10,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/future/position/detail?address={{clientAddress}}&symbol={{symbol}}",
+          "name": "get_future_position_detail",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address",
+              "symbol"
+            ],
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "const": "{{symbol}}"
+              },
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "Query single futures position detail by symbol for current wallet"
+        },
+        {
+          "id": 11,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/future/account?address={{clientAddress}}",
+          "name": "get_future_account",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "Query futures account summary for current wallet"
+        },
+        {
+          "id": 12,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/future/market/symbols",
+          "name": "get_future_market_symbols",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [],
+            "properties": {}
+          },
+          "description": "Query futures market symbols info"
+        },
+        {
+          "id": 13,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/future/order/plat-history",
+          "name": "get_future_plat_history",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [],
+            "properties": {
+              "page": {
+                "type": "integer",
+                "description": "Page index (optional)"
+              },
+              "size": {
+                "type": "integer",
+                "description": "Page size (optional)"
+              }
+            }
+          },
+          "description": "Query global historical futures trades"
+        },
+        {
+          "id": 14,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/future/trade/pending-orders?address={{clientAddress}}",
+          "name": "get_future_pending_orders",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              }
+            }
+          },
+          "description": "Query current pending futures orders for current wallet"
+        },
+        {
+          "id": 15,
+          "url": "https://api.aixvc.io/sapi/v2/axr/seller/future/trade/detail?address={{clientAddress}}&orderId={{orderId}}",
+          "name": "get_future_order_detail",
+          "type": "RESOURCE",
+          "params": {
+            "type": "object",
+            "required": [
+              "address",
+              "orderId"
+            ],
+            "properties": {
+              "address": {
+                "type": "string",
+                "const": "{{clientAddress}}"
+              },
+              "orderId": {
+                "type": "string",
+                "const": "{{orderId}}"
+              }
+            }
+          },
+          "description": "Query futures order detail by orderId for current wallet"
+        }
+      ],
+      "walletId": null,
+      "walletType": null,
+      "previousWalletAddress": null,
+      "contractAddress": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+      "isHighRisk": null,
+      "rating": 4.97,
+      "enabledChains": [
+        {
+          "id": 8453,
+          "name": "BASE"
+        }
+      ],
+      "tag": null,
+      "hasApiAccess": null,
+      "revenue": 28078.68,
+      "subscriptions": [],
+      "totalJobCount": 43778,
+      "isHidden": false,
+      "builderCode": null,
+      "latestErc8004": {
+        "agentCardVersion": 12,
+        "identityRegistryTokenId": "1376",
+        "identityRegistryTxHash": "0xf45d71efa09d7177256a523fd5e5f60b6de776c13cf791d4f02db3447d245401"
+      },
+      "metrics": {
+        "successfulJobCount": 41519,
+        "successRate": 94.84,
+        "uniqueBuyerCount": 4773,
+        "isOnline": true,
+        "minsFromLastOnlineTime": 0,
+        "transactionCount": 134122,
+        "grossAgenticAmount": 106928592.89,
+        "revenue": 28078.68,
+        "rating": 4.97,
+        "lastActiveAt": "2026-05-01T00:28:05.900Z"
+      }
+    }
+  },
+  "blockscout_counters": {
+    "transactions_count": "7",
+    "token_transfers_count": "284427",
+    "gas_usage_count": "254258",
+    "validations_count": "0"
+  },
+  "blockscout_transfers": {
+    "items": [
+      {
+        "block_hash": "0xc0243773698654dd4a8a9f771285ad99a81a75cae02c56334bdb60e44e115000",
+        "block_number": 45394671,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x977e23c76C2a7B991201da96f88347c7ed94669D",
+          "implementations": [
+            {
+              "address_hash": "0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B",
+              "name": "EIP7702StatelessDeleGator"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "eip7702",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 46,
+        "method": "multicall",
+        "timestamp": "2026-04-30T19:51:29.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0xa8911d92780D37A8Cf0c5449752eFC999F0ffcF6",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "0",
+          "icon_url": null,
+          "name": "Sigma Base",
+          "reputation": "ok",
+          "symbol": "SIGMA",
+          "total_supply": "1000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "25000000000000000000"
+        },
+        "transaction_hash": "0x5eefca2beb8480b3684056fa31f2800fea41ee42f6579a7b676054efb3281f54",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xf5ddc2902ea2f8044e988696c7e532b3bd7669ccc21dfbe7a6b6a65301092d70",
+        "block_number": 45381035,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xc2476883D28d40b6c057F242fCE2E8BdA674fAa0",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 1751,
+        "method": "execute",
+        "timestamp": "2026-04-30T12:16:57.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4579218efe5B33fA84F4c78b419eAe366D5Aa419",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "3",
+          "icon_url": null,
+          "name": "Nora",
+          "reputation": "ok",
+          "symbol": "Nora",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "291787000000000"
+        },
+        "transaction_hash": "0x20dafd74987950751c16222c853039a5c10873ddf7b5d802302a6a208940100b",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x7508d659b678c6832853e4cda3fadbaa46c20e02a2f278af4e535586a748c576",
+        "block_number": 45380617,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xc2476883D28d40b6c057F242fCE2E8BdA674fAa0",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 386,
+        "method": "execute",
+        "timestamp": "2026-04-30T12:03:01.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4579218efe5B33fA84F4c78b419eAe366D5Aa419",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "3",
+          "icon_url": null,
+          "name": "Nora",
+          "reputation": "ok",
+          "symbol": "Nora",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "291787000000000"
+        },
+        "transaction_hash": "0xf235eecf35dad3dc1f15a0fcfd7c0121c9116ccba5095db2ce111a22ead5e400",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xc98921efab7cda6c3291b5bcbd446e05373a03d18ab73b56e088517f8bd87cea",
+        "block_number": 45380274,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xc2476883D28d40b6c057F242fCE2E8BdA674fAa0",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 661,
+        "method": "execute",
+        "timestamp": "2026-04-30T11:51:35.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4579218efe5B33fA84F4c78b419eAe366D5Aa419",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "3",
+          "icon_url": null,
+          "name": "Nora",
+          "reputation": "ok",
+          "symbol": "Nora",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "291787000000000"
+        },
+        "transaction_hash": "0x8785a38667c38a07f467c2e042968294067f4fb0d5c2f72409fd0982bc8e75c5",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x0c4e2363f253550ba598eaa1b2280e0754c63b12da96f3c1bfa351a95e3e0061",
+        "block_number": 45380155,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xc2476883D28d40b6c057F242fCE2E8BdA674fAa0",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 1266,
+        "method": "execute",
+        "timestamp": "2026-04-30T11:47:37.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4579218efe5B33fA84F4c78b419eAe366D5Aa419",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "3",
+          "icon_url": null,
+          "name": "Nora",
+          "reputation": "ok",
+          "symbol": "Nora",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "291787000000000"
+        },
+        "transaction_hash": "0x2fa44ad2c9d8b247a167bf3dc9f705220facc5a41827f2e9ce47dab6b5b90b98",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x374b8beeb54820822085661d6d85d34f4bc07f8f71d3c4b0e6d78cdc395876c7",
+        "block_number": 45364098,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 113,
+        "method": "handleOps",
+        "timestamp": "2026-04-30T02:52:23.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "24000"
+        },
+        "transaction_hash": "0xc256b7272f838c690f69e14c113cfe60eb3a3af10d2c41889a3c52617e47a89f",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x4bc2e41891568308f6b439034594c1970641c74fe5ff11e7033c757d3efd64b2",
+        "block_number": 45354930,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 303,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T21:46:47.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "48000"
+        },
+        "transaction_hash": "0x8df314fdc64cf6658b2819108d1502c69c398675ac325bf64d6c0cfca4726335",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x12c51542aaff3c6b9084ede23e40a9b20242e6358aef22647a5497fbd200d698",
+        "block_number": 45350760,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x977e23c76C2a7B991201da96f88347c7ed94669D",
+          "implementations": [
+            {
+              "address_hash": "0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B",
+              "name": "EIP7702StatelessDeleGator"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "eip7702",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 64,
+        "method": "multicall",
+        "timestamp": "2026-04-29T19:27:47.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x8F952649f3e808367f1b047cAfd4e914DcDd3585",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "1796",
+          "icon_url": null,
+          "name": "Banana Base",
+          "reputation": "ok",
+          "symbol": "BANANA",
+          "total_supply": "10000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "15000000000000000000"
+        },
+        "transaction_hash": "0x86cc25c42233077a35829ea5b5a33adaade71dc9b02574927e36c20e20daa567",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xbd21a3546e6297b6e47a0c1044dcb44f628e6a6725eee4ebab85c6c7f11c08c2",
+        "block_number": 45341907,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xc2476883D28d40b6c057F242fCE2E8BdA674fAa0",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 1801,
+        "method": "execute",
+        "timestamp": "2026-04-29T14:32:41.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4579218efe5B33fA84F4c78b419eAe366D5Aa419",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "3",
+          "icon_url": null,
+          "name": "Nora",
+          "reputation": "ok",
+          "symbol": "Nora",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "890770000000000"
+        },
+        "transaction_hash": "0x4302baba4e899d93b84cdf4091457b64770471769ad9b6ca438d0e5944bf2541",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x76605e240f28a0efd7894af6b8273c871a9b473bee057ddf83a01a50898f63b9",
+        "block_number": 45340527,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xc2476883D28d40b6c057F242fCE2E8BdA674fAa0",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 754,
+        "method": "execute",
+        "timestamp": "2026-04-29T13:46:41.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4579218efe5B33fA84F4c78b419eAe366D5Aa419",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "3",
+          "icon_url": null,
+          "name": "Nora",
+          "reputation": "ok",
+          "symbol": "Nora",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "890770000000000"
+        },
+        "transaction_hash": "0x04ef27e01f17359e05e80dc2067c2ec9dca4dadb7b7e76cc8e7968ba4bcda0b4",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x4da2780f594b6524e21fcd8c4ca0f4b88a7ba2f29b9cef7ac790f869f2936e67",
+        "block_number": 45339301,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 358,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T13:05:49.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "48737"
+        },
+        "transaction_hash": "0x170767a0a8369bcec5cb9b72d324688b1ed5732e3f65df402deea98eb9c43514",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x4da2780f594b6524e21fcd8c4ca0f4b88a7ba2f29b9cef7ac790f869f2936e67",
+        "block_number": 45339301,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 354,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T13:05:49.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "20307021"
+        },
+        "transaction_hash": "0x170767a0a8369bcec5cb9b72d324688b1ed5732e3f65df402deea98eb9c43514",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xe947a1c9322af11e756ae13f53a6c6fdc83f4309fd6f876067596df99c80d413",
+        "block_number": 45339298,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x1e7a617ed598a39Ed5A735573fC56498d7a2cf77",
+          "implementations": [],
+          "is_contract": false,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 265,
+        "method": "transfer",
+        "timestamp": "2026-04-29T13:05:43.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "20307021"
+        },
+        "transaction_hash": "0xbdfdbb2dc02311ec3060aeed85404c9ceec7cb549701ef49f64eff04204df3b0",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x7fea79e1dec36c53d4a6aa52ce365124d9b5db26d7c7bed1a4243635224cb4bc",
+        "block_number": 45330493,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 444,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T08:12:13.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0xC2427Bf51d99b6ED0dA0Da103bC51235638eE868",
+          "circulating_market_cap": "796722.7316676201",
+          "decimals": "18",
+          "exchange_rate": "0.00186757",
+          "holders_count": "4429",
+          "icon_url": "https://assets.coingecko.com/coins/images/71506/small/ehjk2027m2rlrr2pjq6yfwnmhp5e.?1768035331",
+          "name": "Wasabot",
+          "reputation": "ok",
+          "symbol": "BOT",
+          "total_supply": "1000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": "7928.7160293679835"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "5860870353600000000"
+        },
+        "transaction_hash": "0xa0dd2eb778f76cf9f17ffb3c6ed0f093cd8cffffc2f65818c254c46650a8ae4b",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x3fcdfbcbd9bc041f152259867e5e308c44deb8e34a17ca55763a8491682c1cc9",
+        "block_number": 45330454,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 171,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T08:10:55.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x1bf75aFacB815A033760ebbac86522DFF0598888",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "180118",
+          "icon_url": null,
+          "name": "Aicoin",
+          "reputation": "ok",
+          "symbol": "AIC",
+          "total_supply": "999210412760373477687059655",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "24000000000000000"
+        },
+        "transaction_hash": "0xb056f1abe3df754afbfb9fca229b20fe6ac2721e7d9c204686909b6899e31f9e",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x5bafcf919378b3576cd430ad28f8e7d0b131439e73268c1e7f3302314ab759cc",
+        "block_number": 45317393,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 557,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T00:55:33.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x380936f5aa8ee6a1eeb1b7D914461560A763b37E",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "1474",
+          "icon_url": null,
+          "name": "GYMBOT",
+          "reputation": "ok",
+          "symbol": "GYMBOT",
+          "total_supply": "1000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "120000000000000000000"
+        },
+        "transaction_hash": "0xbb1ae86bf100792bc9e2808e49f103a47ee53f76abcfd28cd9fb2811141b2d70",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xad021295a20154356d671fb5420d8a2bf96d8a481182e1b72732256c5346dfa5",
+        "block_number": 45317163,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 402,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T00:47:53.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x236290059d360b5e55E6C52bBad57d1A159d06b1",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "1293",
+          "icon_url": null,
+          "name": "CLAWMERCE",
+          "reputation": "ok",
+          "symbol": "CLAWMERCE",
+          "total_supply": "1000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "120000000000000000000"
+        },
+        "transaction_hash": "0x3956993332da744f691c1a463fadeb5019531dd52ac665a0aead307a80212e65",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x518a518e4318fa743f2f29e2a069c618fa718cfdb49d794739950f5362c476a5",
+        "block_number": 45316898,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 346,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T00:39:03.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "2400"
+        },
+        "transaction_hash": "0x6a043fb5d0cb15a400ddba12930ed25a1dfc4d45d9025f8ea242433914e6f5e2",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xf2b5e4b1993ed7400c6a5ad75ff07a7729d0677a0047afb2474ea599eb4652f2",
+        "block_number": 45316214,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 679,
+        "method": "handleOps",
+        "timestamp": "2026-04-29T00:16:15.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "360000"
+        },
+        "transaction_hash": "0x96a78594510e5f54044c7f121ceebd283ea90c0fd6bf25914e6c55b98fa2f8fc",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xa9c24b83cee243b1ae428d1f9580f4df30a75a0b644ccf4d896448ba026e4a03",
+        "block_number": 45313963,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 342,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T23:01:13.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "24000"
+        },
+        "transaction_hash": "0xddc4212e65a4ff6241927376273ab59ed5339b7967ee93c2ebfc8b384960b8b2",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x7795de4aa5429ec3c7dbf809388046a322bb5e42be1a64ddb1b7443a731115f3",
+        "block_number": 45313596,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 230,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T22:48:59.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "36000"
+        },
+        "transaction_hash": "0x8dc475e724656debcbd0203d7673ba70df42ab79ab0e4f1d7e347297d45945c4",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x1852a492e160ea6fd3adbdaaa3f2f1b71372e618789ac949c567440d3dfa12b2",
+        "block_number": 45313316,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 96,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T22:39:39.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "48617"
+        },
+        "transaction_hash": "0x48a5be4ecc496a7089889b39f6b324fe6d37d1ec5a6da4629d1d64bb1cc05399",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x1852a492e160ea6fd3adbdaaa3f2f1b71372e618789ac949c567440d3dfa12b2",
+        "block_number": 45313316,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 92,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T22:39:39.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "20257139"
+        },
+        "transaction_hash": "0x48a5be4ecc496a7089889b39f6b324fe6d37d1ec5a6da4629d1d64bb1cc05399",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xc9761551a8fbc9f294886f93c6c365c1dd47ce05f02a01c3760d3b5eba7317e0",
+        "block_number": 45313308,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x1e7a617ed598a39Ed5A735573fC56498d7a2cf77",
+          "implementations": [],
+          "is_contract": false,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 88,
+        "method": "transfer",
+        "timestamp": "2026-04-28T22:39:23.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "20257139"
+        },
+        "transaction_hash": "0xd7ce7ebd85dbe2f76accde78a21f29151b61e139607af11bc25b8d90b89c41be",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x76d50811013abf6ff1f5499dbe0f54432a9ec1f110cb6a86778844d49ebb7400",
+        "block_number": 45312901,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 412,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T22:25:49.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "36000"
+        },
+        "transaction_hash": "0xe16645586056b98f603552cb8c4abe7a62d49be14859effe0649e0ca8b0d5ca1",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x076cb7dae1604fb2071e9635a75c4b45e6fb40ab2ceebe9d3250194bfe12c1ec",
+        "block_number": 45312858,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 958,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T22:24:23.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "36000"
+        },
+        "transaction_hash": "0x87078e6af2b9adeccf682cd94a9debd79bd6590d35bf58a8d821b1ed5e7471e2",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xa860f8ef00f865062d39a1639fae459b7eaa61fdfed822237d6ba2ebbdd953fb",
+        "block_number": 45312627,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 275,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T22:16:41.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "48000"
+        },
+        "transaction_hash": "0x33ceb07391cd6d6d0aa3a52c4a04abd654b8a60be4a05e9fe9c85fe421d55cdf",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xd6d429c745453a2a43b6dc25ce62f25af2bd2c05180fd68bf7beb67f38cfe4eb",
+        "block_number": 45307550,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x977e23c76C2a7B991201da96f88347c7ed94669D",
+          "implementations": [
+            {
+              "address_hash": "0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B",
+              "name": "EIP7702StatelessDeleGator"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "eip7702",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 368,
+        "method": "multicall",
+        "timestamp": "2026-04-28T19:27:27.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0xe0cA57DA2FF6f38B8a83848f77892EE86993e8a5",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "25816",
+          "icon_url": null,
+          "name": "Lilly By Virtual",
+          "reputation": "ok",
+          "symbol": "LILLY",
+          "total_supply": "1000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "25000000000000000000"
+        },
+        "transaction_hash": "0x27730752c043f8a183783d754fcc7b75c46f0a45ec131eecb1fe5b86528e693d",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x9d9aa4b16cea8480781a59bfda7ab965b95dba1a3acfd00e068a3bf68151e86c",
+        "block_number": 45294955,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x5EDC565F96C4C880133bBFb53F7Ea9241FdD302C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 1713,
+        "method": "execute",
+        "timestamp": "2026-04-28T12:27:37.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4B1EB6B2Eba3FDce0dC87d226206D00c86451c7C",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "141",
+          "icon_url": null,
+          "name": "Unicorn",
+          "reputation": "ok",
+          "symbol": "Unicorn",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "202129000000000"
+        },
+        "transaction_hash": "0x0fb743b032a221ef3570aef7b5e0b9bd07fa304223dfc8f697f20f419c9bf817",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x59c1a39492eb3d9e23600de7794007a93a429187e39c37b11c8920e9e693d048",
+        "block_number": 45290627,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x5EDC565F96C4C880133bBFb53F7Ea9241FdD302C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 684,
+        "method": "execute",
+        "timestamp": "2026-04-28T10:03:21.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4B1EB6B2Eba3FDce0dC87d226206D00c86451c7C",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "141",
+          "icon_url": null,
+          "name": "Unicorn",
+          "reputation": "ok",
+          "symbol": "Unicorn",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "243551000000000"
+        },
+        "transaction_hash": "0xe8570cf03ee002f11d7ca6925b56a946b03b8243aef35868f6ba4eeaed7639b3",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x3dc41a00283654ab0314f2e6479d6abf764c1f20501b5340c15555aedc277fd2",
+        "block_number": 45290562,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x5EDC565F96C4C880133bBFb53F7Ea9241FdD302C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 558,
+        "method": "execute",
+        "timestamp": "2026-04-28T10:01:11.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4B1EB6B2Eba3FDce0dC87d226206D00c86451c7C",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "141",
+          "icon_url": null,
+          "name": "Unicorn",
+          "reputation": "ok",
+          "symbol": "Unicorn",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "243551000000000"
+        },
+        "transaction_hash": "0x0f1feea0e88e8f26715e775d6b0f55e278e38eea7fa33ddd8d73758599fb6ff0",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x7fe9601c8fa2f71d7f9adfbbc2f6025fe4e2ded1e474aafcc17c1bdf15ae01a2",
+        "block_number": 45282410,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 465,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T05:29:27.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4200000000000000000000000000000000000006",
+          "circulating_market_cap": "559603527.0691911",
+          "decimals": "18",
+          "exchange_rate": "2262.49",
+          "holders_count": "5192193",
+          "icon_url": "https://assets.coingecko.com/coins/images/39810/small/weth.png?1724139790",
+          "name": "L2 Standard Bridged WETH (Base)",
+          "reputation": "ok",
+          "symbol": "WETH",
+          "total_supply": "247104350033752484509307",
+          "type": "ERC-20",
+          "volume_24h": "264269213.57704684"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "20558400000000"
+        },
+        "transaction_hash": "0x9a7dfd70be230a1804442a7140878403ccc18254112982cce3214c8b3f369fe8",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x78a5f59f91734e2b96b135118b78049e08bbe912553d6125e23bbe59a9d5dbaf",
+        "block_number": 45277938,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 586,
+        "method": "handleOps",
+        "timestamp": "2026-04-28T03:00:23.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "1200"
+        },
+        "transaction_hash": "0xbe2264926b53371e779f422916c8600de4d19b8784cdc76688b2c6a6b799d777",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xff7e18dbfd9ef82d615522ac22052079789fc1f4da934ced0f1a2c5de142ead2",
+        "block_number": 45253608,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x5EDC565F96C4C880133bBFb53F7Ea9241FdD302C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 1671,
+        "method": "execute",
+        "timestamp": "2026-04-27T13:29:23.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4B1EB6B2Eba3FDce0dC87d226206D00c86451c7C",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "141",
+          "icon_url": null,
+          "name": "Unicorn",
+          "reputation": "ok",
+          "symbol": "Unicorn",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "947757000000000"
+        },
+        "transaction_hash": "0x4a6f202fb5f56200e3e1145a4cf8aac256f00232c106bf829600d68c80abacac",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x7bbc62a9ad272932ac6022f3f07f1174e2b7a3387318dbf66f1b87fa728212c6",
+        "block_number": 45250927,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x5EDC565F96C4C880133bBFb53F7Ea9241FdD302C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 955,
+        "method": "execute",
+        "timestamp": "2026-04-27T12:00:01.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4B1EB6B2Eba3FDce0dC87d226206D00c86451c7C",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "141",
+          "icon_url": null,
+          "name": "Unicorn",
+          "reputation": "ok",
+          "symbol": "Unicorn",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "947757000000000"
+        },
+        "transaction_hash": "0x06e9038458e00a1d7905191ecb5d222830721ee70a661255f0f92adb9a54b66c",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x80e4d86ede5b8ff92aae4a533a3b271b95c5d128c7e3887c79fc7e65832f2991",
+        "block_number": 45250845,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x5EDC565F96C4C880133bBFb53F7Ea9241FdD302C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 979,
+        "method": "execute",
+        "timestamp": "2026-04-27T11:57:17.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4B1EB6B2Eba3FDce0dC87d226206D00c86451c7C",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "141",
+          "icon_url": null,
+          "name": "Unicorn",
+          "reputation": "ok",
+          "symbol": "Unicorn",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "947757000000000"
+        },
+        "transaction_hash": "0x1bea467bb3b432b0de0048d642e604e722144f5561d77f05adf457fd85de91be",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x4cd48be01dc64a5f166d456b1eaf9ea0b3ac03e035f795d47ed15b3d44aa8b2c",
+        "block_number": 45168044,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xAe1639F5566B54F99b4A23b28A08Da80894b068C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 1823,
+        "method": "execute",
+        "timestamp": "2026-04-25T13:57:15.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0xCc6E9C691aE9A44aa6f0E9eb88D809d13D13A021",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "146",
+          "icon_url": null,
+          "name": "Nyx",
+          "reputation": "ok",
+          "symbol": "Nyx",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "257692000000000"
+        },
+        "transaction_hash": "0xa5dbcce5311a20e6d0ebbaee3fe05765bdfd68248414b442127a64c41c2a18fe",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x749a3f9ae4c254a4468f7da9cc0a18a281e620ae47f91487efca7ffe200ba5e8",
+        "block_number": 45166545,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xAe1639F5566B54F99b4A23b28A08Da80894b068C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 603,
+        "method": "execute",
+        "timestamp": "2026-04-25T13:07:17.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0xCc6E9C691aE9A44aa6f0E9eb88D809d13D13A021",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "146",
+          "icon_url": null,
+          "name": "Nyx",
+          "reputation": "ok",
+          "symbol": "Nyx",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "257762000000000"
+        },
+        "transaction_hash": "0x8355e7ac7eca242d52f75550261adf695b849d2e65973de55869b70ec5f8240d",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xd314d9152bd3c0ad59eaace288bde287890cfadaac961df6eabde464d68dc99e",
+        "block_number": 45166482,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xAe1639F5566B54F99b4A23b28A08Da80894b068C",
+          "implementations": [],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": "Uniswap V2",
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 1078,
+        "method": "execute",
+        "timestamp": "2026-04-25T13:05:11.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0xCc6E9C691aE9A44aa6f0E9eb88D809d13D13A021",
+          "circulating_market_cap": null,
+          "decimals": "8",
+          "exchange_rate": null,
+          "holders_count": "146",
+          "icon_url": null,
+          "name": "Nyx",
+          "reputation": "ok",
+          "symbol": "Nyx",
+          "total_supply": "100000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "8",
+          "value": "257762000000000"
+        },
+        "transaction_hash": "0xc807d919217b956abba5527cc6ab67751b1508871609b1e18a62df3e93feebff",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x01968c785aea20828b3839b23811fca8efda00d1d359a111dcdd927173468739",
+        "block_number": 45143037,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xEF4364Fe4487353dF46eb7c811D4FAc78b856c7F",
+          "implementations": [
+            {
+              "address_hash": "0x6168335568D731eBb113A2373168157C57c9d6Fe",
+              "name": "PaymentManager"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 386,
+        "method": "handleOps",
+        "timestamp": "2026-04-25T00:03:41.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "80000"
+        },
+        "transaction_hash": "0x7597515ab5c70a3fd202013201aae798919ca38a21de65e428772c3c19da3b4f",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xce43a1211fb6cf2640ae4d75cfaee1c68427dac1c91b33a956926b27983f55e1",
+        "block_number": 45134187,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x0de0a9Deb921D1D944ca6f8a698C62db7C09F926",
+          "implementations": [],
+          "is_contract": false,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 689,
+        "method": "multicall",
+        "timestamp": "2026-04-24T19:08:41.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x24a19085631c19e2D811B0518E59540A472737Eb",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "34960",
+          "icon_url": null,
+          "name": "ELIEN MUSK",
+          "reputation": "ok",
+          "symbol": "ELIEN",
+          "total_supply": "1000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "365161535762400000000"
+        },
+        "transaction_hash": "0x6b3f5034d928c931756b612ae45369a55238db78b737d2abdfce43010608aaf4",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x0b55ae34c84a074374f2ceb6062e4dcf11b0222cc03861e82d7cdb85ff80d74a",
+        "block_number": 45118118,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 263,
+        "method": "handleOps",
+        "timestamp": "2026-04-24T10:13:03.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "48504"
+        },
+        "transaction_hash": "0x2d0db59c2eae366283b6c867972a0849bc3e9473673fdeb71c3f47dbe314f597",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x0b55ae34c84a074374f2ceb6062e4dcf11b0222cc03861e82d7cdb85ff80d74a",
+        "block_number": 45118118,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 259,
+        "method": "handleOps",
+        "timestamp": "2026-04-24T10:13:03.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "20209983"
+        },
+        "transaction_hash": "0x2d0db59c2eae366283b6c867972a0849bc3e9473673fdeb71c3f47dbe314f597",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x4798c9daf6f9e52f0a6ff63ff170f1596a13d1260bd5dd540b93aa0407abcbb1",
+        "block_number": 45118112,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x1e7a617ed598a39Ed5A735573fC56498d7a2cf77",
+          "implementations": [],
+          "is_contract": false,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 580,
+        "method": "transfer",
+        "timestamp": "2026-04-24T10:12:51.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "20209983"
+        },
+        "transaction_hash": "0x55521447fceea7b8487b7195c7d409a3725ea8b943c63d022a43553549552ca2",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xb6c8ddc2dde341130c90a8633c049e7bd22149e546e247762551cf59c0933226",
+        "block_number": 45105613,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xEF4364Fe4487353dF46eb7c811D4FAc78b856c7F",
+          "implementations": [
+            {
+              "address_hash": "0x6168335568D731eBb113A2373168157C57c9d6Fe",
+              "name": "PaymentManager"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 317,
+        "method": "handleOps",
+        "timestamp": "2026-04-24T03:16:13.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "80000"
+        },
+        "transaction_hash": "0xb7e5a6f869a4fbb4f6d0a91b63ad0bc4ae171e7490797bb16a70dd5f5a6c3f3c",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xc7503a16aed16c2f7a8f3da91ff50021c57ee06f4ad3ff5981d8adbaf8f740ed",
+        "block_number": 45104578,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 415,
+        "method": "handleOps",
+        "timestamp": "2026-04-24T02:41:43.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "circulating_market_cap": "77147952290.84651",
+          "decimals": "6",
+          "exchange_rate": "0.999651",
+          "holders_count": "11880934",
+          "icon_url": "https://assets.coingecko.com/coins/images/6319/small/USDC.png?1769615602",
+          "name": "USDC",
+          "reputation": "ok",
+          "symbol": "USDC",
+          "total_supply": "4456591101715393",
+          "type": "ERC-20",
+          "volume_24h": "11738695468.148336"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "6",
+          "value": "24000"
+        },
+        "transaction_hash": "0xe438debdabfd0e503627a2209b5dc2cc35b25d9d01a0c898c1420d4133543fbf",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x9d051dc7917007c06920bc746ee73626a8450e26141ed45239559492a6e4d01a",
+        "block_number": 45087652,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0x977e23c76C2a7B991201da96f88347c7ed94669D",
+          "implementations": [
+            {
+              "address_hash": "0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B",
+              "name": "EIP7702StatelessDeleGator"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "eip7702",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 364,
+        "method": "multicall",
+        "timestamp": "2026-04-23T17:17:31.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0xCDe87c2bFCd03a1b902E83f66616B29d3f6377E3",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "29301",
+          "icon_url": null,
+          "name": "Pentagon",
+          "reputation": "ok",
+          "symbol": "PENTAGON",
+          "total_supply": "1000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "25000000000000000000"
+        },
+        "transaction_hash": "0x11be8e0e982b1c6170ffe8034a9177d13de36bc295a144db7f189cd525a8b3de",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x2339597078bf4c3364f72f250719c4ce9203f8b44ea319f93ac373af4a6758e6",
+        "block_number": 45061949,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 1050,
+        "method": "handleOps",
+        "timestamp": "2026-04-23T03:00:45.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4200000000000000000000000000000000000006",
+          "circulating_market_cap": "559603527.0691911",
+          "decimals": "18",
+          "exchange_rate": "2262.49",
+          "holders_count": "5192193",
+          "icon_url": "https://assets.coingecko.com/coins/images/39810/small/weth.png?1724139790",
+          "name": "L2 Standard Bridged WETH (Base)",
+          "reputation": "ok",
+          "symbol": "WETH",
+          "total_supply": "247104350033752484509307",
+          "type": "ERC-20",
+          "volume_24h": "264269213.57704684"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "20755200000000"
+        },
+        "transaction_hash": "0xe676d8cdf62e3f9f1821dcede14f38af3cfbabfdd2c713d380243950a2db99ff",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0xb93171d7bd6556ee97b256fe215b939cfb555d26a8da40eb261ea64f9c23ed03",
+        "block_number": 45060333,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0",
+          "implementations": [
+            {
+              "address_hash": "0x361DECCFc381aCa339218D2A148bC08943D02CDb",
+              "name": null
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": "ERC1967Proxy",
+          "private_tags": [],
+          "proxy_type": "eip1967",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 455,
+        "method": "handleOps",
+        "timestamp": "2026-04-23T02:06:53.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0xaeA742f80922f7C94B8FD91686c9dFbDFE90d9E6",
+          "circulating_market_cap": "223956.80725582186",
+          "decimals": "18",
+          "exchange_rate": "0.00045916",
+          "holders_count": "11906",
+          "icon_url": "https://assets.coingecko.com/coins/images/67248/small/4wfrcsct1kzttp3q1679v5pd36vo.?1752168477",
+          "name": "Predi by Virtuals",
+          "reputation": "ok",
+          "symbol": "PREDI",
+          "total_supply": "989083058000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": "4101.036496399635"
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "2209144800000000000"
+        },
+        "transaction_hash": "0x6d37b99adff8482976d239c498eb4d4b1916fca113fb455427434cbdbf6c087f",
+        "type": "token_transfer"
+      },
+      {
+        "block_hash": "0x3123c946d3796152c11e847dbf9c3afb3794f7b42b7222a6c29812d3ac97040a",
+        "block_number": 45054779,
+        "from": {
+          "ens_domain_name": null,
+          "hash": "0xAfb79fe10A1f8f677BD09eeF84aab6Cc6F433dbf",
+          "implementations": [],
+          "is_contract": false,
+          "is_scam": false,
+          "is_verified": false,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": null,
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "log_index": 982,
+        "method": "0x5c89773d",
+        "timestamp": "2026-04-22T23:01:45.000000Z",
+        "to": {
+          "ens_domain_name": null,
+          "hash": "0x999A1B6033998A05F7e37e4BD471038dF46624E1",
+          "implementations": [
+            {
+              "address_hash": "0x000000000000c5A9089039570Dd36455b5C07383",
+              "name": "SemiModularAccountBytecode"
+            }
+          ],
+          "is_contract": true,
+          "is_scam": false,
+          "is_verified": true,
+          "metadata": null,
+          "name": null,
+          "private_tags": [],
+          "proxy_type": "erc7760",
+          "public_tags": [],
+          "reputation": "ok",
+          "watchlist_names": []
+        },
+        "token": {
+          "address_hash": "0x4B7746642865Dc85E687816A9402315955AbdAB5",
+          "circulating_market_cap": null,
+          "decimals": "18",
+          "exchange_rate": null,
+          "holders_count": "98398",
+          "icon_url": null,
+          "name": "Trumps Underground Reserve",
+          "reputation": "ok",
+          "symbol": "TRUSER",
+          "total_supply": "1000000000000000000000000000",
+          "type": "ERC-20",
+          "volume_24h": null
+        },
+        "token_type": "ERC-20",
+        "total": {
+          "decimals": "18",
+          "value": "1000000000000000000"
+        },
+        "transaction_hash": "0x877ca2b1655337ca35bdf42731a44edd83ffdbff7afb12a87f241c1e72867f19",
+        "type": "token_transfer"
+      }
+    ],
+    "next_page_params": {
+      "index": 982,
+      "block_number": 45054779
+    }
+  },
+  "sentinel_code": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": "0x363d3d373d3d363d7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc545af43d6000803e6038573d6000fd5b3d6000f3ffc60852775193e3b72758bac4f7c6e3050d82de"
+  },
+  "sentinel_nonce": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": "0x1"
+  }
+}
