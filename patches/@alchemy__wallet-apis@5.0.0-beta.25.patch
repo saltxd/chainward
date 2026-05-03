@@ -1,0 +1,73 @@
+diff --git a/dist/esm/actions/sendPreparedCalls.js b/dist/esm/actions/sendPreparedCalls.js
+index 857c4e34a79ebd3bd3e28088e0b9de9f153e4351..3e46268d5b1a596657c37bd215b9b09f95388cf3 100644
+--- a/dist/esm/actions/sendPreparedCalls.js
++++ b/dist/esm/actions/sendPreparedCalls.js
+@@ -3,49 +3,34 @@ import { mergeClientCapabilities, toRpcCapabilities, } from "../utils/capabiliti
+ import { wallet_sendPreparedCalls as MethodSchema } from "@alchemy/wallet-api-types/rpc";
+ import { methodSchema, encode, decode, } from "../utils/schema.js";
+ const schema = methodSchema(MethodSchema);
+-/**
+- * Sends prepared calls by submitting a signed user operation.
+- * This method is used after signing the signature request returned from prepareCalls.
+- *
+- * @param {InnerWalletApiClient} client - The wallet API client to use for the request
+- * @param {SendPreparedCallsParams} params - Parameters for sending prepared calls
+- * @returns {Promise<SendPreparedCallsResult>} A Promise that resolves to the result containing the call ID
+- *
+- * @example
+- * ```ts
+- * // First prepare the calls
+- * const preparedCalls = await client.prepareCalls({
+- *   calls: [{
+- *     to: "0x1234...",
+- *     data: "0xabcdef...",
+- *     value: 0n
+- *   }],
+- *   capabilities: {
+- *     paymaster: { policyId: "your-policy-id" }
+- *   }
+- * });
+- *
+- * // Then sign the calls
+- * const signedCalls = await client.signPreparedCalls(preparedCalls);
+- *
+- * // Then send the prepared calls with the signature
+- * const result = await client.sendPreparedCalls({
+- *   signedCalls,
+- * });
+- * ```
+- */
++// PATCH: drop stray feePayment fields from signed userOps before encode.
++// SendPreparedCalls schema's PreparedCall_UserOpV070_Signed Omits feePayment,
++// but the SDK's signing pass forgets to remove it from the runtime value.
++// Without this, the encode goes through the value unmodified — harmless on
++// its own, but it's bookkeeping. The actual bigint-coercion fix lives in
++// the wallet-api-types HexBigInt codec (see that package's patch).
++function __strip(o) {
++    if (o == null || typeof o !== "object") return o;
++    if (Array.isArray(o)) return o.map(__strip);
++    const out = {};
++    for (const [k, v] of Object.entries(o)) {
++        if (k === "feePayment") continue;
++        out[k] = __strip(v);
++    }
++    return out;
++}
+ export async function sendPreparedCalls(client, params) {
+     const capabilities = mergeClientCapabilities(client, params.capabilities);
+     LOGGER.debug("sendPreparedCalls:start", { type: params.type });
+     const { chainId: rawChainId, ...restParams } = params;
+     const chainId = rawChainId ?? client.chain.id;
+     const fullParams = restParams.type === "array"
+-        ? { ...restParams, capabilities: toRpcCapabilities(capabilities) }
+-        : {
++        ? __strip({ ...restParams, capabilities: toRpcCapabilities(capabilities) })
++        : __strip({
+             ...restParams,
+             chainId,
+             capabilities: toRpcCapabilities(capabilities),
+-        };
++        });
+     const rpcParams = encode(schema.request, fullParams);
+     const rpcResp = await client.request({
+         method: "wallet_sendPreparedCalls",
