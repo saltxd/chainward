@@ -5,6 +5,34 @@ import type { JobRoomEntry } from '@virtuals-protocol/acp-node-v2';
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const HANDLE_RE = /^@?[A-Za-z0-9_]{1,15}$/;
 
+// On-chain JobStatus enum from baseAcpClient.js:
+//   0 = OPEN, 1 = FUNDED, 2 = SUBMITTED, 3 = COMPLETED, 4 = REJECTED, 5 = EXPIRED
+// Provider can only call setBudget when status == OPEN.
+const STATUS_OPEN = 0;
+
+// Centralised reject — logs the call site (callers pass a `where` tag) so we can see
+// in production exactly which path triggered every reject. Includes a stack trace
+// so we don't have to guess if something exotic invokes session.reject.
+async function rejectAt(
+  session: JobSession,
+  jobId: string,
+  reason: string,
+  where: string,
+  context: Record<string, unknown> = {},
+): Promise<void> {
+  // eslint-disable-next-line no-console
+  console.error('[reject]', JSON.stringify({
+    where,
+    jobId,
+    reason,
+    sessionStatus: session.status,
+    onchainStatus: (session.job as any)?.status,
+    ...context,
+    stack: new Error().stack?.split('\n').slice(1, 6).join(' | '),
+  }));
+  await session.reject(reason);
+}
+
 function timeoutAfter<T>(ms: number, value: T): Promise<T> {
   return new Promise((resolve) => {
     setTimeout(() => resolve(value), ms);
@@ -90,13 +118,29 @@ export async function handleEntry(
 
   // requirement message — buyer describes the job; we validate and set budget or reject
   if (entry.kind === 'message' && entry.contentType === 'requirement' && session.status === 'open') {
+    // Stale-job guard: if the on-chain job has already left OPEN (e.g., rejected on a
+    // prior pod's run, then replayed to us via SDK hydration), don't try to act on it.
+    // Otherwise setBudget would revert with WrongStatus and waste a userOp signature.
+    const onChainStatus = (session.job as any)?.status;
+    if (typeof onChainStatus === 'number' && onChainStatus !== STATUS_OPEN) {
+      // eslint-disable-next-line no-console
+      console.error('[handler-stale-job]', JSON.stringify({
+        jobId, sessionStatus: session.status, onChainStatus,
+      }));
+      return;
+    }
+
     const parsed = parseTarget(entry.content ?? '');
     // eslint-disable-next-line no-console
     console.error('[handler-requirement]', JSON.stringify({
       jobId,
       sessionStatus: session.status,
-      entryContent: entry.content?.slice(0, 200),
+      onChainStatus,
+      // Full content (no slice) — we need to see exactly what arrived to debug
+      // any future reject-on-valid-input mystery.
+      entryContent: entry.content,
       contentType: entry.contentType,
+      entryFrom: (entry as any).from,
       parsedOk: parsed.ok,
       parsedReason: parsed.reason,
       parsedKind: parsed.target?.kind,
@@ -104,13 +148,18 @@ export async function handleEntry(
       parsedHandle: parsed.target?.handle,
     }));
     if (!parsed.ok || !parsed.target) {
-      await session.reject(parsed.reason ?? 'invalid_address');
+      const reason = parsed.reason ?? 'invalid_address';
+      await rejectAt(session, jobId, reason, 'parse_failed', {
+        entryContent: entry.content,
+        parsedOk: parsed.ok,
+        parsedReason: parsed.reason,
+      });
       await ctx.persist.persistRejected({
         jobId,
         buyerWallet: buyer,
         targetInput: entry.content ?? '',
         targetWallet: '',
-        rejectReason: parsed.reason ?? 'invalid_address',
+        rejectReason: reason,
       });
       return;
     }
@@ -121,7 +170,9 @@ export async function handleEntry(
     if (parsed.target.kind === 'handle' && parsed.target.handle) {
       const resolved = await ctx.resolver.resolveHandle(parsed.target.handle);
       if (!resolved) {
-        await session.reject('handle_not_found');
+        await rejectAt(session, jobId, 'handle_not_found', 'handle_unresolved', {
+          handle: parsed.target.handle,
+        });
         await ctx.persist.persistRejected({
           jobId,
           buyerWallet: buyer,
@@ -134,9 +185,9 @@ export async function handleEntry(
       walletAddress = resolved;
     }
     if (!walletAddress) {
-      // eslint-disable-next-line no-console
-      console.error('[handler-no-wallet]', JSON.stringify({ jobId, parsed }));
-      await session.reject('invalid_address');
+      await rejectAt(session, jobId, 'invalid_address', 'no_wallet_after_resolve', {
+        parsed,
+      });
       await ctx.persist.persistRejected({
         jobId,
         buyerWallet: buyer,
@@ -149,7 +200,7 @@ export async function handleEntry(
 
     const limit = await ctx.rateLimiter.tryAcquire(buyer);
     if (limit === 'rate_limited') {
-      await session.reject('rate_limited');
+      await rejectAt(session, jobId, 'rate_limited', 'rate_limited');
       await ctx.persist.persistRejected({
         jobId,
         buyerWallet: buyer,
@@ -164,7 +215,7 @@ export async function handleEntry(
     try {
       const history = await ctx.chainHistory.checkHistory(walletAddress);
       if (history.transactions_count === 0 && history.token_transfers_count === 0) {
-        await session.reject('no_history');
+        await rejectAt(session, jobId, 'no_history', 'no_history', { walletAddress });
         await ctx.persist.persistRejected({
           jobId,
           buyerWallet: buyer,
@@ -216,7 +267,7 @@ export async function handleEntry(
     if (!parsed.ok || !parsed.target) {
       // Shouldn't happen — we only got here after accepting at requirement time.
       // Fail-closed: reject the job so the buyer is refunded.
-      await session.reject('decode_failed');
+      await rejectAt(session, jobId, 'decode_failed', 'funded_parse_failed', { parsed });
       await ctx.persist.persistRejected({
         jobId,
         buyerWallet: buyer,
@@ -235,7 +286,7 @@ export async function handleEntry(
       if (resolved) walletAddress = resolved;
     }
     if (!walletAddress) {
-      await session.reject('decode_failed');
+      await rejectAt(session, jobId, 'decode_failed', 'funded_no_wallet', { parsed });
       await ctx.persist.persistRejected({
         jobId,
         buyerWallet: buyer,
@@ -261,7 +312,7 @@ export async function handleEntry(
       if (result === '__watchdog__') {
         // Decode is still running but exceeded SLA. Reject so the buyer is refunded
         // rather than shipping a stub envelope they paid for.
-        await session.reject('decode_failed');
+        await rejectAt(session, jobId, 'decode_failed', 'decode_timeout', { walletAddress });
         await ctx.persist.persistRejected({
           jobId,
           buyerWallet: buyer,
@@ -274,10 +325,13 @@ export async function handleEntry(
 
       await session.submit(JSON.stringify(result));
       await ctx.persist.persistDelivered({ jobId, result });
-    } catch (err) {
+    } catch (err: any) {
       // Decode threw (network failure cascade, classifier crash, etc.) → reject so
       // the buyer is refunded rather than charged for nothing.
-      await session.reject('decode_failed');
+      await rejectAt(session, jobId, 'decode_failed', 'decode_threw', {
+        err: err?.message,
+        walletAddress,
+      });
       await ctx.persist.persistRejected({
         jobId,
         buyerWallet: buyer,
