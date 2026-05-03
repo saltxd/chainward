@@ -230,7 +230,17 @@ export async function handleEntry(
 
       // Accept: set budget = our offering price, using the chain the buyer chose
       const budget = await ctx.assetTokenForUsdc(ctx.config.feeUsdc, session.chainId);
+      // eslint-disable-next-line no-console
+      console.error('[before-setBudget]', JSON.stringify({
+        jobId,
+        feeUsdc: ctx.config.feeUsdc,
+        chainId: session.chainId,
+        budgetAddress: (budget as any)?.address,
+        budgetRawAmount: (budget as any)?.rawAmount?.toString?.(),
+      }));
       await session.setBudget(budget);
+      // eslint-disable-next-line no-console
+      console.error('[after-setBudget-success]', JSON.stringify({ jobId }));
       await ctx.persist.persistAccepted({
         jobId,
         buyerWallet: buyer,
