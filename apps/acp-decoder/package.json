@@ -15,6 +15,7 @@
     "@chainward/common": "workspace:*",
     "@chainward/db": "workspace:*",
     "@chainward/decode": "workspace:*",
+    "@privy-io/node": "^0.11.0",
     "@virtuals-protocol/acp-node-v2": "0.0.6",
     "drizzle-orm": "^0.45.0",
     "ioredis": "^5.4.0",
