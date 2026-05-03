@@ -1,4 +1,4 @@
-import { PrivyAlchemyEvmProviderAdapter, AcpAgent } from '@virtuals-protocol/acp-node-v2';
+import { PrivyAlchemyEvmProviderAdapter, AcpAgent, SocketTransport } from '@virtuals-protocol/acp-node-v2';
 import { base } from 'viem/chains';
 import { logger } from './logger.js';
 import type { Config } from './config.js';
@@ -16,7 +16,12 @@ export async function startSeller(
     chains: [base],
   });
 
-  const agent = await AcpAgent.create({ provider });
+  // Use SocketTransport (websocket) instead of the default SseTransport. Socket
+  // emits a heartbeat every 30s which keeps the agent's `lastActiveAt` fresh on
+  // Virtuals' backend. SSE has no heartbeat — without one, the backend appears
+  // to treat the seller as offline and auto-rejects every incoming job with
+  // reason="invalid_address" (observed pattern across 5378/5383/5386/5387/5391).
+  const agent = await AcpAgent.create({ provider, transport: new SocketTransport() });
 
   agent.on('entry', async (session, entry) => {
     // Wide-net dispatch logging — captures every entry the SDK delivers, so we can
