@@ -1,0 +1,13 @@
+diff --git a/dist/esm/schemas.js b/dist/esm/schemas.js
+index a4d08d14dfaa07c12131e86c2c4a7203cef3c056..1d4d1aebc2fde596371fafb95fbec23abb3343a2 100644
+--- a/dist/esm/schemas.js
++++ b/dist/esm/schemas.js
+@@ -106,7 +106,7 @@ export const HexBigInt = (options) => Codec(Hex(options))
+     .Encode((value) => {
+     if (typeof value !== "bigint") {
+         throw new InvalidParamsError({
+-            message: `Expected bigint, got: ${String(value)}`,
++            message: `Expected bigint, got: ${String(value)} typeof=${typeof value} json=${(()=>{try{return JSON.stringify(value)}catch{return "unstringifiable"}})()} stack=${(new Error()).stack?.split("\n").slice(0,10).join(" | ")}`,
+         });
+     }
+     if (value < 0n) {
