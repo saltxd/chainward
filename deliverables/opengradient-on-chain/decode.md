@@ -2,7 +2,7 @@
 title: "OpenGradient On-Chain Decode"
 subtitle: "$285M trending market cap, 12 days since launch, zero ACP jobs — where does the valuation come from?"
 date: "2026-05-03"
-slug: "opengradient-decode"
+slug: "opengradient-on-chain"
 ---
 
 ## TLDR

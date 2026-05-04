@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
       // so we switched to a pre-rendered static og.png. Old slugs redirect.
       { source: '/decodes/aixbt', destination: '/decodes/aixbt-on-chain', permanent: true },
       { source: '/decodes/aixbt-decode', destination: '/decodes/aixbt-on-chain', permanent: true },
+      { source: '/decodes/opengradient-decode', destination: '/decodes/opengradient-on-chain', permanent: true },
     ];
   },
   async headers() {
