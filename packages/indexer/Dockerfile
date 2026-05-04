@@ -5,6 +5,8 @@ RUN apk add --no-cache python3 make g++ && \
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+# Workspace root has pnpm.patchedDependencies pointing at patches/.
+COPY patches/ patches/
 COPY packages/indexer/package.json packages/indexer/
 COPY packages/common/package.json packages/common/
 COPY packages/db/package.json packages/db/
