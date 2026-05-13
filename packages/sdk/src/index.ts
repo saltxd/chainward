@@ -78,6 +78,8 @@ export interface CreateAlertInput {
   type: string;
   threshold?: number;
   thresholdUnit?: string;
+  /** Postgres interval string ("7 days", "24 hours") for balance_drop/idle_balance alerts. */
+  lookbackWindow?: string;
   channels: string[];
   webhookUrl?: string;
   telegramChatId?: string;

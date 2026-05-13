@@ -38,9 +38,16 @@ export async function watchCommand(options: { agent?: string }) {
     console.log(brand.bold(`\n  Watching ${watchCount} agent${watchCount === 1 ? '' : 's'} on Base...`));
     console.log(chalk.dim('  Press Ctrl+C to stop.\n'));
 
+    let consecutiveFailures = 0;
+
     const poll = async () => {
       try {
         const { data: txs } = await api<Transaction[]>(`/api/transactions?${params}`);
+
+        if (consecutiveFailures > 0) {
+          console.log(chalk.dim(`  ${new Date().toLocaleTimeString()}  Reconnected after ${consecutiveFailures} failed poll${consecutiveFailures === 1 ? '' : 's'}.`));
+          consecutiveFailures = 0;
+        }
 
         // Show newest first, but print in chronological order
         const newTxs = txs.filter((tx) => !seenTxs.has(tx.txHash)).reverse();
@@ -56,8 +63,14 @@ export async function watchCommand(options: { agent?: string }) {
             `${chalk.dim('gas')} ${usd(tx.gasCostUsd).padStart(8)}  ${basescanTxLink(tx.txHash)}`,
           );
         }
-      } catch {
-        // Silently retry on transient errors
+      } catch (err) {
+        // Log only on the transition into failure so transient blips don't spam
+        // the terminal, but the user knows when polling actually stops working.
+        if (consecutiveFailures === 0) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.log(chalk.yellow(`  ${new Date().toLocaleTimeString()}  Poll failed (${msg}). Will retry every 5s.`));
+        }
+        consecutiveFailures++;
       }
     };
 

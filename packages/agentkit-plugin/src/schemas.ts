@@ -41,7 +41,15 @@ export const CreateAlertSchema = z.object({
     .regex(/^0x[a-fA-F0-9]{40}$/)
     .describe("The wallet address to create the alert for"),
   type: z
-    .enum(["large_transfer", "gas_spike", "failed_tx", "new_contract", "balance_drop", "inactivity"])
+    .enum([
+      "large_transfer",
+      "gas_spike",
+      "failed_tx",
+      "new_contract",
+      "balance_drop",
+      "inactivity",
+      "idle_balance",
+    ])
     .describe("The type of alert to create"),
   threshold: z
     .number()
