@@ -16,7 +16,7 @@
     "@chainward/common": "workspace:*",
     "@chainward/db": "workspace:*",
     "bullmq": "^5.25.0",
-    "drizzle-orm": "^0.45.0",
+    "drizzle-orm": "^0.45.2",
     "ioredis": "^5.4.0",
     "pino": "^9.6.0",
     "viem": "^2.21.0",

@@ -21,7 +21,7 @@
   "dependencies": {
     "@chainward/common": "workspace:*",
     "@chainward/intelligence-loader": "workspace:*",
-    "drizzle-orm": "^0.45.0",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.0"
   },
   "devDependencies": {
