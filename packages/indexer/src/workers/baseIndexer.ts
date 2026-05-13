@@ -115,19 +115,26 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
         await alertDeliveryQueue.close();
       }
 
-      // Dispatch alert evaluation for this transaction
-      await alertQueue.add('tx-alert', {
-        type: 'tx-triggered',
-        walletAddress: tx.walletAddress,
-        chain: tx.chain,
-        txHash: tx.txHash,
-        amountUsd: tx.amountUsd,
-        gasCostUsd: tx.gasCostUsd,
-        status: tx.status,
-        contractAddress: tx.contractAddress ?? null,
-        direction: tx.direction,
-        timestamp: tx.timestamp.toISOString(),
-      });
+      // Dispatch alert evaluation for this transaction. The jobId ties the
+      // job to the (chain, wallet, tx) triple so a retry of the parent
+      // base-tx-process job can't double-fire alerts even if the dedupe in
+      // `insertTransactionIfNew` and BullMQ's outer jobId both miss.
+      await alertQueue.add(
+        'tx-alert',
+        {
+          type: 'tx-triggered',
+          walletAddress: tx.walletAddress,
+          chain: tx.chain,
+          txHash: tx.txHash,
+          amountUsd: tx.amountUsd,
+          gasCostUsd: tx.gasCostUsd,
+          status: tx.status,
+          contractAddress: tx.contractAddress ?? null,
+          direction: tx.direction,
+          timestamp: tx.timestamp.toISOString(),
+        },
+        { jobId: `alert:${tx.chain}:${tx.walletAddress}:${tx.txHash}` },
+      );
     } catch (err) {
       logger.error({ err, txHash: tx.txHash }, 'Failed to insert transaction');
     }
