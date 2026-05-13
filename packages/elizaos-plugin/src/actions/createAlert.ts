@@ -14,6 +14,7 @@ const ALERT_TYPE_MAP: Record<string, string> = {
   'failed tx': 'failed_tx',
   inactivity: 'inactivity',
   'new contract': 'new_contract',
+  'idle balance': 'idle_balance',
 };
 
 function parseAlertType(text: string): string | null {
@@ -41,7 +42,7 @@ const createAlert: Action = {
     'SETUP_ALERT',
   ],
   description:
-    'Create a ChainWard alert for a monitored wallet. Supports: large_transfer, balance_drop, gas_spike, failed_tx, inactivity, new_contract.',
+    'Create a ChainWard alert for a monitored wallet. Supports: large_transfer, balance_drop, gas_spike, failed_tx, inactivity, new_contract, idle_balance.',
 
   validate: async (runtime: IAgentRuntime, _message: Memory) => {
     try {
