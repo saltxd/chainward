@@ -53,70 +53,79 @@ publicAgents.get('/:wallet', async (c) => {
 
   const spam = spamFilter();
 
-  // 2. Stats — 24h tx count, gas spend, volume
-  const [txStats24h] = await db
-    .select({
-      txCount: count(),
-      totalGas: sum(transactions.gasCostUsd),
-      totalVolume: sum(transactions.amountUsd),
-    })
-    .from(transactions)
-    .where(
-      and(
-        sql`lower(${transactions.walletAddress}) = ${wallet}`,
-        gte(transactions.timestamp, dayAgo),
-        spam,
+  // 2-6. All five queries depend only on `wallet` — run them concurrently.
+  const [
+    [txStats24h],
+    [txStats7d],
+    balanceHistory,
+    gasHistory,
+    recentTxs,
+  ] = await Promise.all([
+    // 2. Stats — 24h tx count, gas spend, volume
+    db
+      .select({
+        txCount: count(),
+        totalGas: sum(transactions.gasCostUsd),
+        totalVolume: sum(transactions.amountUsd),
+      })
+      .from(transactions)
+      .where(
+        and(
+          sql`lower(${transactions.walletAddress}) = ${wallet}`,
+          gte(transactions.timestamp, dayAgo),
+          spam,
+        ),
       ),
-    );
 
-  // 3. Stats — 7d tx count, gas spend
-  const [txStats7d] = await db
-    .select({
-      txCount: count(),
-      totalGas: sum(transactions.gasCostUsd),
-    })
-    .from(transactions)
-    .where(
-      and(
-        sql`lower(${transactions.walletAddress}) = ${wallet}`,
-        gte(transactions.timestamp, weekAgo),
-        spam,
+    // 3. Stats — 7d tx count, gas spend
+    db
+      .select({
+        txCount: count(),
+        totalGas: sum(transactions.gasCostUsd),
+      })
+      .from(transactions)
+      .where(
+        and(
+          sql`lower(${transactions.walletAddress}) = ${wallet}`,
+          gte(transactions.timestamp, weekAgo),
+          spam,
+        ),
       ),
-    );
 
-  // 4. Balance history (7d, 1h buckets) via TimescaleDB
-  const balanceHistory = await db.execute(sql`
-    SELECT time_bucket('1 hour', timestamp) AS bucket,
-      token_symbol, token_address,
-      last(balance_usd, timestamp) AS balance_usd,
-      last(balance_raw, timestamp) AS balance_raw
-    FROM balance_snapshots
-    WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${weekAgoIso}::timestamptz
-    GROUP BY bucket, token_symbol, token_address
-    ORDER BY bucket ASC
-  `);
+    // 4. Balance history (7d, 1h buckets) via TimescaleDB
+    db.execute(sql`
+      SELECT time_bucket('1 hour', timestamp) AS bucket,
+        token_symbol, token_address,
+        last(balance_usd, timestamp) AS balance_usd,
+        last(balance_raw, timestamp) AS balance_raw
+      FROM balance_snapshots
+      WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${weekAgoIso}::timestamptz
+      GROUP BY bucket, token_symbol, token_address
+      ORDER BY bucket ASC
+    `),
 
-  // 5. Gas history (30d, 1d buckets) via TimescaleDB
-  const gasHistory = await db.execute(sql`
-    SELECT time_bucket('1 day', timestamp) AS bucket,
-      count(*) AS tx_count,
-      coalesce(sum(gas_cost_usd), 0) AS total_gas_usd,
-      coalesce(avg(gas_cost_usd), 0) AS avg_gas_usd
-    FROM transactions
-    WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${thirtyDaysAgoIso}::timestamptz
-      ${spamExclusionSql}
-    GROUP BY bucket ORDER BY bucket ASC
-  `);
+    // 5. Gas history (30d, 1d buckets) via TimescaleDB
+    db.execute(sql`
+      SELECT time_bucket('1 day', timestamp) AS bucket,
+        count(*) AS tx_count,
+        coalesce(sum(gas_cost_usd), 0) AS total_gas_usd,
+        coalesce(avg(gas_cost_usd), 0) AS avg_gas_usd
+      FROM transactions
+      WHERE lower(wallet_address) = ${wallet} AND timestamp >= ${thirtyDaysAgoIso}::timestamptz
+        ${spamExclusionSql}
+      GROUP BY bucket ORDER BY bucket ASC
+    `),
 
-  // 6. Recent 20 transactions
-  const recentTxs = await db.execute(sql`
-    SELECT timestamp, chain, tx_hash, block_number, wallet_address, direction,
-      counterparty, token_symbol, amount_usd, gas_cost_usd, tx_type,
-      method_name, status
-    FROM transactions WHERE lower(wallet_address) = ${wallet}
-      ${spamExclusionSql}
-    ORDER BY timestamp DESC LIMIT 20
-  `);
+    // 6. Recent 20 transactions
+    db.execute(sql`
+      SELECT timestamp, chain, tx_hash, block_number, wallet_address, direction,
+        counterparty, token_symbol, amount_usd, gas_cost_usd, tx_type,
+        method_name, status
+      FROM transactions WHERE lower(wallet_address) = ${wallet}
+        ${spamExclusionSql}
+      ORDER BY timestamp DESC LIMIT 20
+    `),
+  ]);
 
   return c.json({
     success: true,
