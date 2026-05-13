@@ -322,7 +322,10 @@ observatory.get('/candidates', requireApiKeyOrSession(), async (c) => {
 
 observatory.patch('/candidates/:id', requireApiKeyOrSession('admin'), async (c) => {
   const db = getDb();
-  const id = parseInt(c.req.param('id'), 10);
+  const id = Number(c.req.param('id'));
+  if (Number.isNaN(id)) {
+    return c.json({ success: false, error: 'id must be a number' }, 400);
+  }
   const body = await c.req.json<{ status: 'approved' | 'dismissed'; notes?: string }>();
 
   if (!['approved', 'dismissed'].includes(body.status)) {
