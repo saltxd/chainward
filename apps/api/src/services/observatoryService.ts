@@ -417,53 +417,57 @@ export class ObservatoryService {
       const wallet = String(agent.wallet_address);
       const agentId = Number(agent.id);
 
-      // 2. Latest health score + breakdown
-      const healthRows = await this.db.execute(sql`
-        SELECT score, uptime_pct, gas_efficiency, failure_rate, consistency, date
-        FROM daily_agent_health
-        WHERE agent_id = ${agentId}
-        ORDER BY date DESC
-        LIMIT 1
-      `);
-      const health = (healthRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
-
-      // 3. 30-day daily balance series. balance_snapshots only stores raw +
-      // USD; we don't carry a separate native column. The chart uses USD.
-      const balanceRows = await this.db.execute(sql`
-        SELECT
-          time_bucket('1 day', timestamp) AS day,
-          AVG(CAST(balance_usd AS numeric))::float AS balance_usd
-        FROM balance_snapshots
-        WHERE LOWER(wallet_address) = LOWER(${wallet})
-          AND token_address IS NULL
-          AND timestamp >= NOW() - INTERVAL '30 days'
-        GROUP BY day
-        ORDER BY day ASC
-      `);
-
-      // 4. Last 50 transactions
-      const txRows = await this.db.execute(sql`
-        SELECT timestamp, direction, token_symbol, amount_usd, gas_cost_usd,
-               tx_hash, tx_type, status
-        FROM transactions
-        WHERE LOWER(wallet_address) = LOWER(${wallet})
-        ORDER BY timestamp DESC
-        LIMIT 50
-      `);
-
-      // 5. ACP economics (if linked)
-      let acp = null;
-      if (agent.acp_agent_id) {
-        const acpRows = await this.db.execute(sql`
-          SELECT name, symbol, role, profile_pic, has_graduated, is_online,
-                 revenue, gross_agentic_amount AS agdp,
-                 successful_job_count AS jobs, success_rate, unique_buyer_count
-          FROM acp_agent_data
-          WHERE virtual_agent_id = ${agent.acp_agent_id}
+      // 2-5. Once the agent is resolved, the four downstream queries are
+      // independent — run them concurrently to cut detail-page latency.
+      const [healthRows, balanceRows, txRows, acpRows] = await Promise.all([
+        // 2. Latest health score + breakdown
+        this.db.execute(sql`
+          SELECT score, uptime_pct, gas_efficiency, failure_rate, consistency, date
+          FROM daily_agent_health
+          WHERE agent_id = ${agentId}
+          ORDER BY date DESC
           LIMIT 1
-        `);
-        acp = (acpRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
-      }
+        `),
+
+        // 3. 30-day daily balance series. balance_snapshots only stores raw +
+        // USD; we don't carry a separate native column. The chart uses USD.
+        this.db.execute(sql`
+          SELECT
+            time_bucket('1 day', timestamp) AS day,
+            AVG(CAST(balance_usd AS numeric))::float AS balance_usd
+          FROM balance_snapshots
+          WHERE LOWER(wallet_address) = LOWER(${wallet})
+            AND token_address IS NULL
+            AND timestamp >= NOW() - INTERVAL '30 days'
+          GROUP BY day
+          ORDER BY day ASC
+        `),
+
+        // 4. Last 50 transactions
+        this.db.execute(sql`
+          SELECT timestamp, direction, token_symbol, amount_usd, gas_cost_usd,
+                 tx_hash, tx_type, status
+          FROM transactions
+          WHERE LOWER(wallet_address) = LOWER(${wallet})
+          ORDER BY timestamp DESC
+          LIMIT 50
+        `),
+
+        // 5. ACP economics (if linked)
+        agent.acp_agent_id
+          ? this.db.execute(sql`
+              SELECT name, symbol, role, profile_pic, has_graduated, is_online,
+                     revenue, gross_agentic_amount AS agdp,
+                     successful_job_count AS jobs, success_rate, unique_buyer_count
+              FROM acp_agent_data
+              WHERE virtual_agent_id = ${agent.acp_agent_id}
+              LIMIT 1
+            `)
+          : Promise.resolve([] as unknown as ReturnType<typeof this.db.execute>),
+      ]);
+
+      const health = (healthRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
+      const acp = (acpRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
 
       return {
         slug: String(agent.slug),
