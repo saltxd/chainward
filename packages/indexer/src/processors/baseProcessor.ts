@@ -78,12 +78,15 @@ export async function processWebhookTx(
 
   if (!receipt || !tx) return results;
 
-  // Get block for timestamp
-  const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+  // Four independent lookups: block (for timestamp), method decode, ETH price,
+  // and protocol resolution. None depend on each other so they can fan out.
+  const [block, decoded, ethPrice, protocolName] = await Promise.all([
+    client.getBlock({ blockNumber: receipt.blockNumber }),
+    decodeMethod(tx.input),
+    getEthPrice(),
+    tx.to ? resolveProtocol(tx.to, 'base') : Promise.resolve(null),
+  ]);
   const timestamp = new Date(Number(block.timestamp) * 1000);
-
-  // Decode method
-  const decoded = await decodeMethod(tx.input);
   const txType = classifyTxType(decoded?.methodName ?? null, tx.input, tx.to);
 
   // Gas calculations
@@ -92,12 +95,7 @@ export async function processWebhookTx(
   const gasCostWei = receipt.gasUsed * effectiveGasPrice;
   const gasCostNative = formatEther(gasCostWei);
   const gasPriceGwei = formatUnits(effectiveGasPrice, 9);
-
-  const ethPrice = await getEthPrice();
   const gasCostUsd = ethPrice ? (parseFloat(gasCostNative) * ethPrice).toFixed(6) : null;
-
-  // Resolve protocol once per tx (only depends on tx.to, not the monitored address)
-  const protocolName = tx.to ? await resolveProtocol(tx.to, 'base') : null;
 
   // Determine which monitored addresses are involved
   const fromLower = data.fromAddress?.toLowerCase();
