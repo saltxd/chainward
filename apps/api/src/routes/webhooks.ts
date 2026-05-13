@@ -27,10 +27,10 @@ webhooks.post('/alchemy', async (c) => {
   }
 
   const queues = getQueues();
-  for (const [index, activity] of activities.entries()) {
-    await queues.baseTxProcess.add(
-      'process-tx',
-      {
+  await queues.baseTxProcess.addBulk(
+    activities.map((activity, index) => ({
+      name: 'process-tx',
+      data: {
         type: 'webhook',
         txHash: activity.txHash,
         blockNumber: activity.blockNumber,
@@ -42,13 +42,13 @@ webhooks.post('/alchemy', async (c) => {
         rawContract: activity.rawContract,
         network: activity.network,
       },
-      {
+      opts: {
         jobId: buildWebhookActivityJobId(activity, index),
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000 },
       },
-    );
-  }
+    })),
+  );
 
   logger.info({ count: activities.length }, 'Queued webhook activities');
   return c.json({ success: true });
