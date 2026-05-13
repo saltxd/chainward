@@ -16,7 +16,7 @@
     "@chainward/db": "workspace:*",
     "@chainward/decode": "workspace:*",
     "@virtuals-protocol/acp-node-v2": "0.0.6",
-    "drizzle-orm": "^0.45.0",
+    "drizzle-orm": "^0.45.2",
     "ioredis": "^5.4.0",
     "pino": "^9.5.0",
     "postgres": "^3.4.0",
