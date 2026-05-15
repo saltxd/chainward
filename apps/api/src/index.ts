@@ -32,10 +32,16 @@ getWebhookProvider().init();
 
 const app = new Hono();
 
-// Liveness probe — registered before any middleware so it cannot be blocked
-// by auth, body parsing, rate limiting, or DB/Redis stalls. Kubernetes probes
-// point here. /api/health remains as a deeper "is the stack healthy" check.
-app.get('/livez', (c) => c.text('ok'));
+// Liveness probes — registered before any middleware so they cannot be blocked
+// by auth, body parsing, rate limiting, or DB/Redis stalls.
+//   /livez       → in-cluster Kubernetes probes (not exposed via ingress)
+//   /api/livez   → external prober (cw-sentinel hits this via api.chainward.ai)
+// /api/health remains as a deeper "is the stack healthy" check for richer
+// monitoring, but it does DB+Redis pings so it can be slow when the DB pool
+// is contended — wrong semantics for binary up/down alerting.
+const livezHandler = (c: import('hono').Context) => c.text('ok');
+app.get('/livez', livezHandler);
+app.get('/api/livez', livezHandler);
 
 // Global middleware
 app.use(

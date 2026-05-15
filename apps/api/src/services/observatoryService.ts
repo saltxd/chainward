@@ -673,17 +673,17 @@ export class ObservatoryService {
   // ── Cache warmer entry point ──────────────────────────────────────────
 
   async refreshAll(): Promise<void> {
-    // Warm all routes the public observatory pages hit. Run in parallel —
-    // DB queries are async I/O, won't starve the event loop. Each call
-    // forces a fresh compute and updates Redis.
-    await Promise.all([
-      this.getOverview({ force: true }),
-      this.getFeed({ force: true }),
-      this.getLeaderboard({ force: true }),
-      this.getTrends({ force: true }),
-      this.getAlertActivity({ force: true }),
-      this.getEconomics({ force: true }),
-      this.getReport({ force: true }),
-    ]);
+    // Warm all routes the public observatory pages hit. Run SEQUENTIALLY —
+    // running these in parallel saturates the postgres pool (max=10) for
+    // 30-48s every cycle, which starves /api/health's SELECT 1 and trips the
+    // external prober. Serial execution holds at most 1 connection at a time,
+    // leaving 9 for live request traffic.
+    await this.getOverview({ force: true });
+    await this.getFeed({ force: true });
+    await this.getLeaderboard({ force: true });
+    await this.getTrends({ force: true });
+    await this.getAlertActivity({ force: true });
+    await this.getEconomics({ force: true });
+    await this.getReport({ force: true });
   }
 }
