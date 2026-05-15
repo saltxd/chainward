@@ -19,13 +19,14 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 NAMESPACE="chainward"
 REGISTRY="ghcr.io/saltxd"
-SERVICES=(api web indexer acp-decoder)
+ALL_SERVICES=(api web indexer acp-decoder)
 
 # Parse args
 TAG=""
 MIGRATE_ONLY=false
 SKIP_MIGRATE=false
 DRY_RUN=false
+ONLY=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -33,13 +34,15 @@ while [[ $# -gt 0 ]]; do
     --migrate-only) MIGRATE_ONLY=true; shift ;;
     --skip-migrate) SKIP_MIGRATE=true; shift ;;
     --dry-run) DRY_RUN=true; shift ;;
+    --only) ONLY="$2"; shift 2 ;;
     -h|--help)
-      echo "Usage: deploy.sh [--tag SHA] [--migrate-only] [--skip-migrate] [--dry-run]"
+      echo "Usage: deploy.sh [--tag SHA] [--migrate-only] [--skip-migrate] [--only api,web,...] [--dry-run]"
       echo ""
       echo "Options:"
       echo "  --tag SHA        Image tag to deploy (default: git short SHA of HEAD)"
       echo "  --migrate-only   Run migrations without rolling out images"
       echo "  --skip-migrate   Skip migrations, just roll out images"
+      echo "  --only LIST      Comma-separated services to deploy (default: api,web,indexer,acp-decoder)"
       echo "  --dry-run        Print what would happen without executing"
       echo "  -h, --help       Show this help"
       exit 0
@@ -47,6 +50,19 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown arg: $1. Use --help for usage." >&2; exit 1 ;;
   esac
 done
+
+# Resolve services to operate on
+if [ -n "$ONLY" ]; then
+  IFS=',' read -r -a SERVICES <<< "$ONLY"
+  for svc in "${SERVICES[@]}"; do
+    if [[ ! " ${ALL_SERVICES[*]} " =~ \ $svc\  ]]; then
+      echo "Unknown service: $svc. Valid: ${ALL_SERVICES[*]}" >&2
+      exit 1
+    fi
+  done
+else
+  SERVICES=("${ALL_SERVICES[@]}")
+fi
 
 # Default tag to current short SHA
 if [ -z "$TAG" ]; then
