@@ -3,7 +3,12 @@ import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
 
-const WARM_INTERVAL_MS = 60_000;
+// 5-minute interval gives plenty of buffer under the shortest cache TTL (300s
+// for /feed and /overview), but doesn't keep the DB pool warm continuously.
+// Each cycle is sequential (see ObservatoryService.refreshAll) so total
+// duration is roughly the sum of per-endpoint compute, typically 30-50s, then
+// the pool is idle for ~4 minutes before the next cycle.
+const WARM_INTERVAL_MS = 300_000;
 
 let timer: NodeJS.Timeout | null = null;
 
