@@ -12,9 +12,16 @@ export class ObservatoryService {
 
   // ── Cache helper ──────────────────────────────────────────────────────
 
-  private async cached<T>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {
-    const hit = await this.redis.get(key);
-    if (hit) return JSON.parse(hit);
+  private async cached<T>(
+    key: string,
+    ttlSeconds: number,
+    fn: () => Promise<T>,
+    force = false,
+  ): Promise<T> {
+    if (!force) {
+      const hit = await this.redis.get(key);
+      if (hit) return JSON.parse(hit);
+    }
     const data = await fn();
     await this.redis.setex(key, ttlSeconds, JSON.stringify(data));
     return data;
@@ -35,7 +42,7 @@ export class ObservatoryService {
 
   // ── 1. Overview ───────────────────────────────────────────────────────
 
-  async getOverview() {
+  async getOverview(opts: { force?: boolean } = {}) {
     return this.cached('obs:overview', 300, async () => {
       const wallets = await this.getObservatoryWallets();
       const agentsTracked = wallets.length;
@@ -114,13 +121,13 @@ export class ObservatoryService {
         totalAgents: agentsTracked,
         updatedAt: now.toISOString(),
       };
-    });
+    }, opts.force);
   }
 
   // ── 2. Feed ───────────────────────────────────────────────────────────
 
-  async getFeed() {
-    return this.cached('obs:feed', 60, async () => {
+  async getFeed(opts: { force?: boolean } = {}) {
+    return this.cached('obs:feed', 300, async () => {
       const wallets = await this.getObservatoryWallets();
       if (wallets.length === 0) return [];
 
@@ -160,12 +167,12 @@ export class ObservatoryService {
         txType: String(r.tx_type ?? 'unknown'),
         status: String(r.status),
       }));
-    });
+    }, opts.force);
   }
 
   // ── 3. Leaderboard ────────────────────────────────────────────────────
 
-  async getLeaderboard() {
+  async getLeaderboard(opts: { force?: boolean } = {}) {
     return this.cached('obs:leaderboard', 900, async () => {
       const wallets = await this.getObservatoryWallets();
       if (wallets.length === 0) {
@@ -297,12 +304,12 @@ export class ObservatoryService {
       }));
 
       return { mostActive, highestGas, largestPortfolio, healthiest };
-    });
+    }, opts.force);
   }
 
   // ── 4. Trends ─────────────────────────────────────────────────────────
 
-  async getTrends() {
+  async getTrends(opts: { force?: boolean } = {}) {
     return this.cached('obs:trends', 1800, async () => {
       const wallets = await this.getObservatoryWallets();
       if (wallets.length === 0) {
@@ -360,12 +367,12 @@ export class ObservatoryService {
       const avgTxPerAgentPerDay = parseFloat((totalTx / days / agentCount).toFixed(2));
 
       return { dailyTxCount, dailyGasSpend, dailyActiveAgents, avgTxPerAgentPerDay };
-    });
+    }, opts.force);
   }
 
   // ── 5. Alert activity ─────────────────────────────────────────────────
 
-  async getAlertActivity() {
+  async getAlertActivity(opts: { force?: boolean } = {}) {
     return this.cached('obs:alerts', 900, async () => {
       const wallets = await this.getObservatoryWallets();
       if (wallets.length === 0) {
@@ -396,12 +403,12 @@ export class ObservatoryService {
       const alertsFiredThisWeek = alertsByType.reduce((acc, r) => acc + r.count, 0);
 
       return { alertsFiredThisWeek, alertsByType };
-    });
+    }, opts.force);
   }
 
   // ── 6. Agent detail ───────────────────────────────────────────────────
 
-  async getAgentDetail(slug: string) {
+  async getAgentDetail(slug: string, opts: { force?: boolean } = {}) {
     return this.cached(`obs:agent:${slug}`, 120, async () => {
       // 1. Resolve slug → agent
       const agentRows = await this.db.execute(sql`
@@ -514,6 +521,169 @@ export class ObservatoryService {
           uniqueBuyers: Number(acp.unique_buyer_count ?? 0),
         } : null,
       };
-    });
+    }, opts.force);
+  }
+
+  // ── 7. ACP economics ──────────────────────────────────────────────────
+
+  async getEconomics(opts: { force?: boolean } = {}) {
+    return this.cached('obs:economics', 600, async () => {
+      const ecoRows = await this.db.execute(sql`
+        SELECT total_agdp, total_revenue, total_jobs, total_unique_wallets, captured_at
+        FROM acp_ecosystem_metrics ORDER BY captured_at DESC LIMIT 1
+      `);
+      const eco = (ecoRows as unknown as Array<Record<string, unknown>>)[0] ?? null;
+
+      const agentRows = await this.db.execute(sql`
+        SELECT
+          acp.name,
+          acp.wallet_address AS acp_wallet,
+          ar.wallet_address AS obs_wallet,
+          acp.symbol,
+          acp.has_graduated,
+          acp.role,
+          acp.profile_pic,
+          COALESCE(acp.revenue, 0) AS revenue,
+          COALESCE(acp.gross_agentic_amount, 0) AS agdp,
+          COALESCE(acp.successful_job_count, 0) AS jobs,
+          COALESCE(acp.success_rate, 0) AS success_rate,
+          COALESCE(acp.unique_buyer_count, 0) AS unique_buyers,
+          COALESCE(acp.is_online, false) AS is_online,
+          COALESCE((
+            SELECT SUM(CAST(t.gas_cost_usd AS numeric))
+            FROM transactions t
+            WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
+              AND t.timestamp >= NOW() - INTERVAL '30 days'
+          ), 0) AS gas_cost_30d,
+          COALESCE(acp.revenue, 0) - COALESCE((
+            SELECT SUM(CAST(t.gas_cost_usd AS numeric))
+            FROM transactions t
+            WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
+              AND t.timestamp >= NOW() - INTERVAL '30 days'
+          ), 0) AS profit_30d
+        FROM acp_agent_data acp
+        LEFT JOIN agent_registry ar ON ar.registry_id = acp.virtual_agent_id::text
+          AND ar.is_observatory = true
+        WHERE acp.successful_job_count IS NOT NULL AND acp.successful_job_count > 0
+        ORDER BY COALESCE(acp.revenue, 0) DESC
+        LIMIT 50
+      `);
+
+      return {
+        ecosystem: eco ? {
+          totalAgdp: parseFloat(String(eco.total_agdp ?? '0')),
+          totalRevenue: parseFloat(String(eco.total_revenue ?? '0')),
+          totalJobs: Number(eco.total_jobs ?? 0),
+          totalUniqueWallets: Number(eco.total_unique_wallets ?? 0),
+          capturedAt: String(eco.captured_at),
+        } : null,
+        topAgents: (agentRows as unknown as Array<Record<string, unknown>>).map((r) => ({
+          name: String(r.name ?? ''),
+          walletAddress: String(r.acp_wallet ?? ''),
+          obsWalletAddress: r.obs_wallet != null ? String(r.obs_wallet) : null,
+          symbol: r.symbol != null ? String(r.symbol) : null,
+          hasGraduated: Boolean(r.has_graduated),
+          role: r.role != null ? String(r.role) : null,
+          profilePic: r.profile_pic != null ? String(r.profile_pic) : null,
+          revenue: parseFloat(String(r.revenue ?? '0')),
+          agdp: parseFloat(String(r.agdp ?? '0')),
+          jobs: Number(r.jobs ?? 0),
+          successRate: parseFloat(String(r.success_rate ?? '0')),
+          uniqueBuyers: Number(r.unique_buyers ?? 0),
+          isOnline: Boolean(r.is_online),
+          gasCost30d: parseFloat(String(r.gas_cost_30d ?? '0')),
+          profit30d: parseFloat(String(r.profit_30d ?? '0')),
+        })),
+      };
+    }, opts.force);
+  }
+
+  // ── 8. Ecosystem report ───────────────────────────────────────────────
+
+  async getReport(opts: { force?: boolean } = {}) {
+    return this.cached('obs:report', 3600, async () => {
+      const earners = await this.db.execute(sql`
+        SELECT name, wallet_address, COALESCE(revenue, 0) AS revenue,
+               COALESCE(successful_job_count, 0) AS jobs, COALESCE(success_rate, 0) AS success_rate
+        FROM acp_agent_data
+        WHERE revenue IS NOT NULL AND CAST(revenue AS numeric) > 0
+        ORDER BY CAST(revenue AS numeric) DESC LIMIT 10
+      `);
+
+      const active = await this.db.execute(sql`
+        SELECT t.wallet_address, COALESCE(a.agent_name, acp.name, t.wallet_address) AS name,
+               COUNT(*) AS tx_count,
+               COALESCE(SUM(CAST(t.gas_cost_usd AS numeric)), 0) AS gas_usd
+        FROM transactions t
+        LEFT JOIN agent_registry a ON LOWER(a.wallet_address) = LOWER(t.wallet_address) AND a.is_observatory = true
+        LEFT JOIN acp_agent_data acp ON LOWER(acp.wallet_address) = LOWER(t.wallet_address)
+        WHERE t.timestamp >= NOW() - INTERVAL '7 days'
+        GROUP BY t.wallet_address, a.agent_name, acp.name
+        ORDER BY tx_count DESC LIMIT 10
+      `);
+
+      const eco = await this.db.execute(sql`
+        SELECT total_agdp, total_revenue, total_jobs, total_unique_wallets
+        FROM acp_ecosystem_metrics ORDER BY captured_at DESC LIMIT 1
+      `);
+
+      const obsStats = await this.db.execute(sql`
+        SELECT
+          COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= NOW() - INTERVAL '7 days') AS active_agents_7d,
+          COUNT(*) FILTER (WHERE timestamp >= NOW() - INTERVAL '7 days') AS txs_7d,
+          COALESCE(SUM(CAST(gas_cost_usd AS numeric)) FILTER (WHERE timestamp >= NOW() - INTERVAL '7 days'), 0) AS gas_7d
+        FROM transactions
+        WHERE wallet_address IN (SELECT wallet_address FROM agent_registry WHERE is_observatory = true)
+      `);
+
+      const ecoRow = (eco as unknown as Array<Record<string, unknown>>)[0] ?? {};
+      const statsRow = (obsStats as unknown as Array<Record<string, unknown>>)[0] ?? {};
+
+      return {
+        generatedAt: new Date().toISOString(),
+        period: '7d',
+        ecosystem: {
+          totalAgdp: parseFloat(String(ecoRow.total_agdp ?? '0')),
+          totalRevenue: parseFloat(String(ecoRow.total_revenue ?? '0')),
+          totalJobs: Number(ecoRow.total_jobs ?? 0),
+          totalUniqueWallets: Number(ecoRow.total_unique_wallets ?? 0),
+        },
+        observatory: {
+          activeAgents7d: Number(statsRow.active_agents_7d ?? 0),
+          transactions7d: Number(statsRow.txs_7d ?? 0),
+          gasBurned7d: parseFloat(String(statsRow.gas_7d ?? '0')),
+        },
+        topEarners: (earners as unknown as Array<Record<string, unknown>>).map((r) => ({
+          name: String(r.name ?? ''),
+          walletAddress: String(r.wallet_address),
+          revenue: parseFloat(String(r.revenue ?? '0')),
+          jobs: Number(r.jobs ?? 0),
+          successRate: parseFloat(String(r.success_rate ?? '0')),
+        })),
+        mostActive: (active as unknown as Array<Record<string, unknown>>).map((r) => ({
+          name: String(r.name ?? ''),
+          walletAddress: String(r.wallet_address),
+          txCount: Number(r.tx_count ?? 0),
+          gasUsd: parseFloat(String(r.gas_usd ?? '0')),
+        })),
+      };
+    }, opts.force);
+  }
+
+  // ── Cache warmer entry point ──────────────────────────────────────────
+
+  async refreshAll(): Promise<void> {
+    // Warm all routes the public observatory pages hit. Run in parallel —
+    // DB queries are async I/O, won't starve the event loop. Each call
+    // forces a fresh compute and updates Redis.
+    await Promise.all([
+      this.getOverview({ force: true }),
+      this.getFeed({ force: true }),
+      this.getLeaderboard({ force: true }),
+      this.getTrends({ force: true }),
+      this.getAlertActivity({ force: true }),
+      this.getEconomics({ force: true }),
+      this.getReport({ force: true }),
+    ]);
   }
 }

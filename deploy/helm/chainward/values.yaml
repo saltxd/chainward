@@ -34,8 +34,8 @@ api:
       cpu: 100m
       memory: 256Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 1500m
+      memory: 1Gi
 
 web:
   replicas: 1

@@ -24,12 +24,18 @@ import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
 import { getWebhookProvider } from './providers/index.js';
+import { startObservatoryCacheWarmer } from './jobs/observatoryCacheWarmer.js';
 
 // Validate env on startup
 const env = getEnv();
 getWebhookProvider().init();
 
 const app = new Hono();
+
+// Liveness probe — registered before any middleware so it cannot be blocked
+// by auth, body parsing, rate limiting, or DB/Redis stalls. Kubernetes probes
+// point here. /api/health remains as a deeper "is the stack healthy" check.
+app.get('/livez', (c) => c.text('ok'));
 
 // Global middleware
 app.use(
@@ -123,6 +129,7 @@ logger.info({ port, env: env.NODE_ENV }, 'Starting ChainWard API');
 
 serve({ fetch: app.fetch, port }, (info) => {
   logger.info(`ChainWard API running on http://localhost:${info.port}`);
+  startObservatoryCacheWarmer();
 });
 
 export default app;

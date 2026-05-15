@@ -94,16 +94,18 @@ spec:
                 command: ["sleep", "5"]
           readinessProbe:
             httpGet:
-              path: /api/health
+              path: /livez
               port: {{ .Values.api.port }}
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
-              path: /api/health
+              path: /livez
               port: {{ .Values.api.port }}
             initialDelaySeconds: 30
             periodSeconds: 15
+            timeoutSeconds: 5
           resources:
             {{- toYaml .Values.api.resources | nindent 12 }}
 ---
