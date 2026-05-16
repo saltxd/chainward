@@ -27,6 +27,7 @@ MIGRATE_ONLY=false
 SKIP_MIGRATE=false
 DRY_RUN=false
 ONLY=""
+APPLY_CHART=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -35,14 +36,19 @@ while [[ $# -gt 0 ]]; do
     --skip-migrate) SKIP_MIGRATE=true; shift ;;
     --dry-run) DRY_RUN=true; shift ;;
     --only) ONLY="$2"; shift 2 ;;
+    --apply-chart) APPLY_CHART=true; shift ;;
     -h|--help)
-      echo "Usage: deploy.sh [--tag SHA] [--migrate-only] [--skip-migrate] [--only api,web,...] [--dry-run]"
+      echo "Usage: deploy.sh [--tag SHA] [--migrate-only] [--skip-migrate] [--only api,web,...] [--apply-chart] [--dry-run]"
       echo ""
       echo "Options:"
       echo "  --tag SHA        Image tag to deploy (default: git short SHA of HEAD)"
       echo "  --migrate-only   Run migrations without rolling out images"
       echo "  --skip-migrate   Skip migrations, just roll out images"
       echo "  --only LIST      Comma-separated services to deploy (default: api,web,indexer,acp-decoder)"
+      echo "  --apply-chart    Reconcile non-image chart resources (CronJobs, ConfigMaps,"
+      echo "                   Services, Ingress, PrometheusRules) after image rollout."
+      echo "                   Skips Deployments/StatefulSets/Secrets/Jobs to avoid stomping"
+      echo "                   on the image rollout or one-time install resources."
       echo "  --dry-run        Print what would happen without executing"
       echo "  -h, --help       Show this help"
       exit 0
@@ -231,7 +237,45 @@ if ! $DRY_RUN; then
   echo ""
 fi
 
-# ─── Step 5: Verify health ───────────────────────────────────────────────────
+# ─── Step 5: Reconcile non-image chart resources ────────────────────────────
+#
+# deploy.sh's main loop only does `kubectl set image` on Deployments — so any
+# template change in the Helm chart that isn't a Deployment (CronJobs,
+# ConfigMaps, Services, Ingress, PrometheusRules, etc.) sits in git unmerged
+# to the cluster until someone runs helm upgrade manually. That's how the
+# chainward-prober drift bug on 2026-05-15 happened: the SQL fix was in git
+# for weeks but the deployed CronJob still had `FROM agents` (table doesn't
+# exist) and a try-or-suppress wrapper that hid the error.
+#
+# --apply-chart reconciles those resources by rendering the chart and applying
+# everything EXCEPT workloads (Deployment/StatefulSet — owned by the image
+# rollout above) and Secrets/Jobs (managed manually / one-time install).
+
+if $APPLY_CHART; then
+  echo "--- Reconciling chart (non-image resources) ---"
+  if ! command -v yq >/dev/null 2>&1; then
+    echo "  FATAL: yq not found on \$PATH (required for chart reconcile)." >&2
+    exit 1
+  fi
+
+  CHART_DIR="$REPO_ROOT/deploy/helm/chainward"
+  RENDER_FILTER='select(.kind != "Deployment" and .kind != "StatefulSet" and .kind != "Secret" and .kind != "Job")'
+
+  if $DRY_RUN; then
+    echo "  [dry-run] Would render $CHART_DIR and apply non-workload resources:"
+    helm template chainward "$CHART_DIR" -n "$NAMESPACE" \
+      | yq "$RENDER_FILTER" \
+      | yq '.kind + " " + .metadata.name' \
+      | sed 's/^/    /'
+  else
+    helm template chainward "$CHART_DIR" -n "$NAMESPACE" \
+      | yq "$RENDER_FILTER" \
+      | kubectl apply -f -
+  fi
+  echo ""
+fi
+
+# ─── Step 6: Verify health ───────────────────────────────────────────────────
 
 if ! $DRY_RUN; then
   echo "--- Health checks (waiting 5s for settle) ---"
