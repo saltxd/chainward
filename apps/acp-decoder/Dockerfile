@@ -29,6 +29,13 @@ RUN pnpm --filter @chainward/acp-decoder build && \
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# OCI labels — `image.source` tells GHCR which repo the package belongs to so
+# the workflow's GITHUB_TOKEN has push permission. Required because the
+# package was originally created out-of-band (manual docker push) and is not
+# auto-linked like the other three images.
+LABEL org.opencontainers.image.source=https://github.com/saltxd/chainward
+LABEL org.opencontainers.image.description="ChainWard ACP decoder agent"
+LABEL org.opencontainers.image.licenses=MIT
 # Install Claude Code CLI for OAuth-backed report-writer
 RUN npm install -g @anthropic-ai/claude-code
 COPY --from=build /prod .
