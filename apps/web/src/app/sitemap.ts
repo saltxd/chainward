@@ -13,6 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE}/`, changeFrequency: 'daily', priority: 1.0 },
     { url: `${SITE}/base`, changeFrequency: 'hourly', priority: 0.9 },
+    { url: `${SITE}/hyperliquid`, changeFrequency: 'hourly', priority: 0.9 },
     { url: `${SITE}/decodes`, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE}/docs/api`, changeFrequency: 'monthly', priority: 0.5 },
   ];

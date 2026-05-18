@@ -28,6 +28,7 @@ interface NavBarProps {
 
 const DEFAULT_LINKS: NavLink[] = [
   { href: '/base', label: 'observatory' },
+  { href: '/hyperliquid', label: 'hyperliquid' },
   { href: '/decodes', label: 'decodes' },
   { href: '/wallet', label: 'lookup' },
 ];
