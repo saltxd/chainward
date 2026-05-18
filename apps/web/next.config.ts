@@ -40,6 +40,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Override Next.js's default ISR Cache-Control (s-maxage=N, stale-while-revalidate=31535700)
+        // The year-long SWR window meant Cloudflare served year-stale pages.
+        // 60s fresh + 60s SWR keeps the audit close to live without hammering the upstreams.
+        source: '/hyperliquid',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=60' },
+        ],
+      },
     ];
   },
 };

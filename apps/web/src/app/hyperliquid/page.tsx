@@ -3,10 +3,10 @@ import Link from 'next/link';
 import { PageShell, NavBar, SectionHead, StatTile, Badge } from '@/components/v2';
 import { getArenaAudit, type AuditRow } from '@/lib/hyperliquid-audit';
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: 'Hyperliquid Agent Audit — Live Arena Truth Check | ChainWard',
+  title: 'Hyperliquid Agent Audit — Live Arena Truth Check',
   description:
     "Independent audit of Virtuals' Arena leaderboard against Hyperliquid's public API. Side-by-side display of what the dashboard claims vs what the chain actually shows.",
   alternates: { canonical: 'https://chainward.ai/hyperliquid' },
