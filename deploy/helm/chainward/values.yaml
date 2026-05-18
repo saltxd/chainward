@@ -27,7 +27,7 @@ redis:
   storage: 1Gi
 
 api:
-  replicas: 1
+  replicas: 2
   port: 8000
   resources:
     requests:
@@ -38,7 +38,7 @@ api:
       memory: 1Gi
 
 web:
-  replicas: 1
+  replicas: 2
   port: 3000
   resources:
     requests:
