@@ -80,6 +80,9 @@ importers:
       '@chainward/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@chainward/observatory':
+        specifier: workspace:*
+        version: link:../../packages/observatory
       '@hono/node-server':
         specifier: ^1.19.14
         version: 1.19.14(hono@4.12.18)
@@ -364,6 +367,9 @@ importers:
       '@chainward/db':
         specifier: workspace:*
         version: link:../db
+      '@chainward/observatory':
+        specifier: workspace:*
+        version: link:../observatory
       bullmq:
         specifier: ^5.25.0
         version: 5.70.1
@@ -403,6 +409,28 @@ importers:
         version: 4.0.18(@types/node@22.19.13)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
 
   packages/intelligence-loader:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.13
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/observatory:
+    dependencies:
+      '@chainward/common':
+        specifier: workspace:*
+        version: link:../common
+      '@chainward/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(gel@2.2.0)(kysely@0.28.11)(postgres@3.4.8)
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.9.3
     devDependencies:
       '@types/node':
         specifier: ^22.10.0

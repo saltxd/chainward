@@ -13,6 +13,7 @@
   "dependencies": {
     "@chainward/common": "workspace:*",
     "@chainward/db": "workspace:*",
+    "@chainward/observatory": "workspace:*",
     "@hono/node-server": "^1.19.14",
     "bullmq": "^5.25.0",
     "dotenv": "^17.3.1",

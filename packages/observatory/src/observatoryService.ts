@@ -2,7 +2,7 @@ import { sql, eq, and } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
 import type IORedis from 'ioredis';
-import { spamExclusionSql as spamExclusion } from '../lib/spamFilter.js';
+import { spamExclusionSql as spamExclusion } from './spamFilter.js';
 
 export class ObservatoryService {
   constructor(

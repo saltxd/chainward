@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
-import { spamExclusionSql as spamExclusion } from '../lib/spamFilter.js';
+import { spamExclusionSql as spamExclusion } from '@chainward/observatory';
 
 export class GasService {
   constructor(private db: Database) {}

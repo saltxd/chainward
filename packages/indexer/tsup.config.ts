@@ -4,5 +4,5 @@ export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
   dts: true,
-  noExternal: ['@chainward/common', '@chainward/db'],
+  noExternal: ['@chainward/common', '@chainward/db', '@chainward/observatory'],
 });

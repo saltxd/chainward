@@ -1,7 +1,7 @@
 import { eq, and, gte, lte, desc, ilike, sql, count, inArray } from 'drizzle-orm';
 import { transactions, agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
-import { spamFilter, spamExclusionSql as spamExclusion } from '../lib/spamFilter.js';
+import { spamFilter, spamExclusionSql as spamExclusion } from '@chainward/observatory';
 
 interface TxFilter {
   walletAddress?: string;
