@@ -1,6 +1,8 @@
 import { getEnv } from './config.js';
 import { logger } from './lib/logger.js';
+import { getDb } from './lib/db.js';
 import { getRedis } from './lib/redis.js';
+import { startObservatoryCacheWarmer } from '@chainward/observatory';
 import { createBaseIndexerWorker } from './workers/baseIndexer.js';
 import { createBalancePollerWorker, setupBalancePolling } from './workers/balancePoller.js';
 import { createAlertEvaluatorWorker, setupAlertSchedule } from './workers/alertEvaluator.js';
@@ -43,6 +45,19 @@ await setupAcpWalletTracerSchedule(redis);
 await setupHealthScoreSchedule(redis);
 await setupWebhookHealthSchedule(redis);
 
+// Observatory cache warmer — was previously in the api process but moved here
+// to keep the api event loop request-only. Runs every 5min and force-refreshes
+// all observatory Redis cache keys; api routes still read from those keys.
+// Lives in the indexer pod because (1) the indexer already has DB + Redis
+// connections, (2) the indexer is a separate pod so the warmer's DB pool
+// pressure can never interfere with /api/livez or other api probes.
+// See: https://chainward.ai docs — "ChainWard API DOWN" flap post-mortem.
+const observatoryWarmer = startObservatoryCacheWarmer({
+  db: getDb(),
+  redis,
+  logger,
+});
+
 // Heartbeat — telemetry reads this key to know the indexer process is alive.
 // TTL expires the key if the process dies so "key missing" == "indexer down".
 const HEARTBEAT_KEY = 'chainward:indexer:heartbeat';
@@ -57,6 +72,7 @@ const heartbeatInterval = setInterval(() => void writeHeartbeat(), 15_000);
 async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down workers');
   clearInterval(heartbeatInterval);
+  observatoryWarmer.stop();
   await redis.del(HEARTBEAT_KEY).catch(() => {});
   await Promise.all([
     baseIndexer.close(),

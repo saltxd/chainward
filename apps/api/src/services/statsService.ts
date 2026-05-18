@@ -1,7 +1,7 @@
 import { eq, sql, and, gte, count, sum, inArray } from 'drizzle-orm';
 import { agentRegistry, transactions, balanceSnapshots } from '@chainward/db';
 import type { Database } from '@chainward/db';
-import { spamFilter } from '../lib/spamFilter.js';
+import { spamFilter } from '@chainward/observatory';
 
 export class StatsService {
   constructor(private db: Database) {}

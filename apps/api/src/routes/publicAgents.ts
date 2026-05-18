@@ -5,7 +5,7 @@ import { agentRegistry, transactions } from '@chainward/db';
 import { getDb } from '../lib/db.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { spamFilter, spamExclusionSql } from '../lib/spamFilter.js';
+import { spamFilter, spamExclusionSql } from '@chainward/observatory';
 
 const walletParamSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
 
