@@ -10,6 +10,7 @@ COPY patches/ patches/
 COPY packages/indexer/package.json packages/indexer/
 COPY packages/common/package.json packages/common/
 COPY packages/db/package.json packages/db/
+COPY packages/observatory/package.json packages/observatory/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS build
@@ -18,6 +19,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/indexer/node_modules ./packages/indexer/node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
+COPY --from=deps /app/packages/observatory/node_modules ./packages/observatory/node_modules
 COPY . .
 RUN pnpm --filter @chainward/indexer build && \
     pnpm --filter @chainward/indexer deploy /prod --prod
