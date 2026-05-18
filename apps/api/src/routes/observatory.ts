@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { sql } from 'drizzle-orm';
-import { ObservatoryService } from '../services/observatoryService.js';
+import { ObservatoryService } from '@chainward/observatory';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
 import { rateLimit } from '../middleware/rateLimit.js';
