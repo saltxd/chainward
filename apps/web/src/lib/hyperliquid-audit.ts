@@ -10,7 +10,7 @@ export interface DegenAgent {
   tokenAddress: string;
   agentAddress: string;
   tokenSymbol: string;
-  owner: { walletAddress: string };
+  owner: { walletAddress: string } | null;
   performance: {
     totalRealizedPnl: number;
     holdingsValueUsd: number;
@@ -152,7 +152,7 @@ export async function getArenaAudit(topN = 30): Promise<AuditSnapshot> {
       tokenSymbol: a.tokenSymbol,
       agentAddress: a.agentAddress,
       tokenAddress: a.tokenAddress,
-      ownerAddress: a.owner.walletAddress,
+      ownerAddress: a.owner?.walletAddress ?? '',
       displayedAcct,
       displayedRealized: perf.totalRealizedPnl,
       displayedTrades: perf.totalTradeCount,
