@@ -66,7 +66,7 @@ async function postHL(body: object): Promise<unknown> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    next: { revalidate: 300 },
+    next: { revalidate: 60 },
   });
   if (!res.ok) throw new Error(`HL ${(body as { type?: string }).type}: HTTP ${res.status}`);
   return res.json();
