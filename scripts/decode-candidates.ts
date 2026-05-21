@@ -58,7 +58,7 @@ function readDecodedAgents(): Set<string> {
     if (!dir.isDirectory()) continue;
     const dirPath = join(deliverablesDir, dir.name);
     const candidates = readdirSync(dirPath).filter(
-      (f) => f.endsWith('.md') && !['publish-checklist.md', 'thread.md', 'findings.md'].includes(f),
+      (f) => f.endsWith('.md') && !['publish-checklist.md', 'thread.md', 'findings.md', 'architecture.md'].includes(f),
     );
     for (const file of candidates) {
       const content = readFileSync(join(dirPath, file), 'utf-8');
