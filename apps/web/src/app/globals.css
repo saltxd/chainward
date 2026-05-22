@@ -106,6 +106,7 @@ a,
   border: 1px solid var(--line);
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 0.9em;
+  overflow-wrap: anywhere;
 }
 
 .decode-prose blockquote {
@@ -138,6 +139,7 @@ a,
   padding: 0;
   border: none;
   font-size: 0.875rem;
+  overflow-wrap: normal;
 }
 
 .decode-prose hr {
