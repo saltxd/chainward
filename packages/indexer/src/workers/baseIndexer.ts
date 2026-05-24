@@ -133,7 +133,7 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
           direction: tx.direction,
           timestamp: tx.timestamp.toISOString(),
         },
-        { jobId: `alert:${tx.chain}:${tx.walletAddress}:${tx.txHash}` },
+        { jobId: `alert-${tx.chain}-${tx.walletAddress}-${tx.txHash}` },
       );
     } catch (err) {
       logger.error({ err, txHash: tx.txHash }, 'Failed to insert transaction');
