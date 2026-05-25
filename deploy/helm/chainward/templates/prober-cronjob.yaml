@@ -40,7 +40,12 @@ spec:
                       name: chainward-secrets
                       key: PROBER_DISCORD_WEBHOOK
                 - name: STALE_MINUTES_THRESHOLD
-                  value: "45"
+                  # 2026-04-19: bumped 15→45 for off-peak cadence (commit 188adc0).
+                  # 2026-05-24: 45 still false-fires during Sunday-evening troughs
+                  #   (24h tx profile observed: 3-31 tx/hr, multi-hour stretches
+                  #    at 3-5/hr → natural 45+ min gaps). Bumped 45→120; catches
+                  #    a real outage within ≤2h via 5-min CronJob cadence.
+                  value: "120"
                 - name: UNDELIVERED_THRESHOLD
                   value: "5"
               command:
@@ -60,13 +65,27 @@ spec:
                   CLAUDE_USER_ID="1484392008348074126"
                   CLAUDE_PING="<@${CLAUDE_USER_ID}>"
 
+                  # $1 title  $2 desc  $3 color  $4 content (default = ping)  $5 ping ("true"/"false")
+                  #
+                  # `content` is what the receiving bot can read via Discord's
+                  # fetch_messages (embeds aren't exposed). Always put a short
+                  # summary there so on-call triage doesn't require kubectl.
+                  #
+                  # `ping="false"` suppresses the push-notification by setting
+                  # allowed_mentions.parse=[] — used for RESOLVED messages so
+                  # they post for audit trail but don't wake anyone up.
                   send_discord() {
                     local title="$1" desc="$2" color="$3"
+                    local content="${4:-$CLAUDE_PING}" ping="${5:-true}"
+                    local mentions='{"users": ["'"$CLAUDE_USER_ID"'"]}'
+                    if [ "$ping" = "false" ]; then
+                      mentions='{"parse": []}'
+                    fi
                     curl -sf -X POST "$DISCORD_WEBHOOK" \
                       -H "Content-Type: application/json" \
                       -d "{
-                        \"content\": \"${CLAUDE_PING}\",
-                        \"allowed_mentions\": {\"users\": [\"${CLAUDE_USER_ID}\"]},
+                        \"content\": \"${content}\",
+                        \"allowed_mentions\": ${mentions},
                         \"embeds\": [{
                           \"title\": \"$title\",
                           \"description\": \"$desc\",
@@ -79,23 +98,25 @@ spec:
                   pq() { psql "$DATABASE_URL" -t -A -c "$1"; }
 
                   # Stateful alert helper. Transitions only; suppresses repeated fires + sends
-                  # a RESOLVED on recovery, both with a Claude_Dev ping so it mirrors Spidey Bot.
+                  # a RESOLVED on recovery. FIRED pings the user; RESOLVED is quiet (audit-trail only).
                   #
                   #   $1 = state key (e.g. indexer_stall_alerting)
                   #   $2 = current-condition boolean ("true" or "false")
-                  #   $3 = fire title        $4 = fire desc        $5 = fire color
-                  #   $6 = resolve title     $7 = resolve desc
+                  #   $3 = fire title    $4 = fire desc    $5 = fire color    $6 = fire content (one-liner shown in Discord content)
+                  #   $7 = resolve title $8 = resolve desc                    $9 = resolve content
                   alert_with_resolve() {
-                    local key="$1" firing="$2" f_title="$3" f_desc="$4" f_color="$5" r_title="$6" r_desc="$7"
+                    local key="$1" firing="$2"
+                    local f_title="$3" f_desc="$4" f_color="$5" f_content="$6"
+                    local r_title="$7" r_desc="$8" r_content="$9"
                     local prev
                     prev=$(pq "SELECT value FROM prober_state WHERE key = '$key';")
                     if [ "$firing" = "true" ] && [ "$prev" != "true" ]; then
-                      send_discord "$f_title" "$f_desc" "$f_color"
+                      send_discord "$f_title" "$f_desc" "$f_color" "$f_content" "true"
                       pq "INSERT INTO prober_state (key, value) VALUES ('$key', 'true')
                           ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = now();" >/dev/null
                       echo "FIRED: $key"
                     elif [ "$firing" = "false" ] && [ "$prev" = "true" ]; then
-                      send_discord "$r_title" "$r_desc" "$GREEN"
+                      send_discord "$r_title" "$r_desc" "$GREEN" "$r_content" "false"
                       pq "INSERT INTO prober_state (key, value) VALUES ('$key', 'false')
                           ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = now();" >/dev/null
                       echo "RESOLVED: $key"
@@ -121,7 +142,9 @@ spec:
                     send_discord \
                       "HIGH: Prober Query Failed" \
                       "psql returned non-numeric result. stale=\`${STALE_MINUTES}\` agents=\`${AGENT_COUNT}\`. DB unreachable or schema drift — watchdog is blind." \
-                      "$AMBER"
+                      "$AMBER" \
+                      "${CLAUDE_PING} ⚠️ Prober Query Failed: psql non-numeric (stale=${STALE_MINUTES} agents=${AGENT_COUNT}) — watchdog blind" \
+                      "true"
                     echo "FIRED: prober query malfunction"
                   else
                     STALL_FIRING="false"
@@ -134,8 +157,10 @@ spec:
                       "HIGH: Indexer Stall Detected" \
                       "${CLAUDE_PING} No new transactions indexed in ${STALE_MINUTES} minutes. ${AGENT_COUNT} registered agents. Check Alchemy webhook \`is_active\` and API/indexer pod logs." \
                       "$RED" \
+                      "${CLAUDE_PING} 🚨 Indexer Stall: ${STALE_MINUTES}min stale (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents" \
                       "RESOLVED: Indexer Stall" \
-                      "${CLAUDE_PING} Transactions flowing again. Current stale=${STALE_MINUTES}min (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents tracked. No action needed."
+                      "Transactions flowing again. Current stale=${STALE_MINUTES}min (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents tracked. No action needed." \
+                      "✅ Indexer Stall resolved: ${STALE_MINUTES}min stale, ${AGENT_COUNT} agents tracked"
                   fi
 
                   # ==============================
@@ -152,7 +177,9 @@ spec:
                     send_discord \
                       "HIGH: Prober Query Failed" \
                       "alert_events query returned non-numeric result: \`${UNDELIVERED}\`." \
-                      "$AMBER"
+                      "$AMBER" \
+                      "${CLAUDE_PING} ⚠️ Prober Query Failed (alert_events): non-numeric undelivered=${UNDELIVERED}" \
+                      "true"
                   else
                     DELIV_FIRING="false"
                     if [ "$UNDELIVERED" -gt "$UNDELIVERED_THRESHOLD" ]; then
@@ -164,8 +191,10 @@ spec:
                       "HIGH: Alert Delivery Failures" \
                       "${CLAUDE_PING} ${UNDELIVERED} undelivered alerts in the last hour. Check alert-deliver worker + notification channels." \
                       "$RED" \
+                      "${CLAUDE_PING} 🚨 Alert Delivery: ${UNDELIVERED} undelivered in 1h (threshold ${UNDELIVERED_THRESHOLD})" \
                       "RESOLVED: Alert Delivery" \
-                      "${CLAUDE_PING} Alert delivery recovered. Last hour undelivered=${UNDELIVERED} (threshold ${UNDELIVERED_THRESHOLD})."
+                      "Alert delivery recovered. Last hour undelivered=${UNDELIVERED} (threshold ${UNDELIVERED_THRESHOLD})." \
+                      "✅ Alert Delivery resolved: ${UNDELIVERED} undelivered in last hour"
                   fi
 
                   echo "prober tick complete. stale=${STALE_MINUTES}min agents=${AGENT_COUNT} undelivered=${UNDELIVERED}"
