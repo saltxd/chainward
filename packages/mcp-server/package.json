@@ -1,0 +1,41 @@
+{
+  "name": "@chainward/mcp-server",
+  "version": "0.1.0",
+  "description": "ChainWard MCP server — read-side intelligence on AI agents for Base, exposed as Model Context Protocol tools",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "chainward-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --shims",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "chainward",
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "base",
+    "onchain"
+  ],
+  "license": "MIT",
+  "homepage": "https://chainward.ai"
+}
