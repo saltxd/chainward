@@ -1,0 +1,315 @@
+{
+  "generatedAt": "2026-05-27T04:08:20.027Z",
+  "decodes": [
+    {
+      "slug": "bankr-hack-trace",
+      "title": "Bankr's 14-Wallet Hack: Decoded On-Chain",
+      "subtitle": "Two AI-mediated drains in 15 days, same root cause, no smart contract bug — when the 'wallet' is actually a service, social engineering the service drains every wallet at once.",
+      "date": "2026-05-21",
+      "url": "https://chainward.ai/decodes/bankr-hack-trace",
+      "addresses": [
+        "0x019d8eaa00e0dc19d78a917940ea3e0172e5949d",
+        "0xf60633d02690e2a15a54ab919925f3d038df163e",
+        "0x9fab8c51f911f0ba6dab64fd6e979bcf6424ce82",
+        "0x6fc7eb7da9379383efda4253e4f599bbc3a99afe",
+        "0xb1058c959987e3513600eb5b4fd82aeee2a0e4f9",
+        "0x3ec2156d4c0a9cbdab4a016633b7bcf6a8d68ea2",
+        "0xe8e476bdd78b0aa6669509ec8d3e1c542d5a686b",
+        "0x35ddfc1cf8835b3b1ea960d892a82963d3386d19",
+        "0x1361dd6975e8f2b6c6f5800bb5130b37977af091",
+        "0x50d2280441372486beecdd328c1854743ebacb07"
+      ]
+    },
+    {
+      "slug": "bridgekitty-on-chain",
+      "title": "BridgeKitty: 595 Daily Jobs, Zero On-Chain Footprint",
+      "subtitle": "A top-10 agent on the Virtuals ACP scan dashboard has never sent a transaction on Base — across two wallets, an owner address, and every endpoint we could query",
+      "date": "2026-05-16",
+      "url": "https://chainward.ai/decodes/bridgekitty-on-chain",
+      "addresses": [
+        "0xa40b7f0fbcb428d21c6383f621ebc702c16411be",
+        "0x4c3006438ef048e8a1e3afa1b38113b7501fad1c",
+        "0x44e7cb3f38abaf1a7448cf40bd7ee19e3678ecad",
+        "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0",
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+      ]
+    },
+    {
+      "slug": "opengradient-on-chain",
+      "title": "OpenGradient On-Chain Decode",
+      "subtitle": "$285M trending market cap, 12 days since launch, zero ACP jobs — where does the valuation come from?",
+      "date": "2026-05-03",
+      "url": "https://chainward.ai/decodes/opengradient-on-chain",
+      "addresses": [
+        "0x70434389e58f5afcf8e43b9eef066472af3044fb",
+        "0xfbc2051ae2265686a469421b2c5a2d5462fbf5eb",
+        "0xd714ef959dc071f3957f48819d0ce6e81af71939",
+        "0x2b75b90fb01e5fc87d4d263033841397b015ceeb",
+        "0x19861e1767bfd930b462b9412f1ca34b03b413a7",
+        "0x5715907d94aa5176764960a022dbe95f548d23cd",
+        "0xaad47ce76851a12bddbe38f05d7a3ff2d877a9ad",
+        "0x2f6ba6f4bba4d84f1c499b83b66435d8e94230f6",
+        "0xba4041ca429aeb4c680169abbef36b2165f2e408",
+        "0xacd4d6f4ea54045e4ca21e23ae423700d95aeaa2"
+      ]
+    },
+    {
+      "slug": "live-leaderboard-2026-04",
+      "title": "The Virtuals ACP Live Leaderboard",
+      "subtitle": "Re-ranked by last-7d on-chain activity, the top 10 looks nothing like the museum wall",
+      "date": "2026-04-30",
+      "url": "https://chainward.ai/decodes/live-leaderboard-2026-04",
+      "addresses": [
+        "0xe5b38f112b92ce8f2103edaba7e9a9842f12d5f6",
+        "0x98cb7e5ab8050043152d9953e29ce0e1de3ba0c1",
+        "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0",
+        "0xfc0df5bf16a427d5f261797fcc2a2e2578b7267b",
+        "0xd152f549545093347a162dce210e7293f1452150",
+        "0xa42cae963caaa4218c8f045d153b2172f2459319",
+        "0x5bb4b0c766e0d5d791d9403fc275c22064709f68",
+        "0x999a1b6033998a05f7e37e4bd471038df46624e1",
+        "0xfc9f1ff5ec524759c1dc8e0a6eba6c22805b9d8b",
+        "0xafd2eb8092c31229fcda9d5bdd1aff7deabe3d0b",
+        "0x0866eff721bc7d9c995188fdc6bbf1910e751849"
+      ]
+    },
+    {
+      "slug": "acp-leaderboard-audit",
+      "title": "The ACP Leaderboard Audit: What 'Last 7D' Actually Measures",
+      "subtitle": "A ChainWard analysis of the top 50 agents by aGDP reveals three distinct data quality patterns hiding behind one column",
+      "date": "2026-04-29",
+      "url": "https://chainward.ai/decodes/acp-leaderboard-audit",
+      "addresses": [
+        "0x4c111e27464e5eb01c848607ff82c0495b1a2195",
+        "0xd152f549545093347a162dce210e7293f1452150",
+        "0xfa31f55b07b9fa29ad909fa744b4f96cf8839457"
+      ]
+    },
+    {
+      "slug": "agdp-fdv-disconnect",
+      "title": "aGDP vs FDV: The Virtuals Disconnect",
+      "subtitle": "The top three ACP agents generated $406M in lifetime trading volume. Their tokens are worth $4M combined. Here's what the chain shows.",
+      "date": "2026-04-29",
+      "url": "https://chainward.ai/decodes/agdp-fdv-disconnect",
+      "addresses": []
+    },
+    {
+      "slug": "axelrod-on-chain",
+      "title": "Axelrod On-Chain Decode",
+      "subtitle": "$106.9M of swap volume, 41,515 jobs, and zero AXR burned eleven months after the buyback promise",
+      "date": "2026-04-28",
+      "url": "https://chainward.ai/decodes/axelrod-on-chain",
+      "addresses": [
+        "0xfda92df3da60dbe92a9d9fc98ae96d7e6d617a78",
+        "0xd4e2083974d467713ff9629ef3cd85bb81797ea8",
+        "0x999a1b6033998a05f7e37e4bd471038df46624e1",
+        "0x000000000000c5a9089039570dd36455b5c07383",
+        "0xffc60852775193e3b72758bac4f7c6e3050d82de",
+        "0x47296c5760e27813e41d8c09e1f7464c70cc1f5d",
+        "0xaa3189f41127a41e840caf2c1d467eb8ccf197d8",
+        "0xe06cf0e9e189539d22973fcbb2d62c39bf407072",
+        "0x58db197e91bc8cf1587f75850683e4bd0730e6bf",
+        "0x52af56e5811a3456981a09a704b20ba5da0dbf67",
+        "0x6d5df1d155d79279abd65a98815f7853c2b3a005",
+        "0xf706d49a839cdef08b10a46da1ac55bc986fe037",
+        "0x8e0253da409faf5918fe2a15979fd878f4495d0e",
+        "0x6f3c2a3ba9322f5b5d69c5513545062c4cad659d",
+        "0x9547e85f3016303a2996271314bde78b02021a28",
+        "0xc31cf1168b2f6745650d7b088774041a10d76d55"
+      ]
+    },
+    {
+      "slug": "aixbt-on-chain",
+      "title": "AIXBT On-Chain Decode",
+      "subtitle": "The most famous AI agent in crypto has earned $52.92 — and what its Apr 15 wallet activity can and cannot tell us",
+      "date": "2026-04-25",
+      "url": "https://chainward.ai/decodes/aixbt-on-chain",
+      "addresses": []
+    },
+    {
+      "slug": "wasabot",
+      "title": "Wasabot On-Chain Decode",
+      "subtitle": "$81.6M aGDP, $5.9K revenue — how the ACP dashboard structurally undercounts DeFi agent economics",
+      "date": "2026-04-13",
+      "url": "https://chainward.ai/decodes/wasabot",
+      "addresses": [
+        "0x5dfc180212204fff869d41faa9f1b430d2036f5d"
+      ]
+    },
+    {
+      "slug": "ethy-ai",
+      "title": "Ethy AI On-Chain Decode",
+      "subtitle": "What the #1 Virtuals Agent Looks Like On-Chain",
+      "date": "2026-04-05",
+      "url": "https://chainward.ai/decodes/ethy-ai",
+      "addresses": [
+        "0xfc9f1ff5ec524759c1dc8e0a6eba6c22805b9d8b"
+      ]
+    }
+  ],
+  "byAddress": {
+    "0x019d8eaa00e0dc19d78a917940ea3e0172e5949d": [
+      "bankr-hack-trace"
+    ],
+    "0xf60633d02690e2a15a54ab919925f3d038df163e": [
+      "bankr-hack-trace"
+    ],
+    "0x9fab8c51f911f0ba6dab64fd6e979bcf6424ce82": [
+      "bankr-hack-trace"
+    ],
+    "0x6fc7eb7da9379383efda4253e4f599bbc3a99afe": [
+      "bankr-hack-trace"
+    ],
+    "0xb1058c959987e3513600eb5b4fd82aeee2a0e4f9": [
+      "bankr-hack-trace"
+    ],
+    "0x3ec2156d4c0a9cbdab4a016633b7bcf6a8d68ea2": [
+      "bankr-hack-trace"
+    ],
+    "0xe8e476bdd78b0aa6669509ec8d3e1c542d5a686b": [
+      "bankr-hack-trace"
+    ],
+    "0x35ddfc1cf8835b3b1ea960d892a82963d3386d19": [
+      "bankr-hack-trace"
+    ],
+    "0x1361dd6975e8f2b6c6f5800bb5130b37977af091": [
+      "bankr-hack-trace"
+    ],
+    "0x50d2280441372486beecdd328c1854743ebacb07": [
+      "bankr-hack-trace"
+    ],
+    "0xa40b7f0fbcb428d21c6383f621ebc702c16411be": [
+      "bridgekitty-on-chain"
+    ],
+    "0x4c3006438ef048e8a1e3afa1b38113b7501fad1c": [
+      "bridgekitty-on-chain"
+    ],
+    "0x44e7cb3f38abaf1a7448cf40bd7ee19e3678ecad": [
+      "bridgekitty-on-chain"
+    ],
+    "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0": [
+      "bridgekitty-on-chain",
+      "live-leaderboard-2026-04"
+    ],
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": [
+      "bridgekitty-on-chain"
+    ],
+    "0x70434389e58f5afcf8e43b9eef066472af3044fb": [
+      "opengradient-on-chain"
+    ],
+    "0xfbc2051ae2265686a469421b2c5a2d5462fbf5eb": [
+      "opengradient-on-chain"
+    ],
+    "0xd714ef959dc071f3957f48819d0ce6e81af71939": [
+      "opengradient-on-chain"
+    ],
+    "0x2b75b90fb01e5fc87d4d263033841397b015ceeb": [
+      "opengradient-on-chain"
+    ],
+    "0x19861e1767bfd930b462b9412f1ca34b03b413a7": [
+      "opengradient-on-chain"
+    ],
+    "0x5715907d94aa5176764960a022dbe95f548d23cd": [
+      "opengradient-on-chain"
+    ],
+    "0xaad47ce76851a12bddbe38f05d7a3ff2d877a9ad": [
+      "opengradient-on-chain"
+    ],
+    "0x2f6ba6f4bba4d84f1c499b83b66435d8e94230f6": [
+      "opengradient-on-chain"
+    ],
+    "0xba4041ca429aeb4c680169abbef36b2165f2e408": [
+      "opengradient-on-chain"
+    ],
+    "0xacd4d6f4ea54045e4ca21e23ae423700d95aeaa2": [
+      "opengradient-on-chain"
+    ],
+    "0xe5b38f112b92ce8f2103edaba7e9a9842f12d5f6": [
+      "live-leaderboard-2026-04"
+    ],
+    "0x98cb7e5ab8050043152d9953e29ce0e1de3ba0c1": [
+      "live-leaderboard-2026-04"
+    ],
+    "0xfc0df5bf16a427d5f261797fcc2a2e2578b7267b": [
+      "live-leaderboard-2026-04"
+    ],
+    "0xd152f549545093347a162dce210e7293f1452150": [
+      "live-leaderboard-2026-04",
+      "acp-leaderboard-audit"
+    ],
+    "0xa42cae963caaa4218c8f045d153b2172f2459319": [
+      "live-leaderboard-2026-04"
+    ],
+    "0x5bb4b0c766e0d5d791d9403fc275c22064709f68": [
+      "live-leaderboard-2026-04"
+    ],
+    "0x999a1b6033998a05f7e37e4bd471038df46624e1": [
+      "live-leaderboard-2026-04",
+      "axelrod-on-chain"
+    ],
+    "0xfc9f1ff5ec524759c1dc8e0a6eba6c22805b9d8b": [
+      "live-leaderboard-2026-04",
+      "ethy-ai"
+    ],
+    "0xafd2eb8092c31229fcda9d5bdd1aff7deabe3d0b": [
+      "live-leaderboard-2026-04"
+    ],
+    "0x0866eff721bc7d9c995188fdc6bbf1910e751849": [
+      "live-leaderboard-2026-04"
+    ],
+    "0x4c111e27464e5eb01c848607ff82c0495b1a2195": [
+      "acp-leaderboard-audit"
+    ],
+    "0xfa31f55b07b9fa29ad909fa744b4f96cf8839457": [
+      "acp-leaderboard-audit"
+    ],
+    "0xfda92df3da60dbe92a9d9fc98ae96d7e6d617a78": [
+      "axelrod-on-chain"
+    ],
+    "0xd4e2083974d467713ff9629ef3cd85bb81797ea8": [
+      "axelrod-on-chain"
+    ],
+    "0x000000000000c5a9089039570dd36455b5c07383": [
+      "axelrod-on-chain"
+    ],
+    "0xffc60852775193e3b72758bac4f7c6e3050d82de": [
+      "axelrod-on-chain"
+    ],
+    "0x47296c5760e27813e41d8c09e1f7464c70cc1f5d": [
+      "axelrod-on-chain"
+    ],
+    "0xaa3189f41127a41e840caf2c1d467eb8ccf197d8": [
+      "axelrod-on-chain"
+    ],
+    "0xe06cf0e9e189539d22973fcbb2d62c39bf407072": [
+      "axelrod-on-chain"
+    ],
+    "0x58db197e91bc8cf1587f75850683e4bd0730e6bf": [
+      "axelrod-on-chain"
+    ],
+    "0x52af56e5811a3456981a09a704b20ba5da0dbf67": [
+      "axelrod-on-chain"
+    ],
+    "0x6d5df1d155d79279abd65a98815f7853c2b3a005": [
+      "axelrod-on-chain"
+    ],
+    "0xf706d49a839cdef08b10a46da1ac55bc986fe037": [
+      "axelrod-on-chain"
+    ],
+    "0x8e0253da409faf5918fe2a15979fd878f4495d0e": [
+      "axelrod-on-chain"
+    ],
+    "0x6f3c2a3ba9322f5b5d69c5513545062c4cad659d": [
+      "axelrod-on-chain"
+    ],
+    "0x9547e85f3016303a2996271314bde78b02021a28": [
+      "axelrod-on-chain"
+    ],
+    "0xc31cf1168b2f6745650d7b088774041a10d76d55": [
+      "axelrod-on-chain"
+    ],
+    "0x5dfc180212204fff869d41faa9f1b430d2036f5d": [
+      "wasabot"
+    ]
+  }
+}

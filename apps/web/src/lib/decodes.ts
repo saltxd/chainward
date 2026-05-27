@@ -7,6 +7,7 @@ export interface DecodeMeta {
   subtitle: string;
   date: string;
   slug: string;
+  draft?: boolean;
 }
 
 export interface DecodeContent {
@@ -38,7 +39,7 @@ export function getAllDecodes(): DecodeMeta[] {
     const raw = fs.readFileSync(mdPath, 'utf-8');
     const { data } = matter(raw);
 
-    if (data.title && data.slug && data.date) {
+    if (data.title && data.slug && data.date && data.draft !== true) {
       decodes.push({
         title: data.title,
         subtitle: data.subtitle ?? '',
@@ -64,7 +65,7 @@ export function getDecodeBySlug(slug: string): DecodeContent | null {
     const raw = fs.readFileSync(mdPath, 'utf-8');
     const { data, content } = matter(raw);
 
-    if (data.slug === slug) {
+    if (data.slug === slug && data.draft !== true) {
       return {
         meta: {
           title: data.title,

@@ -5,6 +5,7 @@ import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
+import { findDecodesForAddress } from '../lib/decodeManifest.js';
 import type { AppVariables } from '../types.js';
 
 let _service: ObservatoryService | null = null;
@@ -123,6 +124,68 @@ observatory.get('/economics/:wallet', async (c) => {
       // Combined P&L
       profit30d: revenue - gasCost,
       gasEfficiency: gasCost > 0 ? revenue / gasCost : null,
+    },
+  });
+});
+
+// Lightweight "is this a known agent?" lookup — combines our internal label,
+// ACP-known agents, and any published Decodes covering the address. Designed
+// for the MCP plugin and external integrators that just need a yes/no + label.
+observatory.get('/lookup/:wallet', async (c) => {
+  const wallet = c.req.param('wallet');
+
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+    return c.json({ success: false, error: 'Invalid wallet address format' }, 400);
+  }
+
+  const lower = wallet.toLowerCase();
+  const db = getDb();
+
+  const [registryRow, acpRow] = await Promise.all([
+    db.execute(sql`
+      SELECT wallet_address, agent_name, agent_framework, chain, is_public
+      FROM agent_registry
+      WHERE LOWER(wallet_address) = ${lower} AND is_public = true
+      LIMIT 1
+    `),
+    db.execute(sql`
+      SELECT wallet_address, name, symbol, role, twitter_handle, has_graduated
+      FROM acp_agent_data
+      WHERE LOWER(wallet_address) = ${lower}
+      LIMIT 1
+    `),
+  ]);
+
+  const registry = (registryRow as unknown as Array<Record<string, unknown>>)[0];
+  const acp = (acpRow as unknown as Array<Record<string, unknown>>)[0];
+  const decodes = findDecodesForAddress(lower);
+
+  const isKnown = Boolean(registry) || Boolean(acp);
+
+  return c.json({
+    success: true,
+    data: {
+      walletAddress: wallet,
+      isKnownAgent: isKnown,
+      sources: {
+        chainward: registry
+          ? {
+              name: registry.agent_name != null ? String(registry.agent_name) : null,
+              framework: registry.agent_framework != null ? String(registry.agent_framework) : null,
+              chain: registry.chain != null ? String(registry.chain) : 'base',
+            }
+          : null,
+        acp: acp
+          ? {
+              name: acp.name != null ? String(acp.name) : null,
+              symbol: acp.symbol != null ? String(acp.symbol) : null,
+              role: acp.role != null ? String(acp.role) : null,
+              twitterHandle: acp.twitter_handle != null ? String(acp.twitter_handle) : null,
+              hasGraduated: Boolean(acp.has_graduated),
+            }
+          : null,
+      },
+      decodes,
     },
   });
 });
