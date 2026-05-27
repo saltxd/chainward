@@ -49,7 +49,7 @@ Either way: huge fan of how the attribution suffix is implemented in account-sdk
 - Help debug other custom plugins that hit allowlist friction — we have a working pattern they can copy.
 
 **Fallback path if allowlist is a no:**
-- Standalone `@chainward/mcp-server` works today in Cursor/Claude Code/Claude Desktop/Codex. We ship that regardless. Then the allowlist conversation can happen later when there's user demand pressuring it.
+- Standalone `chainward-mcp-server` works today in Cursor/Claude Code/Claude Desktop/Codex. We ship that regardless. Then the allowlist conversation can happen later when there's user demand pressuring it.
 
 ---
 

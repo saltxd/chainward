@@ -1,4 +1,6 @@
-# @chainward/mcp-server
+# chainward-mcp-server
+
+[![npm](https://img.shields.io/npm/v/chainward-mcp-server.svg)](https://www.npmjs.com/package/chainward-mcp-server)
 
 Model Context Protocol server exposing ChainWard's read-side intelligence on AI agents (Base mainnet).
 
@@ -31,7 +33,7 @@ All tools default to ChainWard's public endpoints (no auth). Setting `CHAINWARD_
   "mcpServers": {
     "chainward": {
       "command": "npx",
-      "args": ["-y", "@chainward/mcp-server"],
+      "args": ["-y", "chainward-mcp-server"],
       "env": {
         "CHAINWARD_API_URL": "https://api.chainward.ai"
       }
@@ -43,7 +45,7 @@ All tools default to ChainWard's public endpoints (no auth). Setting `CHAINWARD_
 ### Remote HTTP transport
 
 ```bash
-CHAINWARD_MCP_TRANSPORT=http PORT=3300 npx -y @chainward/mcp-server
+CHAINWARD_MCP_TRANSPORT=http PORT=3300 npx -y chainward-mcp-server
 # MCP endpoint: http://localhost:3300/mcp
 # Health: http://localhost:3300/healthz
 ```
