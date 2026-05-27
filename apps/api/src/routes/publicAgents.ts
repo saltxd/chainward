@@ -6,6 +6,7 @@ import { getDb } from '../lib/db.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { spamFilter, spamExclusionSql } from '@chainward/observatory';
+import { findDecodesForAddress } from '../lib/decodeManifest.js';
 
 const walletParamSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
 
@@ -141,6 +142,7 @@ publicAgents.get('/:wallet', async (c) => {
       balanceHistory,
       gasHistory,
       recentTxs,
+      decodes: findDecodesForAddress(wallet),
     },
   });
 });
