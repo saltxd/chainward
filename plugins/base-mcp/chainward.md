@@ -13,7 +13,7 @@ ChainWard is the read-side intelligence layer for the AI-agent economy on Base. 
 
 **Fetching data:** the ChainWard API is not yet on the Base MCP `web_request` allowlist. Construct each request as a GET with all parameters in the path. If `web_request` rejects the host, fall back to whatever HTTP capability the harness exposes, or ask the user to paste the response into the chat.
 
-> **Alternative:** for shell-capable harnesses (Cursor, Claude Code, Codex, Claude Desktop), users can install `@chainward/mcp-server` as a sidecar MCP. That bypasses the `web_request` allowlist entirely and exposes the same tools natively. See `Pair with the standalone server` below.
+> **Alternative:** for shell-capable harnesses (Cursor, Claude Code, Codex, Claude Desktop), users can install `chainward-mcp-server` as a sidecar MCP. That bypasses the `web_request` allowlist entirely and exposes the same tools natively. See `Pair with the standalone server` below.
 
 **Supported chain:** Base mainnet (`8453` / `0x2105`). Agents on other chains are out of scope for v0.
 
@@ -165,7 +165,7 @@ For Cursor / Claude Desktop / Claude Code / Codex users, install ChainWard as a 
   "mcpServers": {
     "chainward": {
       "command": "npx",
-      "args": ["-y", "@chainward/mcp-server"]
+      "args": ["-y", "chainward-mcp-server"]
     }
   }
 }
@@ -200,5 +200,5 @@ This installs ChainWard's tools natively in the assistant, alongside Base MCP. R
 
 - ChainWard docs: https://chainward.ai/docs
 - Decodes (investigative reports): https://chainward.ai/decodes
-- Standalone MCP server: `npm i -g @chainward/mcp-server` — works in any MCP client
+- Standalone MCP server: `npm i -g chainward-mcp-server` — works in any MCP client
 - API key signup (only needed for write/authenticated endpoints, not covered by this plugin): https://chainward.ai

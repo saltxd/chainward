@@ -1,5 +1,5 @@
 {
-  "name": "@chainward/mcp-server",
+  "name": "chainward-mcp-server",
   "version": "0.1.0",
   "description": "ChainWard MCP server — read-side intelligence on AI agents for Base, exposed as Model Context Protocol tools",
   "type": "module",
@@ -7,6 +7,18 @@
   "types": "./dist/index.d.ts",
   "bin": {
     "chainward-mcp": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saltxd/chainward.git",
+    "directory": "packages/mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/saltxd/chainward/issues"
+  },
+  "author": "ChainWard",
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "dist",
