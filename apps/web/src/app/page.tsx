@@ -348,12 +348,12 @@ export default async function LandingPage() {
           flex-wrap: wrap;
           gap: 16px;
         }
-        .v2-landing-footer :global(a) {
+        .v2-landing-footer a {
           color: var(--fg-dim);
           text-decoration: none;
           transition: color 0.15s;
         }
-        .v2-landing-footer :global(a:hover) { color: var(--phosphor); }
+        .v2-landing-footer a:hover { color: var(--phosphor); }
         .v2-landing-footer-links {
           display: flex;
           gap: 20px;
