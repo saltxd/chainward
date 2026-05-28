@@ -155,6 +155,19 @@ body {
   }
 }
 
+/* Below ~640px the inline nav links don't fit alongside the brand + CTA on
+   a phone (5 links * 70px + 80px brand + 80px CTA ≈ 560px > 375px viewport).
+   Hide the inline link list and rely on brand + CTA — same pattern most
+   marketing sites use at this breakpoint. */
+@media (max-width: 640px) {
+  .v2-nav-links {
+    gap: 12px;
+  }
+  .v2-nav-link {
+    display: none;
+  }
+}
+
 /* ── SectionHead ──────────────────────────────────────────────────── */
 .v2-sh-head {
   display: flex;
@@ -490,7 +503,10 @@ body {
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
-    padding: 6px 16px;
+    /* Extra right padding so the trailing edge of the visible item
+       (typically `base.tip #46,xxx,xxx`) isn't flush against the viewport
+       edge — was causing the last digit to feel clipped on phones. */
+    padding: 6px 24px 6px 16px;
     gap: 14px;
   }
   .v2-ticker-item {
