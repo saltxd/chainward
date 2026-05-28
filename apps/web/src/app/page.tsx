@@ -212,6 +212,7 @@ export default async function LandingPage() {
           <div className="v2-landing-footer-links">
             <Link href="/base">observatory</Link>
             <Link href="/wallet">lookup</Link>
+            <Link href="/mcp">mcp</Link>
             <Link href="/docs">docs</Link>
             <a
               href="https://x.com/chainwardai"
