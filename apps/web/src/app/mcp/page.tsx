@@ -382,11 +382,71 @@ export default async function McpPage() {
           background: var(--bg-1);
         }
         .v2-mcp-ok { color: var(--phosphor); }
+        /* shared "final CTA" + footer styling — also used on the landing page */
+        .v2-landing-bottom {
+          border-top: 1px solid var(--line);
+          padding: 56px 0 80px;
+        }
+        .v2-landing-final {
+          border: 1px solid var(--line-2);
+          padding: 48px;
+          background:
+            radial-gradient(ellipse at 10% 0%, rgba(58, 167, 109, 0.06), transparent 60%),
+            var(--bg-1);
+          position: relative;
+        }
+        .v2-landing-final::before {
+          content: '$ cw mcp install';
+          position: absolute;
+          top: 14px;
+          left: 20px;
+          font-size: 11px;
+          color: var(--phosphor);
+          letter-spacing: 0.04em;
+        }
+        .v2-landing-final-title {
+          font-size: clamp(32px, 4.5vw, 56px);
+          line-height: 1.02;
+          margin-top: 24px;
+          max-width: 780px;
+        }
+        .v2-landing-final-sub {
+          margin-top: 16px;
+          color: var(--fg-dim);
+          max-width: 520px;
+          font-size: 13px;
+          line-height: 1.7;
+        }
+        .v2-landing-footer {
+          border-top: 1px solid var(--line);
+          padding: 24px 0 48px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 11px;
+          color: var(--muted);
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .v2-landing-footer a {
+          color: var(--fg-dim);
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+        .v2-landing-footer a:hover { color: var(--phosphor); }
+        .v2-landing-footer-links {
+          display: flex;
+          gap: 20px;
+        }
+
         @media (max-width: 480px) {
           .v2-mcp-hero { padding-top: 32px; padding-bottom: 28px; }
           .v2-mcp-section { padding: 40px 0; }
           .v2-mcp-meta { gap: 14px 18px; }
           .v2-mcp-row { padding: 12px 14px; font-size: 12px; }
+          .v2-landing-bottom { padding: 32px 0 56px; }
+          .v2-landing-final { padding: 32px 20px; }
+          .v2-landing-final::before { top: 10px; left: 16px; font-size: 10px; }
         }
       `}</style>
     </PageShell>
