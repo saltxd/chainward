@@ -31,6 +31,7 @@ const DEFAULT_LINKS: NavLink[] = [
   { href: '/hyperliquid', label: 'hyperliquid' },
   { href: '/decodes', label: 'decodes' },
   { href: '/wallet', label: 'lookup' },
+  { href: '/mcp', label: 'mcp' },
 ];
 
 export function NavBar({
