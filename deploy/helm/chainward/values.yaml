@@ -96,6 +96,10 @@ acpDecoder:
   telemetry:
     enabled: true
     otlpEndpoint: "http://phoenix-svc.observability.svc.cluster.local:4317"
+    # Phoenix auth is on, so OTLP ingestion needs a Bearer system API key.
+    # Secret created out-of-band (NOT helm-managed): kubectl -n chainward create
+    # secret generic phoenix-otlp --from-literal=PHOENIX_API_KEY=<phoenix-system-key>
+    apiKeySecret: phoenix-otlp
 
 # External secret name (created via kubectl, not managed by Helm)
 externalSecret: chainward-secrets

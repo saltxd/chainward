@@ -68,6 +68,16 @@ spec:
               value: "grpc"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.acpDecoder.telemetry.otlpEndpoint | quote }}
+            # Phoenix has auth enabled; OTLP ingestion needs a Bearer system key
+            # or it silently 401s every span. Header field MUST be lowercased
+            # ("authorization") for gRPC. Key lives in the phoenix-otlp secret.
+            - name: PHOENIX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.acpDecoder.telemetry.apiKeySecret }}
+                  key: PHOENIX_API_KEY
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: "authorization=Bearer $(PHOENIX_API_KEY)"
             {{- end }}
           resources:
             {{- toYaml .Values.acpDecoder.resources | nindent 12 }}
