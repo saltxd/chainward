@@ -50,6 +50,25 @@ spec:
               value: {{ .Values.acpDecoder.sentinelRpc | quote }}
             - name: ACP_FEE_USDC
               value: {{ .Values.acpDecoder.feeUsdc | quote }}
+            {{- if .Values.acpDecoder.telemetry.enabled }}
+            # OpenTelemetry traces → self-hosted Phoenix only (in-cluster OTLP).
+            # NOT Anthropic. Content (prompts/tool I/O) deliberately NOT captured:
+            # no OTEL_LOG_USER_PROMPTS / OTEL_LOG_TOOL_CONTENT — those default to redacted.
+            - name: CLAUDE_CODE_ENABLE_TELEMETRY
+              value: "1"
+            - name: CLAUDE_CODE_ENHANCED_TELEMETRY_BETA
+              value: "1"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_METRICS_EXPORTER
+              value: "otlp"
+            - name: OTEL_LOGS_EXPORTER
+              value: "otlp"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.acpDecoder.telemetry.otlpEndpoint | quote }}
+            {{- end }}
           resources:
             {{- toYaml .Values.acpDecoder.resources | nindent 12 }}
 {{- end }}
