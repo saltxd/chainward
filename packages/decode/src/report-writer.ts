@@ -68,19 +68,50 @@ export async function writeReport(
   }
 }
 
+/**
+ * Telemetry env vars forwarded to the `claude` subprocess so it can export
+ * OpenTelemetry traces to the self-hosted Phoenix collector. Explicit allowlist
+ * (not an `OTEL_*` glob) so a future secret accidentally given an OTEL_ prefix
+ * can never slip through. `OTEL_EXPORTER_OTLP_HEADERS` carries the Phoenix Bearer
+ * ingestion key — a trace-ingestion key, not a wallet/DB secret.
+ */
+export const FORWARDED_TELEMETRY_VARS = [
+  'CLAUDE_CODE_ENABLE_TELEMETRY',
+  'CLAUDE_CODE_ENHANCED_TELEMETRY_BETA',
+  'OTEL_TRACES_EXPORTER',
+  'OTEL_METRICS_EXPORTER',
+  'OTEL_LOGS_EXPORTER',
+  'OTEL_EXPORTER_OTLP_PROTOCOL',
+  'OTEL_EXPORTER_OTLP_ENDPOINT',
+  'OTEL_EXPORTER_OTLP_HEADERS',
+  'OTEL_RESOURCE_ATTRIBUTES',
+] as const;
+
+/**
+ * Build the restricted environment for the spawned `claude --print`. The pod
+ * holds the signer private key, DB password, Privy creds, etc. in `process.env`
+ * — none of those may leak into a subprocess that a hostile prompt could trick
+ * into echoing. Only HOME/PATH, the Claude OAuth token, and the telemetry
+ * allowlist are forwarded. Exported + pure for unit testing.
+ */
+export function buildClaudeEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    HOME: source.HOME ?? '/root',
+    PATH: source.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+  };
+  if (source.CLAUDE_CODE_OAUTH_TOKEN) {
+    env.CLAUDE_CODE_OAUTH_TOKEN = source.CLAUDE_CODE_OAUTH_TOKEN;
+  }
+  for (const key of FORWARDED_TELEMETRY_VARS) {
+    const v = source[key];
+    if (v) env[key] = v;
+  }
+  return env;
+}
+
 async function runClaudePrint(prompt: string, timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Pass only the env the CLI needs. The pod has the signer private key, DB
-    // password, Privy creds, etc. in process.env — we don't want any of those
-    // leaking into a subprocess that could be tricked into echoing them via
-    // a hostile prompt.
-    const restrictedEnv: NodeJS.ProcessEnv = {
-      HOME: process.env.HOME ?? '/root',
-      PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
-    };
-    if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-      restrictedEnv.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    }
+    const restrictedEnv = buildClaudeEnv();
 
     const child = spawn('claude', ['--print'], {
       env: restrictedEnv,
