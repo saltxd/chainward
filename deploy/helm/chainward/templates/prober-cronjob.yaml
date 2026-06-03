@@ -13,7 +13,13 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 120
+      # 2026-06-02: 120→240 so the in-script DB-readiness retry (≤~120s, see the
+      # prober command below) fits alongside normal work inside a single */5
+      # window. 240 < 300s schedule and concurrencyPolicy=Forbid prevents overlap.
+      activeDeadlineSeconds: 240
+      # Kept at 0 deliberately: the in-script DB-readiness gate handles transient
+      # postgres blips. A pod-level retry would re-run `apk add` from scratch and
+      # risk blowing the deadline; in-script retry is cheaper and more precise.
       backoffLimit: 0
       template:
         spec:
@@ -122,6 +128,43 @@ spec:
                       echo "RESOLVED: $key"
                     fi
                   }
+
+                  # ==============================
+                  # DB readiness gate (added 2026-06-02)
+                  # ==============================
+                  # Tolerate brief postgres unavailability — e.g. a ~60-120s
+                  # StatefulSet restart / Longhorn volume re-attach — instead of
+                  # crashing the tick. Without this, `set -e` + the first bare
+                  # psql below turns a routine DB restart into a pod Error ->
+                  # KubeJobFailed page (observed 3x on 2026-06-02, each a
+                  # self-healing transient). A *sustained* outage still alerts
+                  # loudly via the AMBER path below — and now actually reaches it:
+                  # a bare `set -e` crash on connection-refused never did, because
+                  # it aborted before the existing non-numeric check could fire.
+                  DB_WAIT_ATTEMPTS=8      # x DB_WAIT_INTERVAL ~= up to 120s, inside activeDeadlineSeconds=240
+                  DB_WAIT_INTERVAL=15
+                  attempt=1
+                  until psql "$DATABASE_URL" -tAc 'SELECT 1' >/dev/null 2>&1; do
+                    if [ "$attempt" -ge "$DB_WAIT_ATTEMPTS" ]; then
+                      waited=$(( DB_WAIT_ATTEMPTS * DB_WAIT_INTERVAL ))
+                      if send_discord \
+                          "HIGH: Prober DB Unreachable" \
+                          "postgres refused connections for ~${waited}s (${DB_WAIT_ATTEMPTS} attempts). DB down or restarting too long — watchdog blind until it recovers." \
+                          "$AMBER" \
+                          "${CLAUDE_PING} ⚠️ Prober: postgres unreachable after ${DB_WAIT_ATTEMPTS} attempts (~${waited}s) — watchdog blind" \
+                          "true"; then
+                        echo "prober: DB unreachable after ${DB_WAIT_ATTEMPTS} attempts — AMBER sent, exiting 0 to avoid duplicate KubeJobFailed noise"
+                        exit 0
+                      fi
+                      # Alert delivery itself failed → don't fail silent; let the
+                      # job fail so KubeJobFailed fires as a last-resort backstop.
+                      echo "prober: DB unreachable AND Discord webhook failed — exiting 1 as backstop"
+                      exit 1
+                    fi
+                    echo "prober: postgres not ready (attempt ${attempt}/${DB_WAIT_ATTEMPTS}), retrying in ${DB_WAIT_INTERVAL}s..."
+                    attempt=$(( attempt + 1 ))
+                    sleep "$DB_WAIT_INTERVAL"
+                  done
 
                   # ==============================
                   # Check 1: indexer stall
