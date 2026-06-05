@@ -16,6 +16,7 @@ async function main(): Promise<void> {
   const SCOUT_WEBHOOK = requireEnv('SCOUT_DISCORD_WEBHOOK');
   const OPS_WEBHOOK = requireEnv('OPS_DISCORD_WEBHOOK');
   const deliverablesDir = process.env.DELIVERABLES_DIR ?? join(process.cwd(), 'deliverables');
+  const dryRun = !!process.env.SCOUT_DRY_RUN;
 
   const db = createDb(DATABASE_URL);
   let rows;
@@ -71,8 +72,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await recordSurfaced(db, top.row.walletAddress, `${top.row.name.toLowerCase().replace(/\s+/g, '-')}-on-chain`);
-  console.log(`[scout] surfaced ${top.row.name} (${top.row.walletAddress}); juice=${top.score.juice.toFixed(3)}`);
+  if (dryRun) {
+    console.log(`[scout] DRY RUN — skipping recordSurfaced for ${top.row.name} (${top.row.walletAddress})`);
+  } else {
+    await recordSurfaced(db, top.row.walletAddress, `${top.row.name.toLowerCase().replace(/\s+/g, '-')}-on-chain`);
+  }
+  console.log(`[scout] ${dryRun ? '[dry-run] would surface' : 'surfaced'} ${top.row.name} (${top.row.walletAddress}); juice=${top.score.juice.toFixed(3)}`);
 }
 
 main()
