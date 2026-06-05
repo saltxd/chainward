@@ -28,5 +28,6 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /prod .
+COPY --from=build /app/deliverables ./deliverables
 
 CMD ["node", "dist/index.js"]

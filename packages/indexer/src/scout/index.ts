@@ -32,6 +32,10 @@ async function main(): Promise<void> {
   }
 
   const decoded = recoverDecodedNames(readDeliverables(deliverablesDir));
+  if (MALFUNCTION.noDecodedNames(decoded)) {
+    await postDiscord(OPS_WEBHOOK, renderFailure('dedup', `no decoded names recovered from ${deliverablesDir} — deliverables missing/unmounted; refusing to risk re-surfacing decoded agents`));
+    process.exit(1);
+  }
   const cooled = await recentlySurfaced(db, 4);
 
   const ranked = rows
