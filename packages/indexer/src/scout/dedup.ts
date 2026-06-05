@@ -23,6 +23,21 @@ export function recoverDecodedNames(files: DeliverableFile[]): Set<string> {
   return names;
 }
 
+/** Recover wallet addresses covered in PUBLISHED decode articles (decode.md only).
+ * Catches agents covered INSIDE a multi-agent decode (e.g. a leaderboard table) that
+ * recoverDecodedNames can't see. Restricted to decode.md so counterparty/identity-chain
+ * addresses in deep-analysis files don't over-exclude future candidates. Lowercased. */
+export function recoverDecodedAddresses(files: DeliverableFile[]): Set<string> {
+  const addrs = new Set<string>();
+  for (const f of files) {
+    if (f.file !== 'decode.md') continue;
+    const matches = f.content.match(/0x[a-fA-F0-9]{40}/g);
+    if (!matches) continue;
+    for (const m of matches) addrs.add(m.toLowerCase());
+  }
+  return addrs;
+}
+
 /** Read the deliverables dir from disk into DeliverableFile[]. */
 export function readDeliverables(deliverablesDir: string): DeliverableFile[] {
   if (!existsSync(deliverablesDir)) return [];
