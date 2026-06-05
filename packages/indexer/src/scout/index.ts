@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { createDb } from '@chainward/db';
 import { fetchCandidates, MALFUNCTION } from './detect.js';
 import { scoreCandidate } from './scoring.js';
-import { readDeliverables, recoverDecodedNames, isDecoded, recentlySurfaced, recordSurfaced } from './dedup.js';
+import { readDeliverables, recoverDecodedNames, recoverDecodedAddresses, isDecoded, recentlySurfaced, recordSurfaced } from './dedup.js';
 import { renderCandidate, renderHeartbeat, renderFailure, postDiscord } from './ping.js';
 
 function requireEnv(name: string): string {
@@ -32,7 +32,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const decoded = recoverDecodedNames(readDeliverables(deliverablesDir));
+  const deliverableFiles = readDeliverables(deliverablesDir);
+  const decoded = recoverDecodedNames(deliverableFiles);
+  const decodedAddresses = recoverDecodedAddresses(deliverableFiles);
   if (MALFUNCTION.noDecodedNames(decoded)) {
     await postDiscord(OPS_WEBHOOK, renderFailure('dedup', `no decoded names recovered from ${deliverablesDir} — deliverables missing/unmounted; refusing to risk re-surfacing decoded agents`));
     process.exit(1);
@@ -45,6 +47,7 @@ async function main(): Promise<void> {
       !score.belowFloor &&
       score.juice > 0 &&
       !isDecoded(row.name, decoded) &&
+      !decodedAddresses.has(row.walletAddress.toLowerCase()) &&
       !cooled.has(row.walletAddress.toLowerCase()))
     .sort((a, b) => b.score.juice - a.score.juice);
 
