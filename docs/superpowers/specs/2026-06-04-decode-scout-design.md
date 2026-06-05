@@ -1,7 +1,7 @@
 # Decode Scout — Design Spec
 
 **Date:** 2026-06-04
-**Status:** Design (awaiting user review → implementation plan)
+**Status:** APPROVED — proceeding to implementation plan
 **Author:** brainstormed with Claude
 
 ## Problem
@@ -119,13 +119,16 @@ Everything shares ONE Claude subscription quota with: 4 existing cron agents (cu
 
 It's pull-shaped (no added notification load), weaponizes machinery already built (Auto-Decode, observatory, cw-sentinel), executes the written P2 strategy on autopilot, costs ~nothing in quota, and keeps the human as the one-tap gate on the only expensive + reputation-bearing step. Detection (the new value) is free and runs on ChainWard's own data + node.
 
-## Open questions for user review
+## Resolved decisions (user approved 2026-06-04 — "your call on all")
 
-1. **Host: K3s CronJob (Curator pattern) vs sg-scribe systemd timer?** The detector needs ChainWard DB + observatory access. Auto-Decode already lives on sg-scribe (has the DB env, the pipeline, Claude_Dev). Leaning **sg-scribe systemd timer** for proximity to the pipeline + DB, matching how Auto-Decode is hosted — but K3s is the cleaner Curator pattern. Which?
-2. **cw-sentinel-down behavior:** fall back to public RPC for pre-verify, or skip-and-caveat?
-3. **Dedup window N:** never re-surface a decoded agent (permanent), plus a cooldown of how many weeks for *surfaced-but-not-shipped* candidates? (Proposed: decoded = permanent skip; surfaced-not-shipped = 4-week cooldown.)
-4. **Anomaly thresholds:** start with aGDP/revenue ratio + dormant-but-hyped (data we have today), add supply-mismatch later when that data is reliably populated? Or block on all three?
-5. **Candidate channel:** dedicated `#decode-scout` channel, or reuse the daily-ops webhook? (Dedicated = grep-able, recommended.)
+1. **Host → K3s CronJob in the `chainward` namespace** (Curator pattern). Direct in-cluster access to ChainWard's Postgres + observatory API; Phoenix-traceable; inherits the fleet's reliability conventions (`pullPolicy: Always`, OTel telemetry block, GHCR Actions-access). The scout does NOT run the pipeline — it only reads data + posts to Discord — so it needs nothing sg-scribe-local. Ship trigger stays on sg-scribe via Claude_Dev (unchanged).
+2. **cw-sentinel down → fall back to public `https://mainnet.base.org`** (same as the decoder's `sentinelRpc` default) and stamp the proof line with which RPC was used (`source: cw-sentinel` | `source: public-rpc`). No skip — same chain, scout stays alive during sentinel maintenance.
+3. **Dedup → decoded = permanent skip; surfaced-but-not-shipped = 4-week cooldown.** Decoded detection = presence of `deliverables/<slug>/`. Surfaced candidates tracked in `scout-state.json` with a `surfaced_at` timestamp.
+4. **Thresholds → ship with aGDP/revenue-gap + dormant-but-hyped** (both computable from data we have today: `acpData.totalAgdp/totalRevenue`, `dailyAgentHealth.score`, holder/wallet counts). Supply-mismatch (AIXBT pattern) is a documented FUTURE signal — added once supply data is reliably populated; NOT a blocker for v1.
+5. **Channel → dedicated `#decode-scout` webhook** via `SCOUT_DISCORD_WEBHOOK` env var; falls back to the daily-ops webhook if unset. **User setup step:** create the Discord channel + webhook and add `SCOUT_DISCORD_WEBHOOK` to the scout's secret (can't be automated — Discord webhooks are created in the Discord UI). Not a build blocker.
+
+### Approval-handshake clarification (no new code)
+Claude_Dev's primary surface is DM + #alerts-with-@mention; it already handles `decode @<handle>`. The scout's ping includes the **exact ready-to-send command** (`decode @<handle>`). User approves by sending that command to Claude_Dev (DM or @mention) — which is the existing, unchanged trigger. The scout needs ZERO Claude_Dev modifications and no reaction-listener.
 
 ## Related
 
