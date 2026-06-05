@@ -44,4 +44,29 @@ describe('scoreCandidate — aGDP/revenue gap (NULL-safe)', () => {
     const hi = scoreCandidate({ ...base, name: 'Hi', grossAgenticAmount: 1_000_000, revenue: 5000, uniqueBuyerCount: 1000 });
     expect(hi.juice).toBeGreaterThan(lo.juice);
   });
+
+  it('treats NEGATIVE revenue as unmeasurable (no NaN)', () => {
+    const r = scoreCandidate({ ...base, name: 'Refunded', grossAgenticAmount: 1_000_000, revenue: -50, uniqueBuyerCount: 100 });
+    expect(r.gapBucket).toBe('unmeasurable');
+    expect(Number.isNaN(r.anomaly)).toBe(false);
+    expect(Number.isNaN(r.juice)).toBe(false);
+    expect(r.juice).toBeGreaterThan(0);
+  });
+
+  it('explicit revenue: 0 behaves like null (unmeasurable)', () => {
+    const r = scoreCandidate({ ...base, name: 'ZeroRev', grossAgenticAmount: 1_000_000, revenue: 0, uniqueBuyerCount: 100 });
+    expect(r.gapBucket).toBe('unmeasurable');
+  });
+
+  it('null grossAgenticAmount floors out (treated as 0)', () => {
+    const r = scoreCandidate({ ...base, grossAgenticAmount: null, revenue: 1000 });
+    expect(r.belowFloor).toBe(true);
+    expect(r.juice).toBe(0);
+  });
+
+  it('null uniqueBuyerCount on a scoreable row → reach 0, no NaN', () => {
+    const r = scoreCandidate({ ...base, name: 'NoBuyers', grossAgenticAmount: 1_000_000, revenue: 5000, uniqueBuyerCount: null });
+    expect(r.reach).toBe(0);
+    expect(Number.isNaN(r.juice)).toBe(false);
+  });
 });

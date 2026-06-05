@@ -33,6 +33,7 @@ export function scoreCandidate(a: AgentRow): ScoreResult {
   const buyers = a.uniqueBuyerCount ?? 0;
   const capFlag = Math.abs(agdp - AGDP_CAP) < 0.011;
 
+  // Exclusive floor: aGDP strictly below $5k is noise; exactly $5k scores.
   if (agdp < AGDP_FLOOR) {
     return { anomaly: 0, reach: buyers, juice: 0, ratio: null, gapBucket: 'none', belowFloor: true, capFlag, proof: '' };
   }
@@ -41,7 +42,7 @@ export function scoreCandidate(a: AgentRow): ScoreResult {
   let ratio: number | null = null;
   let gapBucket: ScoreResult['gapBucket'] = 'none';
 
-  if (rev === null || rev === 0) {
+  if (rev === null || rev <= 0) {
     gapBucket = 'unmeasurable';
     anomaly = Math.min(Math.log10(agdp + 1) / 9, 1);
   } else if (rev >= agdp) {
@@ -65,4 +66,5 @@ export function scoreCandidate(a: AgentRow): ScoreResult {
   return { anomaly, reach: buyers, juice, ratio, gapBucket, belowFloor: false, capFlag, proof };
 }
 
+// RATIO_ALERT is a downstream display/label threshold for callers, not used in scoring math here.
 export const SCOUT_THRESHOLDS = { AGDP_FLOOR, AGDP_CAP, RATIO_ALERT };
