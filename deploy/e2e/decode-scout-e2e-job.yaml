@@ -1,0 +1,59 @@
+# Decode Scout — e2e dry-run Job (NOT a Helm template; apply manually, post-merge).
+#
+# Purpose: validate the live scout end-to-end against the REAL chainward DB without
+# any side effects — SCOUT_DRY_RUN=1 skips the scout_surfaced write, so it won't bury
+# the top candidate behind the 4-week cooldown. Posts go to a TEST webhook you paste
+# below, so #decode-scout is never spammed.
+#
+# Prereqs:
+#   1. feat/decode-scout merged to main → CI has pushed ghcr.io/saltxd/chainward-indexer:latest
+#      (pin a :<sha> tag instead of :latest if you want determinism).
+#   2. Migration 0015 applied (scout_surfaced table exists) — the dry run reads recentlySurfaced().
+#      (./deploy/deploy.sh --migrate-only)
+#
+# Run:
+#   1. Replace <PASTE-TEST-DISCORD-WEBHOOK> below with a throwaway Discord webhook URL.
+#   2. kubectl -n chainward apply -f deploy/e2e/decode-scout-e2e-job.yaml
+#   3. kubectl -n chainward logs job/decode-scout-e2e -f
+#
+# Expect in logs: a heartbeat line, a "[dry-run] would surface <name> ... juice=..." line,
+# and the rendered candidate posted to your TEST webhook (verify the `decode 0x…` block +
+# that an already-decoded flagship like aixbt is NOT the pick — dedup excluded it).
+#
+# Cleanup: kubectl -n chainward delete job decode-scout-e2e   (or rely on ttlSecondsAfterFinished)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: decode-scout-e2e
+  namespace: chainward
+  labels:
+    app.kubernetes.io/name: chainward
+    app.kubernetes.io/component: decode-scout-e2e
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: decode-scout-e2e
+          image: ghcr.io/saltxd/chainward-indexer:latest
+          imagePullPolicy: Always
+          command: ["node", "dist/scout/index.js"]
+          env:
+            - name: SCOUT_DRY_RUN
+              value: "1"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chainward-secrets
+                  key: DATABASE_URL
+            # Both webhooks point at your THROWAWAY test channel for the dry run —
+            # do NOT use the real #decode-scout / ops webhooks here.
+            - name: SCOUT_DISCORD_WEBHOOK
+              value: "<PASTE-TEST-DISCORD-WEBHOOK>"
+            - name: OPS_DISCORD_WEBHOOK
+              value: "<PASTE-TEST-DISCORD-WEBHOOK>"
