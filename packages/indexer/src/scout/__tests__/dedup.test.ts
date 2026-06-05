@@ -1,6 +1,6 @@
 // packages/indexer/src/scout/__tests__/dedup.test.ts
 import { describe, it, expect } from 'vitest';
-import { recoverDecodedNames, isDecoded, recoverDecodedAddresses } from '../dedup.js';
+import { recoverDecodedNames, isDecoded, recoverDecodedAddresses, decodeBodyText, isCoveredByName } from '../dedup.js';
 
 describe('dedup — decoded-name recovery from frontmatter (NOT slugify-dirname)', () => {
   it('recovers agent name token from a frontmatter title, stripping decode suffixes', () => {
@@ -83,5 +83,52 @@ describe('dedup — address recovery from PUBLISHED decode articles (decode.md o
       },
     ]);
     expect(addrs.has(candidateWallet.toLowerCase())).toBe(true);
+  });
+
+  it('also extracts addresses from publish-checklist.md, lowercased', () => {
+    const addrs = recoverDecodedAddresses([
+      {
+        dir: 'acp-leaderboard-audit',
+        file: 'publish-checklist.md',
+        content: '- [ ] verify Degen Claw 0xd478a8B40372db16cA8045F28C6FE07228F3781A',
+      },
+    ]);
+    expect(addrs.has('0xd478a8b40372db16ca8045f28c6fe07228f3781a')).toBe(true);
+  });
+
+  it('regression: Degen Claw full address (only in publish-checklist.md) is treated as covered', () => {
+    const candidateWallet = '0xd478a8B40372db16cA8045F28C6FE07228F3781A';
+    const addrs = recoverDecodedAddresses([
+      { dir: 'acp-leaderboard-audit', file: 'decode.md', content: 'Finding 5: Degen Claw revenue anomaly (0xd478...781A)' },
+      { dir: 'acp-leaderboard-audit', file: 'publish-checklist.md', content: 'full: 0xd478a8B40372db16cA8045F28C6FE07228F3781A' },
+    ]);
+    expect(addrs.has(candidateWallet.toLowerCase())).toBe(true);
+  });
+});
+
+describe('dedup — name-in-body coverage for multi-agent decodes', () => {
+  it('decodeBodyText only includes decode.md, lowercased, checklist excluded', () => {
+    const text = decodeBodyText([
+      { dir: 'a', file: 'decode.md', content: 'Hello World' },
+      { dir: 'a', file: 'publish-checklist.md', content: 'Secret' },
+    ]);
+    expect(text).toBe('hello world');
+  });
+
+  it('isCoveredByName matches a distinctive name appearing in a decode body', () => {
+    expect(isCoveredByName('Degen Claw', 'finding 5: the degen claw revenue anomaly')).toBe(true);
+  });
+
+  it('isCoveredByName returns false when the name is absent', () => {
+    expect(isCoveredByName('Degen Claw', 'no mention here')).toBe(false);
+  });
+
+  it('isCoveredByName requires a whole-word match (prefix does not count)', () => {
+    expect(isCoveredByName('Capmin', 'see capminal stats')).toBe(false);
+    expect(isCoveredByName('Capmin', 'the capmin agent')).toBe(true);
+  });
+
+  it('isCoveredByName ignores short generic names (<5 chars)', () => {
+    expect(isCoveredByName('AI', 'ai everywhere ai')).toBe(false);
   });
 });
