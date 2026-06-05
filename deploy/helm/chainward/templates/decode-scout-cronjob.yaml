@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: decode-scout
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: chainward
+    app.kubernetes.io/component: decode-scout
+spec:
+  schedule: "0 8 * * 1"            # Mon 08:00 — away from the 04-05/10:00 cron cluster
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 200
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 600
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: decode-scout
+              image: {{ .Values.images.indexer }}
+              imagePullPolicy: Always
+              command: ["node", "dist/scout/index.js"]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: chainward-secrets
+                      key: DATABASE_URL
+                - name: SCOUT_DISCORD_WEBHOOK
+                  valueFrom:
+                    secretKeyRef:
+                      name: chainward-secrets
+                      key: SCOUT_DISCORD_WEBHOOK
+                - name: OPS_DISCORD_WEBHOOK
+                  valueFrom:
+                    secretKeyRef:
+                      name: chainward-secrets
+                      key: PROBER_DISCORD_WEBHOOK   # reuse existing daily-ops webhook (no new secret value needed)
