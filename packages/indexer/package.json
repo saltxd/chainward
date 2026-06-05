@@ -10,7 +10,9 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "test": "vitest run"
+    "test": "vitest run",
+    "scout:run": "node dist/scout/index.js",
+    "scout:dev": "tsx src/scout/index.ts"
   },
   "dependencies": {
     "@chainward/common": "workspace:*",
