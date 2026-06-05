@@ -45,11 +45,19 @@ spec:
               command: ["pg_isready", "-U", "{{ .Values.postgres.user }}"]
             initialDelaySeconds: 5
             periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 6
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", "{{ .Values.postgres.user }}"]
             initialDelaySeconds: 30
             periodSeconds: 10
+            # timeoutSeconds default is 1s — too tight when wt-k3s-worker is CPU-starved
+            # by the co-located media stack (~04:00-05:00 spikes). 10s timeout + 6 failures
+            # (=60s grace) stops kubelet from killing a briefly-slow-but-healthy DB → no
+            # crashloop cascade (ChainWardCrashLoopBackOff / PodRestarts / prober KubeJobFailed).
+            timeoutSeconds: 10
+            failureThreshold: 6
           resources:
             requests:
               cpu: 100m
