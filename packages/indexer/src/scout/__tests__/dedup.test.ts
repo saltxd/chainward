@@ -128,7 +128,18 @@ describe('dedup — name-in-body coverage for multi-agent decodes', () => {
     expect(isCoveredByName('Capmin', 'the capmin agent')).toBe(true);
   });
 
-  it('isCoveredByName ignores short generic names (<5 chars)', () => {
+  it('isCoveredByName ignores names shorter than 4 chars', () => {
     expect(isCoveredByName('AI', 'ai everywhere ai')).toBe(false);
+    expect(isCoveredByName('Owl', 'a wise owl appears')).toBe(false);
+  });
+
+  it('isCoveredByName catches a 4-char agent named in a no-token list (the Luvi case)', () => {
+    const body = '- **6 agents** have no tokenaddress at all (otto ai, butlerliquid, degen claw, test_owl, betty, luvi)';
+    expect(isCoveredByName('Luvi', body)).toBe(true);
+  });
+
+  it('isCoveredByName underscore boundary: "test" does NOT match inside "test_owl"', () => {
+    expect(isCoveredByName('test', 'the test_owl agent runs nightly')).toBe(false);
+    expect(isCoveredByName('test', 'this is a test of the system')).toBe(true);
   });
 });
