@@ -773,7 +773,7 @@ spec:
                   valueFrom:
                     secretKeyRef:
                       name: chainward-secrets
-                      key: OPS_DISCORD_WEBHOOK
+                      key: PROBER_DISCORD_WEBHOOK   # reuse existing daily-ops webhook (no new secret value needed)
 ```
 
 NOTE: the image must contain `/app/deliverables`. Verify the indexer Dockerfile's `COPY . .` (build stage) includes it; if `pnpm deploy --prod` strips non-package files, set `DELIVERABLES_DIR` env to an emptyDir or bake the decoded-name list differently. **Confirm during Step 2.**
