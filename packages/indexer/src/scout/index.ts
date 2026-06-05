@@ -55,14 +55,18 @@ async function main(): Promise<void> {
 
   const top = ranked[0] ?? null;
 
-  await postDiscord(OPS_WEBHOOK, renderHeartbeat({
-    scanned: rows.length,
-    topJuice: top?.score.juice ?? 0,
-    candidate: top?.row.name ?? null,
-  }));
-
   if (!top) {
-    console.log('[scout] no candidate above threshold; heartbeat sent.');
+    // No candidate this week. Post a quiet liveness heartbeat to the scout's OWN
+    // channel (#decode-scout) — NOT the ops/alerts webhook. Routine "ran, nothing"
+    // status must never land in #alerts (alert fatigue). Genuine failures still go
+    // to OPS_WEBHOOK below. On candidate runs the candidate ping IS the liveness
+    // signal, so no separate heartbeat is sent.
+    await postDiscord(SCOUT_WEBHOOK, renderHeartbeat({
+      scanned: rows.length,
+      topJuice: 0,
+      candidate: null,
+    }));
+    console.log('[scout] no candidate above threshold; heartbeat to scout channel.');
     return;
   }
 
