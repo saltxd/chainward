@@ -34,11 +34,17 @@ spec:
               command: ["redis-cli", "ping"]
             initialDelaySeconds: 5
             periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 6
           livenessProbe:
             exec:
               command: ["redis-cli", "ping"]
             initialDelaySeconds: 15
             periodSeconds: 10
+            # Same rationale as postgres: tolerate CPU-starvation probe latency on the
+            # over-committed wt-k3s-worker node so transient spikes don't kill a healthy redis.
+            timeoutSeconds: 10
+            failureThreshold: 6
           resources:
             requests:
               cpu: 50m
