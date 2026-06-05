@@ -42,4 +42,5 @@ export async function fetchCandidates(db: Database): Promise<AgentRow[]> {
 export const MALFUNCTION = {
   emptyRows: (n: number) => n === 0,
   allNullAgdp: (rows: AgentRow[]) => rows.length > 0 && rows.every((r) => r.grossAgenticAmount === null),
+  noDecodedNames: (decoded: Set<string>) => decoded.size === 0,
 };
