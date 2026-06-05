@@ -23,19 +23,38 @@ export function recoverDecodedNames(files: DeliverableFile[]): Set<string> {
   return names;
 }
 
-/** Recover wallet addresses covered in PUBLISHED decode articles (decode.md only).
+/** Recover wallet addresses covered in PUBLISHED decode articles (decode.md + publish-checklist.md).
  * Catches agents covered INSIDE a multi-agent decode (e.g. a leaderboard table) that
- * recoverDecodedNames can't see. Restricted to decode.md so counterparty/identity-chain
- * addresses in deep-analysis files don't over-exclude future candidates. Lowercased. */
+ * recoverDecodedNames can't see, plus agents whose FULL address only appears in the
+ * publish-checklist (decode bodies often abbreviate addresses, e.g. 0xd478...781A).
+ * Restricted to these two sources so counterparty/identity-chain addresses in
+ * deep-analysis files don't over-exclude future candidates. Lowercased. */
 export function recoverDecodedAddresses(files: DeliverableFile[]): Set<string> {
+  const SRC = new Set(['decode.md', 'publish-checklist.md']);
   const addrs = new Set<string>();
   for (const f of files) {
-    if (f.file !== 'decode.md') continue;
+    if (!SRC.has(f.file)) continue;
     const matches = f.content.match(/0x[a-fA-F0-9]{40}/g);
     if (!matches) continue;
     for (const m of matches) addrs.add(m.toLowerCase());
   }
   return addrs;
+}
+
+/** Concatenated lowercased text of all published decode.md bodies — for name-coverage search. */
+export function decodeBodyText(files: DeliverableFile[]): string {
+  return files.filter((f) => f.file === 'decode.md').map((f) => f.content.toLowerCase()).join('\n');
+}
+
+/** True if the agent's name appears as a whole-word phrase in any decode body.
+ * Catches agents covered by NAME inside multi-agent decodes (leaderboards/audits) whose
+ * full wallet address isn't inlined. Guarded to distinctive names (>=5 chars) to avoid
+ * generic-word false positives. */
+export function isCoveredByName(name: string, bodyText: string): boolean {
+  const n = name.toLowerCase().trim();
+  if (n.length < 5) return false;
+  const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`).test(bodyText);
 }
 
 /** Read the deliverables dir from disk into DeliverableFile[]. */
