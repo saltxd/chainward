@@ -48,13 +48,14 @@ export function decodeBodyText(files: DeliverableFile[]): string {
 
 /** True if the agent's name appears as a whole-word phrase in any decode body.
  * Catches agents covered by NAME inside multi-agent decodes (leaderboards/audits) whose
- * full wallet address isn't inlined. Guarded to distinctive names (>=5 chars) to avoid
- * generic-word false positives. */
+ * full wallet address isn't inlined (e.g. "Luvi" in a no-token-agents list). Guarded to
+ * names >=4 chars to avoid generic-word false positives. Underscore is treated as a word
+ * char in the boundary so a name like "test" does NOT match inside "test_owl". */
 export function isCoveredByName(name: string, bodyText: string): boolean {
   const n = name.toLowerCase().trim();
-  if (n.length < 5) return false;
+  if (n.length < 4) return false;
   const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`).test(bodyText);
+  return new RegExp(`(^|[^a-z0-9_])${esc}([^a-z0-9_]|$)`).test(bodyText);
 }
 
 /** Read the deliverables dir from disk into DeliverableFile[]. */
