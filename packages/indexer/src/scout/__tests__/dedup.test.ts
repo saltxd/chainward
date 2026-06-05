@@ -26,4 +26,20 @@ describe('dedup — decoded-name recovery from frontmatter (NOT slugify-dirname)
     expect(isDecoded('Wasabot', set)).toBe(true);
     expect(isDecoded('Otto', set)).toBe(false);
   });
+
+  it('isDecoded matches a decorated name via its first token', () => {
+    expect(isDecoded('AIXBT Agent', new Set(['aixbt']))).toBe(true);
+  });
+
+  it('isDecoded matches a name with an emoji suffix via its first token', () => {
+    expect(isDecoded('Wasabot 🍣', new Set(['wasabot']))).toBe(true);
+  });
+
+  it('isDecoded still matches a multi-word token via the full name', () => {
+    expect(isDecoded('Ethy AI', new Set(['ethy ai']))).toBe(true);
+  });
+
+  it('isDecoded returns false when neither token nor full name matches', () => {
+    expect(isDecoded('Otto', new Set(['aixbt']))).toBe(false);
+  });
 });

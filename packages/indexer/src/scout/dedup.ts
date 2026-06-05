@@ -39,13 +39,14 @@ export function readDeliverables(deliverablesDir: string): DeliverableFile[] {
 }
 
 export function isDecoded(agentName: string, decoded: Set<string>): boolean {
-  return decoded.has(agentName.toLowerCase().trim());
+  const n = agentName.toLowerCase().trim();
+  return decoded.has(n) || decoded.has(n.split(/\s+/)[0] ?? n);
 }
 
 /** Wallets surfaced (pinged) within the cooldown window — re-pinging these is spam. */
 export async function recentlySurfaced(db: Database, weeks = 4): Promise<Set<string>> {
   const rows = await db.execute(
-    sql`SELECT wallet_address FROM scout_surfaced WHERE surfaced_at > now() - (${weeks} || ' weeks')::interval`,
+    sql`SELECT wallet_address FROM scout_surfaced WHERE surfaced_at > now() - make_interval(weeks => ${weeks})`,
   );
   return new Set((rows as unknown as Array<{ wallet_address: string }>).map((r) => r.wallet_address.toLowerCase()));
 }
