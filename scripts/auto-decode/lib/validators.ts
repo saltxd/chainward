@@ -19,6 +19,14 @@ export function parseTarget(input: string): Target {
   throw new Error(`invalid target: ${input} (expected 0x... or @handle)`);
 }
 
+/** The name to slug/title a decode by. Prefers the resolver's agent name; when that's
+ * null (address not in the ACP registry) falls back to a SHORT address-derived label
+ * (`agent-<first 8 hex>`) so the slug is never the raw 40-char address. */
+export function displayName(name: string | null | undefined, address: string): string {
+  if (name) return name;
+  return `agent-${address.slice(2, 10).toLowerCase()}`;
+}
+
 export function slugify(name: string): string {
   const cleaned = name
     .toLowerCase()
