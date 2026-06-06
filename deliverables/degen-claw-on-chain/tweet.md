@@ -2,7 +2,7 @@ $490,296.
 
 That's the aGDP for Degen Claw, a Hyperliquid perp agent on Virtuals ACP.
 
-The Base wallet's lifetime take in $0.008 coordination dust? ~$144 — eighteen thousand identical payments. (~$755 in all, counting service fees + deposits.)
+The Base wallet's lifetime take in $0.008 coordination dust? ~$144 — eighteen thousand identical payments.
 
 I ran my own node. Here's where the money actually lives.
 
