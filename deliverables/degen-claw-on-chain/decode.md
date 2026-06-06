@@ -9,9 +9,9 @@ slug: "degen-claw-on-chain"
 
 > **Correction (2026-06-06):** An earlier version of this decode concluded the $490K of agentic GDP was real perp volume "settling on Arbitrum via Hyperliquid." That was an inference from the agent's own job spec — we hadn't checked Hyperliquid. We since queried Hyperliquid's public API directly and the inference is **false**: the agent's Hyperliquid account holds $11.18 and has never traded. The corrected finding is below. We'd rather flag our own miss than leave a wrong number standing.
 
-Degen Claw (ACP id 8654, twitter [@degenclawacp](https://x.com/degenclawacp)) describes itself as a Hyperliquid perpetual-futures execution agent on Virtuals ACP. The ACP API reports `grossAgenticAmount: 490,296.54` against `revenue: 1.05` — the dashboard's own numbers put a 467,000x gap between them.
+Degen Claw (ACP id 8654, twitter [@degenclawacp](https://x.com/degenclawacp)) describes itself as a Hyperliquid perpetual-futures execution agent on Virtuals ACP. The ACP API reports `grossAgenticAmount: 490,296.54` against `revenue: 1.05` (as of 2026-06-04 — the aGDP figure keeps ticking up) — the dashboard's own numbers put a 467,000x gap between them.
 
-The agent's Base wallet (`0xd478a8B40372db16cA8045F28C6FE07228F3781A`) holds **164.46 USDC** and has not received a single USDC transfer since **2026-04-20**. The dominant inbound pattern is one number: **$0.008**, paid **18,001 times** out of the Virtuals PaymentManager between 2026-02-25 and 2026-04-20 — about **$144 total**. Add ~$405 of ACP service receipts and a couple of deposits and you get **~$755 of lifetime USDC inflow, all-in**. The dashboard's `revenue: 1.05` reconciles to none of it. And $755 against $490K rounds to nothing.
+The agent's Base wallet (`0xd478a8B40372db16cA8045F28C6FE07228F3781A`) holds **164.46 USDC** and has not received a single USDC transfer since **2026-04-20**. The dominant inbound pattern is one number: **$0.008**, paid **roughly 18,000 times** out of the Virtuals PaymentManager between 2026-02-25 and 2026-04-20 — about **$144 total**. Add ~$405 of ACP service receipts and a couple of deposits and you get **~$755 of lifetime USDC inflow, all-in**. The dashboard's `revenue: 1.05` reconciles to none of it. And $755 against $490K rounds to nothing.
 
 So where is the $490K? The agent says Hyperliquid. **We checked. It isn't there.**
 
@@ -34,7 +34,7 @@ The control matters: the same API call returns **$190.8 billion** of all-time vo
 
 The agent's own Hyperliquid account is a complete, queryable ledger: a **single $11.18 deposit on 2026-04-02**, no trades, no positions, no withdrawals, balance flat at $11.18 ever since. You cannot generate $490K of perp notional from an account that has only ever held $11.18 and has never placed an order.
 
-**And the one on-chain "Hyperliquid funding" breadcrumb points the wrong way.** The owner EOA's outbound USDC (e.g. tx `0x3851ea1f…3acd4d`, 2026-05-30, 287.52 USDC → `0x60cBD473…ce58`) does **not** go to the Hyperliquid Arbitrum bridge (`0x2df1c51e…f163df7`). `0x60cBD473…` is a pass-through forwarder that routes onward to a **Bybit** hot-wallet deposit address. The funds the original draft read as "seeding Hyperliquid" are being consolidated to a centralized exchange.
+**And the one on-chain "Hyperliquid funding" breadcrumb points the wrong way.** The owner EOA's outbound USDC (e.g. tx `0x3851ea1f…3acd4d`, 2026-05-30, 287.52 USDC → `0x60cBD473…ce58`) does **not** go to the Hyperliquid Arbitrum bridge (`0x2df1c51e…f163df7`). `0x60cBD473…` is a pass-through forwarder whose USDC routes onward to **Bybit: Hot Wallet 6** (`0xBaeD383E…`, address labeled by Etherscan/BaseScan). The funds the original draft read as "seeding Hyperliquid" are being consolidated to a centralized exchange.
 
 So the honest statement is not "the money is on another chain." It is: **the $490K is a self-reported backend figure that appears on no Hyperliquid account we can tie to this agent.** It may be inflated job parameters; it may be volume routed through buyers' own accounts that neither Virtuals nor we can observe. Either way, nothing — on Base, on Hyperliquid, or in the dashboard's own revenue field — independently confirms it exists.
 
@@ -51,7 +51,7 @@ What there is, on every paid coordination call, is the canonical Virtuals $0.01 
 0.008000  PaymentManager 0xEF4364Fe... → Degen Claw 0xd478a8B4... (80%)
 ```
 
-Same 80/20 split Wasabot uses. Same `0xE968...` Virtuals platform wallet. Same `PaymentManager` proxy. Lifetime sum across that mechanism: **18,001 payments of $0.008 ≈ $144** (2026-02-25 → 2026-04-20). The 46,680 "successful jobs" the ACP API reports left this $144 trail on Base and nothing else — the actual perp execution, if it happens, happens somewhere the ACP backend takes the agent's word for it.
+Same 80/20 split Wasabot uses. Same `0xE968...` Virtuals platform wallet. Same `PaymentManager` proxy. Lifetime sum across that mechanism: **~18,000 payments of $0.008, about $144** (2026-02-25 → 2026-04-20). The ~46,700 "successful jobs" the ACP API reports left this ~$144 trail on Base and nothing else — the actual perp execution, if it happens, happens somewhere the ACP backend takes the agent's word for it.
 
 ---
 
@@ -100,16 +100,16 @@ The 80/20 split, the PaymentManager, the ACPRouter, the Alchemy SemiModularAccou
 
 ## Open questions
 
-**Does $490K of trading exist anywhere?** Not on the agent's Hyperliquid account ($11.18, zero fills), not on its owner EOA (no HL account), not on Base. The only remaining possibility is that the agent routes orders through each individual buyer's own Hyperliquid account (1,593 unique buyers) and never trades on its own book — in which case the volume, if real, lives on addresses we can't enumerate without authenticated per-job memos. We can't confirm or rule that out. What we *can* say: the agent itself is not executing $490K of perps under any address it controls.
+**Does $490K of trading exist anywhere?** Not on the agent's Hyperliquid account ($11.18, zero fills), not on its owner EOA (no HL account), not on Base. The only remaining possibility is that the agent routes orders through each individual buyer's own Hyperliquid account (~1,600 unique buyers) and never trades on its own book — in which case the volume, if real, lives on addresses we can't enumerate without authenticated per-job memos. We can't confirm or rule that out. What we *can* say: the agent itself is not executing $490K of perps under any address it controls.
 
-**Why the owner's USDC goes to Bybit.** The "funding flow" from the owner EOA routes through `0x60cBD473…` to a Bybit deposit address, not to Hyperliquid. Whether that's the operator taking profits, funding a CEX-side strategy, or something else, the chain only shows the consolidation, not the intent.
+**Why the owner's USDC goes to Bybit.** The "funding flow" from the owner EOA routes through `0x60cBD473…` to a Bybit hot wallet (Hot Wallet 6), not to Hyperliquid. Whether that's the operator taking profits, funding a CEX-side strategy, or something else, the chain only shows the consolidation, not the intent.
 
-**Why the Base wallet has been silent for six weeks.** No paid coordination events since April 20, yet the ACP API's `lastActiveAt` heartbeat (`2026-06-05T03:43:51Z`) still reads "active" — because it flips on a backend ping, not chain activity. A wallet can look live on the dashboard while its on-chain surface has been dormant for a month and a half.
+**Why the Base wallet has been silent for six weeks.** No paid coordination events since April 20, yet the ACP API's `lastActiveAt` heartbeat still reads "active" — it updates continuously off a backend ping, not chain activity. A wallet can look live on the dashboard while its on-chain surface has been dormant for a month and a half.
 
 **What the two pre-tokens the operator launched are.** The owner EOA launched two unrelated ACP pre-bond tokens — `ADX001` (Virtuals id 49144) and `ADX002` (id 67868). Both `UNDERGRAD`, `tokenAddress: null`, no graduation, no branding tie to Degen Claw. Open thread for whoever decodes the next ACP agent.
 
 ---
 
-*Verified via the ChainWard sentinel Base node + Blockscout (Base facts) and Hyperliquid's public `/info` API (the Hyperliquid check). Base: wallet bytecode + EIP-1967 implementation slot, USDC balance (164.462993), the $0.008 coordination tx + 80/20 split, the full 18,143-transfer inbound history (18,001 × $0.008 ≈ $144), the ACPRouter / PaymentManager / platform contract identities, and the owner→`0x60cBD473`→Bybit fund flow. Hyperliquid (queried 2026-06-05): `clearinghouseState`, `portfolio` (all-time `vlm`), and `userFills` for the agent wallet ($11.18 / $0 / 0 fills), the owner EOA (no account), and a control trader ($190.8B / 2,000+ fills, proving the API returns real data). Independent receipts available for every quantitative claim.*
+*Verified via the ChainWard sentinel Base node + Blockscout (Base facts) and Hyperliquid's public `/info` API (the Hyperliquid check). Base: wallet bytecode + EIP-1967 implementation slot, USDC balance (164.462993), the $0.008 coordination tx + 80/20 split, the full inbound USDC history (~18,000 transfers of exactly $0.008, ≈ $144), the ACPRouter / PaymentManager / platform contract identities, and the owner→`0x60cBD473`→Bybit fund flow (Bybit address label per Etherscan/BaseScan). Hyperliquid (queried 2026-06-05): `clearinghouseState`, `portfolio` (all-time `vlm`), and `userFills` for the agent wallet ($11.18 / $0 / 0 fills), the owner EOA (no account), and a control trader ($190.8B / 2,000+ fills, proving the API returns real data). Independent receipts available for every quantitative claim.*
 
 *Revision history: published 2026-06-04 with an inferred (and incorrect) "volume is real, on Arbitrum" conclusion; corrected 2026-06-06 after direct Hyperliquid verification refuted it.*
