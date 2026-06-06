@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parseTarget, slugify } from "./lib/validators.js";
+import { parseTarget, slugify, displayName } from "./lib/validators.js";
 import { resolveTarget } from "@chainward/decode";
 import {
   checkSlugCollision,
@@ -44,7 +44,7 @@ async function main() {
   const config = loadConfig();
   const target = parseTarget(rawTarget);
   const resolved = await resolveTarget(target, { fetch });
-  const name = resolved.name ?? target.value;
+  const name = displayName(resolved.name, resolved.address);
   const slug = slugify(name);
 
   console.log(`[auto-decode] target=${rawTarget} → name=${name} address=${resolved.address}`);

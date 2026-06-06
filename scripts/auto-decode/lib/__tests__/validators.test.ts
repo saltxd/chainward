@@ -1,6 +1,25 @@
 // scripts/auto-decode/lib/__tests__/validators.test.ts
 import { describe, expect, it } from "vitest";
-import { isAddress, isAgentHandle, slugify, parseTarget } from "../validators";
+import { isAddress, isAgentHandle, slugify, parseTarget, displayName } from "../validators";
+
+describe("displayName", () => {
+  const ADDR = "0xd478a8B40372db16cA8045F28C6FE07228F3781A";
+
+  it("returns the resolved agent name unchanged when present", () => {
+    expect(displayName("Degen Claw", ADDR)).toBe("Degen Claw");
+  });
+
+  it("falls back to a SHORT address-derived name when the name is null", () => {
+    // Must NOT be the raw 40-char address — that produced the "0xd478…-on-chain" slug bug.
+    expect(displayName(null, ADDR)).toBe("agent-d478a8b4");
+  });
+
+  it("never produces a 40-char address slug, even with no resolved name", () => {
+    const slug = slugify(displayName(null, ADDR));
+    expect(slug).toBe("agent-d478a8b4-on-chain");
+    expect(slug).not.toContain(ADDR.toLowerCase());
+  });
+});
 
 describe("isAddress", () => {
   it("accepts valid Base addresses", () => {
