@@ -1,0 +1,54 @@
+# Fleet reconcile — one-off (re-runnable) Job to close the observatory tracking gap.
+# Backfills tx history for observatory agents with 0 indexed txs + registers all
+# observatory addresses on the Alchemy webhook for live capture.
+#
+# Run STAGED (override env per run; default below is the safe dry-run):
+#   # 1. preview:
+#   kubectl -n chainward create -f deploy/jobs/fleet-reconcile-job.yaml --dry-run=client -o yaml \
+#     | kubectl set env --local -f - RECONCILE_MODE=all RECONCILE_DRY_RUN=1 -o yaml | kubectl -n chainward create -f -
+#   # 2. backfill for real (optionally RECONCILE_LIMIT=N first):
+#   ... RECONCILE_MODE=backfill RECONCILE_DRY_RUN- ...
+#   # 3. register webhooks:
+#   ... RECONCILE_MODE=register RECONCILE_DRY_RUN- ...
+#   kubectl -n chainward logs job/fleet-reconcile -f ; kubectl -n chainward delete job fleet-reconcile
+#
+# Set image to a tag that contains dist/reconcile/index.js (built after this commit merges).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fleet-reconcile
+  namespace: chainward
+  labels:
+    app.kubernetes.io/name: chainward
+    app.kubernetes.io/component: fleet-reconcile
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 0
+  activeDeadlineSeconds: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: fleet-reconcile
+          image: ghcr.io/saltxd/chainward-indexer:latest
+          imagePullPolicy: Always
+          command: ["node", "dist/reconcile/index.js"]
+          envFrom:
+            - configMapRef:
+                name: chainward-config
+          env:
+            - name: RECONCILE_MODE
+              value: "all"
+            - name: RECONCILE_DRY_RUN
+              value: "1"
+            - { name: DATABASE_URL,           valueFrom: { secretKeyRef: { name: chainward-secrets, key: DATABASE_URL } } }
+            - { name: ALCHEMY_API_KEY,        valueFrom: { secretKeyRef: { name: chainward-secrets, key: ALCHEMY_API_KEY } } }
+            - { name: BASE_RPC_URL,           valueFrom: { secretKeyRef: { name: chainward-secrets, key: BASE_RPC_URL } } }
+            - { name: BASE_RPC_FALLBACK_URL,  valueFrom: { secretKeyRef: { name: chainward-secrets, key: BASE_RPC_FALLBACK_URL } } }
+            - { name: ALCHEMY_AUTH_TOKEN,     valueFrom: { secretKeyRef: { name: chainward-secrets, key: ALCHEMY_AUTH_TOKEN } } }
+            - { name: ALCHEMY_WEBHOOK_ID,     valueFrom: { secretKeyRef: { name: chainward-secrets, key: ALCHEMY_WEBHOOK_ID } } }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits:   { cpu: "1",  memory: 512Mi }
