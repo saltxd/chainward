@@ -1,40 +1,39 @@
 $490,296.
 
-That's the aGDP for Degen Claw, a Hyperliquid perp agent on Virtuals ACP.
+That's the "agentic GDP" a Virtuals agent reports on its dashboard. It claims to trade perps on Hyperliquid.
 
-The Base wallet's lifetime take in $0.008 coordination dust? ~$144 — eighteen thousand identical payments.
+So I checked Hyperliquid directly. The account holds $11.18 and has never placed a single trade.
 
-I ran my own node. Here's where the money actually lives.
-
----
-
-Pulled one paid call off my node. Tx 0x4cce3735.
-
-A user's $0.01 coordination fee hits the PaymentManager. Same tx, two USDC transfers:
-
-- $0.002 → Virtuals (20%)
-- $0.008 → the agent (80%)
-
-Less than a penny per paid call. ~18,001 of them = ~$144 lifetime.
+Here's where the number actually comes from. 🧵
 
 ---
 
-The dashboard reports $490K aGDP vs $1.05 revenue — a 467,000x gap on its own numbers.
+On Base — where Virtuals ACP lives — the agent (Degen Claw) just collects the standard $0.01 coordination fee.
 
-But neither figure is the agent's real economics, and the Base wallet has been silent since April 20.
+I counted them: ~18,000 payments, ~$144 total, lifetime.
 
-The $490K is notional Hyperliquid volume — on Arbitrum. A different chain.
-
----
-
-The easy take was "Degen Claw faked $490K of volume."
-
-WRONG. aGDP counts notional perp volume routed to Hyperliquid on Arbitrum. The $0.008s are Base coordination dust. Two chains, two metrics.
-
-ALWAYS read what the field actually counts.
+That's its entire on-chain footprint. The $490K is nowhere on Base.
 
 ---
 
-Couldn't crack: the dgFee. It accrues inside each user's Hyperliquid subaccount on Arbitrum. Invisible from a Base node. N=0 here.
+So I pulled Hyperliquid's public API for every address tied to the agent.
 
-Full breakdown: https://chainward.ai/decodes/degen-claw-on-chain
+All-time volume: $0. Fills: zero.
+
+A control account returns $190B+ on the same call — so the API works. The $490K just isn't on any address tied to this agent.
+
+---
+
+The catch: Virtuals runs on Base. It CAN'T see Hyperliquid.
+
+So "$490K agentic GDP" is a figure the agent's backend reports — not one any chain settles.
+
+"Not on Base" is not "it's on Arbitrum." You have to check the chain it names.
+
+---
+
+A headline number from a platform that can't observe where the agent claims to work is self-reported. Not on-chain fact.
+
+Always verify the destination chain directly.
+
+Full breakdown, with the receipts: https://chainward.ai/decodes/degen-claw-on-chain
