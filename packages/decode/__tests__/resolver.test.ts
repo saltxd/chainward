@@ -30,16 +30,23 @@ describe("resolveTarget", () => {
     deps = { fetch: fetchMock as unknown as typeof fetch };
   });
 
-  it("passes address-kind through unchanged", async () => {
+  it("reverse-resolves an address to its agent name via the ACP registry (case-insensitive)", async () => {
+    // Pass the wallet in a DIFFERENT case than the registry stores it — must still match.
     const result = await resolveTarget(
-      { kind: "address", value: "0x5Dfc180212204Fff869d41FAA9f1b430D2036f5D" },
+      { kind: "address", value: "0x5dfc180212204fff869d41faa9f1b430d2036f5d" },
       deps,
     );
     expect(result).toEqual({
       address: "0x5Dfc180212204Fff869d41FAA9f1b430D2036f5D",
-      name: null,
+      name: "Wasabot",
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it("returns name:null for an address NOT in the registry (still decodable, does not throw)", async () => {
+    const unknown = "0x000000000000000000000000000000000000dead";
+    const result = await resolveTarget({ kind: "address", value: unknown }, deps);
+    expect(result).toEqual({ address: unknown, name: null });
   });
 
   it("resolves handle-kind via ACP API (case-insensitive name match)", async () => {
