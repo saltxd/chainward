@@ -6,8 +6,9 @@
 // which bypassed the API's register→backfill+webhook path. So they got balance polling
 // but no transaction history and no live webhook capture. After pruning dead-legacy and
 // adding the popular ACP agents (done via SQL), this captures the missing tx data:
-//   - BACKFILL: run the indexer's backfillAgent() for every observatory agent that has
+//   - BACKFILL: run backfillWalletViaTransfers() for every observatory agent that has
 //     ZERO transactions indexed (the gap). Idempotent; agents already indexed are skipped.
+//     Uses paginated alchemy_getAssetTransfers (no eth_getLogs 10k-range limit).
 //   - REGISTER: add every observatory address to the Alchemy webhook so future txs are
 //     captured live (so the gap doesn't recur).
 //
@@ -19,7 +20,7 @@
 import { sql } from 'drizzle-orm';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
-import { backfillAgent } from '../workers/backfill.js';
+import { backfillWalletViaTransfers } from '../workers/transferBackfill.js';
 
 const ALCHEMY_NOTIFY_API = 'https://dashboard.alchemy.com/api';
 const REGISTER_CHUNK = 100;
@@ -57,7 +58,7 @@ async function runBackfill(): Promise<void> {
   let failed = 0;
   for (const [i, wallet] of targets.entries()) {
     try {
-      await backfillAgent(wallet, 'base');
+      await backfillWalletViaTransfers(wallet);
       ok++;
     } catch (e) {
       failed++;
