@@ -20,6 +20,18 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: postgres
     spec:
+      # Keep the DB off the over-committed wt-k3s-worker — the 6-core node the default
+      # LeastAllocated scheduler over-attracts (BookStack 247 + the 2026-06-06 health check
+      # found postgres-0 CPU-throttled 75% there). Soft, so it can still spill under pressure.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: ["wt-k3s-worker"]
       containers:
         - name: postgres
           image: {{ .Values.postgres.image }}
@@ -63,7 +75,9 @@ spec:
               cpu: 100m
               memory: 256Mi
             limits:
-              cpu: 500m
+              # Raised 500m→1000m 2026-06-06: TimescaleDB continuous-aggregate refresh +
+              # checkpoints spike past 500m and were CPU-throttled ~75%. Memory stays 512Mi.
+              cpu: 1000m
               memory: 512Mi
   volumeClaimTemplates:
     - metadata:

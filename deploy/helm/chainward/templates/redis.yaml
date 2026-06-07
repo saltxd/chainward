@@ -20,6 +20,16 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: redis
     spec:
+      # Keep redis off the over-committed wt-k3s-worker (same rationale as postgres.yaml).
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: ["wt-k3s-worker"]
       containers:
         - name: redis
           image: {{ .Values.redis.image }}
