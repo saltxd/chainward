@@ -188,9 +188,17 @@ export async function fetchBlockscoutTransfers(
 
     pageParams = (body?.next_page_params as Record<string, unknown> | null) ?? null;
     if (!pageParams) break; // history exhausted
+    if (pageItems.length === 0) break; // cursor present but empty page — no progress, don't spin
 
     const oldest = pageItems[pageItems.length - 1];
-    if (oldest?.timestamp && new Date(oldest.timestamp).getTime() < cutoff) break; // covered 30d
+    const oldestMs = oldest?.timestamp ? new Date(oldest.timestamp).getTime() : NaN;
+    if (Number.isFinite(oldestMs) && oldestMs < cutoff) break; // covered the 30d window
+    if (!Number.isFinite(oldestMs)) {
+      // unparseable/absent timestamp — can't confirm we're still inside the window, so stop
+      // rather than page blindly (up to 20× the per-request timeout), and flag it uncertain.
+      truncated = true;
+      break;
+    }
 
     if (page === MAX_TRANSFER_PAGES - 1) truncated = true; // cap reached, more pages remain
   }

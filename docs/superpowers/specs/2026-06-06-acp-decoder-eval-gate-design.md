@@ -27,7 +27,7 @@ The paid decoder `quickDecode()` (`packages/decode/src/quick-decode.ts`) is **pu
 ## Architecture — shared fixtures + two layers
 
 ### Golden fixtures
-- **Phase 1 (already captured):** `packages/decode/__tests__/fixtures/{axelrod-active,ethy-borderline,lucien-dormant,luna-dormant,otto-active}.json` — 5 real `fixtures`-shaped snapshots. Enough to seed Layer A with curated `expected/<name>.json` (no new capture needed).
+- **Phase 1 (already captured):** `packages/decode/__tests__/fixtures/{axelrod-active,ethy-borderline,lucien-dormant,luna-dormant,otto-active}.json` — 5 real `fixtures`-shaped snapshots. Enough to seed Layer A with a verified inline `EXPECTED` table in `golden.test.ts` (no new capture needed).
 - **Phase 2 (capture for Layer B):** the **corrected** `degen-claw-on-chain` (carries Hyperliquid ground truth — HL account $11.18 / 0 fills), `job-5424`, and a **mega-volume** case (exercises the pagination cap). These carry the destination-venue + lifetime ground truth the reasoning gate needs.
 - **Ground-truth rule:** `expected.*` is **human-verified**, never blind-snapshotted from current output (snapshotting blesses current bugs; Degen Claw proves "current" can be wrong).
 
@@ -64,7 +64,7 @@ Targets the pure `quickDecode` path + the fetch helper:
 - A PR that reintroduces the **transfer-fetch undercount** (un-paginated 7d/30d counts) **fails Layer A**. *(The long-form "paid N times" lifetime count is prompt-only → guarded in Layer B.)*
 - A decode-prompt change that **drops the destination-chain check fails Layer B** (Phase 2; the HL fixture case stops being flagged → red on the nightly run).
 - The gate runs with **no metered API key** (OAuth via `claude-agent-sdk` for Layer B).
-- **Adding a new golden wallet = drop a fixture + `expected.json`** — no code change.
+- **Adding a new golden wallet = capture a fixture + add a verified row** to the inline `EXPECTED` table in `golden.test.ts` (Phase 1 decision; externalize to per-wallet files if the set grows).
 
 ---
 

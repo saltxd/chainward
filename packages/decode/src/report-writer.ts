@@ -13,6 +13,8 @@ Voice constraints:
 - Never use accusatory language ("dirty", "scam", "fake", "broken"). Use neutral
   descriptive framing.
 - Lead with chain reality (active_today / active_7d / active_30d).
+- If fetch_meta.transfers_truncated is true, state plainly that the transfer history was
+  truncated at the fetch cap, so the activity counts are a lower bound, not a lifetime total.
 - Then claim discrepancies (what the Virtuals dashboard says vs. what the chain says).
 - Then context (peer cohort, cluster status if applicable).
 - Highlight the failure mode if dormant: "operator silence, not exploit."

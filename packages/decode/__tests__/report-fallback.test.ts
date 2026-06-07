@@ -63,4 +63,10 @@ describe('renderFallbackReport', () => {
     const md = renderFallbackReport(dormant);
     expect(md.toLowerCase()).toContain('stranded');
   });
+
+  it('notes truncation when the transfer fetch was capped', () => {
+    const truncated = { ...sampleData, fetch_meta: { transfers_fetched: 1000, transfers_truncated: true } };
+    const md = renderFallbackReport(truncated);
+    expect(md.toLowerCase()).toContain('lower bound');
+  });
 });
