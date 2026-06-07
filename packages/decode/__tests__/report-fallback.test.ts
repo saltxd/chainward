@@ -24,6 +24,7 @@ const sampleData: QuickDecodeResultData = {
     transfers_30d: 182,
     unique_counterparties_30d: 12,
   },
+  fetch_meta: { transfers_fetched: 182, transfers_truncated: false },
   claims: {
     agdp: 106928592.89, revenue: null, successful_jobs: null, total_jobs: null,
     success_rate: 94.84, last_active_at_acp: null, is_online_acp: true,
