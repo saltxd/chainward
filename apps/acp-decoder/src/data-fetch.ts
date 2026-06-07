@@ -61,7 +61,7 @@ export async function fetchFixtures(
     transactions_count: '0',
     token_transfers_count: '0',
   });
-  const blockscout_transfers = settled(transfersResult, { items: [] });
+  const blockscout_transfers = settled(transfersResult, { items: [] as any[], truncated: false });
   const sentinel_code = settled(codeResult, { result: '0x' });
   const sentinel_nonce = settled(nonceResult, { result: '0x0' });
   const sentinel_eth_balance = settled(ethBalanceResult, { result: '0x0' });
@@ -149,13 +149,53 @@ async function fetchBlockscoutCounters(walletAddress: string, timeoutMs: number)
   return await resp.json();
 }
 
-async function fetchBlockscoutTransfers(walletAddress: string, timeoutMs: number): Promise<any> {
-  const resp = await fetch(
-    `https://base.blockscout.com/api/v2/addresses/${walletAddress}/token-transfers?type=ERC-20`,
-    { signal: AbortSignal.timeout(timeoutMs) },
-  );
-  if (!resp.ok) throw new Error(`blockscout transfers: ${resp.status}`);
-  return await resp.json();
+const MAX_TRANSFER_PAGES = 20; // ~50 transfers/page → ~1000 max; bounds latency for mega-agents
+const ACTIVITY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // widest window computeActivity looks back
+
+/**
+ * Paginates the wallet's ERC-20 transfers, following Blockscout `next_page_params`
+ * until the history is exhausted, the oldest item on a page falls outside the 30d
+ * activity window (computeActivity never looks further back), or a hard page cap is
+ * hit. Returns `truncated: true` only when the cap was reached with more pages still
+ * available — so a capped count can never silently masquerade as complete (the
+ * structural lesson from the lifetime-undercount bug; the old single-page fetch
+ * undercounted any agent with >1 page of recent transfers).
+ */
+export async function fetchBlockscoutTransfers(
+  walletAddress: string,
+  timeoutMs: number,
+): Promise<{ items: any[]; truncated: boolean }> {
+  const base = `https://base.blockscout.com/api/v2/addresses/${walletAddress}/token-transfers?type=ERC-20`;
+  const cutoff = Date.now() - ACTIVITY_WINDOW_MS;
+  const items: any[] = [];
+  let pageParams: Record<string, unknown> | null = null;
+  let truncated = false;
+
+  for (let page = 0; page < MAX_TRANSFER_PAGES; page++) {
+    const url = pageParams
+      ? `${base}&${Object.entries(pageParams)
+          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+          .join('&')}`
+      : base;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!resp.ok) {
+      if (page === 0) throw new Error(`blockscout transfers: ${resp.status}`);
+      break; // a later page failed — return what we have rather than nothing
+    }
+    const body: any = await resp.json();
+    const pageItems: any[] = Array.isArray(body?.items) ? body.items : [];
+    items.push(...pageItems);
+
+    pageParams = (body?.next_page_params as Record<string, unknown> | null) ?? null;
+    if (!pageParams) break; // history exhausted
+
+    const oldest = pageItems[pageItems.length - 1];
+    if (oldest?.timestamp && new Date(oldest.timestamp).getTime() < cutoff) break; // covered 30d
+
+    if (page === MAX_TRANSFER_PAGES - 1) truncated = true; // cap reached, more pages remain
+  }
+
+  return { items, truncated };
 }
 
 async function jsonRpcCall(
