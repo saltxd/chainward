@@ -16,7 +16,8 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": ["TEST_DB_URL"]
     },
     "clean": {
       "cache": false

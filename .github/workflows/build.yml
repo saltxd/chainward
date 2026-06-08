@@ -18,6 +18,20 @@ jobs:
   check:
     name: Typecheck & Build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: chainward_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -35,8 +49,11 @@ jobs:
       - run: pnpm build
 
       # Eval gate: decode unit + Layer A golden tests block the PR on regression.
-      # DB-integration suites (e.g. persist) skip without TEST_DB_URL — see those specs.
+      # The persist DB-integration suite runs against the postgres service via TEST_DB_URL
+      # (self-contained migration 0014 applied in the test's beforeAll).
       - run: pnpm test
+        env:
+          TEST_DB_URL: postgres://test:test@localhost:5432/chainward_test
 
   docker:
     name: Build & Push Images
