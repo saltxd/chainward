@@ -69,6 +69,11 @@ export interface QuickDecodeResultData {
     transfers_30d: number;
     unique_counterparties_30d: number;
   };
+  /** Provenance of the transfer fetch behind `activity` — so a capped count is never invisible. */
+  fetch_meta: {
+    transfers_fetched: number;
+    transfers_truncated: boolean;
+  };
   claims: {
     agdp: number | null;
     revenue: number | null;

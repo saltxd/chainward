@@ -34,6 +34,10 @@ jobs:
 
       - run: pnpm build
 
+      # Eval gate: decode unit + Layer A golden tests block the PR on regression.
+      # DB-integration suites (e.g. persist) skip without TEST_DB_URL — see those specs.
+      - run: pnpm test
+
   docker:
     name: Build & Push Images
     needs: check

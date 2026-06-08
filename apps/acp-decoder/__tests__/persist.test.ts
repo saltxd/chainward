@@ -7,23 +7,29 @@ import { fileURLToPath } from 'node:url';
 import { persistAccepted, persistDelivered, persistRejected } from '../src/persist.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TEST_DB_URL = process.env.TEST_DB_URL ?? 'postgres://test:test@localhost:5433/chainward_test';
-let sql: ReturnType<typeof postgres>;
+const TEST_DB_URL = process.env.TEST_DB_URL;
 
-beforeAll(async () => {
-  sql = postgres(TEST_DB_URL);
-  // Apply migration 0014
-  await sql.unsafe(
-    readFileSync(
-      join(__dirname, '../../../packages/db/src/migrations/0014_decodes_table.sql'),
-      'utf8',
-    ),
-  );
-});
+// DB-integration suite — needs a real Postgres. Skipped unless TEST_DB_URL is set (e.g. a
+// CI postgres service, or a local docker DB) so the unit-test gate stays green without
+// external infra. The connection lives INSIDE the describe so skipIf also skips its setup.
+describe.skipIf(!TEST_DB_URL)('persist', () => {
+  let sql: ReturnType<typeof postgres>;
 
-afterAll(async () => { if (sql) await sql.end(); });
+  beforeAll(async () => {
+    sql = postgres(TEST_DB_URL!);
+    // Apply migration 0014
+    await sql.unsafe(
+      readFileSync(
+        join(__dirname, '../../../packages/db/src/migrations/0014_decodes_table.sql'),
+        'utf8',
+      ),
+    );
+  });
 
-describe('persist', () => {
+  afterAll(async () => {
+    if (sql) await sql.end();
+  });
+
   it('persistAccepted is idempotent on job_id collision', async () => {
     const db = drizzle(sql);
     await persistAccepted(db, { jobId: 'idem-1', buyerWallet: '0xb', targetInput: '@x', targetWallet: '0xt', feeUsdc: 25 });

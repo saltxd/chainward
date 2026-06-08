@@ -53,10 +53,13 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
     usdcUsdPrice: input.usdcUsdPrice ?? 1,
   });
 
-  const activity = computeActivity(
-    input.fixtures.blockscout_transfers.items ?? [],
-    now,
-  );
+  const transfers = input.fixtures.blockscout_transfers ?? { items: [] };
+  const transferItems: any[] = Array.isArray(transfers.items) ? transfers.items : [];
+  const activity = computeActivity(transferItems, now);
+  const fetch_meta = {
+    transfers_fetched: transferItems.length,
+    transfers_truncated: transfers.truncated === true,
+  };
 
   const survival = classifySurvival({
     transfers_7d: activity.transfers_7d,
@@ -124,6 +127,7 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
     balances,
     token_trading,
     activity,
+    fetch_meta,
     claims,
     chain_reality,
     discrepancies: discrepancyResult.discrepancies,
