@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchFixtures } from '../src/data-fetch.js';
+import { fetchFixtures, fetchBlockscoutTransfers } from '../src/data-fetch.js';
 
 // Mock @chainward/decode so fetchCurrentBlock doesn't make real RPC calls
 vi.mock('@chainward/decode', () => ({
@@ -75,7 +75,7 @@ describe('fetchFixtures', () => {
       transactions_count: '0',
       token_transfers_count: '0',
     });
-    expect(result.blockscout_transfers).toEqual({ items: [] });
+    expect(result.blockscout_transfers).toEqual({ items: [], truncated: false });
     // sentinel sources should still succeed
     expect(result.sentinel_code).toEqual({ result: '0x0' });
     expect(result.sentinel_nonce).toEqual({ result: '0x0' });
@@ -102,5 +102,109 @@ describe('fetchFixtures', () => {
     // geckoterminal URL should never have been called
     const calls = fetchMock.mock.calls.map((c: any[]) => String(c[0]));
     expect(calls.some((u: string) => u.includes('geckoterminal'))).toBe(false);
+  });
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const isoAgo = (ms: number) => new Date(Date.now() - ms).toISOString();
+
+describe('fetchBlockscoutTransfers — pagination', () => {
+  let originalFetch: typeof fetch;
+  beforeEach(() => {
+    originalFetch = global.fetch;
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  const addr = '0x' + 'a'.repeat(40);
+
+  it('follows next_page_params until exhausted and concatenates items', async () => {
+    const pages = [
+      {
+        items: [
+          { timestamp: isoAgo(1 * DAY_MS), from: { hash: '0x1' } },
+          { timestamp: isoAgo(2 * DAY_MS), from: { hash: '0x2' } },
+        ],
+        next_page_params: { block_number: 10, index: 1 },
+      },
+      { items: [{ timestamp: isoAgo(3 * DAY_MS), from: { hash: '0x3' } }], next_page_params: null },
+    ];
+    let call = 0;
+    global.fetch = vi.fn(async () => new Response(JSON.stringify(pages[call++]))) as any;
+
+    const res = await fetchBlockscoutTransfers(addr, 8000);
+
+    expect(res.items).toHaveLength(3);
+    expect(res.truncated).toBe(false);
+    expect((global.fetch as any).mock.calls).toHaveLength(2);
+  });
+
+  it('stops once a page crosses the 30d window (no over-fetch)', async () => {
+    const pages = [
+      { items: [{ timestamp: isoAgo(1 * DAY_MS), from: { hash: '0x1' } }], next_page_params: { x: 1 } },
+      { items: [{ timestamp: isoAgo(40 * DAY_MS), from: { hash: '0x2' } }], next_page_params: { x: 2 } },
+      { items: [{ timestamp: isoAgo(50 * DAY_MS), from: { hash: '0x3' } }], next_page_params: null },
+    ];
+    let call = 0;
+    global.fetch = vi.fn(async () => new Response(JSON.stringify(pages[call++]))) as any;
+
+    const res = await fetchBlockscoutTransfers(addr, 8000);
+
+    // page 1 (recent) + page 2 (oldest item older than 30d → stop); page 3 never fetched
+    expect((global.fetch as any).mock.calls).toHaveLength(2);
+    expect(res.truncated).toBe(false);
+    expect(res.items).toHaveLength(2);
+  });
+
+  it('sets truncated when the page cap is hit with more pages remaining', async () => {
+    global.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            items: [{ timestamp: isoAgo(1 * DAY_MS), from: { hash: '0x1' } }],
+            next_page_params: { block_number: 1, index: 1 },
+          }),
+        ),
+    ) as any;
+
+    const res = await fetchBlockscoutTransfers(addr, 8000);
+
+    expect(res.truncated).toBe(true);
+    expect((global.fetch as any).mock.calls.length).toBe(20);
+  });
+
+  it('throws if the first page fails', async () => {
+    global.fetch = vi.fn(async () => new Response('err', { status: 500 })) as any;
+    await expect(fetchBlockscoutTransfers(addr, 8000)).rejects.toThrow(/blockscout transfers/);
+  });
+
+  it('stops on an empty page even if a cursor is present (no spin)', async () => {
+    const pages = [
+      { items: [{ timestamp: isoAgo(1 * DAY_MS), from: { hash: '0x1' } }], next_page_params: { x: 1 } },
+      { items: [], next_page_params: { x: 2 } }, // empty page WITH a cursor
+      { items: [{ timestamp: isoAgo(1 * DAY_MS), from: { hash: '0x2' } }], next_page_params: { x: 3 } },
+    ];
+    let call = 0;
+    global.fetch = vi.fn(async () => new Response(JSON.stringify(pages[call++]))) as any;
+
+    const res = await fetchBlockscoutTransfers(addr, 8000);
+
+    expect((global.fetch as any).mock.calls).toHaveLength(2); // stopped at the empty page
+    expect(res.items).toHaveLength(1);
+  });
+
+  it('stops + flags truncated when an item has no parseable timestamp', async () => {
+    const pages = [
+      { items: [{ from: { hash: '0x1' } }], next_page_params: { x: 1 } }, // no timestamp
+      { items: [{ timestamp: isoAgo(1 * DAY_MS), from: { hash: '0x2' } }], next_page_params: { x: 2 } },
+    ];
+    let call = 0;
+    global.fetch = vi.fn(async () => new Response(JSON.stringify(pages[call++]))) as any;
+
+    const res = await fetchBlockscoutTransfers(addr, 8000);
+
+    expect((global.fetch as any).mock.calls).toHaveLength(1); // stopped after the unparseable page
+    expect(res.truncated).toBe(true);
   });
 });

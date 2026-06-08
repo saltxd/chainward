@@ -1,13 +1,16 @@
 import type { QuickDecodeResultData } from '../types.js';
 
 export function renderFallbackReport(data: QuickDecodeResultData): string {
-  const { target, survival, balances, activity, usdc_pattern, peers, discrepancies } = data;
+  const { target, survival, balances, activity, usdc_pattern, peers, discrepancies, fetch_meta } = data;
   const name = target.name ?? target.wallet_address;
   const acpId = target.acp_id ? `ACP #${target.acp_id}` : '';
   const heading = acpId ? `# ${name} (${acpId}) — ${survival.classification}` : `# ${name} — ${survival.classification}`;
 
+  const truncatedNote = fetch_meta.transfers_truncated
+    ? ' Transfer history exceeded the fetch cap; activity counts are a lower bound, not a total.'
+    : '';
   const para1 = activity.latest_transfer_at
-    ? `Last on-chain activity: ${activity.latest_transfer_at} (${formatAge(activity.latest_transfer_age_hours)} ago). ${survival.rationale}.`
+    ? `Last on-chain activity: ${activity.latest_transfer_at} (${formatAge(activity.latest_transfer_age_hours)} ago). ${survival.rationale}.${truncatedNote}`
     : `No ERC-20 transfer history found for this wallet.`;
 
   const usdcLine = balances.usdc.amount > 0

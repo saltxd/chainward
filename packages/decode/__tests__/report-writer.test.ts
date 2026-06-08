@@ -8,6 +8,7 @@ const minimalData = {
   balances: { eth: { wei: '0', usd: 0 }, usdc: { amount: 6, usd: 6 }, agent_token: null },
   token_trading: null,
   activity: { latest_transfer_at: '2026-04-30T00:00:00Z', latest_transfer_age_hours: 1, transfers_24h: 36, transfers_7d: 42, transfers_30d: 182, unique_counterparties_30d: 12 },
+  fetch_meta: { transfers_fetched: 182, transfers_truncated: false },
   claims: { agdp: 1, revenue: null, successful_jobs: null, total_jobs: null, success_rate: null, last_active_at_acp: null, is_online_acp: true },
   chain_reality: { active_today: true, active_7d: true, active_30d: true, settlement_path: [], payment_manager_seen: true },
   discrepancies: [],
