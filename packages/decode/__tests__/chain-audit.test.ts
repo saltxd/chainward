@@ -56,4 +56,29 @@ describe('computeBalances', () => {
     expect(balances.usdc.amount).toBeCloseTo(6.42, 2);
     expect(balances.usdc.usd).toBeCloseTo(6.42, 2);
   });
+
+  it('decodes a non-zero ETH balance (wei → ETH → USD)', () => {
+    const balances = computeBalances({
+      ethBalanceWei: '0x' + (500_000_000_000_000_000n).toString(16), // 0.5 ETH
+      usdcRawBalance: '0x0',
+      ethUsdPrice: 3000,
+      usdcUsdPrice: 1,
+    });
+    expect(balances.eth.wei).toBe('500000000000000000'); // decimal string, not hex
+    expect(balances.eth.usd).toBeCloseTo(1500, 2); // 0.5 ETH × $3000
+    expect(balances.usdc.amount).toBe(0);
+  });
+
+  it('decodes a combined ETH + USDC balance with realistic prices', () => {
+    const balances = computeBalances({
+      ethBalanceWei: '0x' + (1_250_000_000_000_000_000n).toString(16), // 1.25 ETH
+      usdcRawBalance: '0x' + (1_234_560_000n).toString(16), // 1234.56 USDC (6 decimals)
+      ethUsdPrice: 3200,
+      usdcUsdPrice: 1,
+    });
+    expect(balances.eth.wei).toBe('1250000000000000000');
+    expect(balances.eth.usd).toBeCloseTo(4000, 2); // 1.25 ETH × $3200
+    expect(balances.usdc.amount).toBeCloseTo(1234.56, 2);
+    expect(balances.usdc.usd).toBeCloseTo(1234.56, 2);
+  });
 });
