@@ -14,6 +14,7 @@ import { createDigestWorker, setupDigestSchedule } from './workers/digestGenerat
 import { createAcpWalletTracerWorker, setupAcpWalletTracerSchedule } from './workers/acpWalletTracer.js';
 import { createHealthScoreWorker, setupHealthScoreSchedule } from './workers/healthScore.js';
 import { createWebhookHealthWorker, setupWebhookHealthSchedule } from './workers/webhookHealth.js';
+import { createRiskCheckWorker } from './workers/riskCheck.js';
 
 // Validate env on startup
 getEnv();
@@ -32,6 +33,7 @@ const digest = createDigestWorker();
 const acpTracer = createAcpWalletTracerWorker();
 const healthScore = createHealthScoreWorker();
 const webhookHealth = createWebhookHealthWorker();
+const riskCheck = createRiskCheckWorker();
 
 // Set up repeatable jobs
 const redis = getRedis();
@@ -86,6 +88,7 @@ async function shutdown(signal: string) {
     acpTracer.close(),
     healthScore.close(),
     webhookHealth.close(),
+    riskCheck.close(),
   ]);
   process.exit(0);
 }

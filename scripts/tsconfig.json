@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "typeRoots": [
+      "../packages/indexer/node_modules/@types",
+      "../node_modules/@types"
+    ],
+    "paths": {
+      "bullmq": ["../packages/indexer/node_modules/bullmq/dist/esm/index.d.ts"],
+      "ioredis": ["../packages/indexer/node_modules/ioredis/built/index.d.ts"],
+      "@chainward/intelligence-loader": ["../packages/intelligence-loader/src/index.ts"]
+    }
+  },
+  "include": ["risk-seed.ts"]
+}

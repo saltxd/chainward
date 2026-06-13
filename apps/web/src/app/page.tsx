@@ -1,35 +1,10 @@
 /**
- * ============================================================
- * LAUNCH POST OPENER (X / blog / Discord — not part of the page)
- * ============================================================
- *
- * It's 4am. Your agent just failed a swap. Nobody told you.
- *
- * That was me three months ago. Running a swap agent on Base —
- * ETH/USDC round-trips through Aerodrome, nothing exotic. Then
- * Coinbase closed my CDP account the same day I verified KYC.
- * "Bot activity." Portal gone. Keys revoked.
- *
- * I rebuilt the agent in four hours on raw viem + a private
- * key. No Coinbase anywhere in the stack. But here's what
- * actually kept me up that night: I'd had ZERO visibility into
- * what that wallet was doing. No alerts when gas spiked. No
- * notification when a tx failed. I was checking Basescan
- * manually like it was a full-time job.
- *
- * So I built ChainWard — real-time monitoring, 7 alert types,
- * gas analytics for agent wallets on Base. You paste a wallet
- * address, every tx gets indexed, and you get a Discord ping
- * or Telegram message within 30 seconds when something goes
- * wrong. You don't have to build the monitoring yourself.
- *
- * Free tier. 3 agents. Every alert type.
- * chainward.ai
- *
- * ============================================================
+ * Home = the Risk-Check hero. Dead-simple centered input (paste a Base address
+ * or @handle), honest framing ("flags, not promises"), a "recently checked"
+ * strip from the public library, and featured /decodes as proof. Free-first v1:
+ * no payment, no safety verdict — just flags with evidence.
  */
 
-import { cookies } from 'next/headers';
 import Link from 'next/link';
 import {
   PageShell,
@@ -37,47 +12,54 @@ import {
   StatusTicker,
   SectionHead,
   Button,
+  RISK_NAV_LINKS,
 } from '@/components/v2';
-import { HeroTerminal } from './_landing/hero-terminal';
-import { TelemetryBar } from './_landing/telemetry-bar';
-import { ReceiptsWall } from './_landing/receipts-wall';
-import { AlertMatrix } from './_landing/alert-matrix';
-import { PricingBlocks } from './_landing/pricing-blocks';
+import { getAllDecodes } from '@/lib/decodes';
+import { CheckForm } from './_check/check-form';
+import { RecentlyChecked } from './_check/recently-checked';
 
 const jsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'ChainWard',
+  '@type': 'WebApplication',
+  name: 'ChainWard Risk Check',
+  applicationCategory: 'SecurityApplication',
+  operatingSystem: 'Web',
   description:
-    'Real-time monitoring and alerts for AI agent wallets on Base. 7 alert types, 3 delivery channels, gas analytics. No vendor lock-in. Free tier available.',
+    'Paste a Base address or agent handle and get a forensic on-chain risk report — risk flags from on-chain behavior, with evidence. Free, public, and never a safety verdict.',
   url: 'https://chainward.ai',
-  applicationCategory: 'DeveloperApplication',
-  operatingSystem: 'Web, CLI (macOS, Linux, Windows)',
-  offers: [
-    {
-      '@type': 'Offer',
-      price: '0',
-      priceCurrency: 'USD',
-      description: 'Free tier: 3 agents, 7-day history, all alerts.',
-    },
-    {
-      '@type': 'Offer',
-      price: '25',
-      priceCurrency: 'USD',
-      description:
-        'Operator: 10 agents, 90-day history, API + CLI access. Paid in USDC on Base.',
-    },
-  ],
-  creator: {
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  publisher: {
     '@type': 'Organization',
     name: 'ChainWard',
     url: 'https://chainward.ai',
   },
 };
 
-export default async function LandingPage() {
-  const cookieStore = await cookies();
-  const isAuthenticated = cookieStore.has('chainward-session');
+function formatIsoDate(dateStr: string): string {
+  return new Date(dateStr).toISOString().slice(0, 10);
+}
+
+const HONEST_POINTS = [
+  {
+    k: 'flags, not promises',
+    v: 'We surface what on-chain behavior shows. We never say an address is safe.',
+  },
+  {
+    k: 'evidence, always',
+    v: 'Every flag carries on-chain evidence and a source link. No uncited claims.',
+  },
+  {
+    k: 'free & public',
+    v: 'Every check is free. The first check of an address becomes a public, shareable report.',
+  },
+  {
+    k: 'what we cannot see',
+    v: 'No off-chain agreements, no social engineering, no intent. Absence of flags is not a guarantee.',
+  },
+];
+
+export default function CheckHomePage() {
+  const featuredDecodes = getAllDecodes().slice(0, 3);
 
   return (
     <PageShell>
@@ -88,130 +70,112 @@ export default async function LandingPage() {
       <StatusTicker />
 
       <div className="v2-shell">
-        <NavBar
-          ctaHref={isAuthenticated ? '/overview' : '/login'}
-          ctaLabel={isAuthenticated ? 'dashboard' : './connect'}
-        />
+        <NavBar links={RISK_NAV_LINKS} ctaHref="/reports" ctaLabel="./library" />
 
-        {/* Hero */}
-        <section className="v2-landing-hero">
-          <div>
-            <div className="v2-landing-kicker">Base mainnet · indexed live</div>
-            <h1 className="v2-landing-title display">
-              Your agent failed a swap
-              <span className="v2-landing-narrative">
-                at <span className="v2-landing-accent">03:47</span>.
-                <br />
-                <span className="serif">You found out at noon.</span>
-              </span>
-            </h1>
-            <p className="v2-landing-sub">
-              <strong>ChainWard</strong> is a real-time monitoring layer for AI
-              agent wallets on Base. You paste an address, every transaction gets
-              indexed on our own node, and a Discord or Telegram alert fires in
-              under 30 seconds when something goes wrong. No vendor lock-in. No
-              Coinbase account to close. Free tier, 3 agents, every alert type.
-            </p>
-            <div className="v2-landing-cta">
-              <Button href="/login">
-                ./connect-wallet
-                <span>→</span>
-              </Button>
-              <Button variant="ghost" href="/base">
-                cat observatory.json
-              </Button>
-            </div>
-            <div className="v2-landing-meta">
-              <span>free tier</span>
-              <span>3 agents</span>
-              <span>no credit card</span>
-              <span>paid in USDC</span>
-            </div>
+        {/* Hero — the checker */}
+        <section className="v2-check-hero">
+          <div className="v2-check-kicker">
+            <span className="v2-check-kicker-dot" aria-hidden />
+            Base mainnet · read from our own node
           </div>
-          <HeroTerminal />
+          <h1 className="v2-check-title display">
+            Run an on-chain risk check
+            <span className="v2-check-title-narrative">
+              on any Base address.{' '}
+              <span className="serif">Flags, not promises.</span>
+            </span>
+          </h1>
+          <p className="v2-check-sub">
+            Paste a Base address or agent handle. We run a forensic decode from
+            our own Base node and return <strong>risk flags</strong> — each with
+            on-chain evidence and a source. We never hand out a safety verdict,
+            a grade, or a green check.
+          </p>
+
+          <CheckForm />
+
+          <RecentlyChecked />
         </section>
       </div>
 
-      <TelemetryBar />
-
       <div className="v2-shell">
-        <section className="v2-landing-section">
+        {/* 01 — the honest framing */}
+        <section className="v2-check-section">
           <SectionHead
-            tag="01 / proof"
+            tag="01 / how to read this"
             title={
               <>
-                We ingest from our own sentinel node.
+                A risk report is a list of signals.
                 <br />
                 <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                  No Alchemy middleman.
+                  Not a verdict.
                 </span>
               </>
             }
-            lede="Every tx ChainWard serves traces back to a block height we verified ourselves. The dashboard shows the receipt. You can grep it."
+            lede="ChainWard reports describe on-chain behavior in a neutral band — low, mixed, elevated, or high signal. That is a count of what surfaced, never a claim that an address is safe or unsafe."
           />
-          <ReceiptsWall />
-        </section>
-
-        <section className="v2-landing-section">
-          <SectionHead
-            tag="02 / triggers"
-            title={
-              <>
-                Seven alert types.
-                <br />
-                <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                  Discord, Telegram, webhook.
-                </span>
-              </>
-            }
-            lede="Pick the condition, pick the channel, go do something else. No dashboard tab to babysit. No cron you have to write yourself."
-          />
-          <AlertMatrix />
-        </section>
-
-        <section className="v2-landing-section">
-          <SectionHead
-            tag="03 / pricing"
-            title={
-              <>
-                USDC on Base.
-                <br />
-                <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                  No Stripe. No middleman.
-                </span>
-              </>
-            }
-            lede="No credit card company taking 3%. No subscription platform deciding when to bill you. Stablecoin hits the contract, you’re live."
-          />
-          <PricingBlocks />
-        </section>
-
-        <section className="v2-landing-bottom">
-          <div className="v2-landing-final">
-            <h2 className="v2-landing-final-title display">
-              Self-reliance is the{' '}
-              <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                ultimate goal.
-              </span>
-            </h2>
-            <p className="v2-landing-final-sub">
-              If your ability to operate depends on someone else&apos;s permission,
-              you don&apos;t have a business. You have a favor.
-            </p>
-            <div style={{ marginTop: 32 }}>
-              <Button href="/login">
-                ./start-monitoring
-                <span>→</span>
-              </Button>
-            </div>
+          <div className="v2-check-points">
+            {HONEST_POINTS.map((p) => (
+              <div key={p.k} className="v2-check-point">
+                <div className="v2-check-point-k">{p.k}</div>
+                <div className="v2-check-point-v">{p.v}</div>
+              </div>
+            ))}
           </div>
         </section>
 
-        <footer className="v2-landing-footer">
-          <div>chainward.ai · operator-grade monitoring for base</div>
-          <div className="v2-landing-footer-links">
+        {/* 02 — featured decodes as proof */}
+        <section className="v2-check-section">
+          <SectionHead
+            tag="02 / proof"
+            title={
+              <>
+                We&apos;ve been doing this by hand.
+                <br />
+                <span className="serif" style={{ color: 'var(--phosphor)' }}>
+                  Now it&apos;s a button.
+                </span>
+              </>
+            }
+            lede="The same forensic method behind our published decodes now runs on demand. Read a few to see how we check the chain — claims vs. receipts, fund flows, the gap between the pitch and the ledger."
+          />
+          {featuredDecodes.length > 0 && (
+            <div className="v2-check-decodes">
+              {featuredDecodes.map((d) => (
+                <Link
+                  key={d.slug}
+                  href={`/decodes/${d.slug}`}
+                  className="v2-check-decode"
+                >
+                  <time className="v2-check-decode-date" dateTime={d.date}>
+                    // {formatIsoDate(d.date)}
+                  </time>
+                  <h3 className="v2-check-decode-title display">{d.title}</h3>
+                  {d.subtitle && (
+                    <p className="v2-check-decode-sub serif">{d.subtitle}</p>
+                  )}
+                  <span className="v2-check-decode-cta">read →</span>
+                </Link>
+              ))}
+            </div>
+          )}
+          <div className="v2-check-section-cta">
+            <Button variant="ghost" href="/decodes">
+              all decodes
+              <span>→</span>
+            </Button>
+            <Button variant="ghost" href="/reports">
+              report library
+            </Button>
+          </div>
+        </section>
+
+        <footer className="v2-check-footer">
+          <div>chainward.ai · on-chain risk flags for base · free &amp; public</div>
+          <div className="v2-check-footer-links">
+            <Link href="/reports">reports</Link>
+            <Link href="/decodes">decodes</Link>
             <Link href="/base">observatory</Link>
-            <Link href="/wallet">lookup</Link>
             <Link href="/mcp">mcp</Link>
             <Link href="/docs">docs</Link>
             <a
@@ -226,18 +190,14 @@ export default async function LandingPage() {
       </div>
 
       <style>{`
-        .v2-landing-hero {
-          padding-top: 56px;
-          padding-bottom: 40px;
-          display: grid;
-          grid-template-columns: 1.1fr 1fr;
-          gap: 60px;
-          align-items: start;
+        .v2-check-hero {
+          padding-top: 72px;
+          padding-bottom: 56px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
         }
-        @media (max-width: 960px) {
-          .v2-landing-hero { grid-template-columns: 1fr; gap: 40px; }
-        }
-        .v2-landing-kicker {
+        .v2-check-kicker {
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -245,99 +205,124 @@ export default async function LandingPage() {
           color: var(--fg-dim);
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          padding-bottom: 20px;
+          padding-bottom: 22px;
         }
-        .v2-landing-kicker::before {
-          content: '';
+        .v2-check-kicker-dot {
           width: 20px;
           height: 1px;
           background: var(--phosphor);
         }
-        .v2-landing-title {
-          font-size: clamp(44px, 7vw, 88px);
-          line-height: 0.96;
+        .v2-check-title {
+          font-size: clamp(38px, 5.6vw, 68px);
+          line-height: 1.0;
           letter-spacing: -0.04em;
           color: var(--fg);
+          max-width: 880px;
         }
-        .v2-landing-accent {
-          color: var(--phosphor);
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-variant-numeric: tabular-nums;
-          font-size: 0.82em;
-          letter-spacing: -0.02em;
-        }
-        .v2-landing-narrative {
+        .v2-check-title-narrative {
           display: block;
           font-weight: 400;
           color: var(--fg-dim);
-          margin-top: 4px;
+          margin-top: 10px;
         }
-        .v2-landing-sub {
-          margin-top: 28px;
+        .v2-check-sub {
+          margin-top: 26px;
           font-size: 14px;
           line-height: 1.7;
           color: var(--fg-dim);
-          max-width: 480px;
+          max-width: 600px;
         }
-        .v2-landing-sub strong { color: var(--fg); font-weight: 500; }
-        .v2-landing-cta {
-          display: flex;
-          gap: 12px;
-          margin-top: 32px;
-          flex-wrap: wrap;
-        }
-        .v2-landing-meta {
-          margin-top: 20px;
-          display: flex;
-          gap: 24px;
-          flex-wrap: wrap;
-          font-size: 11px;
-          color: var(--muted);
-          letter-spacing: 0.04em;
-        }
-        .v2-landing-meta span::before {
-          content: '// ';
-          color: var(--phosphor-dim);
-        }
-        .v2-landing-section {
-          padding: 80px 0;
+        .v2-check-sub strong { color: var(--fg); font-weight: 500; }
+        .v2-check-section {
+          padding: 72px 0;
           border-top: 1px solid var(--line);
         }
-        .v2-landing-bottom {
-          border-top: 1px solid var(--line);
-          padding: 56px 0 80px;
+        .v2-check-points {
+          margin-top: 8px;
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1px;
+          background: var(--line);
+          border: 1px solid var(--line);
         }
-        .v2-landing-final {
-          border: 1px solid var(--line-2);
-          padding: 48px;
-          background:
-            radial-gradient(ellipse at 10% 0%, rgba(58, 167, 109, 0.06), transparent 60%),
-            var(--bg-1);
-          position: relative;
+        @media (max-width: 720px) {
+          .v2-check-points { grid-template-columns: 1fr; }
         }
-        .v2-landing-final::before {
-          content: '$ cw deploy --production';
-          position: absolute;
-          top: 14px;
-          left: 20px;
+        .v2-check-point {
+          background: var(--bg-1);
+          padding: 22px 24px;
+        }
+        .v2-check-point-k {
           font-size: 11px;
+          color: var(--phosphor);
+          letter-spacing: 0.08em;
+          text-transform: lowercase;
+          margin-bottom: 10px;
+        }
+        .v2-check-point-v {
+          font-size: 13px;
+          line-height: 1.7;
+          color: var(--fg-dim);
+        }
+        .v2-check-decodes {
+          margin-top: 8px;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 880px) {
+          .v2-check-decodes { grid-template-columns: 1fr; }
+        }
+        .v2-check-decode {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 24px;
+          border: 1px solid var(--line);
+          background: var(--bg-1);
+          text-decoration: none;
+          transition: border-color 0.15s, background 0.15s;
+          min-height: 180px;
+        }
+        .v2-check-decode:hover {
+          border-color: var(--phosphor-dim);
+          background: var(--bg-2);
+        }
+        .v2-check-decode-date {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          color: var(--phosphor);
+        }
+        .v2-check-decode-title {
+          font-size: 20px;
+          line-height: 1.1;
+          color: var(--fg);
+          margin: 0;
+          letter-spacing: -0.02em;
+        }
+        .v2-check-decode-sub {
+          font-size: 14px;
+          line-height: 1.35;
+          color: var(--fg-dim);
+          margin: 0;
+        }
+        .v2-check-decode-cta {
+          margin-top: auto;
+          padding-top: 12px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 12px;
           color: var(--phosphor);
           letter-spacing: 0.04em;
         }
-        .v2-landing-final-title {
-          font-size: clamp(32px, 4.5vw, 56px);
-          line-height: 1.02;
-          margin-top: 24px;
-          max-width: 780px;
+        .v2-check-decode:hover .v2-check-decode-cta { color: var(--fg); }
+        .v2-check-section-cta {
+          margin-top: 28px;
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
         }
-        .v2-landing-final-sub {
-          margin-top: 16px;
-          color: var(--fg-dim);
-          max-width: 520px;
-          font-size: 13px;
-          line-height: 1.7;
-        }
-        .v2-landing-footer {
+        .v2-check-footer {
           border-top: 1px solid var(--line);
           padding: 24px 0 48px;
           display: flex;
@@ -348,42 +333,20 @@ export default async function LandingPage() {
           flex-wrap: wrap;
           gap: 16px;
         }
-        .v2-landing-footer a {
+        .v2-check-footer a {
           color: var(--fg-dim);
           text-decoration: none;
           transition: color 0.15s;
         }
-        .v2-landing-footer a:hover { color: var(--phosphor); }
-        .v2-landing-footer-links {
+        .v2-check-footer a:hover { color: var(--phosphor); }
+        .v2-check-footer-links {
           display: flex;
           gap: 20px;
+          flex-wrap: wrap;
         }
         @media (max-width: 480px) {
-          .v2-landing-hero {
-            padding-top: 32px;
-            padding-bottom: 24px;
-            gap: 28px;
-          }
-          .v2-landing-section {
-            padding: 48px 0;
-          }
-          .v2-landing-bottom {
-            padding: 32px 0 56px;
-          }
-          .v2-landing-final {
-            padding: 32px 20px;
-          }
-          .v2-landing-final::before {
-            top: 10px;
-            left: 16px;
-            font-size: 10px;
-          }
-          .v2-landing-meta {
-            gap: 14px 18px;
-          }
-          .v2-landing-cta {
-            gap: 8px;
-          }
+          .v2-check-hero { padding-top: 40px; padding-bottom: 36px; }
+          .v2-check-section { padding: 48px 0; }
         }
       `}</style>
     </PageShell>

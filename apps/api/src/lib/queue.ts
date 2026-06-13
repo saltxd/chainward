@@ -6,6 +6,7 @@ interface AppQueues {
   balancePoll: Queue;
   alertEvaluate: Queue;
   alertDeliver: Queue;
+  riskCheck: Queue;
 }
 
 let _queues: AppQueues | null = null;
@@ -23,6 +24,7 @@ export function getQueues(): AppQueues {
       balancePoll: new Queue('balance-poll', { connection, defaultJobOptions }),
       alertEvaluate: new Queue('alert-evaluate', { connection, defaultJobOptions }),
       alertDeliver: new Queue('alert-deliver', { connection, defaultJobOptions }),
+      riskCheck: new Queue('risk-check', { connection, defaultJobOptions }),
     };
   }
   return _queues;

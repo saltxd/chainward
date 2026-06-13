@@ -357,9 +357,115 @@ export interface PublicAgentData {
   recentTxs: Transaction[];
 }
 
+// ── Risk Check (public, free-first v1) ──────────────────────────────────────
+// Mirrors the canonical contract in apps/api/src/routes/risk.ts. EVERY response
+// is the standard envelope { success, data }; useApi unwraps `.data`, so the
+// shapes below describe what lives under `data`.
+
+export type RiskBand = 'low-signal' | 'mixed' | 'elevated' | 'high-signal';
+export type RiskSeverity = 'info' | 'low' | 'medium' | 'high';
+
+export interface RiskFlag {
+  id: string;
+  severity: RiskSeverity;
+  title: string;
+  evidence: string;
+  source: string;
+}
+
+export interface RiskFreshness {
+  as_of_block: number;
+  generated_at: string; // ISO-8601
+  ttl_state: 'fresh' | 'stale';
+}
+
+// NOTE: signal_density is stored server-side for library sorting but is
+// intentionally absent from the Report payload — never render it as a rating.
+export interface RiskReport {
+  address: string;
+  chain: string;
+  band: RiskBand;
+  flags: RiskFlag[];
+  not_assessed: string[];
+  freshness: RiskFreshness;
+  classifier_version: string;
+  view_count: number;
+  disclaimer: string;
+}
+
+export interface RiskTeaser {
+  address: string;
+  public_stats: {
+    tx_count: number;
+    eth_balance: number;
+    usdc_balance: number;
+    token_count: number;
+    unique_counterparties_30d: number;
+    latest_transfer_at: string | null;
+    is_acp_agent: boolean;
+  };
+  history_present: true;
+}
+
+export interface RiskReportCard {
+  address: string;
+  agent_name?: string;
+  band: RiskBand;
+  flag_count: number;
+  top_severity: RiskSeverity | null;
+  as_of_date: string; // ISO-8601 (generated_at)
+  view_count: number;
+  report_url: string; // backend emits /risk/report/<address>
+}
+
+// Discriminated union on `status` — POST /api/risk/check (data).
+export type RiskCheckResult =
+  | { status: 'ready'; report: RiskReport }
+  | { status: 'stale'; report: RiskReport; recheck_offer: true }
+  | { status: 'teaser'; teaser: RiskTeaser }
+  | { status: 'no_history' }
+  | { status: 'queued'; check_id: string };
+
+// Discriminated union on `status` — GET /api/risk/check/:id (data).
+export type RiskCheckStatus =
+  | { status: 'pending' }
+  | { status: 'ready'; report: RiskReport }
+  | { status: 'failed'; error: string };
+
+export interface RiskLibraryResult {
+  reports: RiskReportCard[];
+  pagination: { limit: number; offset: number; total: number };
+}
+
 export const publicApi = {
   lookupWallet: (address: string) =>
     fetchApi<{ success: true; data: WalletLookupResult }>(`/api/wallets/${address}`),
   getPublicAgent: (wallet: string) =>
     fetchApi<{ success: true; data: PublicAgentData }>(`/api/public/agents/${wallet}`),
+
+  // Risk check — POST returns a discriminated union on `status`.
+  checkAddress: (target: string, forceRecheck = false) =>
+    fetchApi<{ success: true; data: RiskCheckResult }>('/api/risk/check', {
+      method: 'POST',
+      body: JSON.stringify({ target, force_recheck: forceRecheck }),
+    }),
+  // Poll a queued decode by job id.
+  getCheckStatus: (id: string) =>
+    fetchApi<{ success: true; data: RiskCheckStatus }>(`/api/risk/check/${id}`),
+  // Public report page; increments view_count server-side.
+  getReport: (address: string) =>
+    fetchApi<{ success: true; data: { report: RiskReport } }>(
+      `/api/risk/report/${address}`,
+    ),
+  // Public, SEO-indexed library.
+  listReports: (params?: { sort?: string; limit?: number; offset?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.sort) qs.set('sort', params.sort);
+    if (params?.limit != null) qs.set('limit', String(params.limit));
+    if (params?.offset != null) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return fetchApi<{ success: true; data: RiskLibraryResult }>(
+      `/api/risk/library${suffix}`,
+    );
+  },
 };

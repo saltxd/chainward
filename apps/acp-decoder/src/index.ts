@@ -105,6 +105,7 @@ async function main() {
           sentinelRpc: config.sentinelRpc,
           fetchTimeoutMs: config.fetchTimeoutMs,
           agentName: input.agent_handle ? `@${input.agent_handle}` : undefined,
+          logger,
         });
         return quickDecode({
           ...input,

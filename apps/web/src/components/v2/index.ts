@@ -1,5 +1,6 @@
 export { PageShell } from './PageShell';
 export { NavBar, type NavLink } from './NavBar';
+export { RISK_NAV_LINKS } from './nav-links';
 export { StatusTicker } from './StatusTicker';
 export { SectionHead } from './SectionHead';
 export { StatTile } from './StatTile';

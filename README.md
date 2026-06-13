@@ -5,196 +5,104 @@
 <h1 align="center">ChainWard</h1>
 
 <p align="center">
-  Real-time monitoring and alerts for AI agent wallets on Base.
+  An automated, adversarially-verified on-chain investigation engine for AI agents on Base.
 </p>
 
 <p align="center">
-  <a href="https://chainward.ai">Website</a> &middot;
+  <a href="https://chainward.ai/decodes">Decodes</a> &middot;
   <a href="https://chainward.ai/base">Observatory</a> &middot;
-  <a href="https://chainward.ai/docs/api">API Docs</a> &middot;
-  <a href="https://www.npmjs.com/package/@chainward/sdk">SDK</a> &middot;
-  <a href="https://www.npmjs.com/package/@chainward/cli">CLI</a>
+  <a href="https://chainward.ai">Website</a>
 </p>
 
 ---
 
-ChainWard gives you real-time visibility into your on-chain agent wallets. Track transactions, monitor balances, catch failed transactions and gas spikes, and get alerts delivered to Discord, Telegram, or webhooks — all within 30 seconds of on-chain activity.
+ChainWard investigates what AI agents on Base actually do on-chain — and proves it. Its core is an automated pipeline that researches a target, writes a forensic report, and runs that report through a **verifier gauntlet** that re-checks every numeric claim against the chain before anything publishes. There is no human in the loop between the trigger and the published article. The data is read from a **self-hosted Base node**, so the ground truth has no third-party RPC dependency.
 
-## Features
+The interesting engineering here isn't "an LLM writes crypto articles." It's the machinery that stops the LLM from being confidently wrong in public.
 
-- **Real-time indexing** — Transactions indexed via Alchemy webhooks as they land on-chain
-- **7 alert types** — Large transfer, gas spike, failed tx, new contract, balance drop, inactivity, idle balance
-- **3 delivery channels** — Discord embeds, Telegram bot, custom webhooks
-- **Dashboard** — Fleet overview, per-agent detail, transaction history, gas analytics, balance charts
-- **Base Agent Observatory** — Public dashboard tracking 39+ agent wallets on Base ([chainward.ai/base](https://chainward.ai/base))
-- **Wallet Lookup** — Free public tool to inspect any Base wallet's recent activity
-- **TypeScript SDK** — Programmatic access to all endpoints
-- **CLI** — Monitor agents from your terminal with `chainward watch`
-- **Framework plugins** — Drop-in integrations for elizaOS, Coinbase AgentKit, and Virtuals GAME
+## The auto-decode pipeline
 
-## Architecture
+One command — `pnpm decode:auto <@handle|0xaddress>` — resolves the target, then spawns Claude Code headless against an orchestrator prompt that runs a five-phase, multi-subagent pipeline. Each phase is a fresh fan-out of subagents; the orchestrator only dispatches and gates.
 
 ```
-Alchemy webhook → API /api/webhooks/alchemy → BullMQ queue
-  → Indexer: parse tx, insert to TimescaleDB, evaluate alerts
-  → Alert pipeline: evaluate → deliver to Discord/Telegram/webhook
+  decode:auto @target
+        │
+        ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 1. RESEARCH    3 parallel agents                          │
+  │                identity/chain · token economics · utility │
+  ├─────────────────────────────────────────────────────────┤
+  │ 2. WRITE       1 agent → decode.md + 5-tweet thread       │
+  ├─────────────────────────────────────────────────────────┤
+  │ 3. GAUNTLET    3 parallel verifiers                       │
+  │                citation · failure-mode · voice            │
+  ├─────────────────────────────────────────────────────────┤
+  │ 4. DECISION    citation + failure-mode block; voice is    │
+  │                advisory. Any FAIL → 1 retry, then halt.   │
+  ├─────────────────────────────────────────────────────────┤
+  │ 5. PUBLISH     render OG card → commit → deploy →          │
+  │                poll live URL → post launch tweet          │
+  └─────────────────────────────────────────────────────────┘
+        │
+        ▼
+   published decode  ·  or a halt report (nothing ships)
 ```
 
-| Component | Tech |
-|-----------|------|
-| API | Hono (Node 22) |
-| Web | Next.js 15, Tailwind CSS v4 |
-| Database | TimescaleDB (PostgreSQL + hypertables) |
-| Queue | BullMQ + Redis |
-| Auth | SIWE (Sign In With Ethereum) + JWT |
-| Monorepo | Turborepo + pnpm workspaces |
+## Why the gauntlet matters
 
-## Quick Start
+The hard problem with LLM-generated analysis is **confident fabrication** — a plausible number with no basis. ChainWard's gauntlet is built on three rules, enforced by the orchestrator, that make unsupervised publishing safe:
+
+- **Verifiers re-fetch; they don't trust.** The citation verifier extracts every numeric and factual claim from the draft and re-fetches it independently from the source — transaction receipts off the self-hosted node, the ACP API, Blockscout — then compares within hard tolerances (USD ≤ $0.01, counts and tx hashes exact). *An uncited claim is an automatic FAIL, even if the value happens to be right.*
+- **Verifier output is read-only.** The orchestrator cannot litigate a FAIL or spawn a "re-check the verifier" agent. If the verifier says FAIL, it's FAIL.
+- **One retry, then stop.** The writer gets exactly one corrective pass against the failed claims. If anything still fails, the run **halts and publishes nothing**. There is no iterating to a green light — *convergence is rationalization*.
+
+The result is a pipeline that would rather ship nothing than ship a wrong number. Every published decode has had each of its claims re-derived from chain data by an agent that was trying to fail it.
+
+## Proof
+
+Investigations the pipeline has published — each claim chain-verified and falsifiable ([all decodes →](https://chainward.ai/decodes)):
+
+- **[Degen Claw](https://chainward.ai/decodes/degen-claw-on-chain)** — "The dashboard says $490,296 of agentic GDP. We checked Hyperliquid directly: the account holds $11.18 and has never placed a trade."
+- **[BridgeKitty](https://chainward.ai/decodes/bridgekitty-on-chain)** — a top-10 agent on the ACP dashboard that has never sent a transaction on Base, across every wallet and endpoint we could query.
+- **[AIXBT](https://chainward.ai/decodes/aixbt-on-chain)** — the most famous AI agent in crypto, and exactly what $52.92 of on-chain earnings can and cannot tell you.
+- **[Bankr's 14-Wallet Hack](https://chainward.ai/decodes/bankr-hack-trace)** — two AI-mediated drains in 15 days, traced on-chain, with no smart-contract bug involved.
+
+## How it's built
+
+- **Self-hosted Base node** — a reth node ChainWard runs itself. Verifiers read ground truth directly: no shared RPC, no rate limits, no provider that can deprecate an endpoint.
+- **`packages/decode`** — the typed decode core, independent of the LLM: target resolution, chain audit, claim-vs-on-chain discrepancy detection, USDC-flow classification, peer clustering, wallet-architecture detection, and survival scoring. Unit-tested (80+ tests).
+- **`apps/acp-decoder`** — the same decode core packaged as a service agent on Virtuals' Agentic Commerce Protocol, which has completed a real, paid, on-chain job end-to-end.
+- **`scripts/auto-decode` + `scripts/auto-decode-prompts`** — the orchestrator and the subagent prompts (research, writer, and the three verifiers). The prompts are the most interesting reading in the repo.
+
+ChainWard also includes the full-stack platform the engine grew out of: a real-time indexer (Alchemy webhooks → BullMQ → TimescaleDB), an alert pipeline (Discord/Telegram/webhook), a Next.js dashboard, and the public [Observatory](https://chainward.ai/base) that tracks agent wallets across Base.
+
+## Repo layout
+
+| Path | What it is |
+|------|------------|
+| `scripts/auto-decode/` | Pipeline entrypoint — spawns the orchestrator |
+| `scripts/auto-decode-prompts/` | Orchestrator + research + verifier-gauntlet prompts |
+| `packages/decode/` | Typed, LLM-independent decode core (80+ tests) |
+| `apps/acp-decoder/` | Decode core as a paid Virtuals ACP service agent |
+| `apps/api/` | Hono API (Node 22) |
+| `apps/web/` | Next.js 15 dashboard, decodes, and Observatory |
+| `packages/indexer/` | BullMQ workers — indexing, alerts, analytics |
+| `packages/db/` | Drizzle ORM schema + migrations (TimescaleDB) |
+| `packages/observatory/` | Aggregate queries behind the public Observatory |
+| `packages/{sdk,cli}/` | TypeScript client and `chainward` CLI |
+| `packages/{elizaos,agentkit,virtuals}-plugin/` | Framework integrations |
+
+A Turborepo monorepo, TypeScript end-to-end.
+
+## Run it
 
 ```bash
-git clone https://github.com/saltxd/chainward.git
-cd chainward
 pnpm install
-```
+pnpm typecheck     # all packages
+pnpm build
+pnpm dev           # API on :8000, web on :3000
 
-Copy environment files:
-
-```bash
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-```
-
-Configure your `.env` files with database, Redis, and Alchemy credentials, then:
-
-```bash
-pnpm dev
-```
-
-This starts the API on `localhost:8000` and the web app on `localhost:3000`.
-
-## SDK
-
-```bash
-npm install @chainward/sdk
-```
-
-```typescript
-import { ChainwardClient } from '@chainward/sdk';
-
-const client = new ChainwardClient({ apiKey: 'ag_...' });
-
-const agents = await client.listAgents();
-const txs = await client.listTransactions({ limit: 20 });
-await client.createAlert({
-  walletAddress: '0x...',
-  chain: 'base',
-  alertType: 'failed_tx',
-  channels: ['discord'],
-  discordWebhook: 'https://discord.com/api/webhooks/...',
-});
-```
-
-## CLI
-
-```bash
-npm install -g @chainward/cli
-chainward login
-chainward agents
-chainward watch        # live transaction stream
-chainward alerts list
-```
-
-## Framework Plugins
-
-### elizaOS
-
-```bash
-npm install @chainward/elizaos-plugin
-```
-
-```typescript
-import { chainwardPlugin } from '@chainward/elizaos-plugin';
-
-// Add to your elizaOS agent character
-const character = {
-  plugins: [chainwardPlugin],
-  settings: {
-    secrets: {
-      CHAINWARD_API_KEY: 'ag_...',
-    },
-  },
-};
-```
-
-### Coinbase AgentKit
-
-```bash
-npm install @chainward/agentkit-plugin
-```
-
-```typescript
-import { chainwardActionProvider } from '@chainward/agentkit-plugin';
-
-const provider = chainwardActionProvider({ apiKey: 'ag_...' });
-// Add to your AgentKit agent's action providers
-```
-
-### Virtuals GAME
-
-```bash
-npm install @chainward/virtuals-plugin
-```
-
-```typescript
-import { ChainwardPlugin } from '@chainward/virtuals-plugin';
-
-const plugin = new ChainwardPlugin({ apiKey: 'ag_...' });
-const worker = plugin.getWorker();
-// Add worker to your GAME agent
-```
-
-## API
-
-All endpoints accept Bearer `ag_` API keys or session cookies. Base URL: `https://api.chainward.ai`
-
-```bash
-# List agents
-curl -H "Authorization: Bearer ag_..." https://api.chainward.ai/api/agents
-
-# Get transactions
-curl -H "Authorization: Bearer ag_..." https://api.chainward.ai/api/transactions?limit=20
-
-# Create an alert
-curl -X POST -H "Authorization: Bearer ag_..." \
-  -H "Content-Type: application/json" \
-  -d '{"walletAddress":"0x...","chain":"base","alertType":"gas_spike","thresholdValue":"5","thresholdUnit":"usd","channels":["discord"],"discordWebhook":"https://discord.com/api/webhooks/..."}' \
-  https://api.chainward.ai/api/alerts
-```
-
-Full API reference: [chainward.ai/docs/api](https://chainward.ai/docs/api)
-
-## Packages
-
-| Package | Description |
-|---------|-------------|
-| `apps/api` | Hono API server |
-| `apps/web` | Next.js dashboard |
-| `packages/common` | Shared types and utilities |
-| `packages/db` | Drizzle ORM schema and migrations |
-| `packages/indexer` | BullMQ workers for tx processing, alerts, and analytics |
-| `packages/sdk` | TypeScript client ([npm](https://www.npmjs.com/package/@chainward/sdk)) |
-| `packages/cli` | CLI tool ([npm](https://www.npmjs.com/package/@chainward/cli)) |
-| `packages/elizaos-plugin` | elizaOS plugin ([npm](https://www.npmjs.com/package/@chainward/elizaos-plugin)) |
-| `packages/agentkit-plugin` | Coinbase AgentKit plugin ([npm](https://www.npmjs.com/package/@chainward/agentkit-plugin)) |
-| `packages/virtuals-plugin` | Virtuals GAME plugin ([npm](https://www.npmjs.com/package/@chainward/virtuals-plugin)) |
-
-## Development
-
-```bash
-pnpm install          # Install dependencies
-pnpm dev              # Start API + web dev servers
-pnpm typecheck        # Typecheck all packages
-pnpm build            # Build all packages
+pnpm decode:auto @some-agent   # run the pipeline (needs a Claude Code token + MCP config)
 ```
 
 ## License

@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fetchFixtures, fetchBlockscoutTransfers } from '../src/data-fetch.js';
 
-// Mock @chainward/decode so fetchCurrentBlock doesn't make real RPC calls
-vi.mock('@chainward/decode', () => ({
+// Mock the sentinel-block module so fetchCurrentBlock doesn't make real RPC calls.
+// (data-fetch now lives in @chainward/decode and imports fetchCurrentBlock from
+// ./sentinel-block.js directly — so the mock targets that module, not the package
+// barrel, which would otherwise clobber the very functions under test.)
+vi.mock('../src/sentinel-block.js', () => ({
   fetchCurrentBlock: vi.fn(async () => ({ number: 100, hash: '0xdeadbeef' })),
-  quickDecode: vi.fn(),
+  parseSentinelBlock: vi.fn(),
 }));
 
 describe('fetchFixtures', () => {
