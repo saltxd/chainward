@@ -27,11 +27,10 @@ interface NavBarProps {
 }
 
 const DEFAULT_LINKS: NavLink[] = [
-  { href: '/base', label: 'observatory' },
-  { href: '/hyperliquid', label: 'hyperliquid' },
+  { href: '/', label: 'check' },
+  { href: '/reports', label: 'reports' },
   { href: '/decodes', label: 'decodes' },
-  { href: '/wallet', label: 'lookup' },
-  { href: '/mcp', label: 'mcp' },
+  { href: '/base', label: 'observatory' },
 ];
 
 export function NavBar({

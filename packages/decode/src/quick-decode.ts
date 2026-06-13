@@ -1,4 +1,4 @@
-import type { QuickDecodeResult, Source } from './types.js';
+import type { QuickDecodeResult, QuickDecodeResultData, Source } from './types.js';
 import { SCHEMA_VERSION, CLASSIFIER_VERSION, DISCLOSURE_TEXT } from './types.js';
 import { classifyWallet } from './wallet-arch.js';
 import { computeActivity, computeBalances } from './chain-audit.js';
@@ -36,7 +36,27 @@ export interface QuickDecodeInput {
   replayMode?: boolean;
 }
 
-export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeResult> {
+/**
+ * The classifier output of a quick decode, minus the LLM prose step.
+ *
+ * `data` is the full QuickDecodeResultData (everything deriveRiskFlags reads);
+ * `sources` + `meta` are stamped identically to quickDecode. The markdown
+ * report (writeReport / claude --print) is intentionally NOT produced here —
+ * the risk-check hot path needs flags, which are pure over `data`, so it must
+ * never spawn claude. quickDecode() composes this with the prose step.
+ */
+export interface QuickDecodeData {
+  data: QuickDecodeResultData;
+  sources: Source[];
+  meta: Omit<QuickDecodeResult['meta'], 'report_source'>;
+}
+
+/**
+ * Computes the full classifier result for a quick decode WITHOUT invoking the
+ * LLM prose step. Pure aside from the data it was handed (no claude, no extra
+ * I/O). Used directly by the risk-check worker; quickDecode() wraps it.
+ */
+export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData {
   const now = input.now ?? new Date();
   const observatory = input.fixtures.observatory ?? [];
 
@@ -112,7 +132,7 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
     geckoterminal: input.fixtures.geckoterminal ?? null,
   });
 
-  const data = {
+  const data: QuickDecodeResultData = {
     target: {
       input: input.input,
       wallet_address: input.wallet_address,
@@ -137,8 +157,6 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
     peers: { ...peerResult, cluster, cluster_status },
   };
 
-  const reportResult = await writeReport(data, { replayMode: input.replayMode });
-
   const sources: Source[] = [
     {
       label: 'Blockscout token-transfers',
@@ -157,7 +175,6 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
   ];
 
   return {
-    report: reportResult.markdown,
     data,
     sources,
     meta: {
@@ -172,6 +189,24 @@ export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeR
       target_input: input.input,
       job_id: input.job_id,
       disclosure: DISCLOSURE_TEXT,
+    },
+  };
+}
+
+export async function quickDecode(input: QuickDecodeInput): Promise<QuickDecodeResult> {
+  // Compute the full classifier result first (pure, no LLM), then add the prose
+  // step. Sharing computeQuickDecodeData keeps quickDecode and the risk-check
+  // worker structurally identical — there is exactly one place the data is built.
+  const { data, sources, meta } = computeQuickDecodeData(input);
+
+  const reportResult = await writeReport(data, { replayMode: input.replayMode });
+
+  return {
+    report: reportResult.markdown,
+    data,
+    sources,
+    meta: {
+      ...meta,
       report_source: reportResult.source,
     },
   };

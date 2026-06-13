@@ -12,3 +12,4 @@ export * from './acpData';
 export * from './digest';
 export * from './agentEvents';
 export * from './decodes';
+export * from './riskReports';

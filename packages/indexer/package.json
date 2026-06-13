@@ -17,6 +17,7 @@
   "dependencies": {
     "@chainward/common": "workspace:*",
     "@chainward/db": "workspace:*",
+    "@chainward/decode": "workspace:*",
     "@chainward/observatory": "workspace:*",
     "bullmq": "^5.25.0",
     "drizzle-orm": "^0.45.2",

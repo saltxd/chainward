@@ -11,41 +11,36 @@ interface Line {
 }
 
 const SCRIPT: Line[] = [
-  { kind: 'prompt', text: 'cw agents add 0xFfe8…8c06 --name "struktur v2"', delay: 200 },
+  { kind: 'prompt', text: 'cw scan --base --sort onchain-7d', delay: 200 },
   {
     kind: 'stdout',
-    text: '✓ agent registered · indexing started',
+    text: '✓ indexing every agent wallet on base',
     color: 'var(--terminal-green)',
     delay: 400,
   },
-  { kind: 'blank', text: '', delay: 200 },
-  {
-    kind: 'prompt',
-    text: 'cw alerts create --type failed_tx --channel discord',
-    delay: 400,
-  },
   {
     kind: 'stdout',
-    text: '✓ alert armed · latency target <30s',
-    color: 'var(--terminal-green)',
-    delay: 400,
-  },
-  { kind: 'blank', text: '', delay: 1200 },
-  {
-    kind: 'stdout',
-    text: '[03:47:12] block #28,402,917 · struktur v2',
+    text: '  source · our own sentinel node, no middleman',
     color: 'var(--fg-dim)',
-    delay: 120,
+    delay: 300,
   },
+  { kind: 'blank', text: '', delay: 700 },
   {
-    kind: 'stderr',
-    text: '  ✗ tx 0x1a2b…f3c9 reverted — ERC20: insufficient allowance',
-    color: 'var(--danger)',
+    kind: 'stdout',
+    text: '  claimed ..... lifetime totals, marketing decks',
+    color: 'var(--fg-dim)',
     delay: 300,
   },
   {
+    kind: 'stdout',
+    text: '  on-chain .... what the wallet actually did this week',
+    color: 'var(--fg-dim)',
+    delay: 300,
+  },
+  { kind: 'blank', text: '', delay: 1100 },
+  {
     kind: 'alert',
-    text: '→ posted to #agent-ops · 0.4s after revert',
+    text: '→ we report the second one. the chain doesn\'t do PR.',
     color: 'var(--amber)',
     delay: 400,
   },

@@ -33,22 +33,22 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: {
-    default: 'ChainWard — Monitoring for agents you actually own',
+    default: 'ChainWard — the chain-verified source of truth for AI agents on Base',
     template: '%s | ChainWard',
   },
   description:
-    'Coinbase closed my CDP account. I rebuilt everything with zero vendor lock-in. Real-time alerts for AI agent wallets on Base — 7 alert types, Discord & Telegram delivery in <30s. Free tier, 3 agents.',
+    'ChainWard is the chain-verified record of the AI agent economy on Base. We index every agent wallet from our own node — who is active, who is earning, who has gone quiet — and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
   metadataBase: new URL('https://chainward.ai'),
   alternates: { canonical: 'https://chainward.ai/' },
   robots: { index: true, follow: true },
   keywords: [
-    'AI agent monitoring',
-    'Base chain monitoring',
-    'agent wallet tracker',
-    'crypto agent alerts',
-    'Discord alerts crypto',
-    'onchain agent monitoring',
-    'autonomous agent monitoring',
+    'AI agent analytics',
+    'Base AI agents',
+    'Virtuals ACP leaderboard',
+    'onchain agent intelligence',
+    'AI agent observatory',
+    'agent wallet analysis',
+    'on-chain decodes',
     'Base blockchain',
   ],
   icons: {
@@ -59,9 +59,9 @@ export const metadata: Metadata = {
     apple: '/chainward-logo-180.png',
   },
   openGraph: {
-    title: 'ChainWard — Monitoring for agents you actually own',
+    title: 'ChainWard — the chain-verified source of truth for AI agents on Base',
     description:
-      'Coinbase closed my CDP account. I rebuilt everything with zero vendor lock-in. Real-time alerts for AI agent wallets on Base — 7 alert types, Discord & Telegram delivery in <30s. Free tier, 3 agents.',
+      'The chain-verified record of AI agents on Base. We index every agent wallet from our own node and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
     siteName: 'ChainWard',
     url: 'https://chainward.ai',
     type: 'website',
@@ -70,9 +70,9 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     site: '@chainwardai',
-    title: 'ChainWard — Monitoring for agents you actually own',
+    title: 'ChainWard — the chain-verified source of truth for AI agents on Base',
     description:
-      'Coinbase closed my CDP account. I rebuilt everything with zero vendor lock-in. Real-time alerts for AI agent wallets on Base — 7 alert types, Discord & Telegram delivery in <30s. Free tier, 3 agents.',
+      'The chain-verified record of AI agents on Base. We index every agent wallet from our own node and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
     images: ['/chainward-og.png'],
   },
 };
