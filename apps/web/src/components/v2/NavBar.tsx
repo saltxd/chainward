@@ -10,13 +10,14 @@ export interface NavLink {
 
 interface NavBarProps {
   links?: NavLink[];
-  ctaHref: string;
   /**
-   * Text portion of the CTA, e.g. "./connect" or "dashboard".
-   * The trailing arrow is rendered separately and hidden at ≤480px
-   * via the `v2-nav-cta-arrow` class.
+   * The right-aligned CTA. Optional — when ctaHref/ctaLabel are omitted, no CTA
+   * renders (used on the home page so the hero is the only green-filled action).
+   * Text portion of the CTA, e.g. "./connect" or "dashboard". The trailing arrow
+   * is rendered separately and hidden at ≤480px via the `v2-nav-cta-arrow` class.
    */
-  ctaLabel: string;
+  ctaHref?: string;
+  ctaLabel?: string;
   brandHref?: string;
   /**
    * When true, suppress the auto-appended `→` after `ctaLabel`.
@@ -66,12 +67,14 @@ export function NavBar({
             </Link>
           ),
         )}
-        <Link href={ctaHref} className="v2-nav-cta">
-          <span>{ctaLabel}</span>
-          {!hideArrow && (
-            <span className="v2-nav-cta-arrow" aria-hidden> →</span>
-          )}
-        </Link>
+        {ctaHref && ctaLabel && (
+          <Link href={ctaHref} className="v2-nav-cta">
+            <span>{ctaLabel}</span>
+            {!hideArrow && (
+              <span className="v2-nav-cta-arrow" aria-hidden> →</span>
+            )}
+          </Link>
+        )}
       </div>
     </nav>
   );

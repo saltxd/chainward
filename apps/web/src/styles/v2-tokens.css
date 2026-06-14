@@ -7,7 +7,8 @@
 
   --fg: #e8ebe4;
   --fg-dim: #9ba397;
-  --muted: #585f56;
+  /* Raised from #585f56 (2.99:1, failed WCAG AA) to pass AA (~5.8:1). */
+  --muted: #868e83;
 
   --phosphor: #3aa76d;
   --phosphor-hover: #4ec383;

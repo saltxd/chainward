@@ -80,12 +80,14 @@ export function CheckForm() {
           display: flex;
           align-items: center;
           gap: 14px;
-          padding: 16px 0;
-          border-bottom: 1px solid var(--line-2);
-          transition: border-color 0.15s;
+          padding: 16px 18px;
+          border: 1px solid var(--line-2);
+          background: var(--bg-1);
+          transition: border-color 0.15s, box-shadow 0.15s;
         }
         .v2-check-prompt:focus-within {
-          border-bottom-color: var(--phosphor);
+          border-color: var(--phosphor);
+          box-shadow: 0 0 0 3px rgba(58, 167, 109, 0.12);
         }
         .v2-check-caret {
           color: var(--phosphor);
@@ -104,7 +106,7 @@ export function CheckForm() {
           padding: 0;
           min-width: 0;
         }
-        .v2-check-input::placeholder { color: var(--muted); }
+        .v2-check-input::placeholder { color: var(--fg-dim); }
         .v2-check-error {
           margin-top: 12px;
           color: var(--danger);
