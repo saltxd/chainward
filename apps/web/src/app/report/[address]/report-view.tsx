@@ -119,6 +119,39 @@ export function ReportView({ address }: { address: string }) {
     [clearPoll],
   );
 
+  // Poll the public report endpoint until the (already-enqueued) decode caches it.
+  // Used after a teaser so the preview auto-upgrades to the full report.
+  const pollReport = useCallback(
+    (addr: string) => {
+      const tick = async () => {
+        attemptsRef.current += 1;
+        try {
+          const res = await publicApi.getReport(addr);
+          clearPoll();
+          const report = res.data.report;
+          setState(
+            report.freshness.ttl_state === 'stale'
+              ? { kind: 'stale', report }
+              : { kind: 'ready', report },
+          );
+        } catch (err) {
+          // 404 = decode still running → keep waiting up to the ceiling.
+          if (
+            err instanceof ApiError &&
+            err.code === 'NOT_FOUND' &&
+            attemptsRef.current < POLL_MAX_ATTEMPTS
+          ) {
+            pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+            return;
+          }
+          clearPoll(); // give up quietly — the teaser preview stays visible
+        }
+      };
+      pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+    },
+    [clearPoll],
+  );
+
   // Initial load — try the cached public report first.
   const load = useCallback(async () => {
     if (!valid) {
@@ -170,6 +203,10 @@ export function ReportView({ address }: { address: string }) {
             break;
           case 'teaser':
             setState({ kind: 'teaser', teaser: data.teaser });
+            // The decode is already enqueued server-side; poll the report so the
+            // teaser auto-upgrades to the full report when flags are ready.
+            attemptsRef.current = 0;
+            pollReport(lowered);
             break;
           case 'no_history':
             setState({ kind: 'no_history' });
@@ -194,7 +231,7 @@ export function ReportView({ address }: { address: string }) {
         setCheckLoading(false);
       }
     },
-    [lowered, clearPoll, pollCheck],
+    [lowered, clearPoll, pollCheck, pollReport],
   );
 
   useEffect(() => {
@@ -325,11 +362,11 @@ export function ReportView({ address }: { address: string }) {
                   <>
                     Has history.{' '}
                     <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                      Not yet decoded.
+                      Decoding now.
                     </span>
                   </>
                 }
-                lede="We have not run a forensic decode on this address yet. Here is the cheap, public snapshot. No flags are shown — flags only come from the full on-chain decode."
+                lede="The full forensic decode is running against our own Base node — flags appear below automatically when it finishes. Here is the cheap public snapshot meanwhile. No flags are shown until the decode completes."
               />
               <div className="v2-rr-stats">
                 <StatTile
@@ -369,29 +406,18 @@ export function ReportView({ address }: { address: string }) {
             </section>
 
             <section style={{ paddingTop: 56 }}>
-              <div className="v2-rr-cta">
-                <div>
-                  <h3
-                    className="display"
-                    style={{ fontSize: 26, margin: 0, color: 'var(--fg)' }}
-                  >
-                    Run the forensic decode
-                    <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                      .
-                    </span>
-                  </h3>
-                  <p className="v2-rr-cta-sub">
-                    The decode reads transfers from our own Base node, classifies
-                    behavior, and surfaces risk flags with on-chain evidence. It
-                    is free — and the result becomes a public, shareable report.
-                  </p>
+              <div className="v2-rr-panel">
+                <div className="v2-rr-panel-tag">
+                  <span className="v2-rr-loading-pulse" /> // decode running
                 </div>
-                <Button
-                  variant="primary"
-                  onClick={() => runCheck(false)}
-                  disabled={checkLoading}
-                >
-                  {checkLoading ? 'running…' : './run-check →'}
+                <p>
+                  Running the full forensic decode against our own Base node now —
+                  reading transfers, classifying behavior, deriving flags with
+                  on-chain evidence. Flags appear here automatically, usually under
+                  a minute. The result becomes a free, public, shareable report.
+                </p>
+                <Button variant="ghost" onClick={() => load()}>
+                  ↻ refresh
                 </Button>
               </div>
             </section>
