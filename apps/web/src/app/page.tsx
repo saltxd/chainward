@@ -70,7 +70,7 @@ export default function CheckHomePage() {
       <StatusTicker />
 
       <div className="v2-shell">
-        <NavBar links={RISK_NAV_LINKS} ctaHref="/reports" ctaLabel="./library" />
+        <NavBar links={RISK_NAV_LINKS} />
 
         {/* Hero — the checker */}
         <section className="v2-check-hero">
@@ -79,12 +79,9 @@ export default function CheckHomePage() {
             Base mainnet · read from our own node
           </div>
           <h1 className="v2-check-title display">
-            Run an on-chain risk check
-            <span className="v2-check-title-narrative">
-              on any Base address.{' '}
-              <span className="serif">Flags, not promises.</span>
-            </span>
+            Run an on-chain risk check on any Base address.
           </h1>
+          <p className="v2-check-tagline serif">Flags, not promises.</p>
           <p className="v2-check-sub">
             Paste a Base address or agent handle. We run a forensic decode from
             our own Base node and return <strong>risk flags</strong> — each with
@@ -219,11 +216,11 @@ export default function CheckHomePage() {
           color: var(--fg);
           max-width: 880px;
         }
-        .v2-check-title-narrative {
-          display: block;
-          font-weight: 400;
-          color: var(--fg-dim);
-          margin-top: 10px;
+        .v2-check-tagline {
+          margin-top: 16px;
+          font-size: clamp(20px, 2.4vw, 30px);
+          line-height: 1.1;
+          color: var(--phosphor);
         }
         .v2-check-sub {
           margin-top: 26px;

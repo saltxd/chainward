@@ -44,7 +44,6 @@ export function StatusTicker() {
     transactions7d: number;
     totalPortfolioValue: number;
   } | null>(null);
-  const [now, setNow] = useState('');
 
   useEffect(() => {
     const loadObservatory = () =>
@@ -66,19 +65,11 @@ export function StatusTicker() {
 
     const obsTimer = setInterval(loadObservatory, 60_000);
     const telTimer = setInterval(loadTelemetry, 12_000);
-    const clockTimer = setInterval(
-      () => setNow(new Date().toISOString().slice(11, 19)),
-      1000,
-    );
     return () => {
       clearInterval(obsTimer);
       clearInterval(telTimer);
-      clearInterval(clockTimer);
     };
   }, []);
-
-  const formatUsd = (n: number) =>
-    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : `$${(n / 1000).toFixed(1)}k`;
 
   // Sentinel RPC node status (is our node keeping up with chain tip?)
   // When no reference is available we don't claim degradation — we just say
@@ -120,26 +111,10 @@ export function StatusTicker() {
       live: true,
     },
     {
-      label: 'sentinel.tip',
-      value: telemetry?.sentinelTip ? `#${telemetry.sentinelTip.toLocaleString()}` : '…',
-      mobileHide: true,
-    },
-    {
       label: 'fleet.size',
       value: observatory ? String(observatory.agentsTracked) : '…',
       mobileHide: true,
     },
-    {
-      label: 'tx.7d',
-      value: observatory ? observatory.transactions7d.toLocaleString() : '…',
-      mobileHide: true,
-    },
-    {
-      label: 'tvl.watched',
-      value: observatory ? formatUsd(observatory.totalPortfolioValue) : '…',
-      mobileHide: true,
-    },
-    { label: 'utc', value: now || '…', mobileHide: true },
     {
       label: 'rpc',
       value: sentinelLabel,
