@@ -24,6 +24,14 @@ const SENTINEL_CHUNK_BLOCKS = parseInt(
   10,
 );
 const MAX_SENTINEL_TRANSFERS = 2000;
+// Wall-clock budget for the newest→oldest chunk scan. reth serves recent ranges
+// fast and deep/cold ranges slowly; once the budget is hit we stop scanning deeper
+// and flag the result truncated — recent activity (what survival keys on) is already
+// captured, so we don't block on slow historical chunks.
+const SENTINEL_SCAN_BUDGET_MS = parseInt(
+  process.env.SENTINEL_TRANSFER_BUDGET_MS ?? '12000',
+  10,
+);
 
 function addressTopic(address: string): string {
   return '0x' + address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
@@ -354,31 +362,55 @@ async function fetchSentinelTransfers(
   const topic = addressTopic(walletAddress);
 
   const logs: RpcLog[] = [];
-  // Newest chunk first so the cap keeps the most-recent transfers.
+  let scannedAny = false;
+  let truncated = false;
+  const deadline = Date.now() + SENTINEL_SCAN_BUDGET_MS;
+  // Newest chunk first, and stop at the first slow/failed deep chunk: reth is fast on
+  // recent ranges, slow on cold historical ones. We capture recent activity from the
+  // node and let deep history truncate gracefully rather than abort the whole fetch.
   for (let end = headNum; end >= fromBlock; end -= SENTINEL_CHUNK_BLOCKS) {
     const start = Math.max(fromBlock, end - SENTINEL_CHUNK_BLOCKS + 1);
     const range = { fromBlock: '0x' + start.toString(16), toBlock: '0x' + end.toString(16) };
-    const [fromLogs, toLogs] = await Promise.all([
-      jsonRpcResult<RpcLog[]>(
-        rpcUrl,
-        'eth_getLogs',
-        [{ ...range, topics: [TRANSFER_TOPIC, topic] }],
-        timeoutMs,
-      ),
-      jsonRpcResult<RpcLog[]>(
-        rpcUrl,
-        'eth_getLogs',
-        [{ ...range, topics: [TRANSFER_TOPIC, null, topic] }],
-        timeoutMs,
-      ),
-    ]);
-    if (Array.isArray(fromLogs)) logs.push(...fromLogs);
-    if (Array.isArray(toLogs)) logs.push(...toLogs);
+    try {
+      const [fromLogs, toLogs] = await Promise.all([
+        jsonRpcResult<RpcLog[]>(
+          rpcUrl,
+          'eth_getLogs',
+          [{ ...range, topics: [TRANSFER_TOPIC, topic] }],
+          timeoutMs,
+        ),
+        jsonRpcResult<RpcLog[]>(
+          rpcUrl,
+          'eth_getLogs',
+          [{ ...range, topics: [TRANSFER_TOPIC, null, topic] }],
+          timeoutMs,
+        ),
+      ]);
+      if (Array.isArray(fromLogs)) logs.push(...fromLogs);
+      if (Array.isArray(toLogs)) logs.push(...toLogs);
+      scannedAny = true;
+    } catch (err) {
+      // Most-recent chunk failing => node unusable => let the caller fall back to
+      // Blockscout. A deeper chunk failing once we already have recent data just
+      // truncates the historical window — keep what we have.
+      if (!scannedAny) throw err;
+      truncated = true;
+      break;
+    }
     // Enough raw logs to fill the cap several times over → stop scanning further back.
-    if (logs.length > MAX_SENTINEL_TRANSFERS * 3) break;
+    if (logs.length > MAX_SENTINEL_TRANSFERS * 3) {
+      truncated = true;
+      break;
+    }
+    // Budget hit → stop before the slow cold chunks; recent activity is captured.
+    if (Date.now() >= deadline) {
+      truncated = true;
+      break;
+    }
   }
 
-  return mapLogsToTransfers(logs, headNum, headTs, MAX_SENTINEL_TRANSFERS);
+  const mapped = mapLogsToTransfers(logs, headNum, headTs, MAX_SENTINEL_TRANSFERS);
+  return { items: mapped.items, truncated: truncated || mapped.truncated };
 }
 
 /**
