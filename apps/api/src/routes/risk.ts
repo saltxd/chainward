@@ -230,8 +230,9 @@ async function buildTeaser(
   address: string,
   txCount: number,
   acpAgent: boolean,
+  prefetchedLookup?: Awaited<ReturnType<WalletLookupService['lookup']>>,
 ): Promise<TeaserPayload> {
-  const lookup = await new WalletLookupService(getRedis()).lookup(address);
+  const lookup = prefetchedLookup ?? (await new WalletLookupService(getRedis()).lookup(address));
 
   const native = lookup.balances.find((b) => b.contractAddress === 'native');
   const usdc = lookup.balances.find((b) => b.contractAddress.toLowerCase() === USDC_ADDRESS);
@@ -357,9 +358,22 @@ risk.post(
     }
 
     // 2. No usable cached report (or a forced re-check). Gate on history BEFORE enqueue.
+    // Blockscout's /counters endpoint is eventually-consistent and intermittently
+    // returns 0 for active addresses — especially ERC-4337 smart accounts whose
+    // activity is token-transfer / UserOp based (e.g. an agent with 90k+ ACP jobs but
+    // few top-level txns). So we declare no_history ONLY when Blockscout AND our own
+    // node both show nothing — the node-backed wallet lookup (balances / token
+    // holdings / tx list, independent of Blockscout) is the reliable tiebreaker.
     const history = await checkHistory(address);
+    let prefetchedLookup: Awaited<ReturnType<WalletLookupService['lookup']>> | undefined;
     if (history.transactions_count === 0 && history.token_transfers_count === 0) {
-      return c.json({ success: true, data: { status: 'no_history' } });
+      prefetchedLookup = await new WalletLookupService(getRedis()).lookup(address);
+      const hasNodeActivity =
+        prefetchedLookup.transactions.length > 0 ||
+        prefetchedLookup.balances.some((b) => hexToNumber(b.tokenBalance) > 0n);
+      if (!hasNodeActivity) {
+        return c.json({ success: true, data: { status: 'no_history' } });
+      }
     }
 
     // 3. Enqueue the full (free) decode. The worker caches a public report.
@@ -392,7 +406,7 @@ risk.post(
     // 4b. Truly novel address: return a cheap synchronous teaser (NO flags) while
     //     the background decode runs. The teaser is what the user sees immediately.
     const acpAgent = await isAcpAgent(address);
-    const teaser = await buildTeaser(address, history.transactions_count, acpAgent);
+    const teaser = await buildTeaser(address, history.transactions_count, acpAgent, prefetchedLookup);
     return c.json({ success: true, data: { status: 'teaser', teaser } });
   },
 );
