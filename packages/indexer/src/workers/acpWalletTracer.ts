@@ -4,7 +4,6 @@ import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { getBaseClient } from '../lib/viem.js';
-import { getEnv } from '../config.js';
 import { parseAbiItem, type Address } from 'viem';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -210,9 +209,11 @@ export function createAcpWalletTracerWorker() {
       // Alchemy/public Base burns rate budget; cw-sentinel has the data and no quota.
       // Disabled by design while sentinel is secondary (post-2026-04-18 RPC reorder, see
       // BookStack page 182). Re-enabled automatically when BASE_RPC_URL points back at sentinel.
-      const env = getEnv();
-      if (!env.BASE_RPC_URL.includes('192.168.1.194')) {
-        logger.info('Skipping wallet tracer — sentinel node not primary RPC');
+      // Off by default. Set WALLET_TRACER_ENABLED=true only when the self-hosted
+      // Base node is the primary RPC — a wide-window eth_getLogs against a public /
+      // Alchemy RPC burns rate budget. (No node address hardcoded.)
+      if (process.env.WALLET_TRACER_ENABLED !== 'true') {
+        logger.info('Skipping wallet tracer — WALLET_TRACER_ENABLED not set');
         return;
       }
       const topN = job.data.topN ?? 200;
