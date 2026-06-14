@@ -221,8 +221,9 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'inactive_no_history',
       severity: 'low',
-      title: 'No ERC-20 transfer history found',
-      evidence: 'No ERC-20 transfers found in the checked window; survival could not be classified.',
+      title: 'No recent on-chain transfer activity',
+      evidence:
+        'No ERC-20 transfers in the checked window (last ~30 days), read from our own Base node. The wallet may be new, paused, or operating through a different address — this is a recent-activity signal, not a lifetime-history claim.',
       source,
     });
   }
