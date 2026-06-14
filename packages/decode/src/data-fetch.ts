@@ -15,8 +15,12 @@ const SENTINEL_WINDOW_BLOCKS = parseInt(
   process.env.SENTINEL_TRANSFER_WINDOW_BLOCKS ?? String(1_300_000),
   10,
 );
+// cw-sentinel's reth caps eth_getLogs at a 100k-block range (toBlock - fromBlock).
+// The loop scans [end - CHUNK + 1, end] (span = CHUNK - 1), so CHUNK = 100000 gives
+// a 99,999-block span — safely under the cap. 120000 was over it → every chunk threw
+// → blanket Blockscout fallback. Keep this <= 100001 for any reth with that limit.
 const SENTINEL_CHUNK_BLOCKS = parseInt(
-  process.env.SENTINEL_TRANSFER_CHUNK_BLOCKS ?? '120000',
+  process.env.SENTINEL_TRANSFER_CHUNK_BLOCKS ?? '100000',
   10,
 );
 const MAX_SENTINEL_TRANSFERS = 2000;
