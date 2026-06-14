@@ -37,11 +37,18 @@ redisdata/
 # Worktrees
 .worktrees/
 
-# Internal planning docs (private)
+# Internal planning docs (private — not for the public repo)
 docs/plans/
 docs/research/
+docs/superpowers/
+docs/live-ingestion/
 codex/
 
 # Private intelligence data (curated agent labels, protocol registry, etc.)
 packages/intelligence/*.json
 !packages/intelligence/*.example.json
+
+# Tooling cache, test artifacts, personal notes (keep out of the public repo)
+.superpowers/
+test-results/
+WEEK1-RUNBOOK.md

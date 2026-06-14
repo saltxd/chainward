@@ -8,7 +8,6 @@ Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents o
 
 **Domain:** chainward.ai
 **API:** api.chainward.ai
-**Internal:** chainward.k3s.nox
 **GitHub:** github.com/saltxd/chainward
 
 ## Current State: Live & Functional
@@ -86,7 +85,6 @@ Transaction indexed → alert-evaluate queue → evaluator worker checks configs
 - **Namespace:** `chainward`
 - **Deployments:** `api`, `web`, `indexer` (names match `kubectl -n chainward get deployments`)
 - **Pods:** api, web, indexer, postgres, redis
-- **Internal access:** http://chainward.k3s.nox
 - **Public access:** chainward.ai (web), api.chainward.ai (api)
 - **Docker images:** `ghcr.io/saltxd/chainward-{api,web,indexer}:<git-short-hash>`
 - **Deploy command:** `kubectl -n chainward set image deployment/X X=ghcr.io/saltxd/chainward-X:$TAG`

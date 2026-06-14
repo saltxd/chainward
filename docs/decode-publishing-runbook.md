@@ -39,7 +39,7 @@ The pipeline produces deliverables, runs a 3-verifier gauntlet, pre-renders OG, 
 - Fix the prompt (if a verifier produced false positives or false negatives)
 - Hand-finish the decode using the manual flow below (the artifacts are still useful)
 
-The full pipeline spec is at `docs/superpowers/specs/2026-04-28-auto-decode-design.md`.
+The full pipeline spec lives in the internal wiki (BookStack page 199), not this repo.
 
 ## Manual flow (fallback for halts)
 

@@ -2,7 +2,7 @@
 
 A registered service-provider agent on Virtuals' Agentic Commerce Protocol that takes paid wallet-decode jobs (planned launch price: $10 USDC; raise after volume signal) and delivers JSON envelopes containing a markdown report, structured chain-grounded data, and verifiable sources.
 
-Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for agent builders on Base." See [BookStack page 202](http://docs.k3s.nox/books/chainward/page/strategic-direction-intelligence-platform-pivot-2026-04-29) for the full strategic context.
+Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for agent builders on Base."
 
 ---
 
@@ -192,11 +192,11 @@ kubectl -n chainward logs -l app.kubernetes.io/component=acp-decoder --tail=50
 
 If you're a future Claude session picking this up cold, read in this order:
 
-1. **`docs/superpowers/specs/2026-04-30-acp-decoder-agent-design.md`** — the design spec (locked)
-2. **`docs/superpowers/plans/2026-04-30-acp-decoder-agent.md`** — the implementation plan (locked)
+1. **Internal design spec** (internal wiki) — design + strategic context, not in this public repo
+2. **Internal implementation plan** (internal wiki) — not in this public repo
 3. **`docs/playbook/acp-registration-walkthrough.md`** — what we learned during Virtuals registration (live capture, includes EconomyOS-vs-legacy gotcha + the v2 migration step)
 4. **`scripts/auto-decode/acp-service-brief.md`** — original ACP brief (some sections outdated — superseded by the v2 migration; treat as historical context)
-5. **BookStack page 202** (chainward.k3s.nox) — strategic positioning + 4 sonnet investigation findings
+5. **BookStack page 202** (internal wiki) — strategic positioning + investigation findings
 6. **BookStack page 199** — auto-decode pipeline (the engine that became this product)
 7. **Migration guide** — https://github.com/Virtual-Protocol/acp-node-v2/blob/main/migration.md (the canonical SDK reference)
 
