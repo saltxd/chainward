@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 import { base } from 'wagmi/chains';
+import { ApiError } from '@/lib/api';
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const;
 
@@ -91,15 +92,34 @@ export function PayButton({ amountUsdc, treasuryAddress, verify, onSuccess, disa
       });
 
       setTxHash(hash);
-      setStatus('pending');
-
-      // Poll for receipt — wagmi hook handles this but we need to await it
-      const { createPublicClient, http } = await import('viem');
-      const client = createPublicClient({ chain: base, transport: http() });
-      await client.waitForTransactionReceipt({ hash, confirmations: 1 });
-
       setStatus('verifying');
-      await verify(hash);
+
+      // Confirm server-side: our API reads the receipt from our OWN Base node,
+      // so we don't depend on a public RPC client-side (viem's default http()
+      // endpoint would stall and time out even after the tx had confirmed).
+      // Retry while the tx propagates; a "not found / not yet confirmed" is
+      // transient, anything else is a real failure.
+      let confirmed = false;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        try {
+          await verify(hash);
+          confirmed = true;
+          break;
+        } catch (err) {
+          lastErr = err;
+          const code = err instanceof ApiError ? err.code : '';
+          const msg = err instanceof Error ? err.message : '';
+          const transient = code === 'TX_NOT_FOUND' || /not found|not yet confirmed/i.test(msg);
+          if (!transient) throw err;
+          await new Promise((r) => setTimeout(r, 3000));
+        }
+      }
+      if (!confirmed) {
+        throw lastErr instanceof Error
+          ? lastErr
+          : new Error('Payment sent — confirmation is taking longer than usual. It will be processed shortly.');
+      }
 
       setStatus('success');
       onSuccess?.();
