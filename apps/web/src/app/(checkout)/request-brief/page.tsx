@@ -58,7 +58,7 @@ export default function RequestBriefPage() {
   const [myOrders, setMyOrders] = useState<BriefOrder[]>([]);
 
   const user = session?.user ?? null;
-  const priceUsdc = config?.priceUsdc ?? 49;
+  const priceUsdc = config?.priceUsdc ?? 1;
 
   // Load treasury + price config at runtime (not from a baked NEXT_PUBLIC var).
   useEffect(() => {

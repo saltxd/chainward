@@ -158,7 +158,7 @@ export default function CheckHomePage() {
           )}
           <div className="v2-check-section-cta">
             <Button variant="primary" href="/request-brief">
-              want one for your wallet? — 49 USDC
+              want one for your wallet? — 1 USDC launch
               <span>→</span>
             </Button>
             <Button variant="ghost" href="/decodes">
