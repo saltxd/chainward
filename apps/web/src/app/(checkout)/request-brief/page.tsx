@@ -10,20 +10,12 @@ import { SectionHead, TerminalCard, Button } from '@/components/v2';
 import { PayButton } from '@/components/payment/pay-button';
 import { useToast } from '@/components/ui/toast';
 
-const CONTACT_METHODS: { value: BriefContactMethod; label: string }[] = [
-  { value: 'email', label: 'Email' },
-  { value: 'telegram', label: 'Telegram' },
-  { value: 'x', label: 'X / Twitter' },
-  { value: 'discord', label: 'Discord' },
-  { value: 'other', label: 'Other' },
-];
-
 const WHAT_YOU_GET = [
   'Full on-chain forensic decode from our own Base node',
   'Fund-flow + counterparty trace (where the money really goes)',
   'Claim-vs-reality check against on-chain evidence',
-  'Written report you can share — every flag sourced',
-  'Delivered within 48 hours',
+  'Every flag sourced to the chain',
+  'Delivered as a public thread from @chainwardai, tagging you — within 48h',
 ];
 
 function shortAddr(a: string): string {
@@ -48,7 +40,7 @@ export default function RequestBriefPage() {
     contact: string;
     contactMethod: BriefContactMethod;
     notes: string;
-  }>({ target: '', contact: '', contactMethod: 'email', notes: '' });
+  }>({ target: '', contact: '', contactMethod: 'x', notes: '' });
 
   const [order, setOrder] = useState<BriefOrder | null>(null);
   const [creating, setCreating] = useState(false);
@@ -202,22 +194,11 @@ export default function RequestBriefPage() {
                 />
               </label>
               <label>
-                <span>deliver via</span>
-                <select
-                  value={form.contactMethod}
-                  onChange={(e) => setForm({ ...form, contactMethod: e.target.value as BriefContactMethod })}
-                >
-                  {CONTACT_METHODS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>your {form.contactMethod === 'email' ? 'email' : form.contactMethod === 'other' ? 'contact' : form.contactMethod + ' handle'}</span>
+                <span>your X handle — we deliver as a public @chainwardai thread tagging you</span>
                 <input
                   value={form.contact}
                   onChange={(e) => setForm({ ...form, contact: e.target.value })}
-                  placeholder={form.contactMethod === 'email' ? 'you@domain.com' : '@you'}
+                  placeholder="@you"
                   required
                   autoComplete="off"
                   spellCheck={false}
