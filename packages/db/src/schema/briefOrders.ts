@@ -26,7 +26,9 @@ export const briefOrders = pgTable(
     // commerce
     plan: text('plan').notNull().default('brief'),
     amountUsdc: bigint('amount_usdc', { mode: 'number' }).notNull(), // micro-USDC (6 decimals)
-    status: text('status', { enum: ['pending', 'paid', 'fulfilled', 'cancelled'] })
+    status: text('status', {
+      enum: ['pending', 'paid', 'fulfilling', 'fulfilled', 'failed', 'cancelled'],
+    })
       .notNull()
       .default('pending'),
     txHash: text('tx_hash'),
