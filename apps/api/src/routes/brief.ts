@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 import { z } from 'zod';
-import { eq, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
+import { timingSafeEqual } from 'node:crypto';
 import { briefOrders } from '@chainward/db';
 import type { AppVariables } from '../types.js';
 import { getDb } from '../lib/db.js';
@@ -168,6 +170,75 @@ brief.get('/orders/mine', requireApiKeyOrSession('read'), async (c) => {
     .orderBy(desc(briefOrders.createdAt))
     .limit(50);
   return c.json({ success: true, orders });
+});
+
+// ── Ops endpoints (fulfillment worker) ────────────────────────────────────────
+// Authed by a shared OPS_API_KEY (chainward-secrets), used by the off-cluster
+// fulfillment poller on sg-scribe to claim + settle orders. No session/wallet.
+const requireOpsKey: MiddlewareHandler = async (c, next) => {
+  const expected = process.env.OPS_API_KEY;
+  if (!expected) throw new AppError(503, 'OPS_DISABLED', 'Ops API not configured');
+  const got = c.req.header('x-ops-key') ?? '';
+  const a = Buffer.from(got);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Invalid ops key');
+  }
+  await next();
+};
+
+// Paid orders awaiting fulfillment, oldest first.
+brief.get('/ops/queue', requireOpsKey, async (c) => {
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 10), 1), 50);
+  const db = getDb();
+  const orders = await db
+    .select()
+    .from(briefOrders)
+    .where(eq(briefOrders.status, 'paid'))
+    .orderBy(briefOrders.createdAt)
+    .limit(limit);
+  return c.json({ success: true, orders });
+});
+
+const opsStatusSchema = z.object({
+  status: z.enum(['fulfilling', 'fulfilled', 'failed']),
+  deliveryRef: z.string().max(500).optional(),
+  error: z.string().max(1000).optional(),
+});
+
+brief.post('/ops/orders/:id/status', requireOpsKey, async (c) => {
+  const id = c.req.param('id');
+  if (!id || !z.string().uuid().safeParse(id).success) {
+    throw new AppError(400, 'INVALID_ORDER_ID', 'Invalid order id');
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const { status, deliveryRef, error } = opsStatusSchema.parse(body);
+  const db = getDb();
+
+  // 'fulfilling' is an atomic claim: only succeeds from 'paid', so a crashed
+  // run or a second poller can't double-decode/double-post the same order.
+  if (status === 'fulfilling') {
+    const claimed = await db
+      .update(briefOrders)
+      .set({ status: 'fulfilling' })
+      .where(and(eq(briefOrders.id, id), eq(briefOrders.status, 'paid')))
+      .returning();
+    return c.json({ success: true, claimed: claimed.length > 0, order: claimed[0] ?? null });
+  }
+
+  const note = deliveryRef ? `delivered: ${deliveryRef}` : error ? `error: ${error}` : null;
+  const [updated] = await db
+    .update(briefOrders)
+    .set({
+      status,
+      ...(status === 'fulfilled' ? { fulfilledAt: new Date() } : {}),
+      ...(note ? { notes: sql`concat_ws(' | ', ${briefOrders.notes}, ${note})` } : {}),
+    })
+    .where(eq(briefOrders.id, id))
+    .returning();
+  if (!updated) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+  logger.info({ orderId: id, status, deliveryRef }, 'Brief order status updated (ops)');
+  return c.json({ success: true, order: updated });
 });
 
 type BriefOrderRow = typeof briefOrders.$inferSelect;

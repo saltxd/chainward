@@ -17,6 +17,7 @@
     "risk:seed": "tsx scripts/risk-seed.ts",
     "decode:og-render": "tsx scripts/auto-decode/og-render.ts",
     "decode:auto": "tsx scripts/auto-decode/index.ts",
+    "brief:fulfill": "tsx scripts/fulfill-briefs.ts",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {

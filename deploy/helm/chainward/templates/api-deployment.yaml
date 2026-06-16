@@ -109,6 +109,12 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: BRIEF_PRICE_MICRO_USDC
                   optional: true
+            - name: OPS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: OPS_API_KEY
+                  optional: true
           lifecycle:
             preStop:
               exec:
