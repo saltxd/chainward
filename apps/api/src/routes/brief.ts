@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { MiddlewareHandler } from 'hono';
 import { z } from 'zod';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { timingSafeEqual } from 'node:crypto';
 import { briefOrders } from '@chainward/db';
 import type { AppVariables } from '../types.js';
@@ -227,12 +227,18 @@ brief.post('/ops/orders/:id/status', requireOpsKey, async (c) => {
   }
 
   const note = deliveryRef ? `delivered: ${deliveryRef}` : error ? `error: ${error}` : null;
+  const [cur] = await db
+    .select({ notes: briefOrders.notes })
+    .from(briefOrders)
+    .where(eq(briefOrders.id, id))
+    .limit(1);
+  if (!cur) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
   const [updated] = await db
     .update(briefOrders)
     .set({
       status,
       ...(status === 'fulfilled' ? { fulfilledAt: new Date() } : {}),
-      ...(note ? { notes: sql`concat_ws(' | ', ${briefOrders.notes}, ${note})` } : {}),
+      ...(note ? { notes: [cur.notes, note].filter(Boolean).join(' | ') } : {}),
     })
     .where(eq(briefOrders.id, id))
     .returning();
