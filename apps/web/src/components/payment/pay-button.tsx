@@ -4,10 +4,8 @@ import { useState } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 import { base } from 'wagmi/chains';
-import { api } from '@/lib/api';
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const;
-const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS as `0x${string}`;
 
 const erc20Abi = [{
   name: 'transfer',
@@ -17,7 +15,6 @@ const erc20Abi = [{
   outputs: [{ name: '', type: 'bool' }],
 }] as const;
 
-type PlanId = 'operator' | 'community' | 'brief';
 type Status = 'idle' | 'switching-chain' | 'confirming' | 'pending' | 'verifying' | 'success' | 'error';
 
 const STATUS_LABELS: Record<Status, string> = {
@@ -31,12 +28,18 @@ const STATUS_LABELS: Record<Status, string> = {
 };
 
 interface PayButtonProps {
-  planId: PlanId;
+  /** Amount in whole USDC (e.g. 49). */
   amountUsdc: number;
+  /** Treasury address that receives the USDC — sourced at runtime (not NEXT_PUBLIC). */
+  treasuryAddress: string | null | undefined;
+  /** Verify the transfer server-side (e.g. attach it to a brief order). */
+  verify: (txHash: string) => Promise<void>;
   onSuccess?: () => void;
+  /** Disable the button (e.g. while the order form is incomplete). */
+  disabled?: boolean;
 }
 
-export function PayButton({ planId, amountUsdc, onSuccess }: PayButtonProps) {
+export function PayButton({ amountUsdc, treasuryAddress, verify, onSuccess, disabled }: PayButtonProps) {
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -61,8 +64,8 @@ export function PayButton({ planId, amountUsdc, onSuccess }: PayButtonProps) {
       return;
     }
 
-    if (!TREASURY_ADDRESS) {
-      setErrorMsg('Treasury address not configured');
+    if (!treasuryAddress) {
+      setErrorMsg('Payments are not configured yet');
       setStatus('error');
       return;
     }
@@ -83,7 +86,7 @@ export function PayButton({ planId, amountUsdc, onSuccess }: PayButtonProps) {
         address: USDC_ADDRESS,
         abi: erc20Abi,
         functionName: 'transfer',
-        args: [TREASURY_ADDRESS, amount],
+        args: [treasuryAddress as `0x${string}`, amount],
         chainId: base.id,
       });
 
@@ -96,7 +99,7 @@ export function PayButton({ planId, amountUsdc, onSuccess }: PayButtonProps) {
       await client.waitForTransactionReceipt({ hash, confirmations: 1 });
 
       setStatus('verifying');
-      await api.verifyPayment({ txHash: hash, plan: planId });
+      await verify(hash);
 
       setStatus('success');
       onSuccess?.();
@@ -120,7 +123,7 @@ export function PayButton({ planId, amountUsdc, onSuccess }: PayButtonProps) {
     <div className="flex flex-col gap-2">
       <button
         onClick={handlePay}
-        disabled={isProcessing || isComplete || isWaiting}
+        disabled={disabled || isProcessing || isComplete || isWaiting}
         className={
           'flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed ' +
           (isComplete

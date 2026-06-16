@@ -157,6 +157,10 @@ export default function CheckHomePage() {
             </div>
           )}
           <div className="v2-check-section-cta">
+            <Button variant="primary" href="/request-brief">
+              want one for your wallet? — 49 USDC
+              <span>→</span>
+            </Button>
             <Button variant="ghost" href="/decodes">
               all decodes
               <span>→</span>
@@ -172,6 +176,7 @@ export default function CheckHomePage() {
           <div className="v2-check-footer-links">
             <Link href="/reports">reports</Link>
             <Link href="/decodes">decodes</Link>
+            <Link href="/request-brief">brief</Link>
             <Link href="/base">observatory</Link>
             <Link href="/mcp">mcp</Link>
             <Link href="/docs">docs</Link>

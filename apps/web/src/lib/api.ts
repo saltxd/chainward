@@ -119,6 +119,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  // Intel Brief (paid forensic decode) — treasury + price come from /config at
+  // runtime (NEXT_PUBLIC_* is baked at build time, so we never rely on it).
+  getBriefConfig: () => fetchApi<BriefConfig>('/api/brief/config'),
+  createBriefOrder: (body: CreateBriefOrderBody) =>
+    fetchApi<{ success: true; order: BriefOrder }>('/api/brief/orders', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  payBriefOrder: (id: string, txHash: string) =>
+    fetchApi<{ success: true; order: BriefOrder }>(`/api/brief/orders/${id}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({ txHash }),
+    }),
+  getMyBriefOrders: () =>
+    fetchApi<{ success: true; orders: BriefOrder[] }>('/api/brief/orders/mine'),
 };
 
 // Types
@@ -308,6 +324,43 @@ export interface CreateApiKeyBody {
   name: string;
   scopes?: string[];
   expiresAt?: string;
+}
+
+// ── Intel Brief (paid forensic decode) ──────────────────────────────────────
+
+export type BriefContactMethod = 'email' | 'telegram' | 'x' | 'discord' | 'other';
+
+export interface BriefConfig {
+  success: true;
+  treasuryAddress: string | null;
+  priceMicroUsdc: string;
+  priceUsdc: number;
+  available: boolean;
+}
+
+export interface BriefOrder {
+  id: string;
+  userId: string;
+  walletAddress: string;
+  target: string;
+  targetKind: 'address' | 'handle';
+  contact: string;
+  contactMethod: BriefContactMethod;
+  notes: string | null;
+  plan: string;
+  amountUsdc: number; // micro-USDC (6 decimals)
+  status: 'pending' | 'paid' | 'fulfilled' | 'cancelled';
+  txHash: string | null;
+  createdAt: string;
+  paidAt: string | null;
+  fulfilledAt: string | null;
+}
+
+export interface CreateBriefOrderBody {
+  target: string;
+  contact: string;
+  contactMethod: BriefContactMethod;
+  notes?: string;
 }
 
 // ── Wallet Lookup (public) ──────────────────────────────────────────────────
