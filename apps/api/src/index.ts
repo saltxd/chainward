@@ -21,6 +21,7 @@ import { risk } from './routes/risk.js';
 import { observatory } from './routes/observatory.js';
 import { digest } from './routes/digest.js';
 import { payments } from './routes/payments.js';
+import { brief } from './routes/brief.js';
 import { telemetry } from './routes/telemetry.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
@@ -124,6 +125,7 @@ app.route('/api/risk', risk);
 app.route('/api/observatory', observatory);
 app.route('/api/digest', digest);
 app.route('/api/payments', payments);
+app.route('/api/brief', brief);
 app.route('/api/telemetry', telemetry);
 
 // 404 handler

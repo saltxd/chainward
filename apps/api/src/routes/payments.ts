@@ -4,12 +4,10 @@ import { eq } from 'drizzle-orm';
 import { users } from '@chainward/db';
 import type { AppVariables } from '../types.js';
 import { getDb } from '../lib/db.js';
-import { getBaseClient } from '../lib/viem.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../lib/logger.js';
-
-const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'.toLowerCase();
+import { verifyUsdcPayment } from '../lib/verifyUsdcPayment.js';
 
 const PLAN_PRICES: Record<string, bigint> = {
   operator: 25_000_000n,  // 25 USDC (6 decimals)
@@ -40,37 +38,22 @@ payments.post('/verify', requireApiKeyOrSession('write'), async (c) => {
     throw new AppError(500, 'CONFIG_ERROR', 'Treasury address not configured');
   }
 
-  const client = getBaseClient();
-
-  const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` }).catch(() => null);
-  if (!receipt) {
-    throw new AppError(400, 'TX_NOT_FOUND', 'Transaction not found or not yet confirmed');
-  }
-
-  if (receipt.status !== 'success') {
-    throw new AppError(400, 'TX_FAILED', 'Transaction reverted on-chain');
-  }
-
   // Find the USDC Transfer log from the user's wallet to the treasury
   const expectedAmount = PLAN_PRICES[plan]!;
-  let matched = false;
+  const result = await verifyUsdcPayment({
+    txHash,
+    fromWallet: user.walletAddress,
+    toTreasury: treasuryAddress,
+    minAmount: expectedAmount,
+  });
 
-  for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== USDC_ADDRESS) continue;
-    if (!log.topics[0] || log.topics[0] !== '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') continue;
-
-    // topics[1] = from, topics[2] = to (padded to 32 bytes)
-    const from = ('0x' + log.topics[1]!.slice(26)).toLowerCase();
-    const to = ('0x' + log.topics[2]!.slice(26)).toLowerCase();
-    const value = BigInt(log.data);
-
-    if (from === user.walletAddress.toLowerCase() && to === treasuryAddress && value >= expectedAmount) {
-      matched = true;
-      break;
+  if (!result.ok) {
+    if (result.reason === 'TX_NOT_FOUND') {
+      throw new AppError(400, 'TX_NOT_FOUND', 'Transaction not found or not yet confirmed');
     }
-  }
-
-  if (!matched) {
+    if (result.reason === 'TX_FAILED') {
+      throw new AppError(400, 'TX_FAILED', 'Transaction reverted on-chain');
+    }
     throw new AppError(400, 'INVALID_PAYMENT', 'No matching USDC transfer found in transaction. Expected ' + (Number(expectedAmount) / 1e6) + ' USDC from your wallet to treasury.');
   }
 
