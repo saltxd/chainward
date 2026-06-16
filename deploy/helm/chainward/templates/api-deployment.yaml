@@ -88,6 +88,27 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: ALCHEMY_WEBHOOK_ID
                   optional: true
+            # Paid Intel Brief — receiving wallet + order ping. Both optional:
+            # if TREASURY is unset, /api/brief/config reports available:false and
+            # the checkout stays safely disabled.
+            - name: TREASURY_WALLET_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: TREASURY_WALLET_ADDRESS
+                  optional: true
+            - name: DIGEST_DISCORD_WEBHOOK
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: DIGEST_DISCORD_WEBHOOK
+                  optional: true
+            - name: BRIEF_PRICE_MICRO_USDC
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: BRIEF_PRICE_MICRO_USDC
+                  optional: true
           lifecycle:
             preStop:
               exec:

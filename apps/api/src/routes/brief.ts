@@ -11,8 +11,8 @@ import { verifyUsdcPayment } from '../lib/verifyUsdcPayment.js';
 
 // Price for the paid "Intel Brief" (forensic on-chain decode), in micro-USDC
 // (6 decimals). Env-overridable so the price can be tuned WITHOUT a redeploy.
-// Defaults to the 49-USDC founding rate.
-const BRIEF_PRICE_USDC = BigInt(process.env.BRIEF_PRICE_MICRO_USDC ?? '49000000');
+// Defaults to the 1-USDC launch rate (ChainWard's literal first dollar).
+const BRIEF_PRICE_USDC = BigInt(process.env.BRIEF_PRICE_MICRO_USDC ?? '1000000');
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 

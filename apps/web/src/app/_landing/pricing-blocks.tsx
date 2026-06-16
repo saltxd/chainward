@@ -29,10 +29,10 @@ const plans = [
   },
   {
     id: 'brief',
-    tag: 'one.time',
+    tag: 'launch.price',
     name: 'Intel Brief',
-    price: '49 USDC',
-    unit: 'forensic decode · 48h',
+    price: '1 USDC',
+    unit: 'launch price · forensic decode · 48h',
     features: [
       'Full on-chain forensic decode',
       'Fund-flow + counterparty trace',
