@@ -27,7 +27,10 @@ export function formatTokenAmount(raw: string, decimals: number, maxPrecision = 
   const value = Number(raw) / 10 ** decimals;
   if (value === 0) return '0';
   if (value < 0.000001) return '<0.000001';
-  return value.toFixed(Math.min(decimals, maxPrecision)).replace(/\.?0+$/, '');
+  const fixed = value.toFixed(Math.min(decimals, maxPrecision));
+  // Only strip trailing zeros when a decimal point exists; otherwise the regex
+  // eats real trailing zeros of integer amounts (e.g. 0-decimal tokens: "100" -> "1").
+  return fixed.includes('.') ? fixed.replace(/\.?0+$/, '') : fixed;
 }
 
 /** Format gas in gwei */
