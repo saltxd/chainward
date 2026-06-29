@@ -72,7 +72,12 @@ spec:
             failureThreshold: 6
           resources:
             requests:
-              cpu: 100m
+              # Raised 100m→300m 2026-06-29: at 100m the scheduler under-accounts a DB
+              # that bursts to ~540m on prober cycles, so it got bin-packed onto the
+              # 4-vCPU control-plane node alongside other DBs → NodeSystemSaturation
+              # (runbook #256, sg-k3s-control). A realistic request lets the scheduler
+              # reserve headroom and spread the heavy DBs across nodes.
+              cpu: 300m
               memory: 256Mi
             limits:
               # Raised 500m→1000m 2026-06-06: TimescaleDB continuous-aggregate refresh +
