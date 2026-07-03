@@ -27,8 +27,8 @@ That's the entire context for picking up mid-flight.
 As of 2026-04-28 (first ship: Axelrod), the entire decode pipeline is automated. Trigger via:
 
 - **Discord DM** to Claude_Dev: `decode @<name>` or `decode 0x<address>`
-- **Direct CLI** on sg-scribe: `pnpm decode:auto @<name>`
-- **From any Claude with homelab MCP**: `ssh sg-scribe '~/Forge/chainward && pnpm decode:auto @<name>'`
+- **Direct CLI** on <ops-host>: `pnpm decode:auto @<name>`
+- **From any Claude with homelab MCP**: `ssh <ops-host> '~/Forge/chainward && pnpm decode:auto @<name>'`
 
 The pipeline produces deliverables, runs a 3-verifier gauntlet, pre-renders OG, deploys, and posts the launch tweet. End-to-end ~20-30 min.
 
@@ -131,7 +131,7 @@ Rank Agent       aGDP     Role     Score Rationale
 
 **Suggested workflow:**
 ```bash
-ssh sg-scribe
+ssh <ops-host>
 set -a; source ~/.config/systemd/user/auto-decode.env; set +a
 pnpm decode:auto @Axelrod
 ```

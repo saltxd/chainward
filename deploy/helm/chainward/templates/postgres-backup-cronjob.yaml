@@ -1,3 +1,4 @@
+{{- if .Values.backup.nfsServer }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -7,8 +8,7 @@ metadata:
     {{- include "chainward.labels" . | nindent 4 }}
     app.kubernetes.io/component: backup
 spec:
-  # 03:30 MDT (09:30 UTC). Was 09:00 — moved 2026-04-24 to unstagger from ouramate.
-  # Cluster-wide schedule lives in BookStack page 96 (Database Backups).
+  # 03:30 MDT (09:30 UTC). Staggered away from other cluster backup jobs.
   schedule: "30 9 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
@@ -61,8 +61,8 @@ spec:
                   memory: 512Mi
           volumes:
             - name: backup-storage
-              # fortzero NFS — picked up by PBS via VM-level backup of fortzero.
-              # See BookStack page 96 (Database Backups).
+              # NFS target comes from a private values overlay (see values.yaml `backup:`).
               nfs:
-                server: 192.168.1.185
-                path: /mnt/nfs-storage/db-dumps
+                server: {{ .Values.backup.nfsServer }}
+                path: {{ .Values.backup.nfsPath }}
+{{- end }}

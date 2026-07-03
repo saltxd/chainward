@@ -1,6 +1,13 @@
 namespace: chainward
-domain: chainward.k3s.nox
+# Internal ingress domain — set your real value via a private values overlay or --set domain=...
+domain: chainward.example.internal
 publicDomain: chainward.ai
+
+# Postgres backup CronJob NFS target. Left empty here on purpose: the backup
+# CronJob only renders when nfsServer is set (private values overlay).
+backup:
+  nfsServer: ""
+  nfsPath: ""
 
 images:
   api: ghcr.io/saltxd/chainward-api:latest
