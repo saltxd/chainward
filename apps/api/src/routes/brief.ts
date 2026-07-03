@@ -174,7 +174,7 @@ brief.get('/orders/mine', requireApiKeyOrSession('read'), async (c) => {
 
 // ── Ops endpoints (fulfillment worker) ────────────────────────────────────────
 // Authed by a shared OPS_API_KEY (chainward-secrets), used by the off-cluster
-// fulfillment poller on sg-scribe to claim + settle orders. No session/wallet.
+// fulfillment poller on the ops host to claim + settle orders. No session/wallet.
 const requireOpsKey: MiddlewareHandler = async (c, next) => {
   const expected = process.env.OPS_API_KEY;
   if (!expected) throw new AppError(503, 'OPS_DISABLED', 'Ops API not configured');

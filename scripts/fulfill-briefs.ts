@@ -1,6 +1,6 @@
 // scripts/fulfill-briefs.ts
 //
-// Auto-fulfillment poller for paid Intel Brief orders. Runs on sg-scribe (has
+// Auto-fulfillment poller for paid Intel Brief orders. Runs on the ops host (has
 // claude + gh). Per cycle: pull paid orders from the chainward ops API, claim
 // each atomically, run a brief decode via Claude, deliver via the order's
 // method (X = thread from @chainwardai tagging the buyer), verify the post
