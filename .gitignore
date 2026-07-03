@@ -52,3 +52,6 @@ packages/intelligence/*.json
 .superpowers/
 test-results/
 WEEK1-RUNBOOK.md
+
+# Private Helm values (real internal domain + backup NFS target) — never commit
+deploy/helm/chainward/values.private.yaml
