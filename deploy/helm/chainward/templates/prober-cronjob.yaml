@@ -54,6 +54,30 @@ spec:
                   value: "120"
                 - name: UNDELIVERED_THRESHOLD
                   value: "5"
+                # 2026-07-06: live "is ingest supposed to be on?" gate. The stall
+                # check queries the Alchemy Notify API for the webhook's monitored
+                # address count; a stale DB is only an OUTAGE when that count > 0.
+                # This is the ground truth that prevents the 2026-06-23 failure
+                # class (webhook deliberately emptied → stale is EXPECTED, not a
+                # fault). Same secret already used by api+indexer; optional so the
+                # prober still runs (falls back to the AGENT_COUNT gate) if unset.
+                - name: ALCHEMY_AUTH_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: chainward-secrets
+                      key: ALCHEMY_AUTH_TOKEN
+                      optional: true
+                - name: ALCHEMY_WEBHOOK_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: chainward-secrets
+                      key: ALCHEMY_WEBHOOK_ID
+                      optional: true
+                # Re-page cadence for a still-firing stall. alert_with_resolve only
+                # pages on transition; a genuine multi-day outage (2026-06-23 ran
+                # 13 days) must keep reminding. Re-page at most every REPAGE_HOURS.
+                - name: REPAGE_HOURS
+                  value: "6"
               command:
                 - /bin/sh
                 - -c
@@ -178,6 +202,23 @@ spec:
                   ")
                   AGENT_COUNT=$(pq "SELECT COUNT(*) FROM agent_registry;")
 
+                  # Live ingest-enabled gate (2026-07-06). Ground truth for "is
+                  # ingest supposed to be on" = the count of addresses the Alchemy
+                  # webhook is monitoring. With 0 addresses Alchemy sends nothing,
+                  # so a stale DB is EXPECTED (see 2026-06-23 incident, Runbooks
+                  # p278) — not an outage. Best-effort: on missing creds / API
+                  # failure MONITORED stays "unknown" and we fall back to the
+                  # pre-existing AGENT_COUNT>0 gate (never less safe than before).
+                  MONITORED="unknown"
+                  if [ -n "$ALCHEMY_AUTH_TOKEN" ] && [ -n "$ALCHEMY_WEBHOOK_ID" ]; then
+                    WH_JSON=$(curl -sf -m 15 -H "X-Alchemy-Token: $ALCHEMY_AUTH_TOKEN" \
+                      "https://dashboard.alchemy.com/api/webhook-addresses?webhook_id=${ALCHEMY_WEBHOOK_ID}&limit=1" 2>/dev/null || true)
+                    MC=$(printf '%s' "$WH_JSON" | grep -oE '"total_count"[[:space:]]*:[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -1)
+                    if echo "$MC" | grep -qE '^[0-9]+$'; then
+                      MONITORED="$MC"
+                    fi
+                  fi
+
                   # Fail-loud: if either query returns non-numeric, send a distinct malfunction alert
                   # instead of silently suppressing the real check. This is the exact bug class that
                   # hid a 25h outage before — never fail silent.
@@ -190,20 +231,78 @@ spec:
                       "true"
                     echo "FIRED: prober query malfunction"
                   else
-                    STALL_FIRING="false"
-                    if [ "$STALE_MINUTES" -gt "$STALE_MINUTES_THRESHOLD" ] && [ "$AGENT_COUNT" -gt 0 ]; then
-                      STALL_FIRING="true"
+                    # Ingest-enabled gate: prefer the live monitored-address count;
+                    # fall back to AGENT_COUNT>0 only when the count is unavailable.
+                    INGEST_EXPECTED="false"
+                    if [ "$MONITORED" = "unknown" ]; then
+                      if [ "$AGENT_COUNT" -gt 0 ]; then INGEST_EXPECTED="true"; fi
+                    elif [ "$MONITORED" -gt 0 ]; then
+                      INGEST_EXPECTED="true"
                     fi
-                    alert_with_resolve \
-                      "indexer_stall_alerting" \
-                      "$STALL_FIRING" \
-                      "HIGH: Indexer Stall Detected" \
-                      "${CLAUDE_PING} No new transactions indexed in ${STALE_MINUTES} minutes. ${AGENT_COUNT} registered agents. Check Alchemy webhook \`is_active\` and API/indexer pod logs." \
-                      "$RED" \
-                      "${CLAUDE_PING} 🚨 Indexer Stall: ${STALE_MINUTES}min stale (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents" \
-                      "RESOLVED: Indexer Stall" \
-                      "Transactions flowing again. Current stale=${STALE_MINUTES}min (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents tracked. No action needed." \
-                      "✅ Indexer Stall resolved: ${STALE_MINUTES}min stale, ${AGENT_COUNT} agents tracked"
+
+                    if [ "$INGEST_EXPECTED" = "false" ]; then
+                      # Ingest is intentionally off (0 monitored addresses): a stale
+                      # DB is EXPECTED, so never page. If a stall alert was latched
+                      # earlier (e.g. the 2026-06-23 emptying left indexer_stall_alerting
+                      # =true), clear it QUIETLY with an accurate note — NOT the
+                      # misleading "transactions flowing again" resolve message. The
+                      # alert re-arms automatically once addresses are registered.
+                      PREV_STALL=$(pq "SELECT value FROM prober_state WHERE key = 'indexer_stall_alerting';")
+                      if [ "$PREV_STALL" = "true" ]; then
+                        send_discord \
+                          "Indexer Stall Alert Cleared — ingest disabled" \
+                          "The Alchemy webhook monitors 0 addresses, so ingest is intentionally disabled and a stale DB is expected (stale=${STALE_MINUTES}min). Clearing the stall latch; it re-arms automatically when addresses are registered." \
+                          "$GREEN" \
+                          "ℹ️ Indexer stall latch cleared — ingest intentionally disabled (0 monitored addresses)" \
+                          "false"
+                        pq "INSERT INTO prober_state (key, value) VALUES ('indexer_stall_alerting', 'false')
+                            ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = now();" >/dev/null
+                        echo "CLEARED: indexer_stall latch reset (ingest disabled, 0 monitored addresses)"
+                      fi
+                      echo "prober: ingest intentionally disabled (0 monitored addresses) — staleness expected, no alert"
+                    else
+                      STALL_FIRING="false"
+                      if [ "$STALE_MINUTES" -gt "$STALE_MINUTES_THRESHOLD" ]; then
+                        STALL_FIRING="true"
+                      fi
+
+                      STALL_OUT=$(alert_with_resolve \
+                        "indexer_stall_alerting" \
+                        "$STALL_FIRING" \
+                        "HIGH: Indexer Stall Detected" \
+                        "${CLAUDE_PING} No new transactions indexed in ${STALE_MINUTES} minutes. ${AGENT_COUNT} registered agents, ${MONITORED} webhook addresses monitored. Check Alchemy webhook \`is_active\` + address count and API/indexer pod logs." \
+                        "$RED" \
+                        "${CLAUDE_PING} 🚨 Indexer Stall: ${STALE_MINUTES}min stale (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents, ${MONITORED} monitored" \
+                        "RESOLVED: Indexer Stall" \
+                        "Transactions flowing again. Current stale=${STALE_MINUTES}min (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents tracked. No action needed." \
+                        "✅ Indexer Stall resolved: ${STALE_MINUTES}min stale, ${AGENT_COUNT} agents tracked")
+                      if [ -n "$STALL_OUT" ]; then echo "$STALL_OUT"; fi
+
+                      # Re-page a STILL-firing stall so a multi-day outage keeps
+                      # reminding (alert_with_resolve only pages on transition). On
+                      # the transition tick it already paged, so just seed the re-page
+                      # timer; otherwise re-page every REPAGE_HOURS while still firing.
+                      if [ "$STALL_FIRING" = "true" ]; then
+                        if echo "$STALL_OUT" | grep -q "FIRED"; then
+                          pq "INSERT INTO prober_state (key, value) VALUES ('indexer_stall_repaged', 'fired')
+                              ON CONFLICT (key) DO UPDATE SET value = 'fired', updated_at = now();" >/dev/null
+                        else
+                          REPAGE_SECONDS=$(( ${REPAGE_HOURS:-6} * 3600 ))
+                          SINCE=$(pq "SELECT EXTRACT(EPOCH FROM (now() - updated_at))::int FROM prober_state WHERE key = 'indexer_stall_repaged';")
+                          if ! echo "$SINCE" | grep -qE '^[0-9]+$' || [ "$SINCE" -ge "$REPAGE_SECONDS" ]; then
+                            send_discord \
+                              "HIGH: Indexer Stall STILL Firing" \
+                              "${CLAUDE_PING} Still no transactions for ${STALE_MINUTES} minutes (threshold ${STALE_MINUTES_THRESHOLD}min). ${MONITORED} webhook addresses monitored. Re-paging every ${REPAGE_HOURS:-6}h until resolved." \
+                              "$RED" \
+                              "${CLAUDE_PING} 🚨 Indexer Stall STILL firing: ${STALE_MINUTES}min stale, ${MONITORED} monitored" \
+                              "true"
+                            pq "INSERT INTO prober_state (key, value) VALUES ('indexer_stall_repaged', 'fired')
+                                ON CONFLICT (key) DO UPDATE SET value = 'fired', updated_at = now();" >/dev/null
+                            echo "RE-PAGED: indexer stall still firing (${STALE_MINUTES}min, monitored=${MONITORED})"
+                          fi
+                        fi
+                      fi
+                    fi
                   fi
 
                   # ==============================
@@ -240,4 +339,4 @@ spec:
                       "✅ Alert Delivery resolved: ${UNDELIVERED} undelivered in last hour"
                   fi
 
-                  echo "prober tick complete. stale=${STALE_MINUTES}min agents=${AGENT_COUNT} undelivered=${UNDELIVERED}"
+                  echo "prober tick complete. stale=${STALE_MINUTES}min agents=${AGENT_COUNT} monitored=${MONITORED} undelivered=${UNDELIVERED}"
