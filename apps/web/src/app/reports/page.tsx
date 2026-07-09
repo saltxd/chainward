@@ -1,25 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  PageShell,
-  NavBar,
-  StatusTicker,
-  SectionHead,
-  Badge,
-  RISK_NAV_LINKS,
-} from '@/components/v2';
-import {
-  BAND_LABEL,
-  reportPath,
-  SEVERITY_TONE,
-  isThinReport,
-} from '@/lib/risk';
-import type { RiskLibraryResult, RiskReportCard } from '@/lib/api';
+import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
+import { BAND_LABEL, reportPath, isThinReport } from '@/lib/risk';
+import type { RiskLibraryResult, RiskReportCard, RiskSeverity } from '@/lib/api';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 const PAGE_SIZE = 60;
 
-// Render per-request so the library reflects newly-published reports and can
+// Render per-request so the register reflects newly-published reports and can
 // reach the in-cluster API.
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +31,13 @@ export const metadata: Metadata = {
     description: 'Public on-chain risk reports for Base addresses.',
     images: ['/chainward-og.png'],
   },
+};
+
+const SEV_VAR: Record<RiskSeverity, string> = {
+  high: 'var(--sev-high)',
+  medium: 'var(--sev-medium)',
+  low: 'var(--sev-low)',
+  info: 'var(--sev-info)',
 };
 
 async function fetchLibrary(): Promise<RiskLibraryResult | null> {
@@ -71,40 +66,50 @@ function formatDate(iso: string): string {
   return new Date(iso).toISOString().slice(0, 10);
 }
 
-function CardTile({ card }: { card: RiskReportCard }) {
+function RegisterRow({ card }: { card: RiskReportCard }) {
   const thin = isThinReport(card.flag_count, card.band);
   return (
     <Link
       href={reportPath(card.address)}
-      className="v2-lib-card"
+      className="reg-row"
       // Thin entries (empty/quiet wallets, zero flags) are deindexed at the
-      // page level; nofollow the link so crawlers don't follow into them.
+      // page level; nofollow so crawlers don't follow into them.
       rel={thin ? 'nofollow' : undefined}
     >
-      <div className="v2-lib-card-top">
-        <span className="v2-lib-card-addr">
+      <span className="reg-cell reg-subject">
+        <span className="reg-cell-label">Subject</span>
+        <span className="reg-subject-name mono">
           {card.agent_name ?? truncate(card.address)}
         </span>
-        <Badge tone="neutral">{BAND_LABEL[card.band]}</Badge>
-      </div>
-      {card.agent_name && (
-        <span className="v2-lib-card-sub">{truncate(card.address)}</span>
-      )}
-      <div className="v2-lib-card-flags">
-        {card.top_severity ? (
-          <Badge tone={SEVERITY_TONE[card.top_severity]}>
-            {card.flag_count} flag{card.flag_count === 1 ? '' : 's'} · top {card.top_severity}
-          </Badge>
-        ) : (
-          <span className="v2-lib-card-noflag">0 flags raised</span>
+        {card.agent_name && (
+          <span className="reg-subject-addr mono">{truncate(card.address)}</span>
         )}
-      </div>
-      <div className="v2-lib-card-meta">
-        <time dateTime={card.as_of_date}>// {formatDate(card.as_of_date)}</time>
-        <span>
-          {card.view_count} {card.view_count === 1 ? 'view' : 'views'}
+      </span>
+      <span className="reg-cell reg-flags">
+        <span className="reg-cell-label">Flags</span>
+        <span
+          className="mono"
+          style={{ color: card.top_severity ? SEV_VAR[card.top_severity] : 'var(--ink-faint)' }}
+        >
+          {card.top_severity
+            ? `${card.flag_count} · top ${card.top_severity}`
+            : 'no signal'}
         </span>
-      </div>
+      </span>
+      <span className="reg-cell reg-band">
+        <span className="reg-cell-label">Band</span>
+        {BAND_LABEL[card.band]}
+      </span>
+      <span className="reg-cell reg-filed">
+        <span className="reg-cell-label">Filed</span>
+        <time className="mono" dateTime={card.as_of_date}>
+          {formatDate(card.as_of_date)}
+        </time>
+      </span>
+      <span className="reg-cell reg-views mono">
+        <span className="reg-cell-label">Views</span>
+        {card.view_count}
+      </span>
     </Link>
   );
 }
@@ -115,128 +120,159 @@ export default async function ReportsLibraryPage() {
   const total = library?.pagination.total ?? reports.length;
 
   return (
-    <PageShell>
-      <StatusTicker />
-      <div className="v2-shell" style={{ paddingBottom: 80 }}>
-        <NavBar links={RISK_NAV_LINKS} ctaHref="/" ctaLabel="./check" />
+    <PressShell>
+      <PressDateline />
+      <div className="press-wrap">
+        <Masthead />
 
-        <section style={{ paddingTop: 56 }}>
-          <SectionHead
-            tag="library"
-            title={
-              <>
-                Every address we&apos;ve checked.{' '}
-                <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                  Public, free, forever.
-                </span>
-              </>
-            }
-            lede="The first time an address is checked, its report is cached and becomes a public, shareable record. Flags from on-chain behavior, with evidence — never a safety verdict."
-          />
-
-          {reports.length === 0 ? (
-            <div className="v2-lib-empty">
-              No reports yet. Be the first —{' '}
-              <Link href="/" className="v2-lib-empty-link">
-                run a check →
-              </Link>
-            </div>
-          ) : (
-            <>
-              <div className="v2-lib-count">
-                // {total} report{total === 1 ? '' : 's'} indexed
-              </div>
-              <div className="v2-lib-grid">
-                {reports.map((card) => (
-                  <CardTile key={card.address} card={card} />
-                ))}
-              </div>
-            </>
-          )}
+        <section className="reg-lead">
+          <span className="press-label">The Public Record</span>
+          <h1 className="reg-title press-display">Every address we&apos;ve checked.</h1>
+          <p className="reg-lede">
+            The first time an address is checked, its report is filed here as a
+            public, shareable record — free, forever. Flags from on-chain behavior,
+            with evidence. Never a safety verdict.
+          </p>
         </section>
+
+        {reports.length === 0 ? (
+          <div className="reg-empty">
+            No reports filed yet. Be the first —{' '}
+            <Link href="/" className="press-link">
+              run a check →
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="reg-count press-label">
+              {total} report{total === 1 ? '' : 's'} on file
+            </div>
+            <div className="reg-table">
+              <div className="reg-head">
+                <span>Subject</span>
+                <span>Flags</span>
+                <span>Band</span>
+                <span>Filed</span>
+                <span>Views</span>
+              </div>
+              {reports.map((card) => (
+                <RegisterRow key={card.address} card={card} />
+              ))}
+            </div>
+          </>
+        )}
+
+        <Colophon />
       </div>
 
       <style>{`
-        .v2-lib-count {
-          font-size: 11px;
-          color: var(--muted);
-          letter-spacing: 0.06em;
-          margin-bottom: 20px;
+        .reg-lead {
+          padding: 44px 0 32px;
+          max-width: 760px;
         }
-        .v2-lib-grid {
+        .reg-title {
+          margin: 14px 0 0;
+          font-size: clamp(34px, 5.4vw, 60px);
+          line-height: 1;
+          letter-spacing: -0.03em;
+        }
+        .reg-lede {
+          margin: 20px 0 0;
+          font-family: var(--font-text);
+          font-size: 18px;
+          line-height: 1.55;
+          color: var(--ink-soft);
+        }
+        .reg-count {
+          margin-bottom: 12px;
+        }
+        .reg-table {
+          border-top: 3px double var(--rule-strong);
+          border-bottom: 1px solid var(--rule-strong);
+        }
+        .reg-head {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
+          grid-template-columns: 2.4fr 1.4fr 1fr 0.9fr 0.6fr;
+          gap: 20px;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--rule-strong);
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 10px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
         }
-        @media (max-width: 880px) {
-          .v2-lib-grid { grid-template-columns: repeat(2, 1fr); }
+        .reg-row {
+          display: grid;
+          grid-template-columns: 2.4fr 1.4fr 1fr 0.9fr 0.6fr;
+          gap: 20px;
+          align-items: center;
+          padding: 14px 12px;
+          border-bottom: 1px solid var(--rule);
+          text-decoration: none;
+          color: inherit;
+          transition: background 0.12s;
         }
-        @media (max-width: 560px) {
-          .v2-lib-grid { grid-template-columns: 1fr; }
-        }
-        .v2-lib-card {
+        .reg-row:hover { background: var(--oxblood-wash); }
+        .reg-cell-label { display: none; }
+        .reg-subject {
           display: flex;
           flex-direction: column;
-          gap: 12px;
-          padding: 22px;
-          border: 1px solid var(--line);
-          background: var(--bg-1);
-          text-decoration: none;
-          transition: border-color 0.15s, background 0.15s;
-          min-height: 150px;
+          gap: 3px;
+          min-width: 0;
         }
-        .v2-lib-card:hover {
-          border-color: var(--phosphor-dim);
-          background: var(--bg-2);
+        .reg-subject-name {
+          font-size: 13px;
+          color: var(--ink);
+          overflow-wrap: anywhere;
         }
-        .v2-lib-card-top {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
+        .reg-subject-addr {
+          font-size: 11px;
+          color: var(--ink-faint);
         }
-        .v2-lib-card-addr {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 14px;
-          color: var(--fg);
-          letter-spacing: -0.01em;
-          word-break: break-all;
-        }
-        .v2-lib-card-sub {
+        .reg-flags { font-size: 12.5px; }
+        .reg-band {
           font-family: var(--font-mono), ui-monospace, monospace;
           font-size: 11px;
-          color: var(--muted);
-          letter-spacing: 0.02em;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--ink-soft);
         }
-        .v2-lib-card-flags {
-          margin-top: auto;
-        }
-        .v2-lib-card-noflag {
-          font-size: 11px;
-          color: var(--fg-dim);
-          letter-spacing: 0.04em;
-        }
-        .v2-lib-card-meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-top: 12px;
-          border-top: 1px solid var(--line);
-          font-size: 11px;
-          color: var(--muted);
-          letter-spacing: 0.04em;
-        }
-        .v2-lib-empty {
+        .reg-filed { font-size: 12px; color: var(--ink-faint); }
+        .reg-views { font-size: 12px; color: var(--ink-faint); text-align: right; }
+        .reg-empty {
           padding: 48px 0;
-          color: var(--fg-dim);
-          font-size: 14px;
+          font-family: var(--font-text);
+          font-size: 18px;
+          color: var(--ink-soft);
         }
-        .v2-lib-empty-link {
-          color: var(--phosphor);
-          text-decoration: none;
+
+        @media (max-width: 720px) {
+          .reg-head { display: none; }
+          .reg-row {
+            grid-template-columns: 1fr;
+            gap: 8px;
+            padding: 18px 4px;
+          }
+          .reg-cell {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 14px;
+          }
+          .reg-cell-label {
+            display: inline-block;
+            font-family: var(--font-mono), ui-monospace, monospace;
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+            flex-shrink: 0;
+          }
+          .reg-subject { flex-direction: row; flex-wrap: wrap; }
+          .reg-views { text-align: left; }
         }
-        .v2-lib-empty-link:hover { color: var(--fg); }
       `}</style>
-    </PageShell>
+    </PressShell>
   );
 }

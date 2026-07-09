@@ -5,11 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {
-  PageShell,
-  NavBar,
-  StatusTicker,
-} from '@/components/v2';
+import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
 import { getAllDecodes, getDecodeBySlug } from '@/lib/decodes';
 
 // Some scrapers (notably X/Twitter) reliably fetch static OG assets but
@@ -60,6 +56,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+function formatEditorialDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 function formatIsoDate(dateStr: string): string {
   return new Date(dateStr).toISOString().slice(0, 10);
 }
@@ -72,30 +76,29 @@ export default async function DecodePage({ params }: PageProps) {
   const { meta, content } = decode;
 
   return (
-    <PageShell>
-      <StatusTicker />
+    <PressShell>
+      <PressDateline />
+      <div className="press-wrap">
+        <Masthead />
 
-      <div className="v2-shell" style={{ paddingBottom: 80 }}>
-        <NavBar ctaHref="/login" ctaLabel="./connect" />
-
-        <article style={{ paddingTop: 56 }}>
-          <header className="v2-decode-header">
-            <div className="v2-decode-meta">
-              <time className="v2-decode-date" dateTime={meta.date}>
-                // {formatIsoDate(meta.date)}
-              </time>
-              <span className="v2-decode-tag">on-chain · decode</span>
+        <article className="da">
+          <header className="da-header press-measure">
+            <div className="press-fileno">
+              Decode <span className="ph-dateline-sep">·</span>{' '}
+              <span className="mono">{formatIsoDate(meta.date)}</span>
             </div>
-            <h1 className="v2-decode-title display">{meta.title}</h1>
-            {meta.subtitle && (
-              <p className="v2-decode-sub serif">{meta.subtitle}</p>
-            )}
-            <div className="v2-decode-byline">
-              chainward.ai · human-verified against on-chain data
+            <h1 className="da-title press-display">{meta.title}</h1>
+            {meta.subtitle && <p className="da-sub">{meta.subtitle}</p>}
+            <div className="da-byline">
+              <span>By ChainWard</span>
+              <span className="ph-dateline-sep">·</span>
+              <span>Filed {formatEditorialDate(meta.date)}</span>
+              <span className="ph-dateline-sep">·</span>
+              <span>Verified against on-chain data</span>
             </div>
           </header>
 
-          <div className="v2-decode-body">
+          <div className="da-body press-measure">
             <div className="decode-prose">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -112,82 +115,62 @@ export default async function DecodePage({ params }: PageProps) {
             </div>
           </div>
 
-          <footer className="v2-decode-footer">
-            <Link href="/decodes" className="v2-decode-back">
-              ← all decodes
+          <footer className="da-footer press-measure">
+            <Link href="/decodes" className="press-link">
+              ← All decodes
+            </Link>
+            <Link href="/request-brief" className="press-link">
+              Commission a brief →
             </Link>
           </footer>
         </article>
+
+        <Colophon />
       </div>
 
       <style>{`
-        .v2-decode-header {
-          border-bottom: 1px solid var(--line);
-          padding-bottom: 32px;
+        .da { padding-top: 44px; }
+        .da-header {
+          padding-bottom: 28px;
+          border-bottom: 3px double var(--rule-strong);
           margin-bottom: 40px;
-          max-width: 780px;
         }
-        .v2-decode-meta {
+        .da-title {
+          margin: 16px 0 0;
+          font-size: clamp(34px, 6vw, 62px);
+          line-height: 1.0;
+          letter-spacing: -0.03em;
+        }
+        .da-sub {
+          margin: 18px 0 0;
+          font-family: var(--font-display), Georgia, serif;
+          font-style: italic;
+          font-size: clamp(20px, 3vw, 27px);
+          line-height: 1.3;
+          color: var(--ink-soft);
+          font-variation-settings: "opsz" 48, "SOFT" 40;
+        }
+        .da-byline {
+          margin-top: 22px;
           display: flex;
-          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+        }
+        .da-footer {
+          margin-top: 52px;
+          padding-top: 22px;
+          border-top: 1px solid var(--rule);
+          display: flex;
+          justify-content: space-between;
           gap: 20px;
           flex-wrap: wrap;
         }
-        .v2-decode-date {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          color: var(--phosphor);
-        }
-        .v2-decode-tag {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 11px;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--muted);
-        }
-        .v2-decode-title {
-          margin-top: 20px;
-          font-size: clamp(32px, 5vw, 56px);
-          line-height: 1.02;
-          letter-spacing: -0.035em;
-          color: var(--fg);
-        }
-        .v2-decode-sub {
-          margin-top: 16px;
-          font-size: 22px;
-          line-height: 1.35;
-          color: var(--fg-dim);
-          max-width: 680px;
-        }
-        .v2-decode-byline {
-          margin-top: 24px;
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          color: var(--muted);
-        }
-        .v2-decode-body {
-          max-width: 780px;
-        }
-        .v2-decode-footer {
-          max-width: 780px;
-          margin-top: 56px;
-          padding-top: 24px;
-          border-top: 1px solid var(--line);
-        }
-        .v2-decode-back {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 12px;
-          color: var(--fg-dim);
-          text-decoration: none;
-          letter-spacing: 0.04em;
-          transition: color 0.15s;
-        }
-        .v2-decode-back:hover {
-          color: var(--phosphor);
-        }
       `}</style>
-    </PageShell>
+    </PressShell>
   );
 }
