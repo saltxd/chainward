@@ -6,17 +6,23 @@ import { fetchDedup } from '@/lib/api-dedup';
 type SignalStatus = 'online' | 'syncing' | 'degraded' | 'offline';
 
 interface Telemetry {
+  /** Network head from public reference sources (mainnet.base.org / blockscout). */
   baseTip: number | null;
-  sentinelStatus: SignalStatus;
   indexerStatus: SignalStatus;
   indexerLastTxAt: string | null;
+  /** Our actual Base node (cw-sentinel), probed directly by the API. */
+  nodeConfigured?: boolean;
+  nodeTip?: number | null;
+  nodeLag?: number | null;
+  nodeStatus?: SignalStatus;
 }
 
 /**
- * The dateline — an editorial "wire" strip that doubles as an honesty signal:
- * this publication reads Base from its own node, and here is the block it is
- * reading right now. Same telemetry the dark dashboard ticker uses, restyled
- * as ledger furniture. Non-critical: renders placeholders until data lands.
+ * The dateline — an editorial "wire" strip that doubles as an honesty signal.
+ * PROVENANCE RULE (brand-critical): the block number is labeled "Our node
+ * reading" ONLY when it comes from our own Base node and that node is at head.
+ * While the node is syncing or down, the strip says "Network reading" (the
+ * public reference tip) and states the node's real condition. Never fake it.
  */
 export function PressDateline() {
   const [tel, setTel] = useState<Telemetry | null>(null);
@@ -46,17 +52,40 @@ export function PressDateline() {
     return () => clearInterval(t);
   }, []);
 
-  const nodeUp = tel ? tel.sentinelStatus === 'online' : true;
-  const indexerUp = tel ? tel.indexerStatus !== 'offline' && tel.indexerStatus !== 'degraded' : true;
-  const nodeDotClass = !tel
-    ? 'ph-dateline-dot'
-    : nodeUp
-      ? 'ph-dateline-dot'
-      : tel.sentinelStatus === 'offline'
-        ? 'ph-dateline-dot ph-dateline-dot--down'
-        : 'ph-dateline-dot ph-dateline-dot--warn';
+  // Only claim "our node" when the probe of OUR node succeeded and it's at head.
+  const nodeLive =
+    !!tel?.nodeConfigured && tel.nodeStatus === 'online' && tel.nodeTip != null;
+  const nodeSyncing =
+    !!tel?.nodeConfigured &&
+    (tel.nodeStatus === 'syncing' || tel.nodeStatus === 'degraded');
 
-  const block = tel?.baseTip ? `#${tel.baseTip.toLocaleString()}` : '—';
+  const readingLabel = nodeLive ? 'Our node reading' : 'Network reading';
+  const readingBlock = nodeLive
+    ? `#${tel!.nodeTip!.toLocaleString()}`
+    : tel?.baseTip
+      ? `#${tel.baseTip.toLocaleString()}`
+      : '—';
+
+  // Node condition item — only rendered when a node is actually configured.
+  const nodeItem = (() => {
+    if (!tel || !tel.nodeConfigured) return null;
+    if (nodeLive) {
+      return { dot: 'ph-dateline-dot', text: 'Node live' };
+    }
+    if (nodeSyncing) {
+      const behind =
+        tel.nodeLag != null ? ` · ${tel.nodeLag.toLocaleString()} behind` : '';
+      return {
+        dot: 'ph-dateline-dot ph-dateline-dot--warn',
+        text: `Node syncing${behind} · via fallback`,
+      };
+    }
+    return { dot: 'ph-dateline-dot ph-dateline-dot--down', text: 'Node offline · via fallback' };
+  })();
+
+  const indexerUp = tel
+    ? tel.indexerStatus !== 'offline' && tel.indexerStatus !== 'degraded'
+    : true;
 
   return (
     <div className="ph-dateline">
@@ -75,15 +104,19 @@ export function PressDateline() {
             </>
           )}
           <span className="ph-dateline-item">
-            Our node reading&nbsp;<b className="mono">{block}</b>
+            {readingLabel}&nbsp;<b className="mono">{readingBlock}</b>
           </span>
-          <span className="ph-dateline-sep" aria-hidden>
-            ·
-          </span>
-          <span className="ph-dateline-item">
-            <span className={nodeDotClass} aria-hidden />
-            Node {nodeUp ? 'live' : 'lagging'}
-          </span>
+          {nodeItem && (
+            <>
+              <span className="ph-dateline-sep" aria-hidden>
+                ·
+              </span>
+              <span className="ph-dateline-item">
+                <span className={nodeItem.dot} aria-hidden />
+                {nodeItem.text}
+              </span>
+            </>
+          )}
           <span className="ph-dateline-sep" aria-hidden>
             ·
           </span>
