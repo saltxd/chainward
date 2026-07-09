@@ -103,6 +103,7 @@ async function main() {
       quickDecode: async (input: any) => {
         const fixtures = await fetchFixtures(input.wallet_address, {
           sentinelRpc: config.sentinelRpc,
+          fallbackRpc: config.fallbackRpc,
           fetchTimeoutMs: config.fetchTimeoutMs,
           agentName: input.agent_handle ? `@${input.agent_handle}` : undefined,
           logger,
