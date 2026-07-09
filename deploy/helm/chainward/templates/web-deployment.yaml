@@ -39,6 +39,15 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: WALLETCONNECT_PROJECT_ID
                   optional: true
+            {{- if .Values.web.umami.internalUrl }}
+            # First-party Umami analytics: the web pods proxy /a/* to the
+            # cluster-internal Umami service (see apps/web/src/app/a/[...path]).
+            # Website id is read server-side at request time - no rebuild to change.
+            - name: UMAMI_INTERNAL_URL
+              value: {{ .Values.web.umami.internalUrl | quote }}
+            - name: UMAMI_WEBSITE_ID
+              value: {{ .Values.web.umami.websiteId | quote }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /
