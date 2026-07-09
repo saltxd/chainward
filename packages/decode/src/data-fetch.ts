@@ -1,3 +1,4 @@
+import { assessNodeFreshness, getMaxHeadLagSec, type NodeFreshness } from '@chainward/common';
 import { fetchCurrentBlock } from './sentinel-block.js';
 
 // USDC contract on Base mainnet (8453). balanceOf(address) selector + 32-byte address arg.
@@ -37,6 +38,52 @@ function addressTopic(address: string): string {
   return '0x' + address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
 }
 
+/**
+ * Provenance of the RPC that served the `latest`-based reads (balances, code,
+ * nonce, head block). Recorded on every fixture set so the report can state the
+ * data source it was actually built from — and never imply a node it didn't use.
+ */
+export interface NodeDataSource {
+  /** Which RPC supplied the `latest` reads. */
+  rpc_role: 'sentinel' | 'fallback';
+  /** Head block number of the chosen source. */
+  head_number: number;
+  /** Head age of the chosen source, in seconds. */
+  head_age_seconds: number;
+  /**
+   * True only if the CHOSEN source is itself still stale — should never happen,
+   * because {@link selectFreshRpc} fails loudly before returning a stale source.
+   * Carried as a belt-and-suspenders signal for downstream flag suppression.
+   */
+  head_stale: boolean;
+}
+
+/**
+ * Thrown when no fresh RPC is available to source a NEW report — the sentinel node
+ * is stale-but-answering (or unreachable) and no fallback RPC is fresh either.
+ * The worker surfaces this as a job failure (loud) rather than emitting a report
+ * built on a stale chain view. This is the core fix: never silently degrade.
+ */
+export class NodeStaleError extends Error {
+  readonly code = 'NODE_UNFIT';
+  constructor(
+    readonly detail: {
+      reason: 'stale' | 'unreachable';
+      sentinelHeadNumber: number | null;
+      sentinelHeadAgeSeconds: number | null;
+      maxLagSec: number;
+      fallbackConfigured: boolean;
+    },
+  ) {
+    super(
+      detail.reason === 'stale'
+        ? `sentinel node head stale (age ${detail.sentinelHeadAgeSeconds}s > ${detail.maxLagSec}s) and no fresh fallback RPC available`
+        : 'sentinel node unreachable for head probe and no fresh fallback RPC available',
+    );
+    this.name = 'NodeStaleError';
+  }
+}
+
 export interface FetchedFixtures {
   acp_details: any;
   blockscout_counters: any;
@@ -47,6 +94,8 @@ export interface FetchedFixtures {
   sentinel_usdc_balance: { result: string };
   geckoterminal?: any;
   sentinel_block?: { number: string; hash: string };
+  /** Which RPC actually served the reads above (freshness-gated). */
+  data_source: NodeDataSource;
 }
 
 /**
@@ -60,9 +109,105 @@ export interface FetchLogger {
 
 export interface FetchOptions {
   sentinelRpc: string;
+  /**
+   * A secondary RPC (e.g. BASE_RPC_FALLBACK_URL) used for ALL `latest` reads when
+   * the sentinel node's head is stale — exactly as if the sentinel had failed.
+   * Omit it and a stale sentinel with no fresh alternative fails the decode loudly.
+   */
+  fallbackRpc?: string;
+  /** Head-lag threshold (seconds). Defaults to {@link getMaxHeadLagSec}. */
+  maxHeadLagSec?: number;
   fetchTimeoutMs: number;
   agentName?: string;
   logger?: FetchLogger;
+}
+
+/**
+ * Freshness gate. Chooses the RPC used for every `latest`-based read so a report is
+ * never built on a stale node head. Probes the sentinel; if fresh, uses it. If the
+ * sentinel is stale-but-answering or unreachable, prefers the fallback RPC; if that
+ * is fresh, uses it. If NO fresh RPC exists, throws {@link NodeStaleError} (fail
+ * loud). Every trip of the guard emits a structured warn line for prod observability.
+ */
+async function selectFreshRpc(
+  opts: FetchOptions,
+  maxLagSec: number,
+): Promise<{ rpc: string; source: NodeDataSource }> {
+  const log = opts.logger;
+  const probe = { maxLagSec, timeoutMs: opts.fetchTimeoutMs };
+
+  let sentinel: NodeFreshness | null = null;
+  try {
+    sentinel = await assessNodeFreshness(opts.sentinelRpc, probe);
+  } catch (err: any) {
+    log?.warn(
+      { err: err?.message ?? String(err), rpc: 'sentinel' },
+      'freshness: sentinel head probe failed',
+    );
+  }
+
+  if (sentinel?.fresh) {
+    return {
+      rpc: opts.sentinelRpc,
+      source: {
+        rpc_role: 'sentinel',
+        head_number: sentinel.headNumber,
+        head_age_seconds: sentinel.ageSeconds,
+        head_stale: false,
+      },
+    };
+  }
+
+  // Sentinel is unfit — the exact failure mode this guard exists for.
+  const reason: 'stale' | 'unreachable' = sentinel ? 'stale' : 'unreachable';
+  log?.warn(
+    {
+      reason,
+      sentinelHeadNumber: sentinel?.headNumber ?? null,
+      sentinelHeadAgeSeconds: sentinel?.ageSeconds ?? null,
+      maxLagSec,
+      fallbackConfigured: Boolean(opts.fallbackRpc),
+    },
+    'freshness: sentinel node unfit as data source; attempting fallback RPC',
+  );
+
+  if (opts.fallbackRpc) {
+    try {
+      const fb = await assessNodeFreshness(opts.fallbackRpc, probe);
+      if (fb.fresh) {
+        log?.warn(
+          { fallbackHeadNumber: fb.headNumber, fallbackHeadAgeSeconds: fb.ageSeconds, maxLagSec },
+          'freshness: falling back to secondary RPC (sentinel unfit)',
+        );
+        return {
+          rpc: opts.fallbackRpc,
+          source: {
+            rpc_role: 'fallback',
+            head_number: fb.headNumber,
+            head_age_seconds: fb.ageSeconds,
+            head_stale: false,
+          },
+        };
+      }
+      log?.warn(
+        { fallbackHeadAgeSeconds: fb.ageSeconds, maxLagSec },
+        'freshness: fallback RPC head also stale',
+      );
+    } catch (err: any) {
+      log?.warn(
+        { err: err?.message ?? String(err), rpc: 'fallback' },
+        'freshness: fallback RPC head probe failed',
+      );
+    }
+  }
+
+  throw new NodeStaleError({
+    reason,
+    sentinelHeadNumber: sentinel?.headNumber ?? null,
+    sentinelHeadAgeSeconds: sentinel?.ageSeconds ?? null,
+    maxLagSec,
+    fallbackConfigured: Boolean(opts.fallbackRpc),
+  });
 }
 
 /**
@@ -76,6 +221,15 @@ export async function fetchFixtures(
 ): Promise<FetchedFixtures> {
   const t = opts.fetchTimeoutMs;
   const log = opts.logger;
+
+  // Freshness gate FIRST: pick the RPC that will serve every `latest` read. Throws
+  // NodeStaleError if neither the sentinel nor a fallback is fresh — so a stale node
+  // can never silently source a report. All reads below use this one effective RPC,
+  // which keeps balances, head block, and as_of_block internally consistent.
+  const maxLagSec = opts.maxHeadLagSec ?? getMaxHeadLagSec();
+  const { rpc: effectiveRpc, source: data_source } = await selectFreshRpc(opts, maxLagSec);
+  const transferOpts: FetchOptions = { ...opts, sentinelRpc: effectiveRpc };
+
   const [
     acpResult,
     countersResult,
@@ -88,12 +242,12 @@ export async function fetchFixtures(
   ] = await Promise.allSettled([
     fetchAcpDetails(walletAddress, t, opts.agentName),
     fetchBlockscoutCounters(walletAddress, t),
-    fetchTransfers(walletAddress, opts),
-    fetchSentinelCode(walletAddress, opts.sentinelRpc, t),
-    fetchSentinelNonce(walletAddress, opts.sentinelRpc, t),
-    fetchSentinelEthBalance(walletAddress, opts.sentinelRpc, t),
-    fetchSentinelUsdcBalance(walletAddress, opts.sentinelRpc, t),
-    fetchCurrentBlock(opts.sentinelRpc).then((b) => ({
+    fetchTransfers(walletAddress, transferOpts),
+    fetchSentinelCode(walletAddress, effectiveRpc, t),
+    fetchSentinelNonce(walletAddress, effectiveRpc, t),
+    fetchSentinelEthBalance(walletAddress, effectiveRpc, t),
+    fetchSentinelUsdcBalance(walletAddress, effectiveRpc, t),
+    fetchCurrentBlock(effectiveRpc).then((b) => ({
       number: '0x' + b.number.toString(16),
       hash: b.hash,
     })),
@@ -135,6 +289,7 @@ export async function fetchFixtures(
     sentinel_usdc_balance,
     geckoterminal,
     sentinel_block,
+    data_source,
   };
 }
 

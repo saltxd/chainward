@@ -27,6 +27,13 @@ export interface QuickDecodeInput {
     geckoterminal?: any;
     observatory?: ObservatoryAgent[];
     sentinel_block?: { number: string; hash: string };
+    /** Freshness provenance of the RPC that served the `latest` reads (see data-fetch). */
+    data_source?: {
+      rpc_role: 'sentinel' | 'fallback';
+      head_number: number;
+      head_age_seconds: number;
+      head_stale: boolean;
+    };
   };
   // Optional spot prices for ETH and USDC, used to USD-quote balances.
   // Defaulting USDC to 1 is fine; ETH defaults to 0 and yields a $0 USD
@@ -76,9 +83,19 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
   const transfers = input.fixtures.blockscout_transfers ?? { items: [] };
   const transferItems: any[] = Array.isArray(transfers.items) ? transfers.items : [];
   const activity = computeActivity(transferItems, now);
+  const ds = input.fixtures.data_source;
   const fetch_meta = {
     transfers_fetched: transferItems.length,
     transfers_truncated: transfers.truncated === true,
+    // Record the RPC source only when the freshness-gated fetch provided it, so
+    // legacy fixtures keep their exact two-key shape.
+    ...(ds
+      ? {
+          data_source: ds.rpc_role,
+          head_lag_seconds: ds.head_age_seconds,
+          head_stale: ds.head_stale,
+        }
+      : {}),
   };
 
   const survival = classifySurvival({

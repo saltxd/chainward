@@ -73,6 +73,16 @@ export interface QuickDecodeResultData {
   fetch_meta: {
     transfers_fetched: number;
     transfers_truncated: boolean;
+    /** Which RPC served the `latest` reads this report was built from. */
+    data_source?: 'sentinel' | 'fallback';
+    /** Head age (seconds) of that source at fetch time. */
+    head_lag_seconds?: number;
+    /**
+     * True if the source head was stale beyond the freshness threshold. Should
+     * never be true in a persisted report (the fetch fails loud first); when set,
+     * time-sensitive flags (dormancy / no-recent-activity) are suppressed.
+     */
+    head_stale?: boolean;
   };
   claims: {
     agdp: number | null;
