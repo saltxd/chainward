@@ -15,6 +15,10 @@ const PIPELINE_VERSION = process.env.GIT_SHA ?? 'dev';
 // Mirrors the acp-decoder config defaults so the live-fetch path behaves
 // identically in both pods. Read from env at call time (no new required vars).
 const SENTINEL_RPC = process.env.SENTINEL_RPC ?? 'https://mainnet.base.org';
+// Fresh RPC to fall back to when the sentinel head is stale (the recurring EL-sync
+// wedge where the node answers but its head is frozen days behind tip). Same secret
+// the indexer viem client uses; optional — absent means a stale sentinel fails loud.
+const BASE_RPC_FALLBACK_URL = process.env.BASE_RPC_FALLBACK_URL;
 const FETCH_TIMEOUT_MS = parseInt(process.env.FETCH_TIMEOUT_MS ?? '15000', 10);
 // Watchdog: the whole decode (fetch + classify + persist) must finish inside this
 // budget or the job fails — mirrors apps/acp-decoder/src/handler.ts decodeWatchdogMs.
@@ -110,8 +114,14 @@ async function runRiskCheck(job: Job<RiskCheckJobData>): Promise<{ persisted: bo
   }
 
   try {
+    // fetchFixtures freshness-gates the node: a stale-but-answering sentinel routes
+    // to BASE_RPC_FALLBACK_URL, and if no fresh source exists it throws NodeStaleError.
+    // That propagates out of runRiskCheck → the job fails → GET /api/risk/check/:id
+    // reports 'failed' (the UI's existing failure path). We never persist a report
+    // built on a stale head.
     const fixtures = await fetchFixtures(walletAddress, {
       sentinelRpc: SENTINEL_RPC,
+      fallbackRpc: BASE_RPC_FALLBACK_URL,
       fetchTimeoutMs: FETCH_TIMEOUT_MS,
       agentName: agentHandle ? `@${agentHandle}` : undefined,
       logger,
