@@ -47,6 +47,10 @@ api:
 web:
   replicas: 2
   port: 3000
+  # First-party analytics proxy target (empty string disables tracking entirely).
+  umami:
+    internalUrl: "http://umami.umami.svc.cluster.local:3000"
+    websiteId: "bd27109d-11b2-4a0e-b621-b4456297c035"
   resources:
     requests:
       cpu: 100m
