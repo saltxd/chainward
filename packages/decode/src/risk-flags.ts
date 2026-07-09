@@ -142,9 +142,18 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
 
   const flags: RiskFlag[] = [];
 
+  // Belt-and-suspenders freshness guard. Time-sensitive flags (dormancy / "no recent
+  // activity" / offline-vs-chain) are only meaningful against a fresh chain head. If
+  // the data source's head was stale beyond the threshold, the "recent window" is a
+  // lie, so those flags are suppressed here even though the fetch layer should already
+  // have failed loud before producing a stale report. Structural flags (proxy shape,
+  // truncation, counterparty concentration, peer cluster) are head-age-independent and
+  // still emit.
+  const headStale = data.fetch_meta.head_stale === true;
+
   // 1. claim_vs_chain_offline (medium) <- discrepancies[] entry field 'isOnline'
   const onlineDisc = findDiscrepancy(data.discrepancies, 'isOnline');
-  if (onlineDisc) {
+  if (onlineDisc && !headStale) {
     flags.push({
       id: 'claim_vs_chain_offline',
       severity: 'medium',
@@ -155,7 +164,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   }
 
   // 2. dormant_wallet (medium) <- data.survival.classification === 'dormant'
-  if (data.survival.classification === 'dormant') {
+  if (data.survival.classification === 'dormant' && !headStale) {
     flags.push({
       id: 'dormant_wallet',
       severity: 'medium',
@@ -165,8 +174,8 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     });
   }
 
-  // 3. stranded_value (high) <- data.usdc_pattern === 'graveyard'
-  if (data.usdc_pattern === 'graveyard') {
+  // 3. stranded_value (high) <- data.usdc_pattern === 'graveyard' (graveyard implies dormant)
+  if (data.usdc_pattern === 'graveyard' && !headStale) {
     flags.push({
       id: 'stranded_value',
       severity: 'high',
@@ -216,7 +225,8 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   // 7. inactive_no_history (low) <- survival 'unknown' AND latest_transfer_at === null
   if (
     data.survival.classification === 'unknown' &&
-    data.activity.latest_transfer_at === null
+    data.activity.latest_transfer_at === null &&
+    !headStale
   ) {
     flags.push({
       id: 'inactive_no_history',

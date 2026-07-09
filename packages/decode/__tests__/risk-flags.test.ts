@@ -369,6 +369,55 @@ describe('band computation', () => {
   });
 });
 
+describe('freshness belt-and-suspenders — head_stale suppression', () => {
+  // A wallet that would trip every time-sensitive flag AND a structural one.
+  const triggering = () =>
+    baseData({
+      survival: { classification: 'dormant', rationale: 'no transfers in 7d' },
+      usdc_pattern: 'graveyard',
+      discrepancies: [onlineDiscrepancy],
+      wallet: { type: 'erc1967_proxy', nonce: 0, code_size: 45, is_virtuals_factory: true },
+    });
+
+  it('suppresses dormancy / offline / stranded flags when the source head is stale', () => {
+    const r = deriveRiskFlags({
+      ...triggering(),
+      fetch_meta: { transfers_fetched: 40, transfers_truncated: false, head_stale: true },
+    });
+    const ids = new Set(r.flags.map((f) => f.id));
+    expect(ids.has('dormant_wallet')).toBe(false);
+    expect(ids.has('stranded_value')).toBe(false);
+    expect(ids.has('claim_vs_chain_offline')).toBe(false);
+    // structural, head-age-independent flag still emits
+    expect(ids.has('factory_proxy_clone')).toBe(true);
+  });
+
+  it('emits those same flags when the head is fresh (head_stale absent/false)', () => {
+    const ids = new Set(deriveRiskFlags(triggering()).flags.map((f) => f.id));
+    expect(ids.has('dormant_wallet')).toBe(true);
+    expect(ids.has('stranded_value')).toBe(true);
+    expect(ids.has('claim_vs_chain_offline')).toBe(true);
+  });
+
+  it('suppresses inactive_no_history under a stale head', () => {
+    const r = deriveRiskFlags(
+      baseData({
+        survival: { classification: 'unknown', rationale: 'x' },
+        activity: {
+          latest_transfer_at: null,
+          latest_transfer_age_hours: null,
+          transfers_24h: 0,
+          transfers_7d: 0,
+          transfers_30d: 0,
+          unique_counterparties_30d: 0,
+        },
+        fetch_meta: { transfers_fetched: 0, transfers_truncated: false, head_stale: true },
+      }),
+    );
+    expect(r.flags.find((f) => f.id === 'inactive_no_history')).toBeUndefined();
+  });
+});
+
 describe('self-flag guard (allowlist)', () => {
   const ORIGINAL = process.env.RISK_SELF_FLAG_ALLOWLIST;
 
