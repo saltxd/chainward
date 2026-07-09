@@ -82,6 +82,20 @@ The full pipeline spec lives in the internal wiki (BookStack page 199), not this
 | Launch tweet | manual content + automated post | `gh workflow run post-digest.yml --repo saltxd/chainward-bot -f text=<copy>` |
 | Weekly digest | fully automated | Mondays 14:00 UTC, `chainward-bot` cron |
 
+## Pipeline audit 2026-07-09 (ButlerLiquid run) — fixes shipped + new gotchas
+
+The full end-to-end run surfaced six process defects; three are FIXED in the repo, three are operational:
+
+**Fixed in code (commits cfa3e3e, 3cd85bc):**
+1. **Sentinel freshness preflight** — research prompts said "sentinel preferred" with no head-age check; during an EL-sync catch-up the node answers RPC with a days-old head, so current-state reads (balanceOf etc.) would ship as "current". All three research prompts now run a mandatory preflight: stale head → sentinel only for immutable historical facts, current-state from Blockscout/public RPC, per-fact provenance. (Bonus finding: pruning ALSO nulls receipts for history older than ~30d — the preflight note covers both.)
+2. **CLI background ceiling** — `claude --print` kills the session after 600s of background tasks (utility-audit alone can exceed this). Launcher now sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` plus its own `AUTO_DECODE_TIMEOUT_MS` watchdog (default 90 min).
+3. **Launcher resilience** — `claude` binary is preflighted before the deliverables dir is created (a missing binary used to strand an empty dir), an empty slug dir from a crashed run is reclaimable instead of a permanent "collision", and ANY run that dies without a DISCORD_SUMMARY now posts a `result: crashed` summary to Discord instead of failing silent.
+
+**Operational gotchas:**
+4. **Claude session limits can kill the run at the publish step** — everything verified, OG rendered, then "You've hit your session limit". The manual hand-finish is fast (this run: ~15 min): verify og.png is a PNG → `git add deliverables/<slug> apps/web/public/decodes/<slug>` → commit/push → wait CI → `deploy.sh --tag <sha> --only web --skip-migrate` → poll page → post tweet 1 via `gh workflow run post-digest.yml`.
+5. **X 403 "You are not permitted to perform this action" = check Pay-Per-Use credits FIRST.** The April warning came true on this run: credits ran out, tweet blocked, article live (partial publish). Top up in dev portal → Billing → Credits, then re-dispatch the same workflow text.
+6. **The launcher env needs `~/.local/bin` on PATH** (claude lives there on the ops host), not just the nvm node bin.
+
 ## Hard-learned gotchas (READ BEFORE TWEETING)
 
 These will burn you the same way they burned us if you skip them.
