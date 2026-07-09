@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   AreaChart,
@@ -10,17 +10,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import {
-  PageShell,
-  NavBar,
-  StatusTicker,
-  SectionHead,
-  StatTile,
-  DataTable,
-  Badge,
-  Button,
-  type Column,
-} from '@/components/v2';
+import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
+import { fetchDedup } from '@/lib/api-dedup';
 
 interface OverviewData {
   agentsTracked: number;
@@ -109,8 +100,6 @@ function formatChartDate(dateStr: string): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-import { fetchDedup } from '@/lib/api-dedup';
-
 async function fetchObservatory<T>(path: string): Promise<T | null> {
   try {
     return await fetchDedup<T>(`/api/observatory${path}`);
@@ -122,13 +111,30 @@ async function fetchObservatory<T>(path: string): Promise<T | null> {
 type LeaderboardTab = 'mostActive' | 'highestGas' | 'largestPortfolio' | 'healthiest';
 
 const TAB_LABELS: Record<LeaderboardTab, string> = {
-  mostActive: 'most.active',
-  highestGas: 'highest.gas',
-  largestPortfolio: 'largest.portfolio',
-  healthiest: 'healthiest',
+  mostActive: 'Most active',
+  highestGas: 'Highest gas',
+  largestPortfolio: 'Largest portfolio',
+  healthiest: 'Healthiest',
 };
 
-export function ObservatoryPage() {
+// Paper chart furniture — ink strokes on manila, hairline-consistent.
+const CHART_AXIS = '#6b6152'; // --ink-faint
+const CHART_STROKE = '#1b1815'; // --ink
+const CHART_TOOLTIP = {
+  backgroundColor: '#eae3d4', // --paper-2
+  border: '1px solid #bcb19b', // --rule-strong
+  borderRadius: 0,
+  fontSize: 11,
+  fontFamily: 'var(--font-mono), ui-monospace, monospace',
+};
+
+function healthColor(score: number): string {
+  if (score >= 80) return 'var(--seal)';
+  if (score >= 50) return 'var(--sev-medium)';
+  return 'var(--oxblood)';
+}
+
+export function ObservatoryPage({ children }: { children?: ReactNode }) {
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [feed, setFeed] = useState<FeedItem[] | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
@@ -172,141 +178,63 @@ export function ObservatoryPage() {
 
   const leaderboardRows = leaderboard?.[tab] ?? [];
 
-  const leaderboardColumns: Column<LeaderboardEntry>[] = [
-    {
-      key: 'rank',
-      header: '#',
-      width: '48px',
-      render: (r) => <span style={{ color: 'var(--muted)' }}>{r.rank}</span>,
-    },
-    {
-      key: 'name',
-      header: 'agent',
-      render: (r) => (
-        <Link
-          href={`/base/${r.slug}`}
-          style={{ color: 'var(--fg)', textDecoration: 'none' }}
-          className="hover:underline"
-        >
-          {r.agentName || truncateAddress(r.walletAddress)}
-          <span style={{ marginLeft: 10, color: 'var(--muted)', fontSize: 11 }}>
-            {truncateAddress(r.walletAddress)}
-          </span>
-        </Link>
-      ),
-    },
-    {
-      key: 'framework',
-      header: 'framework',
-      width: '140px',
-      render: (r) =>
-        r.agentFramework ? <Badge tone="phosphor">{r.agentFramework}</Badge> : null,
-    },
-    {
-      key: 'value',
-      header: 'value',
-      align: 'right',
-      width: '140px',
-      render: (r) => {
-        if (tab === 'mostActive') return `${r.txCount ?? 0} txs`;
-        if (tab === 'highestGas') return formatUsd(r.gasSpendUsd ?? 0);
-        if (tab === 'healthiest') {
-          const score = r.healthScore ?? 0;
-          const color =
-            score >= 80 ? 'var(--phosphor)' : score >= 50 ? 'var(--amber)' : 'var(--danger)';
-          return <span style={{ color }}>{score}/100</span>;
-        }
-        return formatUsd(r.portfolioValueUsd ?? 0);
-      },
-    },
-  ];
-
-  const feedColumns: Column<FeedItem>[] = [
-    {
-      key: 'time',
-      header: 'time',
-      width: '80px',
-      render: (r) => <span style={{ color: 'var(--muted)' }}>{timeAgo(r.timestamp)}</span>,
-    },
-    {
-      key: 'agent',
-      header: 'agent',
-      render: (r) => (
-        <Link
-          href={`/wallet/${r.walletAddress}`}
-          style={{ color: 'var(--fg)', textDecoration: 'none' }}
-        >
-          {r.agentName || truncateAddress(r.walletAddress)}
-        </Link>
-      ),
-    },
-    {
-      key: 'dir',
-      header: 'dir',
-      width: '60px',
-      render: (r) => (
-        <Badge tone={r.direction.toUpperCase() === 'IN' ? 'phosphor' : 'neutral'}>
-          {r.direction.slice(0, 3).toUpperCase()}
-        </Badge>
-      ),
-    },
-    {
-      key: 'tok',
-      header: 'tok',
-      width: '70px',
-      render: (r) => r.tokenSymbol ?? 'ETH',
-    },
-    {
-      key: 'usd',
-      header: 'usd',
-      align: 'right',
-      width: '90px',
-      render: (r) => formatUsd(r.amountUsd),
-    },
-  ];
+  function tabValue(r: LeaderboardEntry): ReactNode {
+    if (tab === 'mostActive') return `${r.txCount ?? 0} txs`;
+    if (tab === 'highestGas') return formatUsd(r.gasSpendUsd ?? 0);
+    if (tab === 'healthiest') {
+      const score = r.healthScore ?? 0;
+      return <span style={{ color: healthColor(score) }}>{score}/100</span>;
+    }
+    return formatUsd(r.portfolioValueUsd ?? 0);
+  }
 
   return (
-    <PageShell>
-      <StatusTicker />
-      <div className="v2-shell" style={{ paddingTop: 0, paddingBottom: 80 }}>
-        <NavBar ctaHref="/login" ctaLabel="./connect" />
+    <PressShell>
+      <PressDateline />
+      <div className="press-wrap">
+        <Masthead />
 
-        <section style={{ paddingTop: 56 }}>
-          <SectionHead
-            tag="live"
-            title={
-              <>
-                Base Agent{' '}
-                <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                  Observatory.
-                </span>
-              </>
-            }
-            lede="Every Virtuals, Olas, and operator-built agent transacting on Base — indexed live. Browse activity, stack-rank by health, watch tx flow in real time."
-          />
-          <div className="v2-obs-stats">
-            <StatTile
-              label="agents.tracked"
-              value={overview ? overview.totalAgents.toLocaleString() : '…'}
-              unit="wallets"
-            />
-            <StatTile
-              label="active.24h"
-              value={overview ? String(overview.activeAgents24h) : '…'}
-            />
-            <StatTile
-              label="tx.24h"
-              value={overview ? overview.transactions24h.toLocaleString() : '…'}
-            />
-            <StatTile
-              label="gas.24h"
-              value={overview ? formatUsd(overview.gasBurned24h.usd) : '…'}
-            />
-            <StatTile
-              label="portfolio"
-              value={overview ? formatUsd(overview.totalPortfolioValue) : '…'}
-              unit="usd"
-            />
+        <section className="obs-lead">
+          <span className="press-label">Live · The Observatory</span>
+          <h1 className="obs-title press-display">Base Agent Observatory.</h1>
+          <p className="obs-lede">
+            Every Virtuals, Olas, and operator-built agent transacting on Base —
+            indexed live. Browse activity, stack-rank by health, watch the tx flow
+            in real time.
+          </p>
+
+          {/* Market-data strip */}
+          <div className="obs-stats">
+            <div className="obs-stat">
+              <span className="obs-stat-label">Agents tracked</span>
+              <span className="obs-stat-value mono">
+                {overview ? overview.totalAgents.toLocaleString() : '—'}
+              </span>
+            </div>
+            <div className="obs-stat">
+              <span className="obs-stat-label">Active 24h</span>
+              <span className="obs-stat-value mono">
+                {overview ? String(overview.activeAgents24h) : '—'}
+              </span>
+            </div>
+            <div className="obs-stat">
+              <span className="obs-stat-label">Tx 24h</span>
+              <span className="obs-stat-value mono">
+                {overview ? overview.transactions24h.toLocaleString() : '—'}
+              </span>
+            </div>
+            <div className="obs-stat">
+              <span className="obs-stat-label">Gas 24h</span>
+              <span className="obs-stat-value mono">
+                {overview ? formatUsd(overview.gasBurned24h.usd) : '—'}
+              </span>
+            </div>
+            <div className="obs-stat">
+              <span className="obs-stat-label">Portfolio (USD)</span>
+              <span className="obs-stat-value mono">
+                {overview ? formatUsd(overview.totalPortfolioValue) : '—'}
+              </span>
+            </div>
           </div>
         </section>
 
@@ -316,53 +244,112 @@ export function ObservatoryPage() {
           on-chain activity. All data is sourced from Base mainnet and updated continuously.
         </p>
 
-        <section className="v2-obs-grid" style={{ paddingTop: 64 }}>
-          <div>
-            <SectionHead
-              tag="leaderboard"
-              title={
-                <>
-                  Top agents <span className="serif">by activity.</span>
-                </>
-              }
-            />
-            <div className="v2-obs-tabs">
+        <section className="obs-grid">
+          {/* Leaderboard */}
+          <div className="obs-panel">
+            <h2 className="obs-h2 press-display">Top agents</h2>
+            <div className="obs-tabs" role="tablist" aria-label="Leaderboard ranking">
               {(Object.keys(TAB_LABELS) as LeaderboardTab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`v2-obs-tab ${tab === t ? 'v2-obs-tab-active' : ''}`}
+                  className={`obs-tab ${tab === t ? 'obs-tab-active' : ''}`}
+                  role="tab"
+                  aria-selected={tab === t}
                 >
                   {TAB_LABELS[t]}
                 </button>
               ))}
             </div>
-            <DataTable
-              columns={leaderboardColumns}
-              rows={leaderboardRows}
-              empty="No leaderboard data yet."
-              mobileCard
-            />
+            <div className="obs-table">
+              <div className="obs-thead obs-lb-row">
+                <span>№</span>
+                <span>Agent</span>
+                <span>Framework</span>
+                <span className="obs-right">{TAB_LABELS[tab]}</span>
+              </div>
+              {leaderboardRows.length === 0 ? (
+                <div className="obs-empty">No leaderboard data yet.</div>
+              ) : (
+                leaderboardRows.map((r) => (
+                  <Link
+                    key={`${tab}-${r.walletAddress}`}
+                    href={`/base/${r.slug}`}
+                    className="obs-row obs-lb-row"
+                  >
+                    <span className="obs-rank mono">{r.rank}</span>
+                    <span className="obs-agent">
+                      <span className="obs-agent-name">
+                        {r.agentName || truncateAddress(r.walletAddress)}
+                      </span>
+                      <span className="obs-agent-addr mono">
+                        {truncateAddress(r.walletAddress)}
+                      </span>
+                    </span>
+                    <span className="obs-framework mono">
+                      {r.agentFramework ?? ''}
+                    </span>
+                    <span className="obs-value mono obs-right">{tabValue(r)}</span>
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
 
-          <div>
-            <SectionHead
-              tag="live.tx"
-              title={<span className="display">Live tx feed.</span>}
-            />
-            <DataTable
-              columns={feedColumns}
-              rows={feed ?? []}
-              empty="No recent activity."
-              mobileCard
-            />
+          {/* Live feed */}
+          <div className="obs-panel">
+            <h2 className="obs-h2 press-display">The wire</h2>
+            <div className="obs-feed-note press-label">
+              Live agent transactions · refreshes every 60s
+            </div>
+            <div className="obs-table">
+              <div className="obs-thead obs-feed-row">
+                <span>Time</span>
+                <span>Agent</span>
+                <span>Dir</span>
+                <span>Token</span>
+                <span className="obs-right">USD</span>
+              </div>
+              {(feed ?? []).length === 0 ? (
+                <div className="obs-empty">No recent activity.</div>
+              ) : (
+                (feed ?? []).map((r, i) => (
+                  <Link
+                    key={`${r.txHash}-${i}`}
+                    href={`/wallet/${r.walletAddress}`}
+                    className="obs-row obs-feed-row"
+                  >
+                    <span className="obs-time mono">{timeAgo(r.timestamp)}</span>
+                    <span className="obs-agent-name">
+                      {r.agentName || truncateAddress(r.walletAddress)}
+                    </span>
+                    <span
+                      className="obs-dir mono"
+                      style={{
+                        color:
+                          r.direction.toUpperCase() === 'IN'
+                            ? 'var(--seal)'
+                            : 'var(--ink-faint)',
+                      }}
+                    >
+                      {r.direction.slice(0, 3).toUpperCase()}
+                    </span>
+                    <span className="obs-token mono">{r.tokenSymbol ?? 'ETH'}</span>
+                    <span className="obs-usd mono obs-right">
+                      {formatUsd(r.amountUsd)}
+                    </span>
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
         </section>
 
-        <section className="v2-obs-charts" style={{ paddingTop: 64 }}>
-          <div>
-            <SectionHead tag="tx.30d" title="Transaction volume." />
-            <div className="v2-obs-chart-card">
+        <section className="obs-charts">
+          <div className="obs-panel">
+            <h2 className="obs-h2 press-display">Transaction volume</h2>
+            <div className="obs-chart-note press-label">Trailing 30 days</div>
+            <div className="obs-chart">
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart
                   data={txChartData}
@@ -370,35 +357,26 @@ export function ObservatoryPage() {
                 >
                   <XAxis
                     dataKey="date"
-                    stroke="#585f56"
+                    stroke={CHART_AXIS}
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     minTickGap={32}
                   />
-                  <YAxis
-                    stroke="#585f56"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                  />
+                  <YAxis stroke={CHART_AXIS} fontSize={10} tickLine={false} axisLine={false} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#0f1110',
-                      border: '1px solid #1e231f',
-                      borderRadius: 0,
-                      fontSize: 11,
-                    }}
-                    labelStyle={{ color: '#9ba397' }}
-                    itemStyle={{ color: '#3aa76d' }}
+                    contentStyle={CHART_TOOLTIP}
+                    labelStyle={{ color: '#4a4238' }}
+                    itemStyle={{ color: '#1b1815' }}
+                    cursor={{ stroke: '#bcb19b' }}
                   />
                   <Area
                     type="monotone"
                     dataKey="count"
-                    stroke="#3aa76d"
-                    fill="#3aa76d"
-                    fillOpacity={0.1}
-                    strokeWidth={1.5}
+                    stroke={CHART_STROKE}
+                    fill={CHART_STROKE}
+                    fillOpacity={0.07}
+                    strokeWidth={1.25}
                     name="tx"
                   />
                 </AreaChart>
@@ -406,9 +384,10 @@ export function ObservatoryPage() {
             </div>
           </div>
 
-          <div>
-            <SectionHead tag="gas.30d" title="Gas spend." />
-            <div className="v2-obs-chart-card">
+          <div className="obs-panel">
+            <h2 className="obs-h2 press-display">Gas spend</h2>
+            <div className="obs-chart-note press-label">Trailing 30 days · USD</div>
+            <div className="obs-chart">
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart
                   data={gasChartData}
@@ -416,14 +395,14 @@ export function ObservatoryPage() {
                 >
                   <XAxis
                     dataKey="date"
-                    stroke="#585f56"
+                    stroke={CHART_AXIS}
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     minTickGap={32}
                   />
                   <YAxis
-                    stroke="#585f56"
+                    stroke={CHART_AXIS}
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
@@ -432,22 +411,18 @@ export function ObservatoryPage() {
                     }
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#0f1110',
-                      border: '1px solid #1e231f',
-                      borderRadius: 0,
-                      fontSize: 11,
-                    }}
-                    labelStyle={{ color: '#9ba397' }}
-                    itemStyle={{ color: '#3aa76d' }}
+                    contentStyle={CHART_TOOLTIP}
+                    labelStyle={{ color: '#4a4238' }}
+                    itemStyle={{ color: '#1b1815' }}
+                    cursor={{ stroke: '#bcb19b' }}
                   />
                   <Area
                     type="monotone"
                     dataKey="gasUsd"
-                    stroke="#3aa76d"
-                    fill="#3aa76d"
-                    fillOpacity={0.1}
-                    strokeWidth={1.5}
+                    stroke={CHART_STROKE}
+                    fill={CHART_STROKE}
+                    fillOpacity={0.07}
+                    strokeWidth={1.25}
                     name="gas"
                   />
                 </AreaChart>
@@ -456,130 +431,214 @@ export function ObservatoryPage() {
           </div>
         </section>
 
-        <section style={{ paddingTop: 80 }}>
-          <div className="v2-obs-cta">
-            <div>
-              <h3 className="display" style={{ fontSize: 28, margin: 0, color: 'var(--fg)' }}>
-                Private monitoring for{' '}
-                <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                  your fleet.
-                </span>
-              </h3>
-              <p
-                style={{
-                  marginTop: 8,
-                  color: 'var(--fg-dim)',
-                  fontSize: 13,
-                  lineHeight: 1.7,
-                  maxWidth: 520,
-                }}
-              >
-                The public observatory watches the whole ecosystem. Want Discord pings when one of
-                YOUR agents fails a swap? Free tier — 3 agents, every alert type.
-              </p>
-            </div>
-            <Button href="/login">./start-monitoring →</Button>
+        <section className="obs-cta">
+          <div>
+            <h3 className="obs-cta-title press-display">
+              Private monitoring for your fleet.
+            </h3>
+            <p className="obs-cta-sub">
+              The public observatory watches the whole ecosystem. Want Discord
+              pings when one of YOUR agents fails a swap? Free tier — 3 agents,
+              every alert type.
+            </p>
           </div>
+          <Link href="/login" className="press-btn">
+            Start monitoring →
+          </Link>
         </section>
+
+        {children}
+
+        <Colophon />
       </div>
 
       <style>{`
-        .v2-obs-stats {
+        .obs-lead { padding: 44px 0 0; }
+        .obs-title {
+          margin: 14px 0 0;
+          font-size: clamp(36px, 5.6vw, 64px);
+          line-height: 1;
+          letter-spacing: -0.03em;
+        }
+        .obs-lede {
+          margin: 20px 0 0;
+          font-family: var(--font-text);
+          font-size: 18px;
+          line-height: 1.55;
+          color: var(--ink-soft);
+          max-width: 680px;
+        }
+        .obs-stats {
+          margin-top: 32px;
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 32px;
-          padding-top: 32px;
-          border-top: 1px solid var(--line);
+          gap: 1px;
+          background: var(--rule);
+          border: 1px solid var(--rule);
+          border-top: 3px double var(--rule-strong);
         }
-        .v2-obs-grid {
+        .obs-stat {
+          background: var(--paper);
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .obs-stat-label {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 10px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+        }
+        .obs-stat-value {
+          font-size: 24px;
+          line-height: 1;
+          color: var(--ink);
+        }
+        @media (max-width: 960px) {
+          .obs-stats { grid-template-columns: repeat(2, 1fr); }
+          .obs-stats .obs-stat:last-child { grid-column: 1 / -1; }
+        }
+
+        .obs-h2 { margin: 0 0 10px; font-size: clamp(22px, 2.8vw, 30px); }
+        .obs-grid {
+          padding-top: 52px;
           display: grid;
           grid-template-columns: 1.4fr 1fr;
-          gap: 32px;
+          gap: 48px;
           align-items: start;
         }
-        /* Grid children default to min-width: auto, which lets long unbroken
-           strings (addresses, badge text) overflow the column track. Force
-           min-width: 0 so columns can actually shrink to their declared 1fr. */
-        .v2-obs-grid > *,
-        .v2-obs-charts > * {
-          min-width: 0;
+        .obs-grid > *, .obs-charts > * { min-width: 0; }
+        @media (max-width: 1100px) {
+          .obs-grid { grid-template-columns: 1fr; }
         }
-        .v2-obs-charts {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 32px;
-        }
-        .v2-obs-chart-card {
-          border: 1px solid var(--line);
-          background: var(--bg-1);
-          padding: 16px;
-        }
-        .v2-obs-tabs {
+
+        .obs-tabs {
           display: flex;
           gap: 0;
-          margin-bottom: 12px;
-          border: 1px solid var(--line);
-          background: var(--bg-1);
+          border-bottom: 1px solid var(--rule-strong);
+          margin-bottom: 0;
         }
-        .v2-obs-tab {
-          flex: 1;
+        .obs-tab {
           background: transparent;
           border: none;
-          padding: 10px 14px;
+          padding: 9px 14px;
           font-family: var(--font-mono), ui-monospace, monospace;
           font-size: 11px;
-          color: var(--fg-dim);
-          letter-spacing: 0.06em;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
           cursor: pointer;
-          transition: color 0.15s, background 0.15s;
-          border-right: 1px solid var(--line);
+          border-bottom: 2px solid transparent;
+          margin-bottom: -1px;
+          transition: color 0.15s, border-color 0.15s;
         }
-        .v2-obs-tab:last-child { border-right: none; }
-        .v2-obs-tab:hover { color: var(--phosphor); }
-        .v2-obs-tab-active { color: var(--phosphor); background: rgba(58, 167, 109, 0.06); }
-        .v2-obs-cta {
+        .obs-tab:hover { color: var(--oxblood); }
+        .obs-tab-active { color: var(--oxblood); border-bottom-color: var(--oxblood); }
+
+        .obs-table { border-bottom: 1px solid var(--rule-strong); }
+        .obs-thead {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 10px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+          border-bottom: 1px solid var(--rule-strong);
+          padding: 10px 4px;
+        }
+        .obs-row {
+          padding: 11px 4px;
+          border-bottom: 1px solid var(--rule);
+          text-decoration: none;
+          color: inherit;
+          transition: background 0.12s;
+        }
+        .obs-row:hover { background: var(--oxblood-wash); }
+        .obs-row:last-child { border-bottom: none; }
+        .obs-lb-row {
+          display: grid;
+          grid-template-columns: 34px minmax(0, 1fr) 110px 110px;
+          gap: 14px;
+          align-items: center;
+        }
+        .obs-feed-row {
+          display: grid;
+          grid-template-columns: 64px minmax(0, 1fr) 40px 64px 78px;
+          gap: 10px;
+          align-items: center;
+        }
+        .obs-rank { font-size: 12px; color: var(--ink-faint); }
+        .obs-agent { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .obs-agent-name {
+          font-family: var(--font-text);
+          font-size: 15px;
+          color: var(--ink);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .obs-row:hover .obs-agent-name { color: var(--oxblood); }
+        .obs-agent-addr { font-size: 10.5px; color: var(--ink-faint); }
+        .obs-framework { font-size: 11px; letter-spacing: 0.04em; color: var(--ink-faint); text-transform: lowercase; }
+        .obs-value { font-size: 12.5px; color: var(--ink); }
+        .obs-right { text-align: right; }
+        .obs-time { font-size: 11px; color: var(--ink-faint); }
+        .obs-dir { font-size: 10.5px; letter-spacing: 0.08em; }
+        .obs-token { font-size: 11.5px; color: var(--ink-soft); }
+        .obs-usd { font-size: 12px; color: var(--ink); }
+        .obs-empty {
+          padding: 32px 4px;
+          font-family: var(--font-text);
+          font-style: italic;
+          font-size: 15px;
+          color: var(--ink-faint);
+        }
+        .obs-feed-note, .obs-chart-note { display: block; margin-bottom: 10px; }
+
+        @media (max-width: 560px) {
+          .obs-lb-row { grid-template-columns: 28px minmax(0, 1fr) 90px; }
+          .obs-lb-row .obs-framework { display: none; }
+          .obs-feed-row { grid-template-columns: 56px minmax(0, 1fr) 70px; }
+          .obs-feed-row .obs-dir, .obs-feed-row .obs-token { display: none; }
+        }
+
+        .obs-charts {
+          padding-top: 52px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 48px;
+        }
+        @media (max-width: 960px) {
+          .obs-charts { grid-template-columns: 1fr; }
+        }
+        .obs-chart {
+          border: 1px solid var(--rule);
+          background: var(--paper-2);
+          padding: 14px 10px 6px;
+        }
+
+        .obs-cta {
+          margin-top: 56px;
+          border-top: 3px double var(--rule-strong);
+          border-bottom: 1px solid var(--rule);
+          padding: 32px 0;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 40px;
-          padding: 40px;
-          border: 1px solid var(--line-2);
-          background: var(--bg-1);
+          gap: 32px;
           flex-wrap: wrap;
         }
-        @media (max-width: 1100px) {
-          .v2-obs-grid { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 960px) {
-          .v2-obs-stats { grid-template-columns: repeat(2, 1fr); }
-          .v2-obs-charts { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 480px) {
-          .v2-obs-stats {
-            gap: 16px 20px !important;
-            padding-top: 24px !important;
-          }
-          .v2-obs-tabs {
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            scroll-snap-type: x mandatory;
-          }
-          .v2-obs-tab {
-            padding: 8px 12px !important;
-            font-size: 10px !important;
-            scroll-snap-align: start;
-            flex: 0 0 auto !important;
-          }
-          .v2-obs-cta {
-            padding: 24px !important;
-            gap: 20px !important;
-          }
-          .v2-obs-chart-card {
-            padding: 8px !important;
-          }
+        .obs-cta-title { margin: 0; font-size: clamp(22px, 3vw, 32px); }
+        .obs-cta-sub {
+          margin: 10px 0 0;
+          font-family: var(--font-text);
+          font-size: 16px;
+          line-height: 1.55;
+          color: var(--ink-soft);
+          max-width: 520px;
         }
       `}</style>
-    </PageShell>
+    </PressShell>
   );
 }

@@ -55,6 +55,10 @@ export function Masthead({ links = DEFAULT_LINKS, brandHref = '/' }: MastheadPro
               </Link>
             ),
           )}
+          {/* Quiet account entry — the route the retired ./connect button served. */}
+          <Link href="/login" className="ph-nav-signin">
+            Sign in
+          </Link>
         </nav>
       </div>
     </header>
