@@ -20,6 +20,7 @@ function getProviderName(): ProviderName {
 
 let _webhookProvider: WebhookProvider | null = null;
 let _chainDataProvider: ChainDataProvider | null = null;
+let _fallbackChainDataProvider: ChainDataProvider | null = null;
 
 export function getWebhookProvider(): WebhookProvider {
   if (!_webhookProvider) {
@@ -46,6 +47,24 @@ export function getChainDataProvider(): ChainDataProvider {
     }
   }
   return _chainDataProvider;
+}
+
+/**
+ * A ChainDataProvider bound to BASE_RPC_FALLBACK_URL, used when the primary node's
+ * head is stale (the EL-sync wedge — node answers, head frozen). Always the standard
+ * (viem eth_getLogs + multicall + eth_getBalance) impl: those are plain RPC methods
+ * every Base endpoint supports, so it works regardless of CHAIN_PROVIDER and whether
+ * the fallback URL is an Alchemy or public RPC. Throws if no fallback is configured.
+ */
+export function getFallbackChainDataProvider(): ChainDataProvider {
+  if (!_fallbackChainDataProvider) {
+    const fallbackUrl = process.env.BASE_RPC_FALLBACK_URL;
+    if (!fallbackUrl) {
+      throw new Error('BASE_RPC_FALLBACK_URL is required for the fallback chain data provider');
+    }
+    _fallbackChainDataProvider = new StandardChainDataProvider(fallbackUrl);
+  }
+  return _fallbackChainDataProvider;
 }
 
 export type { ChainDataProvider, WebhookProvider } from '@chainward/common';
