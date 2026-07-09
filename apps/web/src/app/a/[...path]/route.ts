@@ -13,6 +13,9 @@ import { NextRequest, NextResponse } from 'next/server';
  *
  * When UMAMI_INTERNAL_URL is unset (local dev / self-hosters) the routes no-op
  * gracefully: 204 for beacons, 404 for the script.
+ *
+ * Runtime loader config (website id) is served by the sibling ../meta route;
+ * the tracker itself is injected client-side by components/press/Analytics.
  */
 
 const UMAMI_URL = process.env.UMAMI_INTERNAL_URL;
@@ -20,6 +23,10 @@ const UMAMI_URL = process.env.UMAMI_INTERNAL_URL;
 const ALLOWED_PATHS = new Set(['/script.js', '/api/send']);
 
 function clientIp(req: NextRequest): string | null {
+  // Behind Cloudflare, cf-connecting-ip is the single real client IP;
+  // x-forwarded-for may accumulate proxy hops.
+  const cf = req.headers.get('cf-connecting-ip');
+  if (cf) return cf;
   const xff = req.headers.get('x-forwarded-for');
   if (xff) return xff;
   const xri = req.headers.get('x-real-ip');
@@ -57,6 +64,11 @@ async function proxy(req: NextRequest) {
   }
   const accept = req.headers.get('accept');
   if (accept) headers.set('accept', accept);
+  // Umami's /api/send returns a session cache token that the tracker re-sends
+  // on subsequent events via x-umami-cache — forward it so the session isn't
+  // re-derived (and re-queried) for every beacon.
+  const umamiCache = req.headers.get('x-umami-cache');
+  if (umamiCache) headers.set('x-umami-cache', umamiCache);
 
   let res: Response;
   try {
@@ -68,6 +80,12 @@ async function proxy(req: NextRequest) {
   } catch {
     // Never surface analytics failures to the visitor.
     return new NextResponse(null, { status: path === '/api/send' ? 204 : 502 });
+  }
+
+  // Upstream 5xx bodies can carry stack traces / internals (observed: a full
+  // Prisma error through /api/send). Pass the status, never the body.
+  if (res.status >= 500) {
+    return new NextResponse(null, { status: res.status });
   }
 
   const body = await res.arrayBuffer();
