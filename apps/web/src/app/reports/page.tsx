@@ -42,8 +42,10 @@ const SEV_VAR: Record<RiskSeverity, string> = {
 
 async function fetchLibrary(): Promise<RiskLibraryResult | null> {
   try {
+    // distinct=address → one row per address (its latest filing). Re-checks
+    // otherwise read as duplicate entries; report_count carries the "filed N×".
     const res = await fetch(
-      `${API_URL}/api/risk/library?sort=recent&limit=${PAGE_SIZE}&offset=0`,
+      `${API_URL}/api/risk/library?sort=recent&limit=${PAGE_SIZE}&offset=0&distinct=address`,
       { next: { revalidate: 120 } },
     );
     if (!res.ok) return null;
@@ -102,9 +104,14 @@ function RegisterRow({ card }: { card: RiskReportCard }) {
       </span>
       <span className="reg-cell reg-filed">
         <span className="reg-cell-label">Filed</span>
-        <time className="mono" dateTime={card.as_of_date}>
-          {formatDate(card.as_of_date)}
-        </time>
+        <span className="reg-filed-val">
+          <time className="mono" dateTime={card.as_of_date}>
+            {formatDate(card.as_of_date)}
+          </time>
+          {(card.report_count ?? 1) > 1 && (
+            <span className="reg-filed-count mono">filed {card.report_count}×</span>
+          )}
+        </span>
       </span>
       <span className="reg-cell reg-views mono">
         <span className="reg-cell-label">Views</span>
@@ -145,7 +152,7 @@ export default async function ReportsLibraryPage() {
         ) : (
           <>
             <div className="reg-count press-label">
-              {total} report{total === 1 ? '' : 's'} on file
+              {total} address{total === 1 ? '' : 'es'} on file
             </div>
             <div className="reg-table">
               <div className="reg-head">
@@ -239,6 +246,8 @@ export default async function ReportsLibraryPage() {
           color: var(--ink-soft);
         }
         .reg-filed { font-size: 12px; color: var(--ink-faint); }
+        .reg-filed-val { display: flex; flex-direction: column; gap: 2px; }
+        .reg-filed-count { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
         .reg-views { font-size: 12px; color: var(--ink-faint); text-align: right; }
         .reg-empty {
           padding: 48px 0;
