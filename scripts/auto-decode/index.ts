@@ -109,6 +109,13 @@ async function main() {
       env: {
         ...process.env,
         CLAUDE_CODE_OAUTH_TOKEN: config.oauthToken,
+        // The orchestrator fans out long research subagents as background
+        // tasks; the CLI's default 600s print-mode ceiling kills the session
+        // mid-run (observed on the ButlerLiquid utility-audit, 2026-07-09).
+        // 0 = wait indefinitely; the AUTO_DECODE_TIMEOUT_MS watchdog below is
+        // our own overall bound so "indefinitely" cannot mean "forever".
+        CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:
+          process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS ?? "0",
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -127,28 +134,50 @@ async function main() {
     process.stderr.write(s);
   });
 
+  // Overall watchdog: a wedged run must die loudly, not zombie under nohup.
+  const timeoutMs = Number(process.env.AUTO_DECODE_TIMEOUT_MS ?? 90 * 60 * 1000);
+  let timedOut = false;
+  const watchdog = setTimeout(() => {
+    timedOut = true;
+    console.error(`[auto-decode] watchdog: run exceeded ${timeoutMs}ms; killing claude`);
+    child.kill("SIGTERM");
+  }, timeoutMs);
+
   const exitCode: number = await new Promise((resolve, reject) => {
     child.on("close", (code) => resolve(code ?? 1));
     child.on("error", reject);
   });
+  clearTimeout(watchdog);
+
+  const postDiscord = async (content: string): Promise<void> => {
+    const res = await fetch(config.webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      console.warn(
+        `[auto-decode] discord webhook returned ${res?.status ?? "error"} (continuing)`,
+      );
+    }
+  };
 
   const summaryMatch = stdout.match(/<DISCORD_SUMMARY>([\s\S]*?)<\/DISCORD_SUMMARY>/);
   if (!summaryMatch) {
-    console.error("[auto-decode] no DISCORD_SUMMARY block in claude output");
+    // A run that dies without a summary must still page Discord — silence
+    // reads as "nothing happened" while a decode is actually stranded.
+    const why = timedOut
+      ? `watchdog timeout after ${timeoutMs}ms`
+      : `claude exited ${exitCode} without a DISCORD_SUMMARY`;
+    console.error(`[auto-decode] no DISCORD_SUMMARY block in claude output (${why})`);
+    await postDiscord(
+      "```\ntarget: " + name + "\nslug: " + slug + "\nresult: crashed\nnotes: " + why + " — see run log on the ops host\n```",
+    );
     process.exit(exitCode || 1);
   }
   const summary = summaryMatch[1].trim();
 
-  const webhookRes = await fetch(config.webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: "```\n" + summary + "\n```" }),
-  });
-  if (!webhookRes.ok) {
-    console.warn(
-      `[auto-decode] discord webhook returned ${webhookRes.status} (continuing)`,
-    );
-  }
+  await postDiscord("```\n" + summary + "\n```");
 
   process.exit(exitCode);
 }
