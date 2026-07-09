@@ -48,6 +48,14 @@ spec:
               value: {{ .Values.acpDecoder.defaultChainId | quote }}
             - name: SENTINEL_RPC
               value: {{ .Values.acpDecoder.sentinelRpc | quote }}
+            # Freshness-guard fallback: paid briefs fall back to a fresh public RPC
+            # (instead of failing loud) when the sentinel head is stale.
+            - name: BASE_RPC_FALLBACK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: BASE_RPC_FALLBACK_URL
+                  optional: true
             - name: ACP_FEE_USDC
               value: {{ .Values.acpDecoder.feeUsdc | quote }}
             {{- if .Values.acpDecoder.telemetry.enabled }}
