@@ -6,10 +6,10 @@ import {
   Fraunces,
   Newsreader,
 } from 'next/font/google';
-import Script from 'next/script';
 import './globals.css';
 import '../styles/v2-tokens.css';
 import '../styles/press.css';
+import { Analytics } from '@/components/press/Analytics';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -104,27 +104,16 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // First-party Umami, wired through the same-origin /a proxy. The website id
-  // is read server-side (plain env, with NEXT_PUBLIC fallback) so ops can set
-  // it without a rebuild. Tracker only loads in production and only when an id
-  // is configured — local dev and self-hosters get nothing.
-  const umamiWebsiteId =
-    process.env.UMAMI_WEBSITE_ID || process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
-  const analyticsOn = process.env.NODE_ENV === 'production' && !!umamiWebsiteId;
-
+  // First-party Umami via the same-origin /a proxy. The public pages are
+  // statically prerendered, so reading env here would bake CI's (empty) env
+  // into the HTML forever. <Analytics /> instead fetches /a/meta at runtime —
+  // a force-dynamic route that reads pod env per request — and injects the
+  // tracker client-side. Pages stay static; config stays runtime-changeable.
   return (
     <html lang="en" className={`dark scroll-smooth ${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} ${fraunces.variable} ${newsreader.variable}`}>
       <body className="min-h-screen antialiased">
         {children}
-        {analyticsOn && (
-          <Script
-            src="/a/script.js"
-            data-website-id={umamiWebsiteId}
-            data-host-url="/a"
-            defer
-            strategy="afterInteractive"
-          />
-        )}
+        <Analytics />
       </body>
     </html>
   );
