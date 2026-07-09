@@ -10,6 +10,7 @@ COPY patches/ patches/
 COPY apps/api/package.json apps/api/
 COPY packages/common/package.json packages/common/
 COPY packages/db/package.json packages/db/
+COPY packages/decode/package.json packages/decode/
 COPY packages/observatory/package.json packages/observatory/
 RUN pnpm install --frozen-lockfile
 
@@ -19,6 +20,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps /app/packages/common/node_modules ./packages/common/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
+COPY --from=deps /app/packages/decode/node_modules ./packages/decode/node_modules
 COPY --from=deps /app/packages/observatory/node_modules ./packages/observatory/node_modules
 COPY . .
 RUN pnpm --filter @chainward/api build && \
