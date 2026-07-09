@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { PageShell, NavBar, StatusTicker, Button } from '@/components/v2';
+import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
 
 export const metadata = {
   title: 'ChainWard MCP — read-side intel for your AI assistant',
@@ -26,40 +25,40 @@ const TOOLS = [
   { name: 'find_decodes_for_address', desc: 'Has ChainWard written about 0x…? Returns matching Decode URLs.' },
 ];
 
-export default async function McpPage() {
-  const cookieStore = await cookies();
-  const isAuthenticated = cookieStore.has('chainward-session');
+const SURFACES = [
+  { surface: 'Claude Desktop', transport: 'stdio', status: 'live' },
+  { surface: 'Cursor', transport: 'stdio', status: 'live' },
+  { surface: 'Claude Code', transport: 'stdio', status: 'live' },
+  { surface: 'Codex', transport: 'stdio', status: 'live' },
+  { surface: 'Remote / your own client', transport: 'streamable HTTP', status: 'live' },
+];
 
+export default function McpPage() {
   return (
-    <PageShell>
-      <StatusTicker />
-
-      <div className="v2-shell">
-        <NavBar
-          ctaHref={isAuthenticated ? '/overview' : '/login'}
-          ctaLabel={isAuthenticated ? 'dashboard' : './connect'}
-        />
+    <PressShell>
+      <PressDateline />
+      <div className="press-wrap">
+        <Masthead />
 
         {/* Hero */}
-        <section className="v2-mcp-hero">
-          <div className="v2-mcp-kicker">04 / integrations · live on npm</div>
-          <h1 className="v2-mcp-title display">
-            Your AI assistant can now ask{' '}
-            <span className="serif" style={{ color: 'var(--phosphor)' }}>
-              who&apos;s on the other side.
-            </span>
+        <section className="mcp-hero">
+          <div className="press-fileno">
+            Integrations <span className="ph-dateline-sep">·</span> Live on npm
+          </div>
+          <h1 className="mcp-title press-display">
+            Your AI assistant can now ask who&apos;s on the other side.
           </h1>
-          <p className="v2-mcp-sub">
+          <p className="mcp-lede">
             <strong>chainward-mcp-server</strong> is the read-side intelligence
             layer for the AI agent economy on Base. Install it once and any
             MCP-compatible assistant — Claude Desktop, Cursor, Claude Code, Codex —
             can look up labeled agent wallets, ACP economics, and our Decodes corpus
             before you sign a single transaction.
           </p>
-          <pre className="v2-mcp-install">
+          <pre className="mcp-install mono">
             <code>{`$ npx -y chainward-mcp-server`}</code>
           </pre>
-          <div className="v2-mcp-meta">
+          <div className="mcp-meta">
             <span>v0.1.0</span>
             <span>read-only</span>
             <span>no api key required</span>
@@ -67,68 +66,61 @@ export default async function McpPage() {
           </div>
         </section>
 
-        {/* Section 01 — the gap */}
-        <section className="v2-mcp-section">
-          <div className="v2-mcp-tag">01 / the gap</div>
-          <h2 className="v2-mcp-h2">
-            Base MCP shipped 7 day-one plugins.
-            <br />
-            <span className="serif" style={{ color: 'var(--phosphor)' }}>
-              All of them answer &quot;how do I act?&quot;
-            </span>
+        <hr className="press-rule" />
+
+        {/* The gap */}
+        <section className="mcp-section">
+          <span className="press-label">The gap</span>
+          <h2 className="mcp-h2 press-display">
+            Base MCP shipped 7 day-one plugins. All of them answer{' '}
+            <em>&quot;how do I act?&quot;</em>
           </h2>
-          <p className="v2-mcp-p">
+          <p className="mcp-p">
             Morpho, Bankr, Moonwell, Avantis, Aerodrome, Virtuals, Uniswap. Every
             one is a write-side tool — swap, lend, launch, send. None of them
             answer the question that comes a step earlier:{' '}
             <em>who&apos;s the deployer of this token, what does their wallet
             history look like, and is this an agent ChainWard has investigated?</em>
           </p>
-          <p className="v2-mcp-p">We shipped that one.</p>
+          <p className="mcp-p">We shipped that one.</p>
         </section>
 
-        {/* Section 02 — the tools */}
-        <section className="v2-mcp-section">
-          <div className="v2-mcp-tag">02 / tools</div>
-          <h2 className="v2-mcp-h2">
-            Eight tools.
-            <br />
-            <span className="serif" style={{ color: 'var(--phosphor)' }}>
-              All read-only.
-            </span>
-          </h2>
-          <p className="v2-mcp-p">
+        <hr className="press-rule" />
+
+        {/* The tools */}
+        <section className="mcp-section">
+          <span className="press-label">The tools</span>
+          <h2 className="mcp-h2 press-display">Eight tools. All read-only.</h2>
+          <p className="mcp-p">
             Your assistant picks the right tool from the description. No prompting
             required.
           </p>
-          <div className="v2-mcp-tools">
+          <dl className="mcp-tools">
             {TOOLS.map((t) => (
-              <div key={t.name} className="v2-mcp-tool">
-                <code className="v2-mcp-tool-name">{t.name}</code>
-                <p className="v2-mcp-tool-desc">{t.desc}</p>
+              <div key={t.name} className="mcp-tool">
+                <dt className="mcp-tool-name mono">{t.name}</dt>
+                <dd className="mcp-tool-desc">{t.desc}</dd>
               </div>
             ))}
-          </div>
+          </dl>
         </section>
 
-        {/* Section 03 — pair with Base MCP */}
-        <section className="v2-mcp-section">
-          <div className="v2-mcp-tag">03 / composition</div>
-          <h2 className="v2-mcp-h2">
-            Pair it with Base MCP.
-            <br />
-            <span className="serif" style={{ color: 'var(--phosphor)' }}>
-              Read before you write.
-            </span>
+        <hr className="press-rule" />
+
+        {/* Composition */}
+        <section className="mcp-section">
+          <span className="press-label">Composition</span>
+          <h2 className="mcp-h2 press-display">
+            Pair it with Base MCP. Read before you write.
           </h2>
-          <p className="v2-mcp-p">
+          <p className="mcp-p">
             ChainWard reads. Base MCP writes. Different namespaces, different
             concerns. Your assistant sees both and composes naturally — look up
             the deployer with ChainWard, then build the unsigned swap with Base
             MCP. The user signs in their own Base Account. ChainWard never sees
             the key.
           </p>
-          <pre className="v2-mcp-config">
+          <pre className="mcp-config mono">
             <code>{`// claude_desktop_config.json or .cursor/mcp.json
 {
   "mcpServers": {
@@ -145,310 +137,230 @@ export default async function McpPage() {
           </pre>
         </section>
 
-        {/* Section 04 — install */}
-        <section className="v2-mcp-section">
-          <div className="v2-mcp-tag">04 / install</div>
-          <h2 className="v2-mcp-h2">
-            Works in every MCP-capable surface today.
-            <br />
-            <span className="serif" style={{ color: 'var(--phosphor)' }}>
-              No partnership required.
-            </span>
+        <hr className="press-rule" />
+
+        {/* Install */}
+        <section className="mcp-section">
+          <span className="press-label">Install</span>
+          <h2 className="mcp-h2 press-display">
+            Works in every MCP-capable surface today. No partnership required.
           </h2>
-          <div className="v2-mcp-table">
-            <div className="v2-mcp-row v2-mcp-row-head">
-              <span>surface</span>
-              <span>transport</span>
-              <span>status</span>
+          <div className="mcp-table">
+            <div className="mcp-row mcp-row-head">
+              <span>Surface</span>
+              <span>Transport</span>
+              <span>Status</span>
             </div>
-            <div className="v2-mcp-row">
-              <span>Claude Desktop</span>
-              <span>stdio</span>
-              <span className="v2-mcp-ok">✓ live</span>
-            </div>
-            <div className="v2-mcp-row">
-              <span>Cursor</span>
-              <span>stdio</span>
-              <span className="v2-mcp-ok">✓ live</span>
-            </div>
-            <div className="v2-mcp-row">
-              <span>Claude Code</span>
-              <span>stdio</span>
-              <span className="v2-mcp-ok">✓ live</span>
-            </div>
-            <div className="v2-mcp-row">
-              <span>Codex</span>
-              <span>stdio</span>
-              <span className="v2-mcp-ok">✓ live</span>
-            </div>
-            <div className="v2-mcp-row">
-              <span>Remote / your own client</span>
-              <span>streamable HTTP</span>
-              <span className="v2-mcp-ok">✓ live</span>
-            </div>
+            {SURFACES.map((s) => (
+              <div key={s.surface} className="mcp-row">
+                <span>{s.surface}</span>
+                <span className="mono">{s.transport}</span>
+                <span className="mcp-ok mono">{s.status}</span>
+              </div>
+            ))}
           </div>
-          <p className="v2-mcp-p" style={{ marginTop: 24 }}>
+          <p className="mcp-p" style={{ marginTop: 24 }}>
             For HTTP transport:{' '}
-            <code className="v2-code-inline">
+            <code className="mcp-inline mono">
               CHAINWARD_MCP_TRANSPORT=http PORT=3300 npx -y chainward-mcp-server
             </code>
-            . MCP endpoint at <code className="v2-code-inline">/mcp</code>, health
-            at <code className="v2-code-inline">/healthz</code>.
+            . MCP endpoint at <code className="mcp-inline mono">/mcp</code>, health
+            at <code className="mcp-inline mono">/healthz</code>.
           </p>
         </section>
 
-        <section className="v2-landing-bottom">
-          <div className="v2-landing-final">
-            <h2 className="v2-landing-final-title display">
-              The agent economy needs a read step{' '}
-              <span className="serif" style={{ color: 'var(--phosphor)' }}>
-                before every write step.
-              </span>
-            </h2>
-            <p className="v2-landing-final-sub">
-              ChainWard is the read step. Install it next to whatever signs.
-            </p>
-            <div style={{ marginTop: 32, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <Button href="https://www.npmjs.com/package/chainward-mcp-server">
-                npm: chainward-mcp-server
-                <span>→</span>
-              </Button>
-              <Button variant="ghost" href="/decodes">
-                cat decodes/
-              </Button>
-            </div>
+        {/* Closing */}
+        <section className="mcp-close">
+          <h2 className="mcp-close-title press-display">
+            The agent economy needs a read step before every write step.
+          </h2>
+          <p className="mcp-close-sub">
+            ChainWard is the read step. Install it next to whatever signs.
+          </p>
+          <div className="mcp-close-ctas">
+            <a
+              href="https://www.npmjs.com/package/chainward-mcp-server"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="press-btn"
+            >
+              npm: chainward-mcp-server →
+            </a>
+            <Link href="/decodes" className="press-btn press-btn--ghost">
+              Read the decodes
+            </Link>
           </div>
         </section>
 
-        <footer className="v2-landing-footer">
-          <div>chainward.ai · read-side intel for the agent economy on base</div>
-          <div className="v2-landing-footer-links">
-            <Link href="/base">observatory</Link>
-            <Link href="/decodes">decodes</Link>
-            <Link href="/docs">docs</Link>
-            <a
-              href="https://x.com/chainwardai"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              x
-            </a>
-          </div>
-        </footer>
+        <Colophon />
       </div>
 
       <style>{`
-        .v2-mcp-hero {
-          padding-top: 56px;
-          padding-bottom: 48px;
-        }
-        .v2-mcp-kicker {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 11px;
-          color: var(--fg-dim);
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          padding-bottom: 24px;
-        }
-        .v2-mcp-kicker::before {
-          content: '';
-          width: 20px;
-          height: 1px;
-          background: var(--phosphor);
-        }
-        .v2-mcp-title {
-          font-size: clamp(40px, 6vw, 76px);
-          line-height: 0.98;
-          letter-spacing: -0.04em;
-          color: var(--fg);
-          max-width: 1000px;
-        }
-        .v2-mcp-sub {
-          margin-top: 28px;
-          font-size: 14px;
-          line-height: 1.7;
-          color: var(--fg-dim);
-          max-width: 620px;
-        }
-        .v2-mcp-sub strong { color: var(--fg); font-weight: 500; }
-        .v2-mcp-install {
-          margin-top: 32px;
-          background: var(--bg-1);
-          border: 1px solid var(--line);
-          padding: 20px 24px;
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 14px;
-          color: var(--phosphor);
-          max-width: 620px;
-          overflow-x: auto;
-        }
-        .v2-mcp-meta {
-          margin-top: 20px;
-          display: flex;
-          gap: 24px;
-          flex-wrap: wrap;
-          font-size: 11px;
-          color: var(--muted);
-          letter-spacing: 0.04em;
-        }
-        .v2-mcp-meta span::before {
-          content: '// ';
-          color: var(--phosphor-dim);
-        }
-        .v2-mcp-section {
-          padding: 64px 0;
-          border-top: 1px solid var(--line);
-        }
-        .v2-mcp-tag {
-          font-size: 11px;
-          color: var(--phosphor);
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          padding-bottom: 24px;
-        }
-        .v2-mcp-h2 {
-          font-size: clamp(28px, 4vw, 48px);
-          line-height: 1.05;
+        .mcp-hero { padding: 44px 0 40px; }
+        .mcp-title {
+          margin: 16px 0 0;
+          font-size: clamp(36px, 5.6vw, 66px);
+          line-height: 1;
           letter-spacing: -0.03em;
-          color: var(--fg);
-          max-width: 880px;
+          max-width: 900px;
         }
-        .v2-mcp-p {
-          margin-top: 24px;
-          font-size: 14px;
-          line-height: 1.7;
-          color: var(--fg-dim);
-          max-width: 680px;
-        }
-        .v2-mcp-p em { font-style: italic; color: var(--fg); }
-        .v2-mcp-tools {
-          margin-top: 32px;
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 1px;
-          background: var(--line);
-          border: 1px solid var(--line);
-        }
-        @media (max-width: 720px) {
-          .v2-mcp-tools { grid-template-columns: 1fr; }
-        }
-        .v2-mcp-tool {
-          background: var(--bg-1);
-          padding: 20px 22px;
-        }
-        .v2-mcp-tool-name {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 13px;
-          color: var(--phosphor);
-        }
-        .v2-mcp-tool-desc {
-          margin-top: 10px;
-          font-size: 13px;
+        .mcp-lede {
+          margin: 22px 0 0;
+          font-family: var(--font-text);
+          font-size: 19px;
           line-height: 1.55;
-          color: var(--fg-dim);
+          color: var(--ink-soft);
+          max-width: 640px;
         }
-        .v2-mcp-config {
-          margin-top: 32px;
-          background: var(--bg-1);
-          border: 1px solid var(--line);
-          padding: 20px 24px;
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 12px;
-          line-height: 1.6;
-          color: var(--fg-dim);
+        .mcp-lede strong { color: var(--ink); font-weight: 640; }
+        .mcp-install {
+          margin: 28px 0 0;
+          background: var(--paper-2);
+          border: 1px solid var(--rule-strong);
+          padding: 18px 22px;
+          font-size: 14px;
+          color: var(--ink);
           max-width: 620px;
           overflow-x: auto;
         }
-        .v2-mcp-table {
-          margin-top: 32px;
-          border: 1px solid var(--line);
-        }
-        .v2-mcp-row {
-          display: grid;
-          grid-template-columns: 1.5fr 1.5fr 1fr;
-          padding: 14px 20px;
-          font-size: 13px;
-          color: var(--fg-dim);
-          border-top: 1px solid var(--line);
-        }
-        .v2-mcp-row:first-child { border-top: none; }
-        .v2-mcp-row-head {
-          font-size: 10px;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--muted);
-          background: var(--bg-1);
-        }
-        .v2-mcp-ok { color: var(--phosphor); }
-        /* shared "final CTA" + footer styling — also used on the landing page */
-        .v2-landing-bottom {
-          border-top: 1px solid var(--line);
-          padding: 56px 0 80px;
-        }
-        .v2-landing-final {
-          border: 1px solid var(--line-2);
-          padding: 48px;
-          background:
-            radial-gradient(ellipse at 10% 0%, rgba(58, 167, 109, 0.06), transparent 60%),
-            var(--bg-1);
-          position: relative;
-        }
-        .v2-landing-final::before {
-          content: '$ cw mcp install';
-          position: absolute;
-          top: 14px;
-          left: 20px;
-          font-size: 11px;
-          color: var(--phosphor);
-          letter-spacing: 0.04em;
-        }
-        .v2-landing-final-title {
-          font-size: clamp(32px, 4.5vw, 56px);
-          line-height: 1.02;
-          margin-top: 24px;
-          max-width: 780px;
-        }
-        .v2-landing-final-sub {
-          margin-top: 16px;
-          color: var(--fg-dim);
-          max-width: 520px;
-          font-size: 13px;
-          line-height: 1.7;
-        }
-        .v2-landing-footer {
-          border-top: 1px solid var(--line);
-          padding: 24px 0 48px;
+        .mcp-meta {
+          margin-top: 18px;
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 11px;
-          color: var(--muted);
+          gap: 10px 22px;
           flex-wrap: wrap;
-          gap: 16px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
         }
-        .v2-landing-footer a {
-          color: var(--fg-dim);
-          text-decoration: none;
-          transition: color 0.15s;
+        .mcp-meta span::before { content: '§ '; color: var(--oxblood); }
+
+        .mcp-section { padding: 44px 0; }
+        .mcp-h2 {
+          margin: 14px 0 0;
+          font-size: clamp(26px, 3.6vw, 40px);
+          line-height: 1.05;
+          max-width: 820px;
         }
-        .v2-landing-footer a:hover { color: var(--phosphor); }
-        .v2-landing-footer-links {
-          display: flex;
-          gap: 20px;
+        .mcp-h2 em {
+          font-style: italic;
+          color: var(--oxblood);
+          font-variation-settings: "opsz" 60, "SOFT" 40;
+        }
+        .mcp-p {
+          margin: 20px 0 0;
+          font-family: var(--font-text);
+          font-size: 17px;
+          line-height: 1.6;
+          color: var(--ink-soft);
+          max-width: 660px;
+        }
+        .mcp-p em { font-style: italic; color: var(--ink); }
+
+        .mcp-tools {
+          margin: 28px 0 0;
+          padding: 0;
+          border-top: 3px double var(--rule-strong);
+        }
+        .mcp-tool {
+          display: grid;
+          grid-template-columns: 260px 1fr;
+          gap: 24px;
+          padding: 14px 0;
+          border-bottom: 1px solid var(--rule);
+          align-items: baseline;
+        }
+        .mcp-tool-name { font-size: 13px; color: var(--oxblood); }
+        .mcp-tool-desc {
+          margin: 0;
+          font-family: var(--font-text);
+          font-size: 16px;
+          line-height: 1.5;
+          color: var(--ink-soft);
+        }
+        @media (max-width: 640px) {
+          .mcp-tool { grid-template-columns: 1fr; gap: 4px; }
         }
 
+        .mcp-config {
+          margin: 28px 0 0;
+          background: var(--paper-2);
+          border: 1px solid var(--rule-strong);
+          padding: 18px 22px;
+          font-size: 12.5px;
+          line-height: 1.6;
+          color: var(--ink);
+          max-width: 620px;
+          overflow-x: auto;
+        }
+        .mcp-inline {
+          color: var(--oxblood);
+          background: var(--oxblood-wash);
+          border: 1px solid var(--rule);
+          padding: 1px 6px;
+          font-size: 0.82em;
+          overflow-wrap: anywhere;
+        }
+
+        .mcp-table {
+          margin-top: 28px;
+          border-top: 3px double var(--rule-strong);
+          border-bottom: 1px solid var(--rule-strong);
+          max-width: 720px;
+        }
+        .mcp-row {
+          display: grid;
+          grid-template-columns: 1.6fr 1.4fr 0.8fr;
+          gap: 16px;
+          padding: 12px 4px;
+          border-bottom: 1px solid var(--rule);
+          font-family: var(--font-text);
+          font-size: 15px;
+          color: var(--ink-soft);
+        }
+        .mcp-row:last-child { border-bottom: none; }
+        .mcp-row .mono { font-size: 12px; }
+        .mcp-row-head {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 10px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+          border-bottom: 1px solid var(--rule-strong);
+        }
+        .mcp-ok { color: var(--seal); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+        .mcp-close {
+          margin-top: 20px;
+          border-top: 3px double var(--rule-strong);
+          padding: 40px 0 8px;
+        }
+        .mcp-close-title {
+          margin: 0;
+          font-size: clamp(28px, 4.4vw, 48px);
+          line-height: 1.02;
+          max-width: 780px;
+        }
+        .mcp-close-sub {
+          margin: 16px 0 0;
+          font-family: var(--font-text);
+          font-size: 18px;
+          line-height: 1.5;
+          color: var(--ink-soft);
+          max-width: 520px;
+        }
+        .mcp-close-ctas {
+          margin-top: 28px;
+          display: flex;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
         @media (max-width: 480px) {
-          .v2-mcp-hero { padding-top: 32px; padding-bottom: 28px; }
-          .v2-mcp-section { padding: 40px 0; }
-          .v2-mcp-meta { gap: 14px 18px; }
-          .v2-mcp-row { padding: 12px 14px; font-size: 12px; }
-          .v2-landing-bottom { padding: 32px 0 56px; }
-          .v2-landing-final { padding: 32px 20px; }
-          .v2-landing-final::before { top: 10px; left: 16px; font-size: 10px; }
+          .mcp-hero { padding: 32px 0 28px; }
+          .mcp-section { padding: 32px 0; }
         }
       `}</style>
-    </PageShell>
+    </PressShell>
   );
 }
