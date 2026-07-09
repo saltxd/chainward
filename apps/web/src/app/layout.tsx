@@ -1,8 +1,15 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono, Instrument_Serif, Fraunces } from 'next/font/google';
+import {
+  Inter,
+  JetBrains_Mono,
+  Instrument_Serif,
+  Fraunces,
+  Newsreader,
+} from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import '../styles/v2-tokens.css';
+import '../styles/press.css';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -29,6 +36,16 @@ const fraunces = Fraunces({
   variable: '--font-display',
   display: 'swap',
   axes: ['SOFT', 'WONK', 'opsz'],
+});
+
+// Body/reading face for the public "dossier" surface — a screen-tuned news
+// serif for long-form decodes and reports. Paired with Fraunces (display) and
+// JetBrains Mono (chain data). Dashboard keeps Inter.
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  style: ['normal', 'italic'],
+  variable: '--font-reader',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -81,20 +98,33 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#050508',
+  // Paper — the public surface is the front door. (Dashboard keeps its dark
+  // page look; only the mobile browser-chrome tint is shared here.)
+  themeColor: '#f2ede3',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // First-party Umami, wired through the same-origin /a proxy. The website id
+  // is read server-side (plain env, with NEXT_PUBLIC fallback) so ops can set
+  // it without a rebuild. Tracker only loads in production and only when an id
+  // is configured — local dev and self-hosters get nothing.
+  const umamiWebsiteId =
+    process.env.UMAMI_WEBSITE_ID || process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
+  const analyticsOn = process.env.NODE_ENV === 'production' && !!umamiWebsiteId;
+
   return (
-    <html lang="en" className={`dark scroll-smooth ${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} ${fraunces.variable}`}>
+    <html lang="en" className={`dark scroll-smooth ${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} ${fraunces.variable} ${newsreader.variable}`}>
       <body className="min-h-screen antialiased">
         {children}
-        <Script
-          src="/u/script.js"
-          data-website-id="bd27109d-11b2-4a0e-b621-b4456297c035"
-          data-host-url="/u"
-          strategy="afterInteractive"
-        />
+        {analyticsOn && (
+          <Script
+            src="/a/script.js"
+            data-website-id={umamiWebsiteId}
+            data-host-url="/a"
+            defer
+            strategy="afterInteractive"
+          />
+        )}
       </body>
     </html>
   );
