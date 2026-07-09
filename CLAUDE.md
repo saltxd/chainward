@@ -104,6 +104,7 @@ Curated data (agent labels, protocol registry) is separated from the open-source
 - elizaOS plugin uses `@elizaos/core@1.7.2` — Action handlers return `ActionResult`, examples use `name` (not `user`), `actions` array (not `action` string)
 - **API proxy body forwarding** — `apps/web/src/app/api/[...path]/route.ts` only forwards request body for POST/PUT/PATCH. Do NOT forward body for DELETE/GET/HEAD — sending `body: ""` with `Content-Type: application/json` on DELETE causes upstream issues
 - **Deploy script waits for GHCR** — `deploy.sh` polls for images before rolling out (15s intervals, 10 min timeout). If CI hasn't pushed images yet, the deploy blocks instead of creating ImagePullBackOff pods
+- **Dockerfile deps stages list package.jsons explicitly** — api/indexer/acp-decoder Dockerfiles COPY each workspace package.json by hand. A new workspace package, or a new cross-package import into a source-bundled package (e.g. packages/decode), MUST be added to the `deps` + `build` stages of every consuming Dockerfile or the image build fails with esbuild "Could not resolve" even though local builds pass (CI run 28991942523)
 
 ## Decodes
 
