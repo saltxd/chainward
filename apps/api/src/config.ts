@@ -9,6 +9,9 @@ const envSchema = z.object({
   BASE_RPC_URL: z.string().url(),
   BASE_RPC_FALLBACK_URL: z.string().url().optional(),
   BASE_RPC_TERTIARY_URL: z.string().url().default('https://mainnet.base.org'),
+  // Our own Base node (cw-sentinel). BASE_RPC_URL is a commercial provider;
+  // this is the node we may truthfully call "ours" in public telemetry.
+  SENTINEL_RPC: z.string().url().optional(),
   ALCHEMY_API_KEY: z.string().optional(),
   // Webhook signing key still required — webhooks stay on Alchemy regardless of CHAIN_PROVIDER
   ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().min(1),
