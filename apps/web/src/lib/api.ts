@@ -460,15 +460,25 @@ export interface RiskTeaser {
   history_present: true;
 }
 
+export interface RiskTopFlagPreview {
+  id: string;
+  severity: RiskSeverity;
+  title: string;
+}
+
 export interface RiskReportCard {
   address: string;
   agent_name?: string;
   band: RiskBand;
   flag_count: number;
   top_severity: RiskSeverity | null;
+  /** Up to 3 severity-ranked flags for the card preview. Optional for API skew. */
+  top_flags?: RiskTopFlagPreview[];
   as_of_date: string; // ISO-8601 (generated_at)
   view_count: number;
   report_url: string; // backend emits /risk/report/<address>
+  /** Total public filings for this address — only in distinct=address mode. */
+  report_count?: number;
 }
 
 // Discriminated union on `status` — POST /api/risk/check (data).
@@ -510,12 +520,18 @@ export const publicApi = {
     fetchApi<{ success: true; data: { report: RiskReport } }>(
       `/api/risk/report/${address}`,
     ),
-  // Public, SEO-indexed library.
-  listReports: (params?: { sort?: string; limit?: number; offset?: number }) => {
+  // Public, SEO-indexed library. distinct: 'address' → latest filing per address.
+  listReports: (params?: {
+    sort?: string;
+    limit?: number;
+    offset?: number;
+    distinct?: 'address';
+  }) => {
     const qs = new URLSearchParams();
     if (params?.sort) qs.set('sort', params.sort);
     if (params?.limit != null) qs.set('limit', String(params.limit));
     if (params?.offset != null) qs.set('offset', String(params.offset));
+    if (params?.distinct) qs.set('distinct', params.distinct);
     const suffix = qs.toString() ? `?${qs.toString()}` : '';
     return fetchApi<{ success: true; data: RiskLibraryResult }>(
       `/api/risk/library${suffix}`,

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { formatEther, formatUnits } from 'viem';
 import { riskReports } from '@chainward/db';
 import { CLASSIFIER_VERSION, type QuickDecodeResultData, type RiskAssessment } from '@chainward/decode';
@@ -53,6 +53,9 @@ const librarySchema = z.object({
   sort: z.enum(['recent']).default('recent'),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
+  // distinct=address → one card per address (its latest filing). Re-checks of
+  // the same wallet otherwise surface as near-duplicate rows.
+  distinct: z.enum(['address']).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -93,15 +96,25 @@ interface TeaserPayload {
   history_present: true;
 }
 
+interface TopFlagPreview {
+  id: string;
+  severity: string;
+  title: string;
+}
+
 interface ReportCard {
   address: string;
   agent_name?: string;
   band: string;
   flag_count: number;
   top_severity: string | null;
+  /** Up to 3 flags (severity-ranked) denormalized at decode time — the card preview. */
+  top_flags: TopFlagPreview[];
   as_of_date: string;
   view_count: number;
   report_url: string;
+  /** Total public filings for this address. Only set in distinct=address mode. */
+  report_count?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +167,7 @@ function rowToCard(row: RiskReportRow): ReportCard {
     band: row.band,
     flag_count: row.flagCount,
     top_severity: topSeverity(row),
+    top_flags: (row.topFlags as TopFlagPreview[] | null) ?? [],
     as_of_date: new Date(row.generatedAt).toISOString(),
     view_count: row.viewCount,
     report_url: `/risk/report/${row.walletAddress}`,
@@ -492,12 +506,65 @@ risk.get(
       sort: c.req.query('sort'),
       limit: c.req.query('limit'),
       offset: c.req.query('offset'),
+      distinct: c.req.query('distinct'),
     });
     if (!parsed.success) {
       throw new AppError(400, 'INVALID_QUERY', 'Invalid library query');
     }
-    const { limit, offset } = parsed.data;
+    const { limit, offset, distinct } = parsed.data;
     const db = getDb();
+
+    if (distinct === 'address') {
+      // One card per address — its latest filing. DISTINCT ON requires the
+      // leading ORDER BY to match the distinct key, so the recency sort happens
+      // on the outer select. (walletAddress is canonical-lowercase at insert.)
+      const latest = db
+        .selectDistinctOn([riskReports.walletAddress])
+        .from(riskReports)
+        .where(eq(riskReports.isPublic, true))
+        .orderBy(riskReports.walletAddress, desc(riskReports.generatedAt))
+        .as('latest');
+      const rows = await db
+        .select()
+        .from(latest)
+        .orderBy(desc(latest.generatedAt))
+        .limit(limit)
+        .offset(offset);
+
+      // "Filed N×" — total public filings per returned address.
+      const addresses = rows.map((r) => r.walletAddress);
+      const filingCounts = new Map<string, number>();
+      if (addresses.length > 0) {
+        const countRows = await db
+          .select({
+            addr: riskReports.walletAddress,
+            n: sql<number>`count(*)::int`,
+          })
+          .from(riskReports)
+          .where(
+            and(eq(riskReports.isPublic, true), inArray(riskReports.walletAddress, addresses)),
+          )
+          .groupBy(riskReports.walletAddress);
+        for (const r of countRows) filingCounts.set(r.addr, r.n);
+      }
+
+      const totalRows = await db
+        .select({ total: sql<number>`count(distinct ${riskReports.walletAddress})::int` })
+        .from(riskReports)
+        .where(eq(riskReports.isPublic, true));
+      const total = totalRows[0]?.total ?? 0;
+
+      return c.json({
+        success: true,
+        data: {
+          reports: rows.map((row) => ({
+            ...rowToCard(row),
+            report_count: filingCounts.get(row.walletAddress) ?? 1,
+          })),
+          pagination: { limit, offset, total },
+        },
+      });
+    }
 
     const rows = await db
       .select()
