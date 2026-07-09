@@ -56,6 +56,23 @@ async function main() {
     process.exit(3);
   }
 
+  // Fail fast on a missing claude binary BEFORE creating the deliverables dir —
+  // an ENOENT after mkdir strands an empty dir that reads as a slug collision.
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const probe = spawn("claude", ["--version"], { stdio: "ignore" });
+      probe.on("error", reject);
+      probe.on("close", (code) =>
+        code === 0 ? resolve() : reject(new Error(`claude --version exited ${code}`)),
+      );
+    });
+  } catch (err: any) {
+    console.error(
+      `[auto-decode] claude CLI not runnable (${err?.message ?? err}) — is it on PATH?`,
+    );
+    process.exit(4);
+  }
+
   const deliverables = join(config.repoRoot, "deliverables", slug);
   await mkdir(deliverables, { recursive: true });
   console.log(`[auto-decode] created ${deliverables}`);

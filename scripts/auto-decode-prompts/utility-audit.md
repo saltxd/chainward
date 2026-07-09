@@ -33,6 +33,15 @@ Write `<DELIVERABLES_DIR>/utility-audit.md`. Structure:
 
 5. **Counterparty patterns** — top counterparties by tx count. Are they EOAs, smart accounts, other agents? Where applicable, label.
 
+## Sentinel freshness preflight (MANDATORY — run before any sentinel read)
+
+The sentinel node can be days behind tip while still answering RPC (recurring EL-sync catch-up; see BookStack p114). A stale-head read cited as "current" is a publishable factual error — the exact class the Degen Claw correction came from. Before your FIRST sentinel query:
+
+1. `ssh_exec cw-sentinel`: `curl -s -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest",false],"id":1}' http://localhost:8545` — derive head number and head age (now − timestamp).
+2. **If head age ≤ 10 minutes:** sentinel is fresh — prefer it for all RPC facts as usual.
+3. **If head age > 10 minutes (STALE):** the sentinel may still be used ONLY for immutable historical facts at-or-below its head (tx receipts, code, logs, storage of past blocks). ALL current-state reads — `balanceOf`, native balance, `totalSupply`, holder snapshots, pool reserves, nonce — MUST come from Blockscout or a fresh public RPC (`https://mainnet.base.org`) instead. Never present a stale-head read as a current value.
+4. Every current-state fact in your artifact must state its source AND the block/head it was read at (e.g. "balance 30.76 USDC — Blockscout, block 48,404,xxx"). If sentinel was stale, note that once in your artifact header so the writer inherits the provenance.
+
 ## Tools
 
 - `ssh_exec cw-sentinel` for `eth_getTransactionReceipt` and event decoding

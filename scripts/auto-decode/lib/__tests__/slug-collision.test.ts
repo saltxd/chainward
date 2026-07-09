@@ -8,6 +8,7 @@ describe("checkSlugCollision", () => {
   beforeEach(() => {
     deps = {
       fileExists: vi.fn().mockResolvedValue(false),
+      listDir: vi.fn().mockResolvedValue(null),
       readFile: vi.fn().mockResolvedValue(""),
       gitLogPaths: vi.fn().mockResolvedValue(""),
     };
@@ -19,17 +20,41 @@ describe("checkSlugCollision", () => {
     ).resolves.toEqual({ ok: true });
   });
 
-  it("fails when deliverables dir already exists", async () => {
+  it("fails when deliverables dir already exists with content", async () => {
     deps.fileExists = vi
       .fn()
       .mockImplementation(async (p: string) =>
         p.endsWith("deliverables/axelrod-on-chain"),
       );
+    deps.listDir = vi.fn().mockResolvedValue(["decode.md"]);
     const result = await checkSlugCollision("axelrod-on-chain", "/repo", deps);
     expect(result).toEqual({
       ok: false,
       reason: expect.stringMatching(/deliverables\/axelrod-on-chain.*exists/i),
     });
+  });
+
+  it("reclaims an EMPTY deliverables dir (crashed-run artifact)", async () => {
+    deps.fileExists = vi
+      .fn()
+      .mockImplementation(async (p: string) =>
+        p.endsWith("deliverables/axelrod-on-chain"),
+      );
+    deps.listDir = vi.fn().mockResolvedValue([]);
+    await expect(
+      checkSlugCollision("axelrod-on-chain", "/repo", deps),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("fails closed when the existing dir cannot be listed", async () => {
+    deps.fileExists = vi
+      .fn()
+      .mockImplementation(async (p: string) =>
+        p.endsWith("deliverables/axelrod-on-chain"),
+      );
+    deps.listDir = vi.fn().mockResolvedValue(null);
+    const result = await checkSlugCollision("axelrod-on-chain", "/repo", deps);
+    expect(result.ok).toBe(false);
   });
 
   it("fails when slug appears in next.config.ts redirects", async () => {
