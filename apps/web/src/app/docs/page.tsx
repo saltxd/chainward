@@ -21,10 +21,11 @@ export default function DocsPage() {
 
       <h2>1. Connect your wallet</h2>
       <p>
-        Click <strong>./connect</strong> in the nav (or hit the{' '}
-        <a href="/login">login page</a>). ChainWard supports MetaMask, Coinbase
-        Wallet, and WalletConnect-compatible wallets. You&apos;ll sign a message to
-        prove ownership — no private keys leave your wallet, no email, no password.
+        Click <strong>Sign in</strong> at the right of the nav (or go straight to
+        the <a href="/login">sign-in page</a>). ChainWard supports MetaMask,
+        Coinbase Wallet, and WalletConnect-compatible wallets. You&apos;ll sign a
+        message to prove ownership — no private keys leave your wallet, no email,
+        no password.
       </p>
 
       <h2>2. Register an agent wallet</h2>
