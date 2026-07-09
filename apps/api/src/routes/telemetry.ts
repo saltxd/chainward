@@ -4,17 +4,29 @@ import { getBaseClient } from '../lib/viem.js';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
+import { getEnv } from '../config.js';
 
 const telemetry = new Hono();
 
 type SignalStatus = 'online' | 'syncing' | 'degraded' | 'offline';
 
 interface Snapshot {
+  // NOTE (provenance): "sentinel*" fields describe the API's configured RPC
+  // (BASE_RPC_URL — in prod a commercial provider), kept for back-compat with
+  // the dashboard ticker. The node* fields below are the ONLY ones that
+  // describe our actual Base node (SENTINEL_RPC) — anything publicly labeled
+  // "our node" must read those, never sentinel*/baseTip.
   sentinelTip: number | null;
   baseTip: number | null;
   baseTipSource: 'base-public' | 'blockscout' | null;
   sentinelLag: number | null;
   sentinelStatus: SignalStatus;
+
+  // Our own Base node (cw-sentinel), probed directly via SENTINEL_RPC.
+  nodeConfigured: boolean;
+  nodeTip: number | null;
+  nodeLag: number | null;
+  nodeStatus: SignalStatus;
 
   indexerHeartbeatAt: string | null;
   indexerHeartbeatAgeSeconds: number | null;
@@ -97,6 +109,29 @@ async function fetchSentinelTip(): Promise<number | null> {
   }
 }
 
+/** Tip of OUR Base node (SENTINEL_RPC) — probed directly, never through the
+ * commercial-RPC viem client, so "our node" claims in public UI stay honest. */
+async function fetchOurNodeTip(): Promise<number | null> {
+  const url = getEnv().SENTINEL_RPC;
+  if (!url) return null;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { result?: string };
+    if (!json.result) return null;
+    const n = parseInt(json.result, 16);
+    return Number.isFinite(n) ? n : null;
+  } catch (err) {
+    logger.debug({ err }, 'our-node tip fetch failed');
+    return null;
+  }
+}
+
 async function fetchIndexerLastTx(): Promise<Date | null> {
   try {
     const db = getDb();
@@ -144,9 +179,10 @@ telemetry.get('/', async (c) => {
     return c.json({ success: true, data: cache.data });
   }
 
-  const [sentinelTip, reference, indexerLastTx, indexerHeartbeat] = await Promise.all([
+  const [sentinelTip, reference, nodeTip, indexerLastTx, indexerHeartbeat] = await Promise.all([
     fetchSentinelTip(),
     fetchReferenceTip(),
+    fetchOurNodeTip(),
     fetchIndexerLastTx(),
     fetchIndexerHeartbeat(),
   ]);
@@ -160,6 +196,14 @@ telemetry.get('/', async (c) => {
   if (sentinelTip === null) sentinelStatus = 'offline';
   else if (sentinelLag === null) sentinelStatus = 'online';
   else sentinelStatus = deriveSentinelLagStatus(sentinelLag);
+
+  // Our node — same lag semantics, probed directly at SENTINEL_RPC.
+  const nodeConfigured = Boolean(getEnv().SENTINEL_RPC);
+  const nodeLag = nodeTip !== null && baseTip !== null ? baseTip - nodeTip : null;
+  let nodeStatus: SignalStatus;
+  if (!nodeConfigured || nodeTip === null) nodeStatus = 'offline';
+  else if (nodeLag === null) nodeStatus = 'online';
+  else nodeStatus = deriveSentinelLagStatus(nodeLag);
 
   const indexerHeartbeatAgeSeconds = indexerHeartbeat
     ? Math.max(0, Math.floor((Date.now() - indexerHeartbeat.getTime()) / 1000))
@@ -176,6 +220,11 @@ telemetry.get('/', async (c) => {
     baseTipSource: reference.source,
     sentinelLag,
     sentinelStatus,
+
+    nodeConfigured,
+    nodeTip,
+    nodeLag,
+    nodeStatus,
 
     indexerHeartbeatAt: indexerHeartbeat ? indexerHeartbeat.toISOString() : null,
     indexerHeartbeatAgeSeconds,
