@@ -7,6 +7,8 @@ export interface Config {
   claudeOauthToken: string;
   defaultChainId: number;
   sentinelRpc: string;
+  /** Secondary RPC for `latest` reads when the sentinel head is stale (freshness guard). */
+  fallbackRpc?: string;
   feeUsdc: number;
   decodeWatchdogMs: number;
   fetchTimeoutMs: number;
@@ -32,6 +34,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     claudeOauthToken: required(env, 'CLAUDE_CODE_OAUTH_TOKEN'),
     defaultChainId: parseInt(env.DEFAULT_CHAIN_ID ?? '8453', 10),
     sentinelRpc: env.SENTINEL_RPC ?? 'https://mainnet.base.org',
+    fallbackRpc: env.BASE_RPC_FALLBACK_URL,
     feeUsdc: parseFloat(env.ACP_FEE_USDC ?? '10'),
     decodeWatchdogMs: parseInt(env.DECODE_WATCHDOG_MS ?? '300000', 10),
     fetchTimeoutMs: parseInt(env.FETCH_TIMEOUT_MS ?? '15000', 10),
