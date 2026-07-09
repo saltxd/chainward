@@ -95,6 +95,22 @@ export default function CheckHomePage() {
                 A report is a list of signals — read it like evidence, not a
                 clearance.
               </p>
+              {featuredDecodes[0] && (
+                <Link
+                  href={`/decodes/${featuredDecodes[0].slug}`}
+                  className="home-rail-decode"
+                >
+                  <span className="home-rail-decode-label">
+                    Latest from the casebook
+                  </span>
+                  <span className="home-rail-decode-title">
+                    {featuredDecodes[0].title}
+                  </span>
+                  <span className="home-rail-decode-meta mono">
+                    {formatIsoDate(featuredDecodes[0].date)} · Read the file →
+                  </span>
+                </Link>
+              )}
             </aside>
           </div>
 
@@ -225,9 +241,45 @@ export default function CheckHomePage() {
           color: var(--ink-soft);
           max-width: 260px;
         }
+        .home-rail-decode {
+          margin-top: 10px;
+          padding-top: 16px;
+          border-top: 1px solid var(--rule);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          max-width: 280px;
+          text-decoration: none;
+          color: inherit;
+        }
+        .home-rail-decode-label {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 10px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+        }
+        .home-rail-decode-title {
+          font-family: var(--font-display), Georgia, serif;
+          font-size: 19px;
+          line-height: 1.15;
+          color: var(--ink);
+          letter-spacing: -0.01em;
+          transition: color 0.15s;
+          font-variation-settings: "opsz" 40, "SOFT" 0;
+        }
+        .home-rail-decode:hover .home-rail-decode-title { color: var(--oxblood); }
+        .home-rail-decode-meta {
+          font-size: 10.5px;
+          letter-spacing: 0.04em;
+          color: var(--oxblood);
+        }
         @media (max-width: 860px) {
           .home-intake-row { flex-direction: column; gap: 28px; }
-          .home-stamp { flex-direction: row; align-items: center; padding-top: 0; }
+          .home-stamp { flex-direction: row; align-items: center; padding-top: 0; flex-wrap: wrap; }
+          /* The rail collapses under the form on small screens; the casebook
+             section below already covers the latest decode there. */
+          .home-rail-decode { display: none; }
         }
         @media (max-width: 480px) {
           .home-stamp { flex-direction: column; align-items: flex-start; }

@@ -275,9 +275,23 @@ body:has(.press) {
   border-bottom: 1px solid var(--oxblood);
   padding-bottom: 1px;
 }
+/* Quiet account entry — separated from the editorial sections by a hairline. */
+.ph-nav a.ph-nav-signin {
+  margin-left: 4px;
+  padding-left: 22px;
+  border-left: 1px solid var(--rule-strong);
+  color: var(--ink-faint);
+}
+.ph-nav a.ph-nav-signin:hover {
+  color: var(--oxblood);
+}
 @media (max-width: 620px) {
   .ph-nav a.ph-nav-hide {
     display: none;
+  }
+  .ph-nav a.ph-nav-signin {
+    margin-left: 0;
+    padding-left: 12px;
   }
   .ph-name {
     font-size: 22px;
@@ -528,6 +542,40 @@ body:has(.press) {
   .press .decode-prose ol {
     font-size: 16.5px;
   }
+}
+
+/* ── Paper overrides for shared v2 primitives used inside press pages ────
+   Docs prose embeds the v2 CodeBlock/Badge components; restyle them on paper
+   here instead of forking the components (the dark dashboard keeps its own). */
+.press .v2-code-block {
+  background: var(--paper-2);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+.press .v2-code-inline {
+  color: var(--oxblood);
+  background: var(--oxblood-wash);
+  border-color: var(--rule);
+}
+.press .v2-badge {
+  border-color: var(--rule-strong);
+  color: var(--ink-soft);
+}
+.press .v2-badge-phosphor {
+  color: var(--seal);
+  border-color: var(--seal);
+}
+.press .v2-badge-amber {
+  color: var(--sev-medium);
+  border-color: var(--sev-medium);
+}
+.press .v2-badge-danger {
+  color: var(--oxblood);
+  border-color: var(--oxblood);
+}
+.press .v2-badge-cyan {
+  color: var(--sev-low);
+  border-color: var(--sev-low);
 }
 
 /* ── Reduced motion ────────────────────────────────────────────────────── */

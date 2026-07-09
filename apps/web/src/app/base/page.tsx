@@ -77,73 +77,46 @@ export default function BasePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <ObservatoryPage />
-
-      {/* Server-rendered FAQ — gives crawlers indexable text content */}
-      <section
-        className="v2-shell"
-        style={{
-          paddingTop: 80,
-          paddingBottom: 80,
-          borderTop: '1px solid var(--line)',
-          background: 'var(--bg)',
-        }}
-      >
-        <h2
-          className="display"
-          style={{
-            fontSize: 32,
-            color: 'var(--fg)',
-            margin: 0,
-            maxWidth: 600,
-          }}
-        >
-          About the{' '}
-          <span className="serif" style={{ color: 'var(--phosphor)' }}>
-            observatory.
-          </span>
-        </h2>
-        <div
-          style={{
-            marginTop: 32,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: 32,
-          }}
-          className="v2-obs-faq-grid"
-        >
-          {FAQ_ITEMS.map((item) => (
-            <div key={item.q}>
-              <h3
-                style={{
-                  fontSize: 15,
-                  color: 'var(--fg)',
-                  marginBottom: 8,
-                  fontWeight: 500,
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                {item.q}
-              </h3>
-              <p
-                style={{
-                  fontSize: 13,
-                  color: 'var(--fg-dim)',
-                  lineHeight: 1.7,
-                  margin: 0,
-                }}
-              >
-                {item.a}
-              </p>
-            </div>
-          ))}
-        </div>
-        <style>{`
-          @media (max-width: 720px) {
-            .v2-obs-faq-grid { grid-template-columns: 1fr !important; }
-          }
-        `}</style>
-      </section>
+      <ObservatoryPage>
+        {/* Server-rendered FAQ — gives crawlers indexable text content.
+            Passed as children so it sits inside the paper shell, above the
+            colophon. */}
+        <section className="obs-faq">
+          <span className="press-label">About the observatory</span>
+          <div className="obs-faq-grid">
+            {FAQ_ITEMS.map((item) => (
+              <div key={item.q} className="obs-faq-item">
+                <h3 className="obs-faq-q press-display">{item.q}</h3>
+                <p className="obs-faq-a">{item.a}</p>
+              </div>
+            ))}
+          </div>
+          <style>{`
+            .obs-faq { padding: 44px 0 8px; }
+            .obs-faq-grid {
+              margin-top: 20px;
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 32px 48px;
+            }
+            @media (max-width: 720px) {
+              .obs-faq-grid { grid-template-columns: 1fr; }
+            }
+            .obs-faq-q {
+              margin: 0 0 8px;
+              font-size: 19px;
+              line-height: 1.2;
+            }
+            .obs-faq-a {
+              margin: 0;
+              font-family: var(--font-text);
+              font-size: 15.5px;
+              line-height: 1.6;
+              color: var(--ink-soft);
+            }
+          `}</style>
+        </section>
+      </ObservatoryPage>
     </>
   );
 }
