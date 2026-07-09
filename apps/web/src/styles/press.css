@@ -1,0 +1,542 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   PRESS — the public "forensic dossier / editorial print" surface.
+
+   Everything here is scoped under `.press` so the authenticated dashboard
+   (which keeps the dark v2 look) is never touched. Paper-light ground,
+   ink-dark text, hairline ledger rules, oxblood signal ink. Chain data is the
+   only thing set in monospace.
+
+   Token roles:
+     --paper / --paper-2 / --paper-3  warm manila grounds (base → exhibit inset)
+     --ink / --ink-soft / --ink-faint text (primary → secondary → caption)
+     --rule / --rule-strong           hairline ledger rules
+     --oxblood                        the single signal color (flags, stamps)
+     --seal                           deep green, verified/receipt marks ONLY
+   ──────────────────────────────────────────────────────────────────────── */
+
+.press {
+  --paper: #f2ede3;
+  --paper-2: #eae3d4;
+  --paper-3: #e2dac8;
+
+  --ink: #1b1815;
+  --ink-soft: #4a4238;
+  --ink-faint: #6b6152;
+
+  --rule: #d8cfbe;
+  --rule-strong: #bcb19b;
+
+  --oxblood: #7a2016;
+  --oxblood-bright: #9a2a1c;
+  --oxblood-wash: rgba(122, 32, 22, 0.06);
+
+  --seal: #2e5637;
+
+  --sev-high: #7a2016;
+  --sev-medium: #8a5a12;
+  --sev-low: #3c4a63;
+  --sev-info: #6b6152;
+
+  --font-text: var(--font-reader), Georgia, "Times New Roman", serif;
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-text);
+  min-height: 100vh;
+  letter-spacing: 0;
+}
+
+/* Flip the (globally dark) body to paper only when a press page is mounted,
+   so overscroll/rubber-banding doesn't reveal the dashboard's dark ground. */
+body:has(.press) {
+  background: #f2ede3;
+}
+
+.press ::selection {
+  background: var(--oxblood);
+  color: var(--paper);
+}
+
+/* ── Layout containers ─────────────────────────────────────────────────── */
+.press-wrap {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+.press-measure {
+  max-width: 760px;
+}
+@media (max-width: 720px) {
+  .press-wrap {
+    padding: 0 20px;
+  }
+}
+
+/* ── Hairline rules ────────────────────────────────────────────────────── */
+.press-rule {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 0;
+}
+.press-rule--strong {
+  border-top-color: var(--rule-strong);
+}
+.press-rule--double {
+  border: 0;
+  border-top: 3px double var(--rule-strong);
+}
+
+/* ── Utility label / dateline (mono, ledger furniture) ─────────────────── */
+.press-label {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.press-label--ox {
+  color: var(--oxblood);
+}
+
+/* File number / case reference — the case-file numbering device. */
+.press-fileno {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.press-fileno b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Chain-data monospace helper — addresses, hashes, blocks, amounts. */
+.mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── Display type ──────────────────────────────────────────────────────── */
+.press-display {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 460;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+  font-variation-settings: "opsz" 120, "SOFT" 0, "WONK" 0;
+}
+.press-kicker {
+  font-family: var(--font-display), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--oxblood);
+  font-variation-settings: "opsz" 40, "SOFT" 60, "WONK" 1;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+.press-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 13px 22px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
+  white-space: nowrap;
+}
+.press-btn:hover {
+  background: var(--oxblood);
+  border-color: var(--oxblood);
+  color: var(--paper);
+}
+.press-btn:active {
+  transform: translateY(1px);
+}
+.press-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.press-btn--ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.press-btn--ghost:hover {
+  background: transparent;
+  color: var(--oxblood);
+  border-color: var(--oxblood);
+}
+.press-btn--full {
+  width: 100%;
+  justify-content: center;
+}
+.press-link {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--oxblood);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.press-link:hover {
+  border-bottom-color: var(--oxblood);
+}
+
+/* ── The signature: oxblood exhibit stamp ─────────────────────────────── */
+.press-stamp {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 16px;
+  border: 2px solid var(--oxblood);
+  color: var(--oxblood);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+  box-shadow: inset 0 0 0 1px var(--oxblood);
+  user-select: none;
+}
+.press-stamp-lead {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+.press-stamp-sub {
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  opacity: 0.85;
+}
+
+/* ── Masthead ──────────────────────────────────────────────────────────── */
+.ph-mast {
+  padding: 20px 0 14px;
+}
+.ph-mast-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+}
+.ph-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--ink);
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 500;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  font-variation-settings: "opsz" 72, "SOFT" 0;
+  line-height: 1;
+}
+.ph-name .ph-name-tld {
+  color: var(--oxblood);
+  font-style: italic;
+}
+.ph-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.ph-nav a {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.ph-nav a:hover {
+  color: var(--oxblood);
+}
+.ph-nav-cta {
+  color: var(--oxblood) !important;
+  border-bottom: 1px solid var(--oxblood);
+  padding-bottom: 1px;
+}
+@media (max-width: 620px) {
+  .ph-nav a.ph-nav-hide {
+    display: none;
+  }
+  .ph-name {
+    font-size: 22px;
+  }
+}
+
+/* ── Dateline (live wire from our own node) ────────────────────────────── */
+.ph-dateline {
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.ph-dateline-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 7px 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.ph-dateline-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.ph-dateline-item b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ph-dateline-sep {
+  color: var(--rule-strong);
+}
+.ph-dateline-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--seal);
+  display: inline-block;
+}
+.ph-dateline-dot--warn {
+  background: var(--sev-medium);
+}
+.ph-dateline-dot--down {
+  background: var(--oxblood);
+}
+@media (max-width: 620px) {
+  .ph-dateline-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 14px;
+  }
+  .ph-dateline-item {
+    flex-shrink: 0;
+  }
+}
+
+/* ── Colophon (footer) ─────────────────────────────────────────────────── */
+.ph-colophon {
+  border-top: 3px double var(--rule-strong);
+  margin-top: 72px;
+  padding: 28px 0 56px;
+}
+.ph-colophon-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.ph-colophon-note {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  max-width: 460px;
+  line-height: 1.7;
+}
+.ph-colophon-links {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.ph-colophon-links a {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.ph-colophon-links a:hover {
+  color: var(--oxblood);
+}
+
+/* ── Focus-visible (keyboard accessibility) ────────────────────────────── */
+.press a:focus-visible,
+.press button:focus-visible,
+.press input:focus-visible,
+.press textarea:focus-visible,
+.press select:focus-visible {
+  outline: 2px solid var(--oxblood);
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Decode article prose — paper override of the dark `.decode-prose`.
+   Long-form investigations read as an ink-on-paper broadsheet: Fraunces
+   heads, Newsreader body, mono for chain data / code, oxblood footnote links.
+   ──────────────────────────────────────────────────────────────────────── */
+.press .decode-prose {
+  font-family: var(--font-text);
+  color: var(--ink);
+}
+.press .decode-prose h1,
+.press .decode-prose h2,
+.press .decode-prose h3,
+.press .decode-prose h4 {
+  font-family: var(--font-display), Georgia, serif;
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin-top: 2.6rem;
+  margin-bottom: 0.7rem;
+  font-variation-settings: "opsz" 96, "SOFT" 0;
+}
+.press .decode-prose h2 {
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule);
+}
+.press .decode-prose p {
+  font-family: var(--font-text);
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1.72;
+  margin-bottom: 1.3rem;
+}
+.press .decode-prose strong {
+  color: var(--ink);
+  font-weight: 640;
+}
+.press .decode-prose a {
+  color: var(--oxblood);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.press .decode-prose a:hover {
+  color: var(--oxblood-bright);
+}
+.press .decode-prose code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  color: var(--oxblood);
+  background: var(--oxblood-wash);
+  border: 1px solid var(--rule);
+  padding: 1px 6px;
+  font-size: 0.82em;
+  overflow-wrap: anywhere;
+}
+.press .decode-prose blockquote {
+  border-left: 3px solid var(--oxblood);
+  padding: 0.4rem 0 0.4rem 1.4rem;
+  margin: 1.8rem 0;
+  background: transparent;
+  font-family: var(--font-display), Georgia, serif;
+  font-style: italic;
+  font-size: 1.35rem;
+  line-height: 1.4;
+  color: var(--ink);
+  font-variation-settings: "opsz" 48, "SOFT" 40;
+}
+.press .decode-prose blockquote p {
+  color: inherit;
+  font-family: inherit;
+  font-style: inherit;
+  font-size: inherit;
+  margin: 0;
+}
+.press .decode-prose pre {
+  background: var(--paper-2);
+  border: 1px solid var(--rule-strong);
+  padding: 16px 18px;
+  overflow-x: auto;
+  margin-bottom: 1.3rem;
+}
+.press .decode-prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+  font-size: 0.82rem;
+  overflow-wrap: normal;
+}
+.press .decode-prose hr {
+  border: 0;
+  border-top: 3px double var(--rule-strong);
+  margin: 2.6rem 0;
+}
+.press .decode-prose ul,
+.press .decode-prose ol {
+  font-family: var(--font-text);
+  color: var(--ink-soft);
+  font-size: 18px;
+  padding-left: 1.4rem;
+  margin-bottom: 1.3rem;
+}
+.press .decode-prose li {
+  margin-bottom: 0.4rem;
+  line-height: 1.7;
+}
+.press .decode-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.press .decode-prose th {
+  text-align: left;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule-strong);
+  padding: 10px 12px;
+}
+.press .decode-prose td {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--rule);
+  padding: 10px 12px;
+}
+.press .decode-prose tr:hover td {
+  background: var(--oxblood-wash);
+}
+.press .decode-prose img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--rule-strong);
+  margin: 1.6rem 0;
+}
+
+@media (max-width: 720px) {
+  .press .decode-prose p,
+  .press .decode-prose ul,
+  .press .decode-prose ol {
+    font-size: 16.5px;
+  }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .press *,
+  .press *::before,
+  .press *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
