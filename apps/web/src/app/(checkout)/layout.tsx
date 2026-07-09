@@ -1,7 +1,6 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { PageShell } from '@/components/v2';
 import { ToastProvider } from '@/components/ui/toast';
 
 // Web3Provider is client-only (wagmi/RainbowKit). Mounting it here means the
@@ -16,18 +15,7 @@ export default function CheckoutLayout({ children }: { children: React.ReactNode
   return (
     <Web3Provider>
       <ToastProvider>
-        <PageShell>
-          <div className="v2-checkout-shell">{children}</div>
-          <style>{`
-            .v2-checkout-shell {
-              min-height: 100vh;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              padding: 64px 20px 96px;
-            }
-          `}</style>
-        </PageShell>
+        <div className="press">{children}</div>
       </ToastProvider>
     </Web3Provider>
   );
