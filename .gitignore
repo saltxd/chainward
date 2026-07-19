@@ -52,3 +52,9 @@ packages/intelligence/*.json
 .superpowers/
 test-results/
 WEEK1-RUNBOOK.md
+
+# Raw data-refresh outputs (never public)
+packages/intelligence/refresh-*/
+
+# Monitored-address snapshots — operational watchlist, never public
+deploy/snapshots/
