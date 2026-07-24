@@ -30,19 +30,43 @@ spec:
                 - /bin/sh
                 - -c
                 - |
+                  set -u
                   BACKUP_DIR=/backups/{{ .Values.namespace }}
-                  mkdir -p $BACKUP_DIR
+                  mkdir -p "$BACKUP_DIR"
                   TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-                  FILENAME="{{ .Values.postgres.database }}-${TIMESTAMP}.sql.gz"
-                  pg_dump -h postgres -U {{ .Values.postgres.user }} -d {{ .Values.postgres.database }} | gzip > "$BACKUP_DIR/$FILENAME"
-                  if [ $? -eq 0 ]; then
-                    echo "Backup successful: $BACKUP_DIR/$FILENAME ($(du -h $BACKUP_DIR/$FILENAME | cut -f1))"
-                    find $BACKUP_DIR -name "*.sql.gz" -mtime +14 -delete
-                    echo "Cleaned up backups >14d"
-                  else
-                    echo "Backup FAILED"
+                  FILENAME="$BACKUP_DIR/{{ .Values.postgres.database }}-${TIMESTAMP}.sql.gz"
+                  STATUS_FILE=/tmp/pg_dump.status
+
+                  # pg_dump's status must be captured explicitly. `pg_dump | gzip > f`
+                  # followed by `[ $? -eq 0 ]` tests *gzip*, which succeeds even when
+                  # pg_dump wrote nothing — so a dead pg_dump reads as success. That
+                  # masked 16 days of 20-byte dumps in the netbox namespace (found
+                  # 2026-07-24) while the job reported success and pruned real history.
+                  { pg_dump -h postgres -U {{ .Values.postgres.user }} -d {{ .Values.postgres.database }}; echo $? > "$STATUS_FILE"; } \
+                    | gzip > "$FILENAME"
+                  DUMP_STATUS=$(cat "$STATUS_FILE")
+
+                  if [ "$DUMP_STATUS" -ne 0 ]; then
+                    echo "Backup FAILED: pg_dump exited $DUMP_STATUS"
+                    rm -f "$FILENAME"
                     exit 1
                   fi
+
+                  # A successful-looking but tiny artifact is still a failure.
+                  # gzip of an empty stream is exactly 20 bytes.
+                  SIZE=$(wc -c < "$FILENAME")
+                  if [ "$SIZE" -lt 1000 ]; then
+                    echo "Backup FAILED: $FILENAME is only $SIZE bytes"
+                    rm -f "$FILENAME"
+                    exit 1
+                  fi
+
+                  echo "Backup successful: $FILENAME ($SIZE bytes)"
+
+                  # Prune only after a verified-good backup. Pruning unconditionally
+                  # turns a stalled backup into active data destruction.
+                  find "$BACKUP_DIR" -name "*.sql.gz" -mtime +14 -delete
+                  echo "Cleaned up backups >14d"
               env:
                 - name: PGPASSWORD
                   valueFrom:
