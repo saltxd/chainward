@@ -1,4 +1,4 @@
-import { input, password } from '@inquirer/prompts';
+import { password } from '@inquirer/prompts';
 import chalk from 'chalk';
 import ora from 'ora';
 import { saveConfig, DEFAULT_API_URL, getConfig } from '../config.js';

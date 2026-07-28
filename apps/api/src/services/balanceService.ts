@@ -1,5 +1,5 @@
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
-import { balanceSnapshots, agentRegistry } from '@chainward/db';
+import { eq, and, sql } from 'drizzle-orm';
+import { agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
 
 export class BalanceService {

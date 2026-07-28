@@ -5,7 +5,8 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "lint": "turbo lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "db:generate": "pnpm --filter @chainward/db generate",
@@ -21,9 +22,15 @@
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@eslint/js": "^9",
+    "eslint": "^9",
+    "eslint-config-next": "^15.5.16",
+    "globals": "^15",
     "tsx": "^4.0.0",
     "turbo": "^2.3.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8"
   },
   "pnpm": {
     "patchedDependencies": {

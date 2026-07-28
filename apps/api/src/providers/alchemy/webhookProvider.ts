@@ -31,30 +31,6 @@ const webhookPayloadSchema = z.object({
 
 const ALCHEMY_NOTIFY_API = 'https://dashboard.alchemy.com/api';
 
-interface AlchemyWebhookPayload {
-  webhookId: string;
-  id: string;
-  createdAt: string;
-  type: string;
-  event: {
-    network: string;
-    activity: Array<{
-      fromAddress: string;
-      toAddress: string;
-      blockNum: string;
-      hash: string;
-      value: number;
-      asset: string;
-      category: string;
-      rawContract?: {
-        rawValue: string;
-        address: string;
-        decimals: number;
-      };
-    }>;
-  };
-}
-
 export class AlchemyWebhookProvider implements WebhookProvider {
   private authToken: string | undefined;
   private webhookId: string | undefined;

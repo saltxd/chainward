@@ -1,5 +1,4 @@
 import { formatEther, formatUnits } from 'viem';
-import type { TransferRecord } from '@chainward/common';
 import { getBaseClient } from '../lib/viem.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
@@ -8,7 +7,6 @@ import { resolveToken } from '../processors/tokenResolver.js';
 import { resolveProtocol } from '../processors/protocolResolver.js';
 import { getEthPrice, getUsdPrice } from '../processors/priceResolver.js';
 import { decodeMethod, classifyTxType } from '../processors/decoder.js';
-import { getEnv } from '../config.js';
 import { insertTransactionIfNew } from '../lib/transactionStore.js';
 
 /**
@@ -20,7 +18,6 @@ export async function backfillAgent(walletAddress: string, chain: string) {
     return;
   }
 
-  const env = getEnv();
   const db = getDb();
   const client = getBaseClient();
 
@@ -135,7 +132,7 @@ export async function backfillAgent(walletAddress: string, chain: string) {
           const decoded = await decodeMethod(tx.input);
           methodId = decoded?.methodId ?? null;
           methodName = decoded?.methodName ?? null;
-          txType = classifyTxType(methodName, tx.input, tx.to);
+          txType = classifyTxType(methodName, tx.input);
         } catch {
           // Receipt fetch failed, continue without gas data
         }
