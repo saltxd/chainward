@@ -10,7 +10,7 @@
  *      pnpm decode:candidates --json
  */
 
-import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ACP_API = 'https://acpx.virtuals.io/api';

@@ -170,8 +170,23 @@ async function main() {
       ? `watchdog timeout after ${timeoutMs}ms`
       : `claude exited ${exitCode} without a DISCORD_SUMMARY`;
     console.error(`[auto-decode] no DISCORD_SUMMARY block in claude output (${why})`);
+    // Attach the tail of what the child actually said. We captured stderr all
+    // along but used to drop it and tell the operator to go read the log on the
+    // ops host — which means an SSH round-trip for what is usually a one-line
+    // cause. Discord hard-caps a message at 2000 chars, so send the tail only:
+    // the fatal error is at the end, and the budget below leaves room for the
+    // target/slug/result header.
+    const TAIL_CHARS = 900;
+    const tail = (stderr.trim() || stdout.trim()).slice(-TAIL_CHARS);
     await postDiscord(
-      "```\ntarget: " + name + "\nslug: " + slug + "\nresult: crashed\nnotes: " + why + " — see run log on the ops host\n```",
+      "```\ntarget: " +
+        name +
+        "\nslug: " +
+        slug +
+        "\nresult: crashed\nnotes: " +
+        why +
+        (tail ? "\n--- output tail ---\n" + tail : " — no output captured") +
+        "\n```",
     );
     process.exit(exitCode || 1);
   }

@@ -45,7 +45,11 @@ docs/live-ingestion/
 codex/
 
 # Private intelligence data (curated agent labels, protocol registry, etc.)
-packages/intelligence/*.json
+# Ignore the whole dir, not just top-level *.json: research refreshes land in
+# subdirs (refresh-2026-07/{leaderboard,graveyard,agdp-fdv,mislabel}/…) which the
+# old glob missed entirely, so one `git add -A` would have published them.
+packages/intelligence/*
+!packages/intelligence/README.md
 !packages/intelligence/*.example.json
 
 # Tooling cache, test artifacts, personal notes (keep out of the public repo)
@@ -55,3 +59,7 @@ WEEK1-RUNBOOK.md
 
 # Private Helm values (real internal domain + backup NFS target) — never commit
 deploy/helm/chainward/values.private.yaml
+
+# Ops snapshots (monitored-address dumps, etc.) — captured runtime state, not
+# source. The canonical copy lives in a k8s configmap.
+deploy/snapshots/
