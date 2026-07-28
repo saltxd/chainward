@@ -16,7 +16,7 @@ env:
 
 jobs:
   check:
-    name: Typecheck & Build
+    name: Lint, Typecheck & Build
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -43,6 +43,12 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      # Catches the class of defect tsc does not: dead code, unused symbols,
+      # case-block scope leaks. Errors fail the job; the 78 remaining
+      # no-explicit-any findings are warnings (eslint still exits 0) because
+      # they are a backlog to burn down, not a merge gate.
+      - run: pnpm lint
 
       - run: pnpm typecheck
 

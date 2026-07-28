@@ -85,12 +85,8 @@ async function lookup4byte(methodId: string): Promise<DecodedMethod | null> {
   return { methodId, methodName: 'unknown' };
 }
 
-/** Classify transaction type based on method and context */
-export function classifyTxType(
-  methodName: string | null,
-  input: string,
-  toAddress: string | null,
-): string {
+/** Classify transaction type from the decoded method name and raw calldata. */
+export function classifyTxType(methodName: string | null, input: string): string {
   if (!input || input === '0x') return 'transfer';
 
   const name = methodName?.toLowerCase() ?? '';

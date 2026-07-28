@@ -1,13 +1,6 @@
-import {
-  createPublicClient,
-  http,
-  fallback,
-  parseAbiItem,
-  type PublicClient,
-} from 'viem';
+import { createPublicClient, http, fallback, parseAbiItem } from 'viem';
 import { base } from 'viem/chains';
 import type { ChainDataProvider, TransferRecord, TokenBalanceRecord } from '@chainward/common';
-import { logger } from '../../lib/logger.js';
 
 const ERC20_TRANSFER_EVENT = parseAbiItem(
   'event Transfer(address indexed from, address indexed to, uint256 value)',

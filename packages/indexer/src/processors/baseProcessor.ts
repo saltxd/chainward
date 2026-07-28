@@ -1,4 +1,4 @@
-import { formatEther, formatUnits, type TransactionReceipt, type Address } from 'viem';
+import { formatEther, formatUnits, type TransactionReceipt } from 'viem';
 import { getBaseClient } from '../lib/viem.js';
 import { resolveToken } from './tokenResolver.js';
 import { resolveProtocol } from './protocolResolver.js';
@@ -87,7 +87,7 @@ export async function processWebhookTx(
     tx.to ? resolveProtocol(tx.to, 'base') : Promise.resolve(null),
   ]);
   const timestamp = new Date(Number(block.timestamp) * 1000);
-  const txType = classifyTxType(decoded?.methodName ?? null, tx.input, tx.to);
+  const txType = classifyTxType(decoded?.methodName ?? null, tx.input);
 
   // Gas calculations
   const gasUsed = Number(receipt.gasUsed);

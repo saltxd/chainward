@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { api, handleError } from '../client.js';
-import { shortAddr, usd, relativeTime, directionBadge, basescanTxLink, brand } from '../format.js';
+import { shortAddr, usd, directionBadge, basescanTxLink, brand } from '../format.js';
 
 interface Transaction {
   txHash: string;

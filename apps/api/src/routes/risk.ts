@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { formatEther, formatUnits } from 'viem';
 import { riskReports } from '@chainward/db';
-import { CLASSIFIER_VERSION, type QuickDecodeResultData, type RiskAssessment } from '@chainward/decode';
+import { CLASSIFIER_VERSION, type RiskAssessment } from '@chainward/decode';
 import { KNOWN_CONTRACTS } from '@chainward/common';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';

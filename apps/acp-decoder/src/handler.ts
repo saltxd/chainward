@@ -20,7 +20,6 @@ async function rejectAt(
   where: string,
   context: Record<string, unknown> = {},
 ): Promise<void> {
-  // eslint-disable-next-line no-console
   console.error('[reject]', JSON.stringify({
     where,
     jobId,
@@ -123,7 +122,6 @@ export async function handleEntry(
     // Otherwise setBudget would revert with WrongStatus and waste a userOp signature.
     const onChainStatus = (session.job as any)?.status;
     if (typeof onChainStatus === 'number' && onChainStatus !== STATUS_OPEN) {
-      // eslint-disable-next-line no-console
       console.error('[handler-stale-job]', JSON.stringify({
         jobId, sessionStatus: session.status, onChainStatus,
       }));
@@ -131,7 +129,6 @@ export async function handleEntry(
     }
 
     const parsed = parseTarget(entry.content ?? '');
-    // eslint-disable-next-line no-console
     console.error('[handler-requirement]', JSON.stringify({
       jobId,
       sessionStatus: session.status,
@@ -230,7 +227,6 @@ export async function handleEntry(
 
       // Accept: set budget = our offering price, using the chain the buyer chose
       const budget = await ctx.assetTokenForUsdc(ctx.config.feeUsdc, session.chainId);
-      // eslint-disable-next-line no-console
       console.error('[before-setBudget]', JSON.stringify({
         jobId,
         feeUsdc: ctx.config.feeUsdc,
@@ -239,7 +235,6 @@ export async function handleEntry(
         budgetRawAmount: (budget as any)?.rawAmount?.toString?.(),
       }));
       await session.setBudget(budget);
-      // eslint-disable-next-line no-console
       console.error('[after-setBudget-success]', JSON.stringify({ jobId }));
       await ctx.persist.persistAccepted({
         jobId,

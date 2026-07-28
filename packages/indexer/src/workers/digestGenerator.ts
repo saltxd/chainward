@@ -1,6 +1,5 @@
 import { Worker, Queue, type Job } from 'bullmq';
 import { sql } from 'drizzle-orm';
-import { weeklyDigests, acpAgentSnapshots, acpAgentData } from '@chainward/db';
 import { renderDigestDiscord, type DigestSummary } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
@@ -1114,10 +1113,11 @@ export function createDigestWorker() {
         case 'digest':
           await generateWeeklyDigest();
           break;
-        case 'snapshot':
+        case 'snapshot': {
           const { weekStart } = getPriorWeekBoundaries();
           await snapshotAcpData(weekStart);
           break;
+        }
         default:
           logger.warn({ type: job.data.type }, 'Unknown digest job type');
       }

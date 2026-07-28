@@ -4,7 +4,7 @@ import postgres from 'postgres';
 import { AssetToken } from '@virtuals-protocol/acp-node-v2';
 import { quickDecode } from '@chainward/decode';
 import { fetchFixtures } from './data-fetch.js';
-import { loadConfig, type Config } from './config.js';
+import { loadConfig } from './config.js';
 import { logger } from './logger.js';
 import { RateLimiter } from './rate-limit.js';
 import { persistAccepted, persistDelivered, persistRejected, persistSettled } from './persist.js';

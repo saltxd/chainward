@@ -21,10 +21,19 @@ Onchain agent monitoring SaaS. Tracks transactions, balances, and gas for AI age
 
 ```bash
 pnpm install          # Install dependencies
-pnpm typecheck        # Typecheck all 9 packages
+pnpm lint             # ESLint over the whole monorepo (one flat config at the root)
+pnpm lint:fix         # ...and auto-fix what's mechanical
+pnpm typecheck        # Typecheck every workspace package
 pnpm build            # Build all packages
 pnpm dev              # Dev servers (api + web)
 ```
+
+**Lint config is monorepo-wide, not per-package.** `eslint.config.mjs` at the root
+is the only one — individual packages have no `lint` script and no local config.
+It is deliberately type-*unaware* (`pnpm typecheck` already runs tsc everywhere),
+so lint's job is the class of defect the compiler misses: dead code, unused
+symbols, `case`-block scope leaks. `no-explicit-any` is a **warning** (78 open,
+mostly raw-`sql` row casts) — errors fail CI, warnings don't.
 
 ## Deployment
 

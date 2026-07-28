@@ -61,8 +61,7 @@ const BATCH_SIZE = 50; // multicall batch size
 const API_CONCURRENCY = 5;
 const RPC_DELAY = 200; // ms between RPC batches
 const API_DELAY = 150; // ms between API calls
-const MIN_TX_COUNT = 2; // at least 2 outbound txs to be "active"
-const MIN_HOLDERS = 0; // no holder filter — we filter by activity instead
+const MIN_TX_COUNT = 2; // at least 2 outbound txs to be "active"; no holder filter — activity is the gate
 
 // ── Viem Client ─────────────────────────────────────────────────────────
 

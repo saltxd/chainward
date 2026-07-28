@@ -1,6 +1,6 @@
 import { Worker, Queue, type Job } from 'bullmq';
 import { sql } from 'drizzle-orm';
-import { acpAgentData, acpInteractions, acpEcosystemMetrics, agentRegistry, type Database } from '@chainward/db';
+import { acpEcosystemMetrics, type Database } from '@chainward/db';
 import { agentSlug } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
