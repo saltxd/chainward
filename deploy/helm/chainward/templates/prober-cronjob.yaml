@@ -45,6 +45,7 @@ spec:
                     secretKeyRef:
                       name: chainward-secrets
                       key: PROBER_DISCORD_WEBHOOK
+                # Peak-hours threshold. Applies outside the off-peak window below.
                 - name: STALE_MINUTES_THRESHOLD
                   # 2026-04-19: bumped 15→45 for off-peak cadence (commit 188adc0).
                   # 2026-05-24: 45 still false-fires during Sunday-evening troughs
@@ -52,6 +53,24 @@ spec:
                   #    at 3-5/hr → natural 45+ min gaps). Bumped 45→120; catches
                   #    a real outage within ≤2h via 5-min CronJob cadence.
                   value: "120"
+                # 2026-08-04: a FLAT 120 still paged nearly every night, because
+                # ingest volume is strongly diurnal and 120 is only safe at peak.
+                # Measured over 21 days of `transactions`, max inter-tx gap by UTC
+                # hour-of-day: 12:00-23:59 tops out at 62 min (p99 ≤ 14), while
+                # 00:00-11:59 reaches 224 min. ALL 12 observed gaps >100 min fell
+                # inside 00:00-09:30 UTC — every one a benign trough, not an
+                # outage. So the off-peak window gets its own, wider threshold.
+                # 240 clears the worst observed benign gap (224 min, 08-02
+                # 02:00→04:56Z) and still catches a real overnight outage within
+                # ≤4h; peak stays tight at ≤2h.
+                - name: STALE_MINUTES_THRESHOLD_OFFPEAK
+                  value: "240"
+                # Inclusive UTC hour range for the off-peak window. Must NOT wrap
+                # past 23→0 (the comparison below is a simple inclusive range).
+                - name: OFFPEAK_START_UTC
+                  value: "0"
+                - name: OFFPEAK_END_UTC
+                  value: "11"
                 - name: UNDELIVERED_THRESHOLD
                   value: "5"
                 # 2026-07-06: live "is ingest supposed to be on?" gate. The stall
@@ -261,20 +280,42 @@ spec:
                       fi
                       echo "prober: ingest intentionally disabled (0 monitored addresses) — staleness expected, no alert"
                     else
+                      # Time-of-day threshold (2026-08-04). Zero-pad stripped so
+                      # `08` isn't read as invalid octal by the arithmetic below.
+                      HOUR_UTC=$(date -u +%H)
+                      HOUR_UTC=$(( ${HOUR_UTC#0} + 0 ))
+                      ACTIVE_THRESHOLD="$STALE_MINUTES_THRESHOLD"
+                      WINDOW="peak"
+                      if [ "$HOUR_UTC" -ge "$OFFPEAK_START_UTC" ] && [ "$HOUR_UTC" -le "$OFFPEAK_END_UTC" ]; then
+                        ACTIVE_THRESHOLD="$STALE_MINUTES_THRESHOLD_OFFPEAK"
+                        WINDOW="off-peak"
+                      fi
+
                       STALL_FIRING="false"
-                      if [ "$STALE_MINUTES" -gt "$STALE_MINUTES_THRESHOLD" ]; then
+                      if [ "$STALE_MINUTES" -gt "$ACTIVE_THRESHOLD" ]; then
                         STALL_FIRING="true"
+                      else
+                        # Hysteresis. Without this, a stall that fired at peak
+                        # (>120) would self-"resolve" the moment the clock rolled
+                        # into the off-peak window and the threshold widened to
+                        # 240 — announcing "Transactions flowing again" while the
+                        # outage was still running. Hold the latch until the gap
+                        # actually closes below the TIGHT peak threshold.
+                        PREV_STALL=$(pq "SELECT value FROM prober_state WHERE key = 'indexer_stall_alerting';")
+                        if [ "$PREV_STALL" = "true" ] && [ "$STALE_MINUTES" -gt "$STALE_MINUTES_THRESHOLD" ]; then
+                          STALL_FIRING="true"
+                        fi
                       fi
 
                       STALL_OUT=$(alert_with_resolve \
                         "indexer_stall_alerting" \
                         "$STALL_FIRING" \
                         "HIGH: Indexer Stall Detected" \
-                        "${CLAUDE_PING} No new transactions indexed in ${STALE_MINUTES} minutes. ${AGENT_COUNT} registered agents, ${MONITORED} webhook addresses monitored. Check Alchemy webhook \`is_active\` + address count and API/indexer pod logs." \
+                        "${CLAUDE_PING} No new transactions indexed in ${STALE_MINUTES} minutes (${WINDOW} threshold ${ACTIVE_THRESHOLD}min, hour ${HOUR_UTC}Z). ${AGENT_COUNT} registered agents, ${MONITORED} webhook addresses monitored. Check Alchemy webhook \`is_active\` + address count and API/indexer pod logs." \
                         "$RED" \
-                        "${CLAUDE_PING} 🚨 Indexer Stall: ${STALE_MINUTES}min stale (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents, ${MONITORED} monitored" \
+                        "${CLAUDE_PING} 🚨 Indexer Stall: ${STALE_MINUTES}min stale (${WINDOW} threshold ${ACTIVE_THRESHOLD}min), ${AGENT_COUNT} agents, ${MONITORED} monitored" \
                         "RESOLVED: Indexer Stall" \
-                        "Transactions flowing again. Current stale=${STALE_MINUTES}min (threshold ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents tracked. No action needed." \
+                        "Transactions flowing again. Current stale=${STALE_MINUTES}min (${WINDOW} threshold ${ACTIVE_THRESHOLD}min, resolve gate ${STALE_MINUTES_THRESHOLD}min), ${AGENT_COUNT} agents tracked. No action needed." \
                         "✅ Indexer Stall resolved: ${STALE_MINUTES}min stale, ${AGENT_COUNT} agents tracked")
                       if [ -n "$STALL_OUT" ]; then echo "$STALL_OUT"; fi
 
@@ -292,7 +333,7 @@ spec:
                           if ! echo "$SINCE" | grep -qE '^[0-9]+$' || [ "$SINCE" -ge "$REPAGE_SECONDS" ]; then
                             send_discord \
                               "HIGH: Indexer Stall STILL Firing" \
-                              "${CLAUDE_PING} Still no transactions for ${STALE_MINUTES} minutes (threshold ${STALE_MINUTES_THRESHOLD}min). ${MONITORED} webhook addresses monitored. Re-paging every ${REPAGE_HOURS:-6}h until resolved." \
+                              "${CLAUDE_PING} Still no transactions for ${STALE_MINUTES} minutes (${WINDOW} threshold ${ACTIVE_THRESHOLD}min). ${MONITORED} webhook addresses monitored. Re-paging every ${REPAGE_HOURS:-6}h until resolved." \
                               "$RED" \
                               "${CLAUDE_PING} 🚨 Indexer Stall STILL firing: ${STALE_MINUTES}min stale, ${MONITORED} monitored" \
                               "true"
@@ -339,4 +380,6 @@ spec:
                       "✅ Alert Delivery resolved: ${UNDELIVERED} undelivered in last hour"
                   fi
 
-                  echo "prober tick complete. stale=${STALE_MINUTES}min agents=${AGENT_COUNT} monitored=${MONITORED} undelivered=${UNDELIVERED}"
+                  # window/threshold are unset when ingest is intentionally disabled
+                  # (the stall check is skipped entirely on that path).
+                  echo "prober tick complete. stale=${STALE_MINUTES}min agents=${AGENT_COUNT} monitored=${MONITORED} undelivered=${UNDELIVERED} window=${WINDOW:-n/a} threshold=${ACTIVE_THRESHOLD:-n/a}min"
