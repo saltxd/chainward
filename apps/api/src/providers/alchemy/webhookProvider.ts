@@ -18,6 +18,8 @@ const activitySchema = z.object({
   }).optional(),
 });
 
+// Envelope is validated separately from activities so one malformed activity
+// can't discard the rest of the batch.
 const webhookPayloadSchema = z.object({
   webhookId: z.string(),
   id: z.string(),
@@ -25,7 +27,7 @@ const webhookPayloadSchema = z.object({
   type: z.string(),
   event: z.object({
     network: z.string().optional(),
-    activity: z.array(activitySchema),
+    activity: z.array(z.unknown()),
   }),
 });
 
@@ -119,23 +121,44 @@ export class AlchemyWebhookProvider implements WebhookProvider {
     const raw = JSON.parse(rawBody);
     const parsed = webhookPayloadSchema.safeParse(raw);
     if (!parsed.success) {
-      logger.warn({ errors: parsed.error.flatten().fieldErrors }, 'Rejected malformed Alchemy webhook payload');
+      logger.warn({ issues: parsed.error.issues }, 'Rejected malformed Alchemy webhook envelope');
       return [];
     }
     const body = parsed.data;
-    const activities = body.event.activity;
-    if (activities.length === 0) return [];
+    const network = body.event.network ?? 'BASE_MAINNET';
 
-    return activities.map((a) => ({
-      txHash: a.hash,
-      blockNumber: parseInt(a.blockNum, 16),
-      fromAddress: a.fromAddress,
-      toAddress: a.toAddress,
-      value: a.value,
-      asset: a.asset,
-      category: a.category,
-      rawContract: a.rawContract,
-      network: body.event.network ?? 'BASE_MAINNET',
-    }));
+    const normalized: NormalizedActivity[] = [];
+    let skipped = 0;
+    for (const rawActivity of body.event.activity) {
+      const activity = activitySchema.safeParse(rawActivity);
+      if (!activity.success) {
+        skipped++;
+        logger.warn(
+          { issues: activity.error.issues, activity: rawActivity, webhookEventId: body.id },
+          'Skipped malformed activity in Alchemy webhook batch',
+        );
+        continue;
+      }
+      const a = activity.data;
+      normalized.push({
+        txHash: a.hash,
+        blockNumber: parseInt(a.blockNum, 16),
+        fromAddress: a.fromAddress,
+        toAddress: a.toAddress,
+        value: a.value,
+        asset: a.asset,
+        category: a.category,
+        rawContract: a.rawContract,
+        network,
+      });
+    }
+
+    if (skipped > 0) {
+      logger.warn(
+        { skipped, kept: normalized.length, webhookEventId: body.id },
+        'Alchemy webhook batch contained malformed activities',
+      );
+    }
+    return normalized;
   }
 }
