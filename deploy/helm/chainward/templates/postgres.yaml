@@ -81,9 +81,12 @@ spec:
               memory: 256Mi
             limits:
               # Raised 500m→1000m 2026-06-06: TimescaleDB continuous-aggregate refresh +
-              # checkpoints spike past 500m and were CPU-throttled ~75%. Memory stays 512Mi.
+              # checkpoints spike past 500m and were CPU-throttled ~75%.
               cpu: 1000m
-              memory: 512Mi
+              # Raised 512Mi→1Gi 2026-08-06: pod was OOMKilled and recreated 2026-08-04;
+              # 512Mi leaves no headroom for TimescaleDB aggregate refreshes. ContainerOOMKilled
+              # (observability/container-oomkill) now pages if it ever hits the new ceiling.
+              memory: 1Gi
   volumeClaimTemplates:
     - metadata:
         name: pgdata
