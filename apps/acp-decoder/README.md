@@ -18,6 +18,7 @@ Phase 1 of ChainWard's pivot from "alerting tool" to "intelligence platform for 
 | Production logs visible | ✅ `kubectl logs deployment/acp-decoder` |
 | End-to-end paid lifecycle | ✅ **Job 5424 (2026-05-03)**: created → budget.set → funded → submitted → completed; $9 USDC received by seller wallet, real chain-grounded decode delivered |
 | Soft launch tweet (@chainwardai) | ⏳ Pending |
+| **Marketplace visibility** | 🚨 **BROKEN (found 2026-08-20)** — the public agents index (`acpx.virtuals.io/api/agents`) does NOT contain the healthy seller (wallet-filter and UUID lookups return nothing), and the only record matching name `Chainward` is the **retired OPENCLAW ghost** (null wallet, null category, no offerings, `cluster: OPENCLAW`). Buyers cannot discover or hire us — this, not demand, explains zero organic jobs since May. Fix is dashboard-side (app.virtuals.io, wallet-authed): complete/publish the healthy agent's public profile + graduation, and delete/hide the ghost. |
 
 ---
 
