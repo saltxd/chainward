@@ -1,0 +1,76 @@
+# Presence-refresh for the ACP seller (2026-08-20).
+#
+# The acp-decoder's marketplace presence (lastActiveAt / online status) goes
+# stale even while the pod stays Running — the ACP socket zombies silently
+# (observed: pod up since Aug 7, presence stale since Aug 17, agent absent
+# from every `--online online` browse → invisible to buyers who filter for
+# live sellers, which is the default sane behavior for autonomous hiring).
+# A reconnect fully restores it (verified: rank #1 for "wallet decode"
+# post-restart). Until the SDK exposes a health signal we can probe, a
+# 12-hourly rollout restart keeps presence fresh; reconnect takes ~2s.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: acp-decoder-restarter
+  namespace: chainward
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: acp-decoder-restarter
+  namespace: chainward
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["acp-decoder"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: acp-decoder-restarter
+  namespace: chainward
+subjects:
+  - kind: ServiceAccount
+    name: acp-decoder-restarter
+    namespace: chainward
+roleRef:
+  kind: Role
+  name: acp-decoder-restarter
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: acp-decoder-presence-refresh
+  namespace: chainward
+spec:
+  schedule: "20 4,16 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          serviceAccountName: acp-decoder-restarter
+          restartPolicy: Never
+          containers:
+            - name: restart
+              image: bitnami/kubectl:1.31
+              command:
+                - kubectl
+                - -n
+                - chainward
+                - rollout
+                - restart
+                - deployment/acp-decoder
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
