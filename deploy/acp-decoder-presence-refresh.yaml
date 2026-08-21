@@ -59,7 +59,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: restart
-              image: bitnami/kubectl:1.31
+              image: bitnamilegacy/kubectl:1.31
               command:
                 - kubectl
                 - -n
