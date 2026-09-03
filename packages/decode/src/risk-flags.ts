@@ -65,6 +65,77 @@ const NOT_ASSESSED: readonly string[] = [
   'Anything older than the 30-day activity window or beyond the transfer-page cap',
 ];
 
+export type RiskCheckId =
+  | 'claim_vs_chain_offline'
+  | 'dormant_wallet'
+  | 'stranded_value'
+  | 'factory_proxy_clone'
+  | 'counterparty_concentration'
+  | 'cluster_collapsed'
+  | 'inactive_no_history'
+  | 'activity_truncated';
+
+export interface RiskCheck {
+  id: RiskCheckId;
+  /** The flag title, verbatim — flags below take their title from here. */
+  title: string;
+  /** What the check looks for, in the neutral lexicon. Rendered as coverage. */
+  looks_for: string;
+}
+
+/**
+ * The catalog of every check v1 runs, in the order they are evaluated. The
+ * report page renders this as "what this check covered" so a quiet result reads
+ * as a list of things examined, not an absence. Neutral lexicon only.
+ */
+export const RISK_CHECKS: readonly RiskCheck[] = [
+  {
+    id: 'claim_vs_chain_offline',
+    title: 'ACP online claim not reflected on-chain',
+    looks_for: "An ACP 'online' status that the wallet's recent on-chain activity does not reflect",
+  },
+  {
+    id: 'dormant_wallet',
+    title: 'Wallet is dormant',
+    looks_for: 'No transfers in the 7-day window on a wallet that has history',
+  },
+  {
+    id: 'stranded_value',
+    title: 'USDC balance held in a dormant wallet',
+    looks_for: 'A USDC balance sitting in a wallet classified dormant',
+  },
+  {
+    id: 'factory_proxy_clone',
+    title: 'Virtuals factory proxy clone',
+    looks_for: 'Virtuals factory minimal-proxy bytecode (a clone, not bespoke code)',
+  },
+  {
+    id: 'counterparty_concentration',
+    title: 'Transfers concentrated among very few counterparties',
+    looks_for: 'Ten or more transfers in 30 days across two or fewer counterparties',
+  },
+  {
+    id: 'cluster_collapsed',
+    title: 'Peer cluster is largely dormant',
+    looks_for: 'A peer cohort where most members have gone dormant',
+  },
+  {
+    id: 'inactive_no_history',
+    title: 'No recent on-chain transfer activity',
+    looks_for: 'No ERC-20 transfers in the roughly 30-day window',
+  },
+  {
+    id: 'activity_truncated',
+    title: 'Transfer history truncated at fetch cap',
+    looks_for: 'The transfer scan hit its page cap, so activity counts are a lower bound',
+  },
+];
+
+const CHECK_TITLE = Object.fromEntries(RISK_CHECKS.map((c) => [c.id, c.title])) as Record<
+  RiskCheckId,
+  string
+>;
+
 /**
  * Known-good allowlist (self-flag guard). Addresses here are ChainWard's own
  * wallets + known infra; they never receive flags. Lowercased for comparison.
@@ -157,7 +228,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'claim_vs_chain_offline',
       severity: 'medium',
-      title: 'ACP online claim not reflected on-chain',
+      title: CHECK_TITLE.claim_vs_chain_offline,
       evidence: `ACP reports ${onlineDisc.acp_says}; chain shows ${onlineDisc.chain_says}.`,
       source: 'https://app.virtuals.io/acp',
     });
@@ -168,7 +239,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'dormant_wallet',
       severity: 'medium',
-      title: 'Wallet is dormant',
+      title: CHECK_TITLE.dormant_wallet,
       evidence: data.survival.rationale,
       source,
     });
@@ -179,7 +250,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'stranded_value',
       severity: 'high',
-      title: 'USDC balance held in a dormant wallet',
+      title: CHECK_TITLE.stranded_value,
       evidence: `Holds ${data.balances.usdc.amount} USDC while classified dormant (no transfers in the 7-day window).`,
       source,
     });
@@ -190,7 +261,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'factory_proxy_clone',
       severity: 'info',
-      title: 'Virtuals factory proxy clone',
+      title: CHECK_TITLE.factory_proxy_clone,
       evidence: `Wallet code is a Virtuals factory minimal-proxy (type ${data.wallet.type}, code size ${data.wallet.code_size} bytes).`,
       source,
     });
@@ -205,7 +276,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'counterparty_concentration',
       severity: 'medium',
-      title: 'Transfers concentrated among very few counterparties',
+      title: CHECK_TITLE.counterparty_concentration,
       evidence: `${data.activity.transfers_30d} transfers in 30 days across only ${data.activity.unique_counterparties_30d} unique counterparties.`,
       source,
     });
@@ -216,7 +287,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'cluster_collapsed',
       severity: 'medium',
-      title: 'Peer cluster is largely dormant',
+      title: CHECK_TITLE.cluster_collapsed,
       evidence: `Cluster "${data.peers.cluster ?? 'unknown'}" is classified collapsed (majority of cohort members dormant).`,
       source,
     });
@@ -231,9 +302,11 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'inactive_no_history',
       severity: 'low',
-      title: 'No recent on-chain transfer activity',
+      title: CHECK_TITLE.inactive_no_history,
       evidence:
-        'No ERC-20 transfers in the checked window (last ~30 days), read from our own Base node. The wallet may be new, paused, or operating through a different address — this is a recent-activity signal, not a lifetime-history claim.',
+        `No ERC-20 transfers in the checked window (last ~30 days), read from ${
+          data.fetch_meta.data_source === 'sentinel' ? 'our own Base node' : 'Base'
+        }. The wallet may be new, paused, or operating through a different address — this is a recent-activity signal, not a lifetime-history claim.`,
       source,
     });
   }
@@ -244,7 +317,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     flags.push({
       id: 'activity_truncated',
       severity: 'info',
-      title: 'Transfer history truncated at fetch cap',
+      title: CHECK_TITLE.activity_truncated,
       evidence: `Fetched ${data.fetch_meta.transfers_fetched} transfers and hit the page cap; activity counts are a lower bound, not a lifetime total.`,
       source,
     });

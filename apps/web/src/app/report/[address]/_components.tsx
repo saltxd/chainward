@@ -7,12 +7,18 @@
  * (Deep green is reserved for freshness/receipt marks only.)
  */
 
-import type { RiskFlag, RiskFreshness, RiskProvenance, RiskSeverity } from '@/lib/api';
+import type {
+  RiskCoverage,
+  RiskFlag,
+  RiskFreshness,
+  RiskProvenance,
+  RiskSeverity,
+} from '@/lib/api';
 import {
   BAND_DESCRIPTION,
   BAND_LABEL,
   countBySeverity,
-  ZERO_FLAGS_COPY,
+  zeroFlagsCopy,
 } from '@/lib/risk';
 import type { RiskBand } from '@/lib/api';
 
@@ -64,17 +70,23 @@ export function BandSummary({
 }
 
 /** The flag list. Zero flags renders the neutral copy — NEVER "safe". */
-export function FlagList({ flags }: { flags: RiskFlag[] }) {
+export function FlagList({
+  flags,
+  coverage,
+}: {
+  flags: RiskFlag[];
+  coverage?: RiskCoverage;
+}) {
   if (flags.length === 0) {
     return (
       <div className="rr-noflags">
         <span className="rr-noflags-mark" aria-hidden>
           §
         </span>
-        <p>{ZERO_FLAGS_COPY}</p>
+        <p>{zeroFlagsCopy(coverage)}</p>
         <span className="rr-noflags-note">
-          This is not a clearance. See the not-assessed section below for what
-          this check does not cover.
+          This is not a clearance. What was checked is listed below; what this
+          check does not cover is in the not-assessed section.
         </span>
       </div>
     );
@@ -107,6 +119,80 @@ export function FlagList({ flags }: { flags: RiskFlag[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * What this check covered: every check that ran, raised or not, plus the window
+ * it looked at. Rendered on every report so a quiet result is a list of things
+ * examined. "not raised" is deliberate — never "passed" or "clear".
+ */
+export function CoverageBlock({ coverage }: { coverage: RiskCoverage | undefined }) {
+  if (!coverage) return null;
+  const raised = coverage.checks.filter((c) => c.raised).length;
+  const quiet = coverage.checks.length - raised;
+  const w = coverage.window;
+  const latest = w.latest_transfer_at
+    ? new Date(w.latest_transfer_at).toLocaleDateString(undefined, { dateStyle: 'medium' })
+    : 'none in window';
+  return (
+    <div className="rr-cov">
+      <div className="rr-cov-head">
+        <span className="rr-na-tag">What this check covered</span>
+        <span className="rr-cov-tally mono">
+          {coverage.checks.length} checks run · {raised} raised · {quiet} not raised
+        </span>
+      </div>
+      <ul className="rr-cov-list">
+        {coverage.checks.map((c) => (
+          <li key={c.id} className={`rr-check ${c.raised ? 'rr-check--raised' : 'rr-check--quiet'}`}>
+            <span className="rr-check-mark mono" aria-hidden>
+              {c.raised ? '⚑' : '—'}
+            </span>
+            <span className="rr-check-body">
+              <span className="rr-check-title">{c.title}</span>
+              <span className="rr-check-what">{c.looks_for}</span>
+            </span>
+            <span className="rr-check-state mono">{c.raised ? 'raised' : 'not raised'}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="rr-stats rr-cov-stats">
+        <div className="rr-stat">
+          <span className="rr-stat-label">transfers.scanned</span>
+          <span className="rr-stat-value mono">
+            {w.transfers_truncated ? '≥' : ''}
+            {w.transfers_scanned.toLocaleString()}
+          </span>
+          <span className="rr-stat-unit">transfers scanned</span>
+        </div>
+        <div className="rr-stat">
+          <span className="rr-stat-label">transfers.30d</span>
+          <span className="rr-stat-value mono">{w.transfers_30d.toLocaleString()}</span>
+          <span className="rr-stat-unit">in the 30-day window</span>
+        </div>
+        <div className="rr-stat">
+          <span className="rr-stat-label">counterparties.30d</span>
+          <span className="rr-stat-value mono">{w.unique_counterparties_30d.toLocaleString()}</span>
+          <span className="rr-stat-unit">unique counterparties</span>
+        </div>
+        <div className="rr-stat">
+          <span className="rr-stat-label">txs.sent</span>
+          <span className="rr-stat-value mono">{w.sent_tx_count.toLocaleString()}</span>
+          <span className="rr-stat-unit">lifetime, from nonce</span>
+        </div>
+        <div className="rr-stat">
+          <span className="rr-stat-label">last.transfer</span>
+          <span className="rr-stat-value mono">{latest}</span>
+          <span className="rr-stat-unit">most recent seen</span>
+        </div>
+        <div className="rr-stat">
+          <span className="rr-stat-label">wallet.type</span>
+          <span className="rr-stat-value mono">{w.wallet_type}</span>
+          <span className="rr-stat-unit">{w.survival} by activity</span>
+        </div>
+      </div>
+    </div>
   );
 }
 

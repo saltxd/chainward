@@ -33,6 +33,9 @@ export const briefOrders = pgTable(
       .default('pending'),
     txHash: text('tx_hash'),
 
+    // the deliverable — the written brief, attached at fulfilment (in-app delivery)
+    briefMarkdown: text('brief_markdown'),
+
     // lifecycle
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     paidAt: timestamp('paid_at', { withTimezone: true }),
