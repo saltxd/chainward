@@ -7,7 +7,14 @@
  */
 
 import Link from 'next/link';
-import { PressShell, Masthead, PressDateline, Colophon, BriefOffer } from '@/components/press';
+import {
+  PressShell,
+  Masthead,
+  PressDateline,
+  Colophon,
+  BriefOffer,
+  NodeClaim,
+} from '@/components/press';
 import { getAllDecodes } from '@/lib/decodes';
 import { CheckForm } from './_check/check-form';
 import { RecentlyChecked } from './_check/recently-checked';
@@ -77,10 +84,13 @@ export default function CheckHomePage() {
             </h1>
             <p className="home-kicker press-kicker">Flags, not promises.</p>
             <p className="home-lede">
-              Paste a Base address or agent handle. We run a forensic decode from
-              our own Base node and return <strong>risk flags</strong> — each with
-              on-chain evidence and a source. We never hand out a safety verdict, a
-              grade, or a green check.
+              Paste a Base address or agent handle. In about a minute you get every{' '}
+              <strong>risk flag</strong> we can prove on-chain: dormant wallets, USDC
+              stranded in them, transfers concentrated among a few counterparties,
+              factory-clone contracts, online claims the chain doesn&apos;t back. Each
+              is tied to the transactions behind it, read from{' '}
+              <NodeClaim live="our own Base node" neutral="the chain" />. The verdict
+              is yours. We show the evidence.
             </p>
           </div>
 

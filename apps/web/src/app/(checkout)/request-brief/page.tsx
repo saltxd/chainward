@@ -1,21 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useSignMessage } from 'wagmi';
 import { siweSignIn, useSession } from '@/lib/auth-client';
-import { api, ApiError, type BriefConfig, type BriefOrder, type BriefContactMethod } from '@/lib/api';
-import { Masthead, PressDateline, Colophon } from '@/components/press';
+import { api, ApiError, type BriefConfig, type BriefOrder } from '@/lib/api';
+import { contactMethodFor, type BriefDelivery } from '@/lib/brief';
+import { track } from '@/lib/track';
+import { Masthead, PressDateline, Colophon, NodeClaim } from '@/components/press';
 import { PayButton } from '@/components/payment/pay-button';
 import { useToast } from '@/components/ui/toast';
 
-const WHAT_YOU_GET = [
-  'Full on-chain forensic decode from our own Base node',
+const WHAT_YOU_GET: ReactNode[] = [
+  <>
+    Full on-chain forensic decode, read from{' '}
+    <NodeClaim live="our own Base node" neutral="the chain" />
+  </>,
   'Fund-flow + counterparty trace (where the money really goes)',
   'Claim-vs-reality check against on-chain evidence',
   'Every flag sourced to the chain',
-  'Delivered as a public thread from @chainwardai, tagging you — within 48h',
+  'Delivered privately within 48h — or as a public @chainwardai thread, if you prefer',
 ];
 
 function shortAddr(a: string): string {
@@ -38,9 +43,9 @@ export default function RequestBriefPage() {
   const [form, setForm] = useState<{
     target: string;
     contact: string;
-    contactMethod: BriefContactMethod;
+    delivery: BriefDelivery;
     notes: string;
-  }>({ target: '', contact: '', contactMethod: 'x', notes: '' });
+  }>({ target: '', contact: '', delivery: 'private', notes: '' });
 
   const [order, setOrder] = useState<BriefOrder | null>(null);
   const [creating, setCreating] = useState(false);
@@ -81,6 +86,7 @@ export default function RequestBriefPage() {
     try {
       await siweSignIn(address, chainId, signMessageAsync);
       await refetchSession();
+      track('brief_signin_ok');
     } catch (err) {
       setSignError(err instanceof Error ? err.message : 'Sign in failed');
     } finally {
@@ -94,13 +100,15 @@ export default function RequestBriefPage() {
     setCreateError('');
     setCreating(true);
     try {
+      const contact = form.contact.trim();
       const res = await api.createBriefOrder({
         target: form.target.trim(),
-        contact: form.contact.trim(),
-        contactMethod: form.contactMethod,
+        contact,
+        contactMethod: contactMethodFor(form.delivery, contact),
         notes: form.notes.trim() || undefined,
       });
       setOrder(res.order);
+      track('brief_order_created', { delivery: form.delivery, price: priceUsdc ?? 0 });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not create order';
       setCreateError(msg);
@@ -122,8 +130,8 @@ export default function RequestBriefPage() {
           <h1 className="brf-title press-display">Order a forensic decode.</h1>
           <p className="brf-lede">
             Point us at any Base agent or wallet. We run the full on-chain
-            investigation and file a written brief — delivered as a public thread
-            within 48 hours.
+            investigation and file a written brief — delivered privately to you
+            within 48 hours, or as a public thread if you prefer.
           </p>
         </section>
 
@@ -136,8 +144,8 @@ export default function RequestBriefPage() {
             </div>
             <p className="brf-offer-terms mono">One-time · on Base · delivered within 48h</p>
             <ul className="brf-offer-list">
-              {WHAT_YOU_GET.map((f) => (
-                <li key={f}>{f}</li>
+              {WHAT_YOU_GET.map((f, i) => (
+                <li key={i}>{f}</li>
               ))}
             </ul>
             <p className="brf-offer-fine">
@@ -160,7 +168,13 @@ export default function RequestBriefPage() {
             {!isConnected && (
               <>
                 <div className="brf-step">Step 1 — connect your wallet</div>
-                <button className="press-btn press-btn--full" onClick={openConnectModal}>
+                <button
+                  className="press-btn press-btn--full"
+                  onClick={() => {
+                    track('brief_connect_click');
+                    openConnectModal?.();
+                  }}
+                >
                   Connect wallet →
                 </button>
               </>
@@ -202,12 +216,45 @@ export default function RequestBriefPage() {
                     spellCheck={false}
                   />
                 </label>
+                <fieldset className="brf-delivery">
+                  <legend>Delivery</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      name="delivery"
+                      value="private"
+                      checked={form.delivery === 'private'}
+                      onChange={() => setForm({ ...form, delivery: 'private' })}
+                    />
+                    <span>
+                      Private — to your Telegram or email
+                      <small>Nothing about your request is published.</small>
+                    </span>
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="delivery"
+                      value="public"
+                      checked={form.delivery === 'public'}
+                      onChange={() => setForm({ ...form, delivery: 'public' })}
+                    />
+                    <span>
+                      Public — an @chainwardai thread on X, tagging you
+                      <small>The brief becomes part of the public record.</small>
+                    </span>
+                  </label>
+                </fieldset>
                 <label>
-                  <span>Your X handle — we deliver as a public @chainwardai thread tagging you</span>
+                  <span>
+                    {form.delivery === 'public'
+                      ? 'Your X handle — we deliver as a public @chainwardai thread tagging you'
+                      : 'Your Telegram handle or email — we deliver there, privately'}
+                  </span>
                   <input
                     value={form.contact}
                     onChange={(e) => setForm({ ...form, contact: e.target.value })}
-                    placeholder="@you"
+                    placeholder={form.delivery === 'public' ? '@you' : '@you  or  you@example.com'}
                     required
                     autoComplete="off"
                     spellCheck={false}
@@ -265,6 +312,10 @@ export default function RequestBriefPage() {
                   }}
                   onSuccess={() => {
                     setPaid(true);
+                    track('brief_paid', {
+                      price: order.amountUsdc / 1e6,
+                      delivery: order.contactMethod === 'x' ? 'public' : 'private',
+                    });
                     toast('Payment confirmed — your brief is queued', 'success');
                     loadMyOrders();
                   }}
@@ -381,6 +432,21 @@ export default function RequestBriefPage() {
         }
         .brf-form input::placeholder, .brf-form textarea::placeholder { color: var(--rule-strong); }
         .brf-form input:focus, .brf-form textarea:focus { outline: none; border-bottom-color: var(--oxblood); }
+        .brf-delivery { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; }
+        .brf-delivery legend {
+          font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px;
+          color: var(--ink-faint); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px;
+        }
+        .brf-form .brf-delivery label { flex-direction: row; align-items: flex-start; gap: 10px; cursor: pointer; }
+        .brf-form .brf-delivery input { min-height: 0; margin: 3px 0 0; accent-color: var(--oxblood); }
+        .brf-form .brf-delivery label > span {
+          font-family: var(--font-text); font-size: 15px; color: var(--ink);
+          letter-spacing: 0; text-transform: none; line-height: 1.45;
+        }
+        .brf-delivery small {
+          display: block; font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px;
+          color: var(--ink-faint); margin-top: 2px;
+        }
         .brf-summary {
           display: flex; flex-direction: column; gap: 8px; padding: 14px;
           border: 1px dashed var(--rule-strong); font-size: 12px; background: var(--paper-2);

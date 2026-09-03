@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
+import { PressShell, Masthead, PressDateline, Colophon, BriefCtaLink } from '@/components/press';
 import { getAllDecodes, getDecodeBySlug } from '@/lib/decodes';
 
 // Some scrapers (notably X/Twitter) reliably fetch static OG assets but
@@ -119,9 +119,9 @@ export default async function DecodePage({ params }: PageProps) {
             <Link href="/decodes" className="press-link">
               ← All decodes
             </Link>
-            <Link href="/request-brief" className="press-link">
+            <BriefCtaLink placement="decode-footer" className="press-link">
               Commission a brief →
-            </Link>
+            </BriefCtaLink>
           </footer>
         </article>
 
