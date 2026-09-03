@@ -5,11 +5,13 @@
 // each atomically, run a brief decode via Claude, deliver via the order's
 // method, verify, then mark fulfilled.
 //
-//   method=x            → public thread from @chainwardai tagging the buyer,
-//                         posted by the chainward-bot workflow (no human).
-//   any other method    → PRIVATE: the written markdown brief is posted to the
-//                         ops Discord webhook and a human forwards it to the
-//                         buyer's Telegram/email. (Automate when volume justifies.)
+//   every order         → the written markdown brief is stored ON the order via
+//                         the ops API and rendered in-app to the paying wallet
+//                         ("Your requests" on /request-brief). No human in the loop.
+//   method=x            → ALSO posted as a public thread from @chainwardai tagging
+//                         the buyer, via the chainward-bot workflow.
+//   any other method    → private; a copy is mirrored to the ops Discord webhook
+//                         so the buyer can be pinged at their Telegram/email.
 //
 //   DRY_RUN=false pnpm brief:fulfill
 //
@@ -100,7 +102,7 @@ async function setStatus(
   cfg: Config,
   id: string,
   status: 'fulfilling' | 'fulfilled' | 'failed',
-  extra: { deliveryRef?: string; error?: string } = {},
+  extra: { deliveryRef?: string; error?: string; briefMarkdown?: string } = {},
 ) {
   return ops<{ success: boolean; claimed?: boolean }>(cfg, `/api/brief/ops/orders/${id}/status`, {
     method: 'POST',
@@ -166,21 +168,23 @@ async function postDiscord(webhook: string, content: string): Promise<void> {
   if (!res.ok) throw new Error(`ops webhook ${res.status}`);
 }
 
-// PRIVATE delivery: the full markdown brief goes to the ops Discord channel in
-// order, for a human to forward to the buyer's Telegram/email.
-async function deliverPrivate(cfg: Config, order: BriefOrder, markdown: string): Promise<string> {
-  if (!cfg.opsWebhook) throw new Error(`no delivery path for method=${order.contactMethod} (set OPS_DISCORD_WEBHOOK)`);
+// PRIVATE delivery is IN-APP: the brief is attached to the order (the API stores
+// it; "Your requests" on /request-brief renders it to the paying wallet). The ops
+// channel also gets a copy so the buyer can be pinged at their contact and so
+// nothing is lost if the API write fails.
+async function mirrorPrivateToOps(cfg: Config, order: BriefOrder, markdown: string): Promise<void> {
+  if (!cfg.opsWebhook) return;
   const parts = chunkForDiscord(markdown, 1900);
   const header =
-    `📦 **Private brief ready — forward to ${order.contact} (${order.contactMethod})** ` +
-    `(order ${order.id.slice(0, 8)}, ${parts.length} part${parts.length === 1 ? '' : 's'} follow)`;
+    `📬 **Private brief delivered in-app** (order ${order.id.slice(0, 8)}) — ping ${order.contact} ` +
+    `(${order.contactMethod}): "Your ChainWard brief is ready at chainward.ai/request-brief". ` +
+    `Copy follows in ${parts.length} part${parts.length === 1 ? '' : 's'}.`;
   if (cfg.dryRun) {
-    log(`dry-run: would post ${parts.length} part(s) to ops webhook`);
-    return 'dry-run (not posted)';
+    log(`dry-run: would mirror ${parts.length} part(s) to ops webhook`);
+    return;
   }
   await postDiscord(cfg.opsWebhook, header);
   for (const part of parts) await postDiscord(cfg.opsWebhook, part);
-  return `ops-webhook (method=${order.contactMethod}, ${parts.length} parts)`;
 }
 
 async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
@@ -197,9 +201,12 @@ async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
       if (!thread) throw new Error('public order decoded without a thread');
       deliveryRef = await deliverX(cfg, thread);
     } else {
-      deliveryRef = await deliverPrivate(cfg, order, markdown);
+      deliveryRef = cfg.dryRun ? 'dry-run (in-app)' : 'in-app';
     }
-    await setStatus(cfg, order.id, 'fulfilled', { deliveryRef });
+    // The written brief is stored on the order for BOTH delivery modes — public
+    // buyers keep the long-form brief in their account too.
+    await setStatus(cfg, order.id, 'fulfilled', { deliveryRef, briefMarkdown: markdown });
+    if (!isPublic(order)) await mirrorPrivateToOps(cfg, order, markdown).catch((e) => log(`ops mirror failed: ${e}`));
     log(`✅ fulfilled ${order.id.slice(0, 8)} → ${deliveryRef}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
