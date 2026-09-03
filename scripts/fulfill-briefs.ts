@@ -3,18 +3,25 @@
 // Auto-fulfillment poller for paid Intel Brief orders. Runs on the ops host (has
 // claude + gh). Per cycle: pull paid orders from the chainward ops API, claim
 // each atomically, run a brief decode via Claude, deliver via the order's
-// method (X = thread from @chainwardai tagging the buyer), verify the post
-// landed, then mark fulfilled. No human in the loop.
+// method, verify, then mark fulfilled.
+//
+//   method=x            → public thread from @chainwardai tagging the buyer,
+//                         posted by the chainward-bot workflow (no human).
+//   any other method    → PRIVATE: the written markdown brief is posted to the
+//                         ops Discord webhook and a human forwards it to the
+//                         buyer's Telegram/email. (Automate when volume justifies.)
 //
 //   DRY_RUN=false pnpm brief:fulfill
 //
 // Required env: OPS_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, GH_TOKEN
 // Optional env: OPS_API_URL (default https://api.chainward.ai), BOT_REPO
-//   (default saltxd/chainward-bot), OPS_DISCORD_WEBHOOK, BRIEF_MODEL
-//   (default claude-opus-4-7), MAX_ORDERS (default 3), DRY_RUN (default true)
+//   (default saltxd/chainward-bot), OPS_DISCORD_WEBHOOK (required for private
+//   delivery), BRIEF_MODEL (default claude-opus-4-7), MAX_ORDERS (default 3),
+//   DRY_RUN (default true)
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { chunkForDiscord, parseBriefOutput, type BriefOutput } from './auto-decode/lib/brief-output.js';
 
 interface Config {
   repoRoot: string;
@@ -101,34 +108,29 @@ async function setStatus(
   });
 }
 
-// Run the brief decode via Claude and parse the thread it returns.
-async function decodeToThread(cfg: Config, order: BriefOrder): Promise<{ thread: string[]; summary: string }> {
+const isPublic = (order: BriefOrder) => order.contactMethod === 'x';
+
+// Run the brief decode via Claude and parse the brief (and thread, if public).
+async function decodeOrder(cfg: Config, order: BriefOrder): Promise<BriefOutput> {
   const tpl = await readFile(join(cfg.repoRoot, 'scripts/auto-decode-prompts/brief.md'), 'utf-8');
   const handle = order.contact.replace(/^@/, '');
-  const prompt = tpl.replace(/<TARGET>/g, order.target).replace(/<HANDLE>/g, handle);
+  const delivery = isPublic(order)
+    ? 'public X thread'
+    : `private (${order.contactMethod}) — no thread, do not tag anyone`;
+  const prompt = tpl
+    .replace(/<TARGET>/g, order.target)
+    .replace(/<HANDLE>/g, handle)
+    .replace(/<DELIVERY>/g, delivery);
   const mcpConfig = join(cfg.repoRoot, 'scripts/auto-decode.mcp.json');
 
-  log(`decoding ${order.target} (order ${order.id.slice(0, 8)}) via claude…`);
+  log(`decoding ${order.target} (order ${order.id.slice(0, 8)}, ${delivery}) via claude…`);
   const { code, stdout, stderr } = await run(
     'claude',
     ['--print', prompt, '--model', cfg.model, '--mcp-config', mcpConfig, '--dangerously-skip-permissions'],
     { ...process.env, CLAUDE_CODE_OAUTH_TOKEN: cfg.oauthToken },
   );
   if (code !== 0) throw new Error(`claude exited ${code}: ${stderr.slice(-400)}`);
-
-  const m = [...stdout.matchAll(/<BRIEF_THREAD>([\s\S]*?)<\/BRIEF_THREAD>/g)].pop();
-  if (!m) throw new Error('no <BRIEF_THREAD> block in claude output');
-  let thread: unknown;
-  try {
-    thread = JSON.parse(m[1].trim());
-  } catch (e) {
-    throw new Error(`BRIEF_THREAD not valid JSON: ${(e as Error).message}`);
-  }
-  if (!Array.isArray(thread) || thread.length < 2 || thread.length > 4 || !thread.every((t) => typeof t === 'string' && t.length > 0 && t.length <= 280)) {
-    throw new Error(`BRIEF_THREAD invalid shape (got ${JSON.stringify(thread).slice(0, 120)})`);
-  }
-  const sm = stdout.match(/<BRIEF_SUMMARY>([\s\S]*?)<\/BRIEF_SUMMARY>/);
-  return { thread: thread as string[], summary: sm ? sm[1].trim() : '' };
+  return parseBriefOutput(stdout, { needThread: isPublic(order) });
 }
 
 // Dispatch the thread via the chainward-bot workflow and confirm it posted.
@@ -155,12 +157,30 @@ async function deliverX(cfg: Config, thread: string[]): Promise<string> {
   return `x:${idm[1]}`;
 }
 
-async function deliverWebhook(cfg: Config, order: BriefOrder, thread: string[]): Promise<string> {
-  if (!cfg.opsWebhook) throw new Error(`no delivery path for method=${order.contactMethod} (set OPS_DISCORD_WEBHOOK)`);
-  const content = `📦 **Brief ready — method=${order.contactMethod}, contact=${order.contact}** (order ${order.id.slice(0, 8)})\n\n${thread.join('\n\n')}`;
-  const res = await fetch(cfg.opsWebhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: content.slice(0, 1900) }) });
+async function postDiscord(webhook: string, content: string): Promise<void> {
+  const res = await fetch(webhook, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
   if (!res.ok) throw new Error(`ops webhook ${res.status}`);
-  return `ops-webhook (method=${order.contactMethod})`;
+}
+
+// PRIVATE delivery: the full markdown brief goes to the ops Discord channel in
+// order, for a human to forward to the buyer's Telegram/email.
+async function deliverPrivate(cfg: Config, order: BriefOrder, markdown: string): Promise<string> {
+  if (!cfg.opsWebhook) throw new Error(`no delivery path for method=${order.contactMethod} (set OPS_DISCORD_WEBHOOK)`);
+  const parts = chunkForDiscord(markdown, 1900);
+  const header =
+    `📦 **Private brief ready — forward to ${order.contact} (${order.contactMethod})** ` +
+    `(order ${order.id.slice(0, 8)}, ${parts.length} part${parts.length === 1 ? '' : 's'} follow)`;
+  if (cfg.dryRun) {
+    log(`dry-run: would post ${parts.length} part(s) to ops webhook`);
+    return 'dry-run (not posted)';
+  }
+  await postDiscord(cfg.opsWebhook, header);
+  for (const part of parts) await postDiscord(cfg.opsWebhook, part);
+  return `ops-webhook (method=${order.contactMethod}, ${parts.length} parts)`;
 }
 
 async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
@@ -170,9 +190,15 @@ async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
     return;
   }
   try {
-    const { thread, summary } = await decodeToThread(cfg, order);
+    const { markdown, thread, summary } = await decodeOrder(cfg, order);
     log(`decoded: ${summary || '(no summary)'}`);
-    const deliveryRef = order.contactMethod === 'x' ? await deliverX(cfg, thread) : await deliverWebhook(cfg, order, thread);
+    let deliveryRef: string;
+    if (isPublic(order)) {
+      if (!thread) throw new Error('public order decoded without a thread');
+      deliveryRef = await deliverX(cfg, thread);
+    } else {
+      deliveryRef = await deliverPrivate(cfg, order, markdown);
+    }
     await setStatus(cfg, order.id, 'fulfilled', { deliveryRef });
     log(`✅ fulfilled ${order.id.slice(0, 8)} → ${deliveryRef}`);
   } catch (err) {
@@ -180,7 +206,10 @@ async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
     log(`❌ failed ${order.id.slice(0, 8)}: ${msg}`);
     await setStatus(cfg, order.id, 'failed', { error: msg }).catch(() => {});
     if (cfg.opsWebhook) {
-      await fetch(cfg.opsWebhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `⚠️ Brief fulfillment FAILED — order ${order.id.slice(0, 8)} (${order.target}): ${msg.slice(0, 400)}` }) }).catch(() => {});
+      await postDiscord(
+        cfg.opsWebhook,
+        `⚠️ Brief fulfillment FAILED — order ${order.id.slice(0, 8)} (${order.target}): ${msg.slice(0, 400)}`,
+      ).catch(() => {});
     }
   }
 }

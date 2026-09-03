@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { track } from '@/lib/track';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const HANDLE_RE = /^@[A-Za-z0-9_]{1,15}$/;
@@ -23,17 +24,20 @@ export function CheckForm() {
 
     if (ADDRESS_RE.test(trimmed)) {
       setError('');
+      track('check_submit', { kind: 'address' });
       router.push(`/report/${trimmed.toLowerCase()}`);
       return;
     }
 
     if (HANDLE_RE.test(trimmed)) {
+      track('check_submit', { kind: 'handle' });
       setError(
         'Handle resolution is coming soon — paste the agent wallet address (0x…) for now.',
       );
       return;
     }
 
+    track('check_submit', { kind: 'invalid' });
     setError('Paste a Base address (0x followed by 40 hex characters) or an @handle.');
   }
 
