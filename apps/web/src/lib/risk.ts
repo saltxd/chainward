@@ -8,7 +8,7 @@
  *   - signal_density is never surfaced.
  */
 
-import type { RiskBand, RiskSeverity } from './api';
+import type { RiskBand, RiskCoverage, RiskSeverity } from './api';
 
 export const DISCLAIMER =
   'Risk flags from on-chain behavior only. ChainWard cannot see social engineering, ' +
@@ -74,6 +74,20 @@ export const SEVERITY_HEX: Record<RiskSeverity, string> = {
 
 export const ZERO_FLAGS_COPY =
   'No flags raised from on-chain behavior in the window checked.';
+
+/**
+ * The quiet-result sentence. With coverage it states what was examined, so
+ * "nothing found" reads as a result of a specific scan, never as a clearance.
+ */
+export function zeroFlagsCopy(coverage: RiskCoverage | undefined): string {
+  if (!coverage) return ZERO_FLAGS_COPY;
+  const w = coverage.window;
+  const transfers = `${w.transfers_truncated ? 'at least ' : ''}${w.transfers_scanned.toLocaleString()} transfers`;
+  const parties = `${w.unique_counterparties_30d.toLocaleString()} ${
+    w.unique_counterparties_30d === 1 ? 'counterparty' : 'counterparties'
+  }`;
+  return `No flags raised across ${transfers} and ${parties} in the 30-day window checked, against ${coverage.checks.length} checks.`;
+}
 
 /** The FE report route. The backend's report_url uses /risk/report; the web app
  * serves these at /report. Canonical, lowercased address. */

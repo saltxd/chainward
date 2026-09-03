@@ -32,6 +32,7 @@ import { DISCLAIMER } from '@/lib/risk';
 import { track } from '@/lib/track';
 import {
   BandSummary,
+  CoverageBlock,
   FlagList,
   FreshnessStamp,
   HonestDisclaimer,
@@ -507,7 +508,11 @@ function FullReport({
       <div className="rr-block">
         <span className="press-label">Exhibits</span>
         <h2 className="rr-h2 press-display">On-chain signals</h2>
-        <FlagList flags={report.flags} />
+        <FlagList flags={report.flags} coverage={report.coverage} />
+      </div>
+
+      <div className="rr-block">
+        <CoverageBlock coverage={report.coverage} />
       </div>
 
       {/* The single, serious upsell — a document artifact, not a pricing card. */}
@@ -837,6 +842,65 @@ function ReportStyles() {
         letter-spacing: 0.06em;
         color: var(--rule-strong);
       }
+      .rr-cov {
+        border: 1px solid var(--rule);
+        border-top: 2px solid var(--rule-strong);
+        background: var(--paper);
+        padding: 24px 26px;
+      }
+      .rr-cov-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .rr-cov-head .rr-na-tag { margin-bottom: 0; }
+      .rr-cov-tally {
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        color: var(--ink-soft);
+      }
+      .rr-cov-list {
+        list-style: none;
+        margin: 16px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 0;
+      }
+      .rr-check {
+        display: grid;
+        grid-template-columns: 18px 1fr auto;
+        gap: 12px;
+        align-items: baseline;
+        padding: 10px 0;
+        border-top: 1px solid var(--rule);
+      }
+      .rr-check-mark { font-size: 12px; color: var(--ink-faint); }
+      .rr-check--raised .rr-check-mark { color: var(--oxblood); }
+      .rr-check-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .rr-check-title {
+        font-family: var(--font-text);
+        font-size: 15px;
+        color: var(--ink);
+        line-height: 1.4;
+      }
+      .rr-check--quiet .rr-check-title { color: var(--ink-soft); }
+      .rr-check-what {
+        font-family: var(--font-mono), ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--ink-faint);
+        line-height: 1.5;
+      }
+      .rr-check-state {
+        font-size: 10.5px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        white-space: nowrap;
+      }
+      .rr-check--raised .rr-check-state { color: var(--oxblood); }
+      .rr-cov-stats { margin-top: 20px; }
       .rr-noflags {
         border: 1px solid var(--rule-strong);
         background: var(--paper);

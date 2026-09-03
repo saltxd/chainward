@@ -349,8 +349,10 @@ export interface BriefOrder {
   notes: string | null;
   plan: string;
   amountUsdc: number; // micro-USDC (6 decimals)
-  status: 'pending' | 'paid' | 'fulfilled' | 'cancelled';
+  status: 'pending' | 'paid' | 'fulfilling' | 'fulfilled' | 'failed' | 'cancelled';
   txHash: string | null;
+  /** The written brief, attached at fulfilment — in-app delivery. Null until then. */
+  briefMarkdown: string | null;
   createdAt: string;
   paidAt: string | null;
   fulfilledAt: string | null;
@@ -439,6 +441,28 @@ export interface RiskProvenance {
   head_lag_seconds: number;
 }
 
+export interface RiskCoverageCheck {
+  id: string;
+  title: string;
+  looks_for: string;
+  raised: boolean;
+}
+
+/** What the check covered: every check run (raised or not) + the window it saw. */
+export interface RiskCoverage {
+  checks: RiskCoverageCheck[];
+  window: {
+    transfers_scanned: number;
+    transfers_truncated: boolean;
+    transfers_30d: number;
+    unique_counterparties_30d: number;
+    latest_transfer_at: string | null;
+    sent_tx_count: number;
+    wallet_type: string;
+    survival: string;
+  };
+}
+
 // NOTE: signal_density is stored server-side for library sorting but is
 // intentionally absent from the Report payload — never render it as a rating.
 export interface RiskReport {
@@ -449,6 +473,7 @@ export interface RiskReport {
   not_assessed: string[];
   freshness: RiskFreshness;
   provenance?: RiskProvenance;
+  coverage?: RiskCoverage;
   classifier_version: string;
   view_count: number;
   disclaimer: string;

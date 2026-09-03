@@ -6,7 +6,8 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useSignMessage } from 'wagmi';
 import { siweSignIn, useSession } from '@/lib/auth-client';
 import { api, ApiError, type BriefConfig, type BriefOrder } from '@/lib/api';
-import { contactMethodFor, type BriefDelivery } from '@/lib/brief';
+import ReactMarkdown from 'react-markdown';
+import { contactMethodFor, orderDeliveryState, type BriefDelivery } from '@/lib/brief';
 import { track } from '@/lib/track';
 import { Masthead, PressDateline, Colophon, NodeClaim } from '@/components/press';
 import { PayButton } from '@/components/payment/pay-button';
@@ -333,10 +334,22 @@ export default function RequestBriefPage() {
                 <h3 className="press-display">Brief ordered</h3>
                 <p>
                   We&apos;re decoding{' '}
-                  <strong>{order.targetKind === 'address' ? shortAddr(order.target) : order.target}</strong>{' '}
-                  and will deliver to <strong>{order.contact}</strong> ({order.contactMethod}) within 48 hours.
+                  <strong>{order.targetKind === 'address' ? shortAddr(order.target) : order.target}</strong>.{' '}
+                  {order.contactMethod === 'x' ? (
+                    <>
+                      The brief posts as a public @chainwardai thread tagging{' '}
+                      <strong>{order.contact}</strong> within 48 hours, and the written version
+                      appears on this page under <em>Your requests</em>.
+                    </>
+                  ) : (
+                    <>
+                      Your written brief appears on this page under <em>Your requests</em> within
+                      48 hours — sign in with the same wallet to read it. We&apos;ll also ping{' '}
+                      <strong>{order.contact}</strong> when it lands.
+                    </>
+                  )}
                 </p>
-                <p className="brf-hint">Order {order.id.slice(0, 8)} · keep an eye on your {order.contactMethod}.</p>
+                <p className="brf-hint">Order {order.id.slice(0, 8)} · bookmark chainward.ai/request-brief.</p>
                 <Link href="/decodes" className="press-btn press-btn--ghost">
                   See published decodes →
                 </Link>
@@ -363,13 +376,28 @@ export default function RequestBriefPage() {
         {user && myOrders.length > 0 && (
           <div className="brf-orders">
             <div className="brf-orders-head press-label">Your requests</div>
-            {myOrders.map((o) => (
-              <div key={o.id} className="brf-order-row">
-                <code className="mono">{o.targetKind === 'address' ? shortAddr(o.target) : o.target}</code>
-                <span className={`brf-status brf-status-${o.status}`}>{o.status}</span>
-                <span className="brf-order-date mono">{new Date(o.createdAt).toLocaleDateString()}</span>
-              </div>
-            ))}
+            {myOrders.map((o) => {
+              const state = orderDeliveryState(o);
+              return (
+                <div key={o.id} className="brf-order">
+                  <div className="brf-order-row">
+                    <code className="mono">{o.targetKind === 'address' ? shortAddr(o.target) : o.target}</code>
+                    <span className={`brf-status brf-status-${state.key}`}>{state.label}</span>
+                    <span className="brf-order-date mono">{new Date(o.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  {state.key === 'ready' && o.briefMarkdown ? (
+                    <details className="brf-order-brief">
+                      <summary className="press-link">Read your brief →</summary>
+                      <div className="brf-order-brief-body press-measure">
+                        <ReactMarkdown>{o.briefMarkdown}</ReactMarkdown>
+                      </div>
+                    </details>
+                  ) : (
+                    state.hint && <p className="brf-order-hint">{state.hint}</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -503,8 +531,32 @@ export default function RequestBriefPage() {
           font-family: var(--font-mono), monospace; font-size: 10px; text-transform: uppercase;
           letter-spacing: 0.08em; padding: 3px 8px; border: 1px solid var(--rule-strong); color: var(--ink-soft);
         }
-        .brf-status-paid { color: var(--seal); border-color: var(--seal); }
-        .brf-status-fulfilled { color: var(--sev-low); border-color: var(--sev-low); }
+        .brf-status-queued, .brf-status-in_progress { color: var(--seal); border-color: var(--seal); }
+        .brf-status-ready, .brf-status-delivered { color: var(--sev-low); border-color: var(--sev-low); }
+        .brf-status-failed { color: var(--oxblood); border-color: var(--oxblood); }
+        .brf-order { border-bottom: 1px solid var(--rule); }
+        .brf-order:last-child { border-bottom: none; }
+        .brf-order .brf-order-row { border-bottom: none; }
+        .brf-order-hint {
+          margin: 0; padding: 0 16px 12px; font-family: var(--font-mono), monospace;
+          font-size: 11px; color: var(--ink-faint); line-height: 1.5;
+        }
+        .brf-order-brief { padding: 0 16px 14px; }
+        .brf-order-brief summary { cursor: pointer; font-size: 13px; list-style: none; }
+        .brf-order-brief summary::-webkit-details-marker { display: none; }
+        .brf-order-brief-body {
+          margin-top: 14px; padding: 18px 20px; border: 1px solid var(--rule-strong);
+          border-top: 3px double var(--rule-strong); background: var(--paper-2);
+          font-family: var(--font-text); font-size: 15.5px; line-height: 1.6; color: var(--ink);
+        }
+        .brf-order-brief-body h2, .brf-order-brief-body h3 {
+          font-family: var(--font-display), Georgia, serif; font-weight: 500; margin: 18px 0 6px;
+        }
+        .brf-order-brief-body h2 { font-size: 22px; margin-top: 0; }
+        .brf-order-brief-body h3 { font-size: 17px; }
+        .brf-order-brief-body p, .brf-order-brief-body li { margin: 6px 0; }
+        .brf-order-brief-body a { color: var(--oxblood); }
+        .brf-order-brief-body code { font-family: var(--font-mono), monospace; font-size: 13px; }
         .brf-status-cancelled { color: var(--oxblood); border-color: var(--oxblood); }
       `}</style>
     </>
