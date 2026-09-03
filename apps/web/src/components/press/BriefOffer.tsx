@@ -1,8 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, type BriefConfig } from '@/lib/api';
+import { BriefCtaLink } from './BriefCtaLink';
+import { NodeClaim } from './NodeClaim';
 
 /**
  * The paid-brief offer. Price is ALWAYS runtime config (GET /api/brief/config),
@@ -34,12 +35,13 @@ export function BriefOffer({ variant }: { variant: 'line' | 'document' }) {
         <p className="brief-line-copy">
           Point us at any Base wallet and we file the full forensic{' '}
           <span className="brief-line-em">Intel Brief</span> — fund-flow trace,
-          claim-vs-reality, every flag sourced to the chain, delivered as a public
-          thread within 48 hours. <span className="mono">{priceLabel}</span>.
+          claim-vs-reality, every flag sourced to the chain, delivered privately
+          within 48 hours, or as a public thread if you prefer.{' '}
+          <span className="mono">{priceLabel}</span>.
         </p>
-        <Link href="/request-brief" className="press-link brief-line-cta">
+        <BriefCtaLink placement="landing-line" className="press-link brief-line-cta">
           Request a brief →
-        </Link>
+        </BriefCtaLink>
 
         <style>{`
           .brief-line {
@@ -91,15 +93,18 @@ export function BriefOffer({ variant }: { variant: 'line' | 'document' }) {
         on-chain evidence, and hand you a written brief you can cite.
       </p>
       <ul className="brief-doc-list">
-        <li>Full forensic decode from our own Base node</li>
+        <li>
+          Full forensic decode, read from{' '}
+          <NodeClaim live="our own Base node" neutral="the chain" />
+        </li>
         <li>Fund-flow &amp; counterparty trace — where the money really goes</li>
         <li>Claim-vs-reality check, every flag sourced to the chain</li>
-        <li>Delivered as a public thread from @chainwardai, tagging you — within 48h</li>
+        <li>Delivered privately within 48h — or as a public @chainwardai thread, if you prefer</li>
       </ul>
       <div className="brief-doc-foot">
-        <Link href="/request-brief" className="press-btn">
+        <BriefCtaLink placement="report-document" className="press-btn">
           Commission the brief →
-        </Link>
+        </BriefCtaLink>
         <span className="brief-doc-fine">
           Same engine behind our published decodes. Your request stays private.
         </span>

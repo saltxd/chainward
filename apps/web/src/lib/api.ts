@@ -432,6 +432,13 @@ export interface RiskFreshness {
   ttl_state: 'fresh' | 'stale';
 }
 
+/** Which RPC actually served this report's `latest` reads. Absent on reports
+ * filed before provenance was recorded (pre-2026-07-09). */
+export interface RiskProvenance {
+  data_source: 'sentinel' | 'fallback';
+  head_lag_seconds: number;
+}
+
 // NOTE: signal_density is stored server-side for library sorting but is
 // intentionally absent from the Report payload — never render it as a rating.
 export interface RiskReport {
@@ -441,6 +448,7 @@ export interface RiskReport {
   flags: RiskFlag[];
   not_assessed: string[];
   freshness: RiskFreshness;
+  provenance?: RiskProvenance;
   classifier_version: string;
   view_count: number;
   disclaimer: string;

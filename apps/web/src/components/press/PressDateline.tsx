@@ -1,21 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchDedup } from '@/lib/api-dedup';
-
-type SignalStatus = 'online' | 'syncing' | 'degraded' | 'offline';
-
-interface Telemetry {
-  /** Network head from public reference sources (mainnet.base.org / blockscout). */
-  baseTip: number | null;
-  indexerStatus: SignalStatus;
-  indexerLastTxAt: string | null;
-  /** Our actual Base node (cw-sentinel), probed directly by the API. */
-  nodeConfigured?: boolean;
-  nodeTip?: number | null;
-  nodeLag?: number | null;
-  nodeStatus?: SignalStatus;
-}
+import { useTelemetry } from '@/lib/provenance';
 
 /**
  * The dateline — an editorial "wire" strip that doubles as an honesty signal.
@@ -25,7 +11,7 @@ interface Telemetry {
  * public reference tip) and states the node's real condition. Never fake it.
  */
 export function PressDateline() {
-  const [tel, setTel] = useState<Telemetry | null>(null);
+  const tel = useTelemetry();
   // Computed client-side only — a locale/timezone date rendered during SSR would
   // mismatch on hydration (server UTC vs the visitor's local date).
   const [edition, setEdition] = useState('');
@@ -40,16 +26,6 @@ export function PressDateline() {
         })
         .toUpperCase(),
     );
-  }, []);
-
-  useEffect(() => {
-    const load = () =>
-      fetchDedup<Telemetry>('/api/telemetry')
-        .then((d) => d && setTel(d))
-        .catch(() => {});
-    load();
-    const t = setInterval(load, 15_000);
-    return () => clearInterval(t);
   }, []);
 
   // Only claim "our node" when the probe of OUR node succeeded and it's at head.

@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     template: '%s | ChainWard',
   },
   description:
-    'ChainWard is the chain-verified record of the AI agent economy on Base. We index every agent wallet from our own node — who is active, who is earning, who has gone quiet — and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
+    'ChainWard is the chain-verified record of the AI agent economy on Base. We index every agent wallet straight from the chain — who is active, who is earning, who has gone quiet — and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
   metadataBase: new URL('https://chainward.ai'),
   alternates: { canonical: 'https://chainward.ai/' },
   robots: { index: true, follow: true },
@@ -78,7 +78,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'ChainWard — the chain-verified source of truth for AI agents on Base',
     description:
-      'The chain-verified record of AI agents on Base. We index every agent wallet from our own node and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
+      'The chain-verified record of AI agents on Base. We index every agent wallet straight from the chain and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
     siteName: 'ChainWard',
     url: 'https://chainward.ai',
     type: 'website',
@@ -89,7 +89,7 @@ export const metadata: Metadata = {
     site: '@chainwardai',
     title: 'ChainWard — the chain-verified source of truth for AI agents on Base',
     description:
-      'The chain-verified record of AI agents on Base. We index every agent wallet from our own node and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
+      'The chain-verified record of AI agents on Base. We index every agent wallet straight from the chain and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
     images: ['/chainward-og.png'],
   },
 };

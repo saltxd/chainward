@@ -19,15 +19,24 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { PressShell, Masthead, PressDateline, Colophon, BriefOffer } from '@/components/press';
+import {
+  PressShell,
+  Masthead,
+  PressDateline,
+  Colophon,
+  BriefOffer,
+  NodeClaim,
+} from '@/components/press';
 import { ApiError, publicApi, type RiskReport, type RiskTeaser } from '@/lib/api';
 import { DISCLAIMER } from '@/lib/risk';
+import { track } from '@/lib/track';
 import {
   BandSummary,
   FlagList,
   FreshnessStamp,
   HonestDisclaimer,
   NotAssessed,
+  ProvenanceLine,
 } from './_components';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -226,6 +235,30 @@ export function ReportView({ address }: { address: string }) {
     [lowered, clearPoll, pollCheck, pollReport],
   );
 
+  // Funnel: one event per outcome the visitor actually sees. Categories only —
+  // never the address.
+  const outcomeKey =
+    state.kind === 'ready' || state.kind === 'stale'
+      ? `${state.kind}:${state.report.band}:${state.report.flags.length}`
+      : state.kind;
+  useEffect(() => {
+    if (state.kind === 'ready' || state.kind === 'stale') {
+      track('check_result', {
+        state: state.kind,
+        band: state.report.band,
+        flags: state.report.flags.length,
+      });
+    } else if (
+      state.kind === 'teaser' ||
+      state.kind === 'no_history' ||
+      state.kind === 'rate_limited' ||
+      state.kind === 'error'
+    ) {
+      track('check_result', { state: state.kind });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcomeKey]);
+
   useEffect(() => {
     load();
     return clearPoll;
@@ -339,8 +372,9 @@ export function ReportView({ address }: { address: string }) {
               <span className="press-label">Public stats</span>
               <h2 className="rr-h2 press-display">Has history. Decoding now.</h2>
               <p className="rr-lede">
-                The full forensic decode is running against our own Base node —
-                flags appear below automatically when it finishes. Here is the cheap
+                The full forensic decode is running against{' '}
+                <NodeClaim live="our own Base node" neutral="the chain" /> — flags
+                appear below automatically when it finishes. Here is the cheap
                 public snapshot meanwhile. No flags are shown until the decode
                 completes.
               </p>
@@ -368,7 +402,8 @@ export function ReportView({ address }: { address: string }) {
                   <span className="rr-loading-pulse" aria-hidden /> Decode running
                 </div>
                 <p>
-                  Running the full forensic decode against our own Base node now —
+                  Running the full forensic decode against{' '}
+                  <NodeClaim live="our own Base node" neutral="the chain" /> now —
                   reading transfers, classifying behavior, deriving flags with
                   on-chain evidence. Flags appear here automatically, usually under
                   a minute. The result becomes a free, public, shareable report.
@@ -482,6 +517,7 @@ function FullReport({
 
       <div className="rr-block">
         <FreshnessStamp freshness={report.freshness} />
+        <ProvenanceLine provenance={report.provenance} />
         <p className="rr-classifier mono">
           classifier v{report.classifier_version} · {report.view_count}{' '}
           {report.view_count === 1 ? 'view' : 'views'}

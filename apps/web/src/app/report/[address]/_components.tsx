@@ -7,7 +7,7 @@
  * (Deep green is reserved for freshness/receipt marks only.)
  */
 
-import type { RiskFlag, RiskFreshness, RiskSeverity } from '@/lib/api';
+import type { RiskFlag, RiskFreshness, RiskProvenance, RiskSeverity } from '@/lib/api';
 import {
   BAND_DESCRIPTION,
   BAND_LABEL,
@@ -134,6 +134,26 @@ export function FreshnessStamp({ freshness }: { freshness: RiskFreshness }) {
         </span>
       </span>
     </div>
+  );
+}
+
+/**
+ * Which RPC served this report — the per-report, data-driven version of the
+ * "own node" claim. Says so only when the decode actually read from our node;
+ * names the public fallback otherwise; renders nothing for reports filed before
+ * provenance was recorded.
+ */
+export function ProvenanceLine({ provenance }: { provenance: RiskProvenance | undefined }) {
+  if (!provenance) return null;
+  const lag = `${Math.round(provenance.head_lag_seconds)}s behind head`;
+  const source =
+    provenance.data_source === 'sentinel'
+      ? 'Read from our own Base node'
+      : 'Read from a public Base RPC (our node was resyncing)';
+  return (
+    <p className="rr-classifier mono">
+      {source} · {lag}
+    </p>
   );
 }
 
