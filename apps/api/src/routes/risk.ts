@@ -13,6 +13,7 @@ import { getQueues } from '../lib/queue.js';
 import { logger } from '../lib/logger.js';
 import { WalletLookupService } from '../services/walletLookupService.js';
 import { extractProvenance, type ReportProvenance } from '../lib/reportProvenance.js';
+import { buildCoverage, type ReportCoverage } from '../lib/reportCoverage.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -80,6 +81,8 @@ interface ReportPayload {
   freshness: FreshnessInfo;
   /** Which RPC served the decode. Omitted for reports filed before it was recorded. */
   provenance?: ReportProvenance;
+  /** Every check that ran (raised or not) + the window it saw. */
+  coverage?: ReportCoverage;
   classifier_version: string;
   view_count: number;
   disclaimer: string;
@@ -145,6 +148,7 @@ function rowToReport(row: RiskReportRow): ReportPayload {
       ttl_state: computeTtlState(row),
     },
     provenance: extractProvenance(row.reportData),
+    coverage: buildCoverage(row.reportData, assessment.flags),
     classifier_version: row.classifierVersion,
     view_count: row.viewCount,
     disclaimer: DISCLAIMER,

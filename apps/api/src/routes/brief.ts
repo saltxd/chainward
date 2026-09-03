@@ -10,6 +10,7 @@ import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../lib/logger.js';
 import { verifyUsdcPayment } from '../lib/verifyUsdcPayment.js';
+import { buildFulfillmentUpdate } from '../lib/briefFulfillment.js';
 
 // Price for the paid "Intel Brief" (forensic on-chain decode), in micro-USDC
 // (6 decimals). Env-overridable so the price can be tuned WITHOUT a redeploy.
@@ -204,6 +205,8 @@ const opsStatusSchema = z.object({
   status: z.enum(['fulfilling', 'fulfilled', 'failed']),
   deliveryRef: z.string().max(500).optional(),
   error: z.string().max(1000).optional(),
+  /** The written brief — stored on the order for in-app delivery. */
+  briefMarkdown: z.string().max(40_000).optional(),
 });
 
 brief.post('/ops/orders/:id/status', requireOpsKey, async (c) => {
@@ -212,7 +215,7 @@ brief.post('/ops/orders/:id/status', requireOpsKey, async (c) => {
     throw new AppError(400, 'INVALID_ORDER_ID', 'Invalid order id');
   }
   const body = await c.req.json().catch(() => ({}));
-  const { status, deliveryRef, error } = opsStatusSchema.parse(body);
+  const { status, deliveryRef, error, briefMarkdown } = opsStatusSchema.parse(body);
   const db = getDb();
 
   // 'fulfilling' is an atomic claim: only succeeds from 'paid', so a crashed
@@ -226,7 +229,6 @@ brief.post('/ops/orders/:id/status', requireOpsKey, async (c) => {
     return c.json({ success: true, claimed: claimed.length > 0, order: claimed[0] ?? null });
   }
 
-  const note = deliveryRef ? `delivered: ${deliveryRef}` : error ? `error: ${error}` : null;
   const [cur] = await db
     .select({ notes: briefOrders.notes })
     .from(briefOrders)
@@ -235,15 +237,21 @@ brief.post('/ops/orders/:id/status', requireOpsKey, async (c) => {
   if (!cur) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
   const [updated] = await db
     .update(briefOrders)
-    .set({
-      status,
-      ...(status === 'fulfilled' ? { fulfilledAt: new Date() } : {}),
-      ...(note ? { notes: [cur.notes, note].filter(Boolean).join(' | ') } : {}),
-    })
+    .set(buildFulfillmentUpdate({ status, deliveryRef, error, briefMarkdown, prevNotes: cur.notes }))
     .where(eq(briefOrders.id, id))
     .returning();
   if (!updated) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
-  logger.info({ orderId: id, status, deliveryRef }, 'Brief order status updated (ops)');
+  logger.info(
+    { orderId: id, status, deliveryRef, briefStored: Boolean(updated.briefMarkdown) },
+    'Brief order status updated (ops)',
+  );
+  // A private brief is delivered in-app; the buyer still needs a nudge at the
+  // contact they gave us. Same channel as the paid-order ping.
+  if (updated.status === 'fulfilled' && updated.contactMethod !== 'x' && updated.briefMarkdown) {
+    void notifyPrivateDelivered(updated).catch((err) =>
+      logger.warn({ err, orderId: id }, 'brief: private-delivery notify failed'),
+    );
+  }
   return c.json({ success: true, order: updated });
 });
 
@@ -275,6 +283,24 @@ async function notifyPaidOrder(order: BriefOrderRow): Promise<void> {
   });
   if (!res.ok) {
     logger.warn({ status: res.status, orderId: order.id }, 'brief: Discord notify non-OK');
+  }
+}
+
+async function notifyPrivateDelivered(order: BriefOrderRow): Promise<void> {
+  const webhookUrl = process.env.DIGEST_DISCORD_WEBHOOK;
+  if (!webhookUrl) return;
+  const lines = [
+    `📬 **Private brief delivered in-app** — order \`${order.id.slice(0, 8)}\``,
+    `**Ping:** ${order.contact} _(${order.contactMethod})_ → "Your ChainWard brief is ready: sign in at chainward.ai/request-brief with the wallet you paid from."`,
+    `**Target:** \`${order.target}\``,
+  ];
+  const res = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: lines.join('\n') }),
+  });
+  if (!res.ok) {
+    logger.warn({ status: res.status, orderId: order.id }, 'brief: private-delivery Discord notify non-OK');
   }
 }
 
