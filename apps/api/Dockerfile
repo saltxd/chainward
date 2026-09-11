@@ -29,7 +29,8 @@ RUN pnpm --filter @chainward/api build && \
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /prod .
+COPY --from=build --chown=node:node /prod .
+USER node
 
 EXPOSE 8000
 CMD ["node", "dist/index.js"]

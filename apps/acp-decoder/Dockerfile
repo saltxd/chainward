@@ -38,6 +38,9 @@ LABEL org.opencontainers.image.description="ChainWard ACP decoder agent"
 LABEL org.opencontainers.image.licenses=MIT
 # Install Claude Code CLI for OAuth-backed report-writer
 RUN npm install -g @anthropic-ai/claude-code
-COPY --from=build /prod .
+COPY --from=build --chown=node:node /prod .
+# The CLI authenticates with CLAUDE_CODE_OAUTH_TOKEN from the env, not files
+# under /root, so it works unchanged from the unprivileged user's $HOME.
+USER node
 
 CMD ["node", "dist/index.js"]
