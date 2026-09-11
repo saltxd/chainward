@@ -19,6 +19,7 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: web
     spec:
+      {{- include "chainward.podSecurity" . | nindent 6 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -26,6 +27,7 @@ spec:
       containers:
         - name: web
           image: {{ .Values.images.web }}
+          {{- include "chainward.containerSecurity" . | nindent 10 }}
           ports:
             - containerPort: {{ .Values.web.port }}
           env:

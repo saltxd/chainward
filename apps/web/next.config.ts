@@ -3,6 +3,10 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
+  // Nothing in apps/web imports next/image, yet the /_next/image optimizer
+  // endpoint is served by default — and it is where Next's unauthenticated
+  // AVIF RCE (fixed in 15.5.24) lived. No consumer, no endpoint.
+  images: { unoptimized: true },
   transpilePackages: ['@chainward/common'],
   // API proxying handled by app/api/[...path]/route.ts (preserves Set-Cookie for auth)
   async redirects() {
