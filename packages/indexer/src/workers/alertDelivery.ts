@@ -384,6 +384,13 @@ const PRIVATE_RANGES = [
   { start: '127.0.0.0', end: '127.255.255.255' },
   { start: '169.254.0.0', end: '169.254.255.255' },
   { start: '0.0.0.0', end: '0.255.255.255' },
+  // CGNAT (RFC 6598) — Tailscale hands every tailnet node an address here, so
+  // without this line a webhook could reach the homelab through the node's
+  // tailscale interface exactly as easily as through 192.168.
+  { start: '100.64.0.0', end: '100.127.255.255' },
+  { start: '192.0.0.0', end: '192.0.0.255' }, // IETF protocol assignments
+  { start: '198.18.0.0', end: '198.19.255.255' }, // benchmarking
+  { start: '224.0.0.0', end: '255.255.255.255' }, // multicast + reserved + broadcast
 ];
 
 function ipToNum(ip: string): number {

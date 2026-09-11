@@ -33,9 +33,13 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV API_INTERNAL_URL=http://api:8000
-COPY --from=build /app/apps/web/.next/standalone ./
-COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=build /app/apps/web/public ./apps/web/public
+COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
+COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=node:node /app/apps/web/public ./apps/web/public
+# Next writes its fetch cache under .next/cache at runtime; the unprivileged
+# user must own it or every cache write logs an EACCES.
+RUN mkdir -p apps/web/.next/cache && chown -R node:node apps/web/.next/cache
+USER node
 
 EXPOSE 3000
 ENV PORT=3000

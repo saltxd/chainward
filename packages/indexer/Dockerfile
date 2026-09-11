@@ -29,7 +29,8 @@ RUN pnpm --filter @chainward/indexer build && \
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /prod .
-COPY --from=build /app/deliverables ./deliverables
+COPY --from=build --chown=node:node /prod .
+COPY --from=build --chown=node:node /app/deliverables ./deliverables
+USER node
 
 CMD ["node", "dist/index.js"]
