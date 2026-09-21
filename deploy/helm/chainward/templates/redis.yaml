@@ -58,7 +58,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 64Mi
+              # Raised 64Mi→128Mi 2026-09-20: 7d p95 working set is 106Mi, so this ran
+              # ~1.7x above its declared request and was under-accounted by the scheduler.
+              # Limit stays at 256Mi — p95 sits comfortably under it.
+              memory: 128Mi
             limits:
               cpu: 200m
               memory: 256Mi

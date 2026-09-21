@@ -78,7 +78,16 @@ spec:
               # (runbook #256, sg-k3s-control). A realistic request lets the scheduler
               # reserve headroom and spread the heavy DBs across nodes.
               cpu: 300m
-              memory: 256Mi
+              # Raised 256Mi→768Mi 2026-09-20: exactly the defect the CPU note above
+              # describes, never applied to memory. 7d p95 working set is 662Mi against a
+              # 256Mi request — the scheduler under-accounted this DB by ~400Mi, and a pod
+              # running 2.6x above its request is a prime eviction target under node
+              # memory pressure. Request now sits at p95 + ~15%.
+              #
+              # The limit below is deliberately NOT raised. The 2026-08-06 note documents
+              # it as a tripwire that pages on OOMKill; raising it would silence that
+              # signal, and p95 has room under 1Gi.
+              memory: 768Mi
             limits:
               # Raised 500m→1000m 2026-06-06: TimescaleDB continuous-aggregate refresh +
               # checkpoints spike past 500m and were CPU-throttled ~75%.
