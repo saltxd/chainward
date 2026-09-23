@@ -78,7 +78,9 @@ spec:
               # (runbook #256, sg-k3s-control). A realistic request lets the scheduler
               # reserve headroom and spread the heavy DBs across nodes.
               cpu: 300m
-              memory: 256Mi
+              # 2026-09-23: 256Mi -> 768Mi to match live (7d p95 691Mi, p99 874Mi). Live had
+              # already been hand-patched to 768Mi on 2026-09-21.
+              memory: 768Mi
             limits:
               # Raised 500m→1000m 2026-06-06: TimescaleDB continuous-aggregate refresh +
               # checkpoints spike past 500m and were CPU-throttled ~75%.
@@ -86,7 +88,9 @@ spec:
               # Raised 512Mi→1Gi 2026-08-06: pod was OOMKilled and recreated 2026-08-04;
               # 512Mi leaves no headroom for TimescaleDB aggregate refreshes. ContainerOOMKilled
               # (observability/container-oomkill) now pages if it ever hits the new ceiling.
-              memory: 1Gi
+              # 2026-09-23: 1Gi -> 1280Mi. Working set peaked at 1013Mi (7d max), 99% of the
+              # old ceiling; limit kept >= 1.5x the request.
+              memory: 1280Mi
   volumeClaimTemplates:
     - metadata:
         name: pgdata
