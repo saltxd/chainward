@@ -24,6 +24,36 @@ spec:
       template:
         spec:
           restartPolicy: Never
+          # kube-router admits a new pod's IP into NetworkPolicy ipsets ~0.3-3 s after the pod
+          # gets it. This init container (same pod IP) absorbs that window so the main container's
+          # first connection is not refused. Always exits 0: a real outage is left to the main
+          # container to report. See homelab-k3s docs/networkpolicy-map-2026-09-22.md.
+          initContainers:
+            - name: wait-for-deps
+              image: busybox:1.36
+              command: ["sh", "-c"]
+              args:
+                - 'end=$(( $(date +%s) + 60 )); n=0; until nc -z -w1 "$WAIT_HOST" "$WAIT_PORT"; do n=$((n+1)); if [ "$(date +%s)" -ge "$end" ]; then echo "wait-for-deps: $WAIT_HOST:$WAIT_PORT unreachable after 60s ($n tries), starting anyway"; exit 0; fi; sleep 1; done; echo "wait-for-deps: $WAIT_HOST:$WAIT_PORT reachable after $n failed tries"'
+              env:
+                - name: WAIT_HOST
+                  value: postgres
+                - name: WAIT_PORT
+                  value: "5432"
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 65534
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  cpu: 50m
+                  memory: 32Mi
           containers:
             - name: prober
               image: postgres:16-alpine
