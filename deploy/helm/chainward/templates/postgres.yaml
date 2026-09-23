@@ -77,7 +77,9 @@ spec:
               # 4-vCPU control-plane node alongside other DBs → NodeSystemSaturation
               # (runbook #256, sg-k3s-control). A realistic request lets the scheduler
               # reserve headroom and spread the heavy DBs across nodes.
-              cpu: 300m
+              # 2026-09-23: 300m -> 250m to match live (live had drifted to 100m; 7d usage
+              # p50 105m, p95 119m, p99 228m, max 368m).
+              cpu: 250m
               # 2026-09-23: 256Mi -> 768Mi to match live (7d p95 691Mi, p99 874Mi). Live had
               # already been hand-patched to 768Mi on 2026-09-21.
               memory: 768Mi
