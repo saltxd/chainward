@@ -83,24 +83,38 @@ export default function RequestBriefPage() {
     loadMyOrders();
   }, [loadMyOrders]);
 
-  async function handleSignIn() {
-    if (!address || !chainId) return;
+  async function handleSignIn(): Promise<boolean> {
+    if (!address || !chainId) return false;
     setSignError('');
     setSigning(true);
     try {
       await siweSignIn(address, chainId, signMessageAsync);
       await refetchSession();
       track('brief_signin_ok');
+      return true;
     } catch (err) {
       setSignError(err instanceof Error ? err.message : 'Sign in failed');
+      return false;
     } finally {
       setSigning(false);
     }
   }
 
-  async function handleCreateOrder(e: React.FormEvent) {
+  // The form comes first; wallet connect + sign-in happen on submit, so a buyer
+  // sees exactly what they're ordering before we ask for a wallet.
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.target.trim() || !form.contact.trim()) return;
+    if (!isConnected) {
+      track('brief_connect_click');
+      openConnectModal?.();
+      return;
+    }
+    if (!user && !(await handleSignIn())) return;
+    await handleCreateOrder();
+  }
+
+  async function handleCreateOrder() {
     setCreateError('');
     setCreating(true);
     try {
@@ -176,47 +190,10 @@ export default function RequestBriefPage() {
               </div>
             )}
 
-            {/* 1 — connect */}
-            {!isConnected && (
-              <>
-                <div className="brf-step">Step 1 — connect your wallet</div>
-                <button
-                  className="press-btn press-btn--full"
-                  onClick={() => {
-                    track('brief_connect_click');
-                    openConnectModal?.();
-                  }}
-                >
-                  Connect wallet →
-                </button>
-              </>
-            )}
-
-            {/* 2 — sign in */}
-            {isConnected && !user && (
-              <>
-                <div className="brf-step">
-                  Step 2 — sign in as{' '}
-                  <span className="mono" style={{ color: 'var(--oxblood)' }}>
-                    {address && shortAddr(address)}
-                  </span>
-                </div>
-                {signError && <div className="brf-error">Error: {signError}</div>}
-                <button
-                  className="press-btn press-btn--full"
-                  onClick={handleSignIn}
-                  disabled={signing}
-                >
-                  {signing ? 'Signing…' : 'Sign in with Ethereum →'}
-                </button>
-                <p className="brf-hint">One signature, no gas. Proves you own the wallet.</p>
-              </>
-            )}
-
-            {/* 3 — request form */}
-            {user && !order && (
-              <form className="brf-form" onSubmit={handleCreateOrder}>
-                <div className="brf-step">Step 3 — what should we decode?</div>
+            {/* 1 — request form (wallet + sign-in happen on submit) */}
+            {!order && (
+              <form className="brf-form" onSubmit={handleSubmit}>
+                <div className="brf-step">Step 1 — what should we decode?</div>
                 <label>
                   <span>Target — address or handle</span>
                   <input
@@ -281,16 +258,28 @@ export default function RequestBriefPage() {
                     rows={3}
                   />
                 </label>
+                {signError && <div className="brf-error">Error: {signError}</div>}
                 {createError && <div className="brf-error">Error: {createError}</div>}
                 <button
                   className="press-btn press-btn--full"
                   type="submit"
-                  disabled={creating || paymentsUnavailable}
+                  disabled={creating || signing || paymentsUnavailable}
                 >
-                  {creating
-                    ? 'Creating order…'
-                    : `Continue to payment${priceUsdc != null ? ` — ${priceUsdc} USDC` : ''} →`}
+                  {signing
+                    ? 'Signing…'
+                    : creating
+                      ? 'Creating order…'
+                      : !isConnected
+                        ? 'Connect wallet to continue →'
+                        : !user
+                          ? 'Sign in & continue →'
+                          : `Continue to payment${priceUsdc != null ? ` — ${priceUsdc} USDC` : ''} →`}
                 </button>
+                <p className="brf-hint">
+                  {!user
+                    ? 'You pay in USDC on Base from your own wallet. Signing in is one free signature, no gas.'
+                    : <>Signed in as <span className="mono">{address && shortAddr(address)}</span>.</>}
+                </p>
               </form>
             )}
 
@@ -298,7 +287,7 @@ export default function RequestBriefPage() {
             {user && order && !paid && (
               <div className="brf-pay">
                 <div className="brf-step">
-                  Step 4 — pay {order.amountUsdc / 1e6} USDC to confirm
+                  Step 2 — pay {order.amountUsdc / 1e6} USDC to confirm
                 </div>
                 <div className="brf-summary">
                   <div>
