@@ -20,6 +20,7 @@ export function Colophon() {
           <Link href="/request-brief">Brief</Link>
           <Link href="/base">Observatory</Link>
           <Link href="/mcp">MCP</Link>
+          <Link href="/attest">Attest</Link>
           <Link href="/docs">Docs</Link>
           <a href="https://x.com/chainwardai" target="_blank" rel="noopener noreferrer">
             X

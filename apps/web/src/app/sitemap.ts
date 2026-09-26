@@ -23,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE}/hyperliquid`, changeFrequency: 'hourly', priority: 0.9 },
     { url: `${SITE}/decodes`, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE}/mcp`, changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${SITE}/attest`, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE}/docs/api`, changeFrequency: 'monthly', priority: 0.5 },
   ];
 

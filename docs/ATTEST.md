@@ -12,6 +12,7 @@ It is never a safety verdict. Every attestation carries that caveat in its own `
 | SchemaRegistry | `0x4200000000000000000000000000000000000020` |
 | Schema UID | `0x09573690adba41164227b57600aa02061b0ce79dc0655e4c8b36bfe95bb41552` |
 | Resolver / revocable | none / yes |
+| **Attester** | **`0x5edc6276B89CC185aC8D6A7eCfdE076e1ACf50DF`** — the schema is public, so only trust attestations from this address |
 | Recipient | the assessed address |
 | refUID | ChainWard's previous attestation for the same address (lineage), else `0x0` |
 
@@ -31,6 +32,7 @@ string band,string[] flagIds,uint8 highCount,uint8 mediumCount,uint8 lowCount,ui
 - **API:** `GET https://api.chainward.ai/api/risk/attestation/<address>` returns the latest attestation (uid, tx, explorer link) plus `canonical_json` and `report_hash`. 404 if the address has never been attested.
 - **EAS explorer / GraphQL:** `https://base.easscan.org` — filter by schema UID and recipient.
 - **MCP:** the `check_counterparty` tool in [`chainward-mcp-server`](../packages/mcp-server).
+- **Example agent:** [`examples/check-counterparty.ts`](../examples/check-counterparty.ts) finds the latest ChainWard attestation for an address, re-reads it from the EAS contract, verifies the report hash, and applies a sample payment policy (`npx tsx examples/check-counterparty.ts 0x…`).
 
 ## Verifying a report
 
