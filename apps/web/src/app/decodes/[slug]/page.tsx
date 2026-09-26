@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const ogImageUrl = resolveOgImageUrl(slug);
 
   return {
-    title: meta.title,
+    title: meta.seoTitle ?? meta.title,
     description: meta.subtitle,
     alternates: { canonical: `https://chainward.ai/decodes/${slug}` },
     openGraph: {

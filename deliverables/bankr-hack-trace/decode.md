@@ -3,6 +3,7 @@ title: "Bankr's 14-Wallet Hack: Decoded On-Chain"
 subtitle: "Two AI-mediated drains in 15 days, same root cause, no smart contract bug — when the 'wallet' is actually a service, social engineering the service drains every wallet at once."
 date: "2026-05-21"
 slug: "bankr-hack-trace"
+seoTitle: "Bankr Hack Explained: How 14 Wallets Were Drained, Traced On-Chain"
 ---
 
 # Bankr's 14-Wallet Hack: Decoded On-Chain

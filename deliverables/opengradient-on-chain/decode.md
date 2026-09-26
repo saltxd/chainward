@@ -3,6 +3,7 @@ title: "OpenGradient On-Chain Decode"
 subtitle: "$285M trending market cap, 12 days since launch, zero ACP jobs — where does the valuation come from?"
 date: "2026-05-03"
 slug: "opengradient-on-chain"
+seoTitle: "OpenGradient ($OPG) On-Chain: $285M Market Cap, Thin Liquidity, Zero ACP Jobs"
 ---
 
 ## TLDR

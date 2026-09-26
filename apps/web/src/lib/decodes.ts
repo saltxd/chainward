@@ -8,6 +8,9 @@ export interface DecodeMeta {
   date: string;
   slug: string;
   draft?: boolean;
+  /** Optional search-result title, written for what people actually search; the
+   * article headline and social cards keep `title`. */
+  seoTitle?: string;
 }
 
 export interface DecodeContent {
@@ -72,6 +75,7 @@ export function getDecodeBySlug(slug: string): DecodeContent | null {
           subtitle: data.subtitle ?? '',
           date: data.date,
           slug: data.slug,
+          seoTitle: data.seoTitle,
         },
         content,
       };
