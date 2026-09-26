@@ -297,6 +297,16 @@ body:has(.press) {
     font-size: 22px;
   }
 }
+/* Phones: the sign-in link pushed the nav past a 390px viewport and the whole
+   page scrolled sideways. Checkout signs in on /request-brief itself. */
+@media (max-width: 480px) {
+  .ph-nav {
+    gap: 14px;
+  }
+  .ph-nav a.ph-nav-signin {
+    display: none;
+  }
+}
 
 /* ── Dateline (live wire from our own node) ────────────────────────────── */
 .ph-dateline {

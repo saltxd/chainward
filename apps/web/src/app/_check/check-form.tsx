@@ -52,7 +52,7 @@ export function CheckForm() {
 
       <div className="intake-body">
         <label className="intake-field-label" htmlFor="intake-subject">
-          Subject — Base address or @handle
+          Subject — Base address
         </label>
         <div className="intake-field">
           <input
@@ -63,7 +63,7 @@ export function CheckForm() {
               setInput(e.target.value);
               if (error) setError('');
             }}
-            placeholder="0x… or @agent"
+            placeholder="0x…"
             spellCheck={false}
             autoComplete="off"
             autoCapitalize="off"

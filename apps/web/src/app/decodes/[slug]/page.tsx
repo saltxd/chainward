@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { PressShell, Masthead, PressDateline, Colophon, BriefCtaLink } from '@/components/press';
+import { PressShell, Masthead, PressDateline, Colophon, BriefOffer } from '@/components/press';
 import { getAllDecodes, getDecodeBySlug } from '@/lib/decodes';
 
 // Some scrapers (notably X/Twitter) reliably fetch static OG assets but
@@ -115,13 +115,19 @@ export default async function DecodePage({ params }: PageProps) {
             </div>
           </div>
 
+          {/* The reader who finished a decode is the warmest lead we get. */}
+          <div className="da-offer press-measure">
+            <BriefOffer
+              placement="decode-document"
+              title="Want this run on a wallet you care about?"
+              lede="This decode is what the engine produces in public. The Intel Brief points the same investigation at a wallet you choose: we trace the fund flows, test the public claims against the chain, and hand you a written brief you can cite."
+            />
+          </div>
+
           <footer className="da-footer press-measure">
             <Link href="/decodes" className="press-link">
               ← All decodes
             </Link>
-            <BriefCtaLink placement="decode-footer" className="press-link">
-              Commission a brief →
-            </BriefCtaLink>
           </footer>
         </article>
 
@@ -161,8 +167,11 @@ export default async function DecodePage({ params }: PageProps) {
           text-transform: uppercase;
           color: var(--ink-faint);
         }
+        .da-offer {
+          margin-top: 56px;
+        }
         .da-footer {
-          margin-top: 52px;
+          margin-top: 40px;
           padding-top: 22px;
           border-top: 1px solid var(--rule);
           display: flex;

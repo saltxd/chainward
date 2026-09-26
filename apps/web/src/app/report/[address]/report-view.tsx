@@ -517,7 +517,7 @@ function FullReport({
 
       {/* The single, serious upsell — a document artifact, not a pricing card. */}
       <div className="rr-block">
-        <BriefOffer variant="document" />
+        <BriefOffer placement="report-document" />
       </div>
 
       <div className="rr-block">

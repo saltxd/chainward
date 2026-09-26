@@ -6,14 +6,21 @@ import { BriefCtaLink } from './BriefCtaLink';
 import { NodeClaim } from './NodeClaim';
 
 /**
- * The paid-brief offer. Price is ALWAYS runtime config (GET /api/brief/config),
- * never hardcoded — falls back to price-agnostic copy when config is
- * unavailable. Two forms:
- *   line     — a quiet-confidence offer line (landing, right after the hero)
- *   document — a serious product offer styled as a case-file artifact (the
- *              single upsell on a free report)
+ * The paid-brief offer, styled as a case-file artifact. Price is ALWAYS runtime
+ * config (GET /api/brief/config), never hardcoded — falls back to price-agnostic
+ * copy when config is unavailable. Each page frames it for its own reader
+ * (a free report, a finished decode, the landing page) via `title`/`lede`, and
+ * `placement` tags the CTA click in analytics.
  */
-export function BriefOffer({ variant }: { variant: 'line' | 'document' }) {
+export function BriefOffer({
+  placement,
+  title = 'Want the whole file, not just the flags?',
+  lede = 'A free report lists the signals. The Intel Brief is the full investigation: we trace the fund flows, test every public claim against on-chain evidence, and hand you a written brief you can cite.',
+}: {
+  placement: string;
+  title?: string;
+  lede?: string;
+}) {
   const [config, setConfig] = useState<BriefConfig | null>(null);
 
   useEffect(() => {
@@ -28,70 +35,14 @@ export function BriefOffer({ variant }: { variant: 'line' | 'document' }) {
       ? `${config.priceUsdc} USDC`
       : 'priced in USDC on Base';
 
-  if (variant === 'line') {
-    return (
-      <div className="brief-line">
-        <span className="brief-line-mark press-label--ox">Commissioned decode</span>
-        <p className="brief-line-copy">
-          Point us at any Base wallet and we file the full forensic{' '}
-          <span className="brief-line-em">Intel Brief</span> — fund-flow trace,
-          claim-vs-reality, every flag sourced to the chain, delivered privately
-          within 48 hours, or as a public thread if you prefer.{' '}
-          <span className="mono">{priceLabel}</span>.
-        </p>
-        <BriefCtaLink placement="landing-line" className="press-link brief-line-cta">
-          Request a brief →
-        </BriefCtaLink>
-
-        <style>{`
-          .brief-line {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            padding: 22px 0;
-          }
-          .brief-line-mark {
-            font-family: var(--font-mono), ui-monospace, monospace;
-            font-size: 11px;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-          }
-          .brief-line-copy {
-            margin: 0;
-            font-family: var(--font-text);
-            font-size: 19px;
-            line-height: 1.5;
-            color: var(--ink);
-            max-width: 720px;
-          }
-          .brief-line-em {
-            font-family: var(--font-display), Georgia, serif;
-            font-style: italic;
-            font-variation-settings: "opsz" 40, "SOFT" 40;
-          }
-          .brief-line-cta {
-            align-self: flex-start;
-            font-size: 13px;
-          }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
     <aside className="brief-doc" aria-label="Intel Brief offer">
       <div className="brief-doc-head">
-        <span className="press-label">Intel Brief · commissioned decode</span>
+        <span className="press-label">Intel Brief · one wallet, fully decoded</span>
         <span className="brief-doc-price mono">{priceLabel}</span>
       </div>
-      <h3 className="brief-doc-title press-display">
-        Want the whole file, not just the flags?
-      </h3>
-      <p className="brief-doc-lede">
-        A free report lists the signals. The Intel Brief is the full
-        investigation: we trace the fund flows, test every public claim against
-        on-chain evidence, and hand you a written brief you can cite.
-      </p>
+      <h3 className="brief-doc-title press-display">{title}</h3>
+      <p className="brief-doc-lede">{lede}</p>
       <ul className="brief-doc-list">
         <li>
           Full forensic decode, read from{' '}
@@ -102,7 +53,7 @@ export function BriefOffer({ variant }: { variant: 'line' | 'document' }) {
         <li>Delivered privately within 48h — or as a public @chainwardai thread, if you prefer</li>
       </ul>
       <div className="brief-doc-foot">
-        <BriefCtaLink placement="report-document" className="press-btn">
+        <BriefCtaLink placement={placement} className="press-btn">
           Commission the brief →
         </BriefCtaLink>
         <span className="brief-doc-fine">

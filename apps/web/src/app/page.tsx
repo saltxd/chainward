@@ -26,7 +26,7 @@ const jsonLd = {
   applicationCategory: 'SecurityApplication',
   operatingSystem: 'Web',
   description:
-    'Paste a Base address or agent handle and get a forensic on-chain risk report — risk flags from on-chain behavior, with evidence. Free, public, and never a safety verdict.',
+    'Paste any Base address and get a forensic on-chain risk report — risk flags from on-chain behavior, with evidence. Free, public, and never a safety verdict.',
   url: 'https://chainward.ai',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   publisher: {
@@ -84,7 +84,7 @@ export default function CheckHomePage() {
             </h1>
             <p className="home-kicker press-kicker">Flags, not promises.</p>
             <p className="home-lede">
-              Paste a Base address or agent handle. In about a minute you get every{' '}
+              Paste any Base address. In about a minute you get every{' '}
               <strong>risk flag</strong> we can prove on-chain: dormant wallets, USDC
               stranded in them, transfers concentrated among a few counterparties,
               factory-clone contracts, online claims the chain doesn&apos;t back. Each
@@ -129,8 +129,14 @@ export default function CheckHomePage() {
 
         <hr className="press-rule" />
 
-        {/* Quiet paid-brief offer, immediately after the hero */}
-        <BriefOffer variant="line" />
+        {/* The paid brief, right after the free checks it upgrades */}
+        <div className="home-offer">
+          <BriefOffer
+            placement="landing-document"
+            title="Need more than a list of flags?"
+            lede="Every check above is free. The Intel Brief is the full investigation on one wallet: we trace where the money goes, test every public claim against on-chain evidence, and hand you a written brief you can cite."
+          />
+        </div>
 
         <hr className="press-rule" />
 
@@ -298,6 +304,9 @@ export default function CheckHomePage() {
         .home-h2 {
           font-size: clamp(24px, 3.4vw, 34px);
           margin: 0;
+        }
+        .home-offer {
+          padding: 36px 0;
         }
         .home-policy, .home-casebook {
           padding: 44px 0;

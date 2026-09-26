@@ -13,6 +13,9 @@ import { Masthead, PressDateline, Colophon, NodeClaim } from '@/components/press
 import { PayButton } from '@/components/payment/pay-button';
 import { useToast } from '@/components/ui/toast';
 
+// A real Intel Brief delivered as a public @chainwardai thread (2026-06-16).
+const SAMPLE_BRIEF_URL = 'https://x.com/chainwardai/status/2066738827100622921';
+
 const WHAT_YOU_GET: ReactNode[] = [
   <>
     Full on-chain forensic decode, read from{' '}
@@ -127,7 +130,7 @@ export default function RequestBriefPage() {
         <Masthead />
 
         <section className="brf-lead">
-          <span className="press-label">Intel Brief · commissioned decode</span>
+          <span className="press-label">Intel Brief · one wallet, fully decoded</span>
           <h1 className="brf-title press-display">Order a forensic decode.</h1>
           <p className="brf-lede">
             Point us at any Base agent or wallet. We run the full on-chain
@@ -140,7 +143,7 @@ export default function RequestBriefPage() {
           {/* The offer — a case-file artifact */}
           <aside className="brf-offer">
             <div className="brf-offer-head">
-              <span className="press-label">The commission</span>
+              <span className="press-label">The brief</span>
               <span className="brf-offer-price mono">{priceLabel}</span>
             </div>
             <p className="brf-offer-terms mono">One-time · on Base · delivered within 48h</p>
@@ -154,6 +157,14 @@ export default function RequestBriefPage() {
               <Link href="/decodes" className="press-link">decodes</Link>. Your
               request stays private.
             </p>
+            <a
+              href={SAMPLE_BRIEF_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="press-link brf-offer-sample"
+            >
+              See a delivered brief →
+            </a>
           </aside>
 
           {/* The action */}
@@ -358,18 +369,34 @@ export default function RequestBriefPage() {
           </div>
         </div>
 
-        {/* Secondary tier — text, not a checkout */}
-        <section className="brf-bespoke">
-          <div className="brf-bespoke-mark press-label--ox">Commissioned investigation</div>
+        {/* Secondary tier — scoped by hand, not a checkout */}
+        <section className="brf-bespoke" aria-label="Commissioned investigation">
+          <div className="brf-bespoke-head">
+            <span className="press-label--ox brf-bespoke-mark">Commissioned investigation</span>
+            <span className="brf-bespoke-price mono">from 250 USDC</span>
+          </div>
+          <h2 className="brf-bespoke-title press-display">
+            More than one wallet? We&apos;ll run the whole case.
+          </h2>
           <p className="brf-bespoke-copy">
-            Need more than a single wallet? A bespoke deep-dive decode — multi-wallet
-            fund-flow reconstruction, a full published investigation — starts at{' '}
-            <span className="mono">250 USDC</span>. DM{' '}
-            <a href="https://x.com/chainwardai" target="_blank" rel="noopener noreferrer" className="press-link">
-              @chainwardai
-            </a>{' '}
-            on X to scope one.
+            For teams, funds, and launchpads doing diligence on an agent or a
+            project: multi-wallet fund-flow reconstruction, claims checked
+            against the chain, and a full written investigation, published or
+            kept private.
           </p>
+          <div className="brf-bespoke-foot">
+            <a
+              href="https://x.com/chainwardai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="press-btn press-btn--ghost"
+            >
+              Scope it with @chainwardai on X →
+            </a>
+            <Link href="/decodes" className="press-link">
+              Read the published investigations
+            </Link>
+          </div>
         </section>
 
         {/* My requests */}
@@ -509,14 +536,23 @@ export default function RequestBriefPage() {
         .brf-done p { margin: 0; font-family: var(--font-text); font-size: 16px; color: var(--ink-soft); line-height: 1.55; }
         .brf-done strong { color: var(--ink); }
 
+        .brf-offer-sample { display: inline-block; margin-top: 10px; font-size: 12px; }
         .brf-bespoke {
-          margin-top: 40px; padding: 26px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+          margin-top: 40px; padding: 26px 28px; border: 1px solid var(--rule-strong);
+          border-top: 3px double var(--rule-strong); background: var(--paper);
+        }
+        .brf-bespoke-head {
+          display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+          padding-bottom: 12px; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
         }
         .brf-bespoke-mark { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
+        .brf-bespoke-price { font-size: 13px; color: var(--ink); }
+        .brf-bespoke-title { margin: 18px 0 0; font-size: clamp(22px, 3vw, 30px); }
         .brf-bespoke-copy {
-          margin: 10px 0 0; font-family: var(--font-text); font-size: 18px; line-height: 1.55;
-          color: var(--ink); max-width: 720px;
+          margin: 10px 0 0; font-family: var(--font-text); font-size: 17px; line-height: 1.55;
+          color: var(--ink-soft); max-width: 680px;
         }
+        .brf-bespoke-foot { margin-top: 22px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
 
         .brf-orders { margin-top: 40px; border: 1px solid var(--rule-strong); }
         .brf-orders-head { padding: 12px 16px; border-bottom: 1px solid var(--rule); }
