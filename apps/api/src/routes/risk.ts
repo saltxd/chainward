@@ -3,7 +3,15 @@ import { z } from 'zod';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { formatEther, formatUnits } from 'viem';
 import { riskReports } from '@chainward/db';
-import { CLASSIFIER_VERSION, type RiskAssessment } from '@chainward/decode';
+import {
+  ATTEST_SCHEMA_UID,
+  CLASSIFIER_VERSION,
+  canonicalReportJson,
+  easScanUrl,
+  reportHash,
+  reportUri,
+  type RiskAssessment,
+} from '@chainward/decode';
 import { KNOWN_CONTRACTS } from '@chainward/common';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -86,6 +94,16 @@ interface ReportPayload {
   classifier_version: string;
   view_count: number;
   disclaimer: string;
+  /** Present once the report is published on Base as an EAS attestation. */
+  attestation?: AttestationInfo;
+}
+
+interface AttestationInfo {
+  uid: string;
+  tx: string | null;
+  attested_at: string | null;
+  schema_uid: string;
+  explorer_url: string;
 }
 
 interface TeaserPayload {
@@ -152,6 +170,17 @@ function rowToReport(row: RiskReportRow): ReportPayload {
     classifier_version: row.classifierVersion,
     view_count: row.viewCount,
     disclaimer: DISCLAIMER,
+    ...(row.attestationUid ? { attestation: attestationInfo(row) } : {}),
+  };
+}
+
+function attestationInfo(row: RiskReportRow): AttestationInfo {
+  return {
+    uid: row.attestationUid!,
+    tx: row.attestationTx,
+    attested_at: row.attestedAt ? new Date(row.attestedAt).toISOString() : null,
+    schema_uid: ATTEST_SCHEMA_UID,
+    explorer_url: easScanUrl(row.attestationUid!),
   };
 }
 
@@ -502,6 +531,60 @@ risk.get(
 
     const report = rowToReport({ ...cached, viewCount: cached.viewCount + 1 });
     return c.json({ success: true, data: { report } });
+  },
+);
+
+// GET /api/risk/attestation/:address — the latest EAS attestation ChainWard has
+// published on Base for this address, with the exact canonical JSON so anyone
+// can recompute reportHash. 404 if the address has never been attested.
+risk.get(
+  '/attestation/:address',
+  rateLimit({ max: 60, windowSec: 60, prefix: 'rl:risk-attestation' }),
+  async (c) => {
+    const parsed = addressSchema.safeParse(c.req.param('address'));
+    if (!parsed.success) {
+      throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
+    }
+    const address = parsed.data.toLowerCase();
+    const rows = await getDb()
+      .select()
+      .from(riskReports)
+      .where(
+        and(
+          sql`lower(${riskReports.walletAddress}) = ${address}`,
+          eq(riskReports.chain, CHAIN),
+          sql`${riskReports.attestationUid} IS NOT NULL`,
+        ),
+      )
+      .orderBy(desc(riskReports.attestedAt))
+      .limit(1);
+    const row = rows[0];
+    if (!row) {
+      throw new AppError(404, 'NOT_FOUND', 'No ChainWard attestation for this address');
+    }
+
+    const assessment = row.riskAssessment as RiskAssessment;
+    const attestable = {
+      address: row.walletAddress,
+      chain: row.chain,
+      asOfBlock: row.asOfBlock,
+      classifierVersion: row.classifierVersion,
+      assessment,
+    };
+    return c.json({
+      success: true,
+      data: {
+        address,
+        band: assessment.band,
+        flag_ids: assessment.flags.map((f) => f.id),
+        as_of_block: row.asOfBlock,
+        ...attestationInfo(row),
+        report_uri: reportUri(address),
+        report_hash: reportHash(attestable),
+        canonical_json: canonicalReportJson(attestable),
+        disclaimer: DISCLAIMER,
+      },
+    });
   },
 );
 

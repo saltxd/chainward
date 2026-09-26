@@ -15,6 +15,7 @@ import { createAcpWalletTracerWorker, setupAcpWalletTracerSchedule } from './wor
 import { createHealthScoreWorker, setupHealthScoreSchedule } from './workers/healthScore.js';
 import { createWebhookHealthWorker, setupWebhookHealthSchedule } from './workers/webhookHealth.js';
 import { createRiskCheckWorker } from './workers/riskCheck.js';
+import { createRiskAttestWorker, setupRiskAttestSchedule } from './workers/riskAttest.js';
 
 // Validate env on startup
 getEnv();
@@ -34,6 +35,7 @@ const acpTracer = createAcpWalletTracerWorker();
 const healthScore = createHealthScoreWorker();
 const webhookHealth = createWebhookHealthWorker();
 const riskCheck = createRiskCheckWorker();
+const riskAttest = createRiskAttestWorker();
 
 // Set up repeatable jobs
 const redis = getRedis();
@@ -46,6 +48,7 @@ await setupDigestSchedule(redis);
 await setupAcpWalletTracerSchedule(redis);
 await setupHealthScoreSchedule(redis);
 await setupWebhookHealthSchedule(redis);
+await setupRiskAttestSchedule(redis);
 
 // Observatory cache warmer — was previously in the api process but moved here
 // to keep the api event loop request-only. Runs every 5min and force-refreshes
@@ -89,6 +92,7 @@ async function shutdown(signal: string) {
     healthScore.close(),
     webhookHealth.close(),
     riskCheck.close(),
+    riskAttest.close(),
   ]);
   process.exit(0);
 }

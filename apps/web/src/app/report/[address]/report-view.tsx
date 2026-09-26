@@ -527,6 +527,20 @@ function FullReport({
           classifier v{report.classifier_version} · {report.view_count}{' '}
           {report.view_count === 1 ? 'view' : 'views'}
         </p>
+        {report.attestation && (
+          <p className="rr-classifier mono">
+            Attested on Base (EAS) ·{' '}
+            <a
+              href={report.attestation.explorer_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="press-link"
+            >
+              {report.attestation.uid.slice(0, 10)}…
+            </a>{' '}
+            · readable by any agent or contract
+          </p>
+        )}
       </div>
 
       <div className="rr-block">

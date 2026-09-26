@@ -477,6 +477,16 @@ export interface RiskReport {
   classifier_version: string;
   view_count: number;
   disclaimer: string;
+  /** Present once the report is published on Base as an EAS attestation. */
+  attestation?: RiskAttestation;
+}
+
+export interface RiskAttestation {
+  uid: string;
+  tx: string | null;
+  attested_at: string | null;
+  schema_uid: string;
+  explorer_url: string;
 }
 
 export interface RiskTeaser {

@@ -29,6 +29,11 @@ export const riskReports = pgTable(
     // publication / freshness
     isPublic: boolean('is_public').notNull().default(true),
     generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
+
+    // ChainWard Attest (migration 0019) — set once the report is on Base via EAS
+    attestationUid: text('attestation_uid'),
+    attestationTx: text('attestation_tx'),
+    attestedAt: timestamp('attested_at', { withTimezone: true }),
   },
   // NOTE: migrations/0016_risk_reports.sql is the AUTHORITATIVE DDL — the SQL
   // migration runner is the canonical deploy path (per CLAUDE.md). These Drizzle
@@ -50,5 +55,8 @@ export const riskReports = pgTable(
       .on(table.generatedAt.desc())
       .where(sql`${table.isPublic} = true`),
     index('idx_risk_reports_view_count').on(table.viewCount.desc()),
+    index('idx_risk_reports_unattested')
+      .on(table.generatedAt.desc())
+      .where(sql`${table.attestationUid} IS NULL AND ${table.isPublic} = true`),
   ],
 );

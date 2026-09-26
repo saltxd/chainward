@@ -47,6 +47,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.externalSecret }}
                   key: BASE_RPC_URL
+            # ChainWard Attest signer (workers/riskAttest.ts). Absent = attesting off.
+            - name: ATTEST_SIGNER_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: ATTEST_SIGNER_PRIVATE_KEY
+                  optional: true
             - name: BASE_RPC_FALLBACK_URL
               valueFrom:
                 secretKeyRef:

@@ -180,5 +180,32 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
     },
   );
 
+  // ── Tool: check_counterparty ────────────────────────────────────────────────
+  server.tool(
+    'check_counterparty',
+    "Before paying or trusting an address on Base, check what ChainWard's on-chain risk check says about it. Returns the neutral signal band and flag ids, plus the EAS attestation on Base (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain. Never a safety verdict: absence of flags is not a clearance. If the address has no report yet, say so and point to https://chainward.ai to run a free check.",
+    { wallet: walletSchema },
+    async ({ wallet }) => {
+      try {
+        const data = await client.get<unknown>(`/api/risk/attestation/${wallet}`);
+        return asTextContent(data);
+      } catch (err) {
+        if (!(err instanceof ChainWardApiError) || err.status !== 404) return asError(err);
+      }
+      // Not attested yet — fall back to the off-chain report if one exists.
+      try {
+        const data = await client.get<{ report: unknown }>(`/api/risk/report/${wallet}`);
+        return asTextContent({ attested_on_chain: false, ...data });
+      } catch (err) {
+        if (err instanceof ChainWardApiError && err.status === 404) {
+          return asTextContent(
+            `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public and is attested on Base shortly after.`,
+          );
+        }
+        return asError(err);
+      }
+    },
+  );
+
   return server;
 }

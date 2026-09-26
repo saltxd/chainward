@@ -143,7 +143,7 @@ const CHECK_TITLE = Object.fromEntries(RISK_CHECKS.map((c) => [c.id, c.title])) 
  * Populate via env (comma-separated) so deploys can extend it without a code
  * change. Kept as a hook rather than hardcoded node identities.
  */
-function loadAllowlist(): Set<string> {
+export function loadAllowlist(): Set<string> {
   const raw = process.env.RISK_SELF_FLAG_ALLOWLIST ?? '';
   return new Set(
     raw
