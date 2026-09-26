@@ -46,7 +46,33 @@ const READ_PATHS = [
   },
 ];
 
-export default function AttestPage() {
+/** Live count from the EAS indexer, so the page never claims more than the chain shows. */
+async function attestationCount(): Promise<number | null> {
+  try {
+    const res = await fetch('https://base.easscan.org/graphql', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        query: `query ($s: String!, $a: String!) {
+          aggregateAttestation(where: { schemaId: { equals: $s }, attester: { equals: $a }, revoked: { equals: false } }) {
+            _count { _all }
+          }
+        }`,
+        variables: { s: SCHEMA_UID, a: ATTESTER },
+      }),
+      next: { revalidate: 300 },
+    });
+    const json = (await res.json()) as { data?: { aggregateAttestation?: { _count?: { _all?: number } } } };
+    return json.data?.aggregateAttestation?._count?._all ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function AttestPage() {
+  const count = await attestationCount();
+  const live = count !== null && count > 0;
+
   return (
     <PressShell>
       <PressDateline />
@@ -68,6 +94,7 @@ export default function AttestPage() {
             counterparty, and verify it, without trusting our website.
           </p>
           <div className="att-meta">
+            {live && <span>{count.toLocaleString()} attestations on Base</span>}
             <span>open source · MIT</span>
             <span>free to read</span>
             <span>never a safety verdict</span>
@@ -176,8 +203,9 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
           <span className="press-label">Start here</span>
           <h2 className="att-h2 press-display">Every free check becomes an attestation.</h2>
           <p className="att-p">
-            Run a check on any Base address. If the report says something, it is
-            attested on Base within minutes.
+            {live
+              ? 'Run a check on any Base address. If the report says something, it is attested on Base within minutes.'
+              : 'The attester is launching now. Run a check on any Base address: if the report says something, it is attested on Base as soon as the attester is live.'}
           </p>
           <Link href="/" className="press-btn att-cta">
             Run a free risk check →
