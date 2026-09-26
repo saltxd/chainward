@@ -20,13 +20,14 @@ async function fetchAgent(slug: string) {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const agent = await fetchAgent(slug);
-  if (!agent) return { title: 'Agent not found — ChainWard' };
+  if (!agent) return { title: 'Agent not found' };
 
   const name = agent.agentName ?? slug;
   const score = agent.health?.score;
+  // The root layout's title template appends " | ChainWard".
   const title = score != null
-    ? `${name} — Health ${score}/100 — ChainWard`
-    : `${name} — On-chain activity — ChainWard`;
+    ? `${name} — AI agent on Base, health ${score}/100`
+    : `${name} — AI agent on Base, on-chain activity`;
   const description = agent.acp?.revenue
     ? `${name} on Base. Revenue $${Math.round(agent.acp.revenue).toLocaleString()}, ${agent.acp.jobs} jobs, ${score ?? '—'}/100 health.`
     : `${name} on Base. Live wallet activity, gas analytics, alerts.`;

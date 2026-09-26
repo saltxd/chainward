@@ -670,6 +670,26 @@ export class ObservatoryService {
     }, opts.force);
   }
 
+  // ── Sitemap: agent pages worth indexing ───────────────────────────────
+
+  /** Named observatory agents. Unnamed agents carry a placeholder
+   * `agent-<8 hex>` slug and a near-empty page, so they stay out. */
+  async getSitemapAgents(opts: { force?: boolean } = {}) {
+    return this.cached('obs:sitemap-agents', 3600, async () => {
+      const rows = await this.db.execute(sql`
+        SELECT slug, updated_at
+        FROM agent_registry
+        WHERE chain = 'base' AND is_observatory = true AND is_public = true
+          AND agent_name IS NOT NULL AND slug !~ '^agent-[0-9a-f]{8}$'
+        ORDER BY slug
+      `);
+      return (rows as unknown as Array<{ slug: string; updated_at: string | Date }>).map((r) => ({
+        slug: r.slug,
+        updatedAt: new Date(r.updated_at).toISOString(),
+      }));
+    }, opts.force);
+  }
+
   // ── Cache warmer entry point ──────────────────────────────────────────
 
   async refreshAll(): Promise<void> {

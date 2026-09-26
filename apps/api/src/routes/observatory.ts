@@ -195,6 +195,12 @@ observatory.get('/report', async (c) => {
   return c.json({ success: true, data });
 });
 
+// Slugs for the web sitemap — named agents only (see getSitemapAgents).
+observatory.get('/sitemap', async (c) => {
+  const data = await getService().getSitemapAgents();
+  return c.json({ success: true, data });
+});
+
 observatory.get('/agent/:slug', async (c) => {
   const slug = c.req.param('slug');
 
