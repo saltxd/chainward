@@ -204,8 +204,8 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
           <h2 className="att-h2 press-display">Every free check becomes an attestation.</h2>
           <p className="att-p">
             {live
-              ? 'Run a check on any Base address. If the report says something, it is attested on Base within minutes.'
-              : 'The attester is launching now. Run a check on any Base address: if the report says something, it is attested on Base as soon as the attester is live.'}
+              ? 'Run a check on any Base address. If the report flags observed behavior, it is attested on Base within minutes.'
+              : 'The attester is launching now. Run a check on any Base address: if the report flags observed behavior, it is attested on Base as soon as the attester is live.'}
           </p>
           <Link href="/" className="press-btn att-cta">
             Run a free risk check →

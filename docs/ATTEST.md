@@ -40,4 +40,16 @@ string band,string[] flagIds,uint8 highCount,uint8 mediumCount,uint8 lowCount,ui
 
 ## What gets attested
 
-The newest public report per address, when it says something (at least one flag, or a band other than `low-signal`). ChainWard never attests about its own wallets. An internal sort key used on the site is never published.
+The newest public report per address, when all of these hold:
+
+- it was filed in the last 7 days, behind the head-freshness guard (no report built on a stale chain head goes on-chain);
+- it carries at least one flag based on observed activity. `inactive_no_history` ("no non-spam ERC-20 transfers in ~30 days") and `activity_truncated` record missing data, not behavior: they fire on token contracts and on busy wallets that only move ETH, so they never go on-chain by themselves;
+- the address isn't one of ChainWard's own wallets.
+
+An internal sort key used on the site is never published.
+
+## Revocations
+
+Attestations are revocable, and ChainWard revokes its own when they no longer meet the rules above. On 2026-09-26 the first sweep had attested seven older reports (two about contracts, including USDC's, flagged only for missing transfers); those were revoked when the gate was tightened. Revoked attestations stay readable on EAS with `revoked: true`, so always filter on `revoked: false` (the example agent does).
+
+`asOfBlock` is the block the report was read at, not the time it was attested. Check it: `examples/check-counterparty.ts` treats a report older than 30 days as unknown.

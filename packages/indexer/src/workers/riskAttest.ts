@@ -12,6 +12,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { base } from 'viem/chains';
 import {
+  ATTEST_MAX_REPORT_AGE_MS,
   ATTEST_SCHEMA,
   ATTEST_SCHEMA_UID,
   EAS_ABI,
@@ -56,6 +57,8 @@ interface PendingReport {
   band: string;
   flag_count: number;
   risk_assessment: RiskAssessment;
+  generated_at: string;
+  head_stale: boolean | null;
 }
 
 function clients(key: Hex) {
@@ -206,24 +209,37 @@ export async function runAttestSweep(): Promise<Record<string, unknown>> {
   await ensureSchema(c);
   const reconciled = await reconcilePending(c);
 
-  // Newest public report per address, still unattested, non-thin.
+  // Newest public report per address, still unattested, with flags, inside the
+  // attest window. isAttestable applies the full gate.
   const rows = await getDb().execute(sql`
     SELECT * FROM (
       SELECT DISTINCT ON (lower(wallet_address))
         id, wallet_address, chain, as_of_block, classifier_version, band, flag_count,
-        risk_assessment, attestation_uid, attestation_tx, generated_at
+        risk_assessment, attestation_uid, attestation_tx, generated_at,
+        (report_data->'fetch_meta'->>'head_stale')::boolean AS head_stale
       FROM risk_reports
       WHERE is_public = true
       ORDER BY lower(wallet_address), generated_at DESC
     ) latest
-    WHERE attestation_uid IS NULL AND attestation_tx IS NULL AND (flag_count > 0 OR band <> 'low-signal')
+    WHERE attestation_uid IS NULL AND attestation_tx IS NULL AND flag_count > 0
+      AND generated_at > now() - make_interval(secs => ${ATTEST_MAX_REPORT_AGE_MS / 1000})
     ORDER BY generated_at DESC
     LIMIT ${BATCH * 4}
   `);
 
   const allowlist = loadAllowlist();
   const pending = (rows as unknown as PendingReport[])
-    .filter((r) => isAttestable({ address: r.wallet_address, flagCount: r.flag_count, band: r.band }, allowlist))
+    .filter((r) =>
+      isAttestable(
+        {
+          address: r.wallet_address,
+          flagIds: r.risk_assessment.flags.map((f) => f.id),
+          generatedAt: r.generated_at,
+          headStale: r.head_stale,
+        },
+        allowlist,
+      ),
+    )
     .slice(0, Math.min(BATCH, DAILY_CAP - used));
 
   let attested = 0;

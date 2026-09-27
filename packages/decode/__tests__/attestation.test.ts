@@ -104,18 +104,43 @@ describe('encodeAttestationData', () => {
 describe('isAttestable', () => {
   const allowlist = new Set(['0x7eae90d4aac511491694e2f1854db54f53d59e92']);
 
-  it('skips thin reports (no flags, low-signal)', () => {
-    expect(isAttestable({ address: '0xabc', flagCount: 0, band: 'low-signal' }, allowlist)).toBe(false);
+  const now = Date.parse('2026-09-26T12:00:00Z');
+  const fresh = { address: '0xabc', generatedAt: '2026-09-25T12:00:00Z', headStale: false };
+
+  it('keeps a recent, guarded report with an observed-behavior flag', () => {
+    expect(isAttestable({ ...fresh, flagIds: ['dormant_wallet'] }, allowlist, now)).toBe(true);
+    expect(isAttestable({ ...fresh, flagIds: ['factory_proxy_clone'] }, allowlist, now)).toBe(true);
+    expect(isAttestable({ ...fresh, flagIds: ['inactive_no_history', 'stranded_value'] }, allowlist, now)).toBe(true);
   });
 
-  it('keeps reports with flags or a non-low band', () => {
-    expect(isAttestable({ address: '0xabc', flagCount: 1, band: 'low-signal' }, allowlist)).toBe(true);
-    expect(isAttestable({ address: '0xabc', flagCount: 0, band: 'mixed' }, allowlist)).toBe(true);
+  it('skips reports with no flags', () => {
+    expect(isAttestable({ ...fresh, flagIds: [] }, allowlist, now)).toBe(false);
+  });
+
+  it('never attests absence-of-data flags on their own', () => {
+    expect(isAttestable({ ...fresh, flagIds: ['inactive_no_history'] }, allowlist, now)).toBe(false);
+    expect(isAttestable({ ...fresh, flagIds: ['inactive_no_history', 'activity_truncated'] }, allowlist, now)).toBe(false);
+  });
+
+  it('skips reports older than the attest window', () => {
+    expect(
+      isAttestable({ ...fresh, generatedAt: '2026-09-18T12:00:00Z', flagIds: ['dormant_wallet'] }, allowlist, now),
+    ).toBe(false);
+  });
+
+  it('skips reports built without the head-freshness guard or on a stale head', () => {
+    expect(isAttestable({ ...fresh, headStale: undefined, flagIds: ['dormant_wallet'] }, allowlist, now)).toBe(false);
+    expect(isAttestable({ ...fresh, headStale: null, flagIds: ['dormant_wallet'] }, allowlist, now)).toBe(false);
+    expect(isAttestable({ ...fresh, headStale: true, flagIds: ['dormant_wallet'] }, allowlist, now)).toBe(false);
   });
 
   it('never attests ChainWard-owned wallets', () => {
     expect(
-      isAttestable({ address: '0x7EAE90D4AAC511491694E2F1854DB54F53D59E92', flagCount: 3, band: 'elevated' }, allowlist),
+      isAttestable(
+        { ...fresh, address: '0x7EAE90D4AAC511491694E2F1854DB54F53D59E92', flagIds: ['dormant_wallet'] },
+        allowlist,
+        now,
+      ),
     ).toBe(false);
   });
 });

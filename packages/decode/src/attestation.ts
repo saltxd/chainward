@@ -8,7 +8,7 @@ import {
   zeroAddress,
   type Hex,
 } from 'viem';
-import type { RiskAssessment, RiskBand, RiskFlag } from './risk-flags.js';
+import type { RiskAssessment, RiskFlag } from './risk-flags.js';
 
 // ChainWard Attest — a risk report published as an EAS attestation on Base.
 // Shared by the indexer (writes attestations) and the api (serves the exact
@@ -118,12 +118,27 @@ export function encodeAttestationData(r: AttestableReport): Hex {
   ]);
 }
 
-/** Thin reports (no flags, low-signal) say nothing worth putting on-chain, and
- * ChainWard never attests about its own wallets. */
+/** Flags that record missing data, not observed behavior. "No non-spam ERC-20
+ * transfers in 30 days" fires on token contracts and on busy wallets that only
+ * move ETH, so it never goes on-chain by itself. */
+export const ABSENCE_FLAG_IDS: ReadonlySet<string> = new Set(['inactive_no_history', 'activity_truncated']);
+
+/** Only reports filed within this window are attested; older ones wait for a re-check. */
+export const ATTEST_MAX_REPORT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * A report goes on-chain only when it is recent, was built behind the
+ * head-freshness guard, and carries at least one flag based on observed
+ * activity. ChainWard never attests about its own wallets.
+ */
 export function isAttestable(
-  r: { address: string; flagCount: number; band: RiskBand | string },
+  r: { address: string; flagIds: readonly string[]; generatedAt: Date | string; headStale: boolean | null | undefined },
   selfAllowlist: Set<string>,
+  now: number = Date.now(),
 ): boolean {
   if (selfAllowlist.has(r.address.toLowerCase())) return false;
-  return r.flagCount > 0 || r.band !== 'low-signal';
+  // Reports filed before the freshness guard existed carry no head_stale at all.
+  if (r.headStale !== false) return false;
+  if (now - new Date(r.generatedAt).getTime() > ATTEST_MAX_REPORT_AGE_MS) return false;
+  return r.flagIds.some((id) => !ABSENCE_FLAG_IDS.has(id));
 }

@@ -24,6 +24,8 @@ const EAS = '0x4200000000000000000000000000000000000021';
 const SCHEMA_UID = '0x09573690adba41164227b57600aa02061b0ce79dc0655e4c8b36bfe95bb41552';
 // The schema is public — anyone can attest with it. Trust ChainWard's attester only.
 const CHAINWARD_ATTESTER = '0x5edc6276B89CC185aC8D6A7eCfdE076e1ACf50DF';
+// Base makes a block every 2 seconds; a report older than this is treated as unknown.
+const MAX_REPORT_AGE_BLOCKS = 30n * 43_200n;
 const SCHEMA =
   'string band,string[] flagIds,uint8 highCount,uint8 mediumCount,uint8 lowCount,uint8 infoCount,uint64 asOfBlock,string classifierVersion,string reportURI,bytes32 reportHash,string scope';
 
@@ -74,14 +76,18 @@ async function main(): Promise<void> {
   // Verify the full report (evidence + "not assessed" list) against the on-chain hash.
   const api = await fetch(`https://api.chainward.ai/api/risk/attestation/${target}`).then((r) => r.json());
   const verified = keccak256(toBytes(api.data.canonical_json)) === reportHash;
+  const ageBlocks = (await client.getBlockNumber()) - asOfBlock;
+  const ageDays = Number(ageBlocks / 43_200n);
 
-  console.log(`ChainWard on ${target} (as of block ${asOfBlock}):`);
+  console.log(`ChainWard on ${target} (as of block ${asOfBlock}, ${ageDays} day${ageDays === 1 ? '' : 's'} ago):`);
   console.log(`  band ${band} · flags ${flagIds.join(', ') || 'none'} · high ${high} / medium ${medium} / low ${low} / info ${info}`);
   console.log(`  report ${reportURI} · hash ${verified ? 'verified' : 'MISMATCH'}`);
   console.log(`  ${scope}`);
 
   // Example policy — yours to change. Flags describe behavior, not intent.
   if (!verified) console.log('Policy: hash mismatch → do not rely on this attestation.');
+  else if (ageBlocks > MAX_REPORT_AGE_BLOCKS)
+    console.log('Policy: report is over 30 days old → treat as unknown and re-check at https://chainward.ai');
   else if (high > 0) console.log('Policy: high-severity flag on record → hold the payment for review.');
   else console.log('Policy: no high-severity flags on record → proceed under your normal limits.');
 }
