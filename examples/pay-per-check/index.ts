@@ -23,7 +23,7 @@ async function main(): Promise<void> {
   const pay = wrapFetchWithPaymentFromConfig(fetch, {
     schemes: [{ network: 'eip155:8453', client: new ExactEvmScheme(privateKeyToAccount(key)) }],
   });
-  const res = await pay(`${API}/api/risk/x402/${target}`);
+  const res = await pay(`${API}/api/risk/x402?address=${target}`);
   const body = await res.json();
   if (res.status === 402) {
     // Payment was refused (e.g. invalid_exact_evm_insufficient_balance); the reason rides in the header.

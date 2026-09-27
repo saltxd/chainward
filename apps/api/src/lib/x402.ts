@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
-import { HTTPFacilitatorClient } from '@x402/core/server';
+import { HTTPFacilitatorClient, type RouteConfig } from '@x402/core/server';
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { logger } from './logger.js';
 
@@ -12,7 +12,8 @@ import { logger } from './logger.js';
 // client retries with an x402 payment header. Settlement happens only after the
 // handler succeeds, so a failed or timed-out check is never charged.
 
-export const X402_CHECK_ROUTE = 'GET /api/risk/x402/:address';
+// Same check, two shapes: ?address= for generic x402 clients, /:address for REST callers.
+export const X402_CHECK_ROUTES = ['GET /api/risk/x402', 'GET /api/risk/x402/:address'] as const;
 const BASE_MAINNET = 'eip155:8453';
 // PayAI settles Base-mainnet `exact` payments without an API key (free tier).
 const DEFAULT_FACILITATOR = 'https://facilitator.payai.network';
@@ -64,50 +65,63 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     .register(BASE_MAINNET, new ExactEvmScheme())
     .registerExtension(bazaarResourceServerExtension);
 
+  const example = '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2';
+  const addressSchema = {
+    type: 'object',
+    properties: {
+      address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', description: 'Base address to check' },
+    },
+    required: ['address'],
+  };
+  const route = (discovery: ReturnType<typeof declareDiscoveryExtension>): RouteConfig => ({
+    accepts: {
+      scheme: 'exact',
+      price: x402CheckPrice(),
+      network: BASE_MAINNET,
+      payTo,
+      maxTimeoutSeconds: 120,
+    },
+    serviceName: 'ChainWard counterparty check',
+    description:
+      'Fresh on-chain risk report for a Base address before you pay it: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Never a safety verdict.',
+    mimeType: 'application/json',
+    tags: ['base', 'risk', 'counterparty', 'agents', 'eas', 'attestation'],
+    // Bazaar discovery: facilitators catalog the endpoint from this after a settled payment.
+    extensions: discovery,
+    unpaidResponseBody: () => ({
+      contentType: 'application/json',
+      body: {
+        error: 'payment_required',
+        price: x402CheckPrice(),
+        network: 'base',
+        asset: 'USDC',
+        what_you_get:
+          'A risk report no older than 24h (a fresh check runs if needed), JSON. Not charged if the check fails.',
+        free_alternatives: {
+          latest_attestation: 'GET https://api.chainward.ai/api/risk/attestation/<address>',
+          web_check: 'https://chainward.ai',
+        },
+        docs: 'https://github.com/saltxd/chainward/blob/main/docs/ATTEST.md',
+      },
+    }),
+  });
+
   return paymentMiddleware(
     {
-      [X402_CHECK_ROUTE]: {
-        accepts: {
-          scheme: 'exact',
-          price: x402CheckPrice(),
-          network: BASE_MAINNET,
-          payTo,
-          maxTimeoutSeconds: 120,
-        },
-        serviceName: 'ChainWard counterparty check',
-        description:
-          'Fresh on-chain risk report for a Base address before you pay it: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Never a safety verdict.',
-        mimeType: 'application/json',
-        tags: ['base', 'risk', 'counterparty', 'agents', 'eas', 'attestation'],
-        // Bazaar discovery: facilitators catalog the endpoint from this after a settled payment.
-        extensions: declareDiscoveryExtension({
-          pathParams: { address: '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2' },
-          pathParamsSchema: {
-            type: 'object',
-            properties: {
-              address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', description: 'Base address to check' },
-            },
-            required: ['address'],
-          },
+      [X402_CHECK_ROUTES[0]]: route(
+        declareDiscoveryExtension({
+          input: { address: example },
+          inputSchema: addressSchema,
           output: { example: OUTPUT_EXAMPLE },
         }),
-        unpaidResponseBody: () => ({
-          contentType: 'application/json',
-          body: {
-            error: 'payment_required',
-            price: x402CheckPrice(),
-            network: 'base',
-            asset: 'USDC',
-            what_you_get:
-              'A risk report no older than 24h (a fresh check runs if needed), JSON. Not charged if the check fails.',
-            free_alternatives: {
-              latest_attestation: 'GET https://api.chainward.ai/api/risk/attestation/<address>',
-              web_check: 'https://chainward.ai',
-            },
-            docs: 'https://github.com/saltxd/chainward/blob/main/docs/ATTEST.md',
-          },
+      ),
+      [X402_CHECK_ROUTES[1]]: route(
+        declareDiscoveryExtension({
+          pathParams: { address: example },
+          pathParamsSchema: addressSchema,
+          output: { example: OUTPUT_EXAMPLE },
         }),
-      },
+      ),
     },
     server,
   );

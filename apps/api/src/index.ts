@@ -110,7 +110,10 @@ app.use('/api/observatory', async (c, next) => {
 
 // Paid counterparty check (x402). Must run before the /api/risk routes.
 const x402Check = x402CheckMiddleware();
-if (x402Check) app.use('/api/risk/x402/*', x402Check);
+if (x402Check) {
+  app.use('/api/risk/x402', x402Check);
+  app.use('/api/risk/x402/*', x402Check);
+}
 
 // Routes
 app.route('/api/health', health);
