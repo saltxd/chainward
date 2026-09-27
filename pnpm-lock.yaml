@@ -113,6 +113,9 @@ importers:
       '@x402/evm':
         specifier: 2.27.0
         version: 2.27.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+      '@x402/extensions':
+        specifier: 2.27.0
+        version: 2.27.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))(typescript@5.9.3)(utf-8-validate@6.0.6)
       '@x402/hono':
         specifier: 2.27.0
         version: 2.27.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))(hono@4.12.34)(typescript@5.9.3)(utf-8-validate@6.0.6)
