@@ -3,7 +3,8 @@
  * x402: 0.05 USDC on Base per check, no account or API key. The facilitator
  * pays the gas; the wallet only needs the USDC. Not charged if the check fails.
  *
- *   BUYER_PRIVATE_KEY=0x… npx tsx examples/pay-per-check.ts 0x…
+ *   cd examples/pay-per-check && npm install
+ *   BUYER_PRIVATE_KEY=0x… npx tsx index.ts 0x…
  *
  * Docs: docs/ATTEST.md#pay-per-check-x402
  */
@@ -24,6 +25,12 @@ async function main(): Promise<void> {
   });
   const res = await pay(`${API}/api/risk/x402/${target}`);
   const body = await res.json();
+  if (res.status === 402) {
+    // Payment was refused (e.g. invalid_exact_evm_insufficient_balance); the reason rides in the header.
+    const challenge = res.headers.get('payment-required');
+    const reason = challenge ? JSON.parse(Buffer.from(challenge, 'base64').toString()).error : 'unknown';
+    throw new Error(`payment not accepted: ${reason}`);
+  }
   if (!res.ok) throw new Error(`${res.status}: ${JSON.stringify(body)}`);
 
   const receipt = res.headers.get('payment-response');

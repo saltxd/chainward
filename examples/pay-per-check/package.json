@@ -1,0 +1,17 @@
+{
+  "name": "chainward-pay-per-check-example",
+  "private": true,
+  "type": "module",
+  "description": "Buy a fresh ChainWard risk report over x402 (0.05 USDC on Base).",
+  "scripts": {
+    "check": "tsx index.ts"
+  },
+  "dependencies": {
+    "@x402/evm": "2.27.0",
+    "@x402/fetch": "2.27.0",
+    "viem": "^2.47.6"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
+  }
+}

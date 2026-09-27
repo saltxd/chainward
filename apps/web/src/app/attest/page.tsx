@@ -175,8 +175,8 @@ export default async function AttestPage() {
             ))}
           </dl>
           <pre className="att-code mono">
-            <code>{`$ git clone https://github.com/saltxd/chainward
-$ npx tsx chainward/examples/check-counterparty.ts 0x…
+            <code>{`$ git clone https://github.com/saltxd/chainward && cd chainward && pnpm install
+$ npx tsx examples/check-counterparty.ts 0x…
 
 ChainWard on 0x… (as of block 51,799,275):
   band high-signal · flags dormant_wallet, stranded_value · high 1 / medium 1 / …
@@ -211,7 +211,8 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
             succeeds, so a failed check is never charged.
           </p>
           <pre className="att-code mono">
-            <code>{`$ BUYER_PRIVATE_KEY=0x… npx tsx chainward/examples/pay-per-check.ts 0x…`}</code>
+            <code>{`$ cd chainward/examples/pay-per-check && npm install
+$ BUYER_PRIVATE_KEY=0x… npx tsx index.ts 0x…`}</code>
           </pre>
         </section>
 
