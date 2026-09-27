@@ -588,6 +588,62 @@ risk.get(
   },
 );
 
+// GET /api/risk/x402/:address — the paid check (x402, USDC on Base; the payment
+// middleware in lib/x402.ts runs first). Answers with a report no older than the
+// TTL, running a fresh decode when needed. Any >= 400 response cancels
+// settlement, so a check that fails or times out is never charged.
+const PAID_WAIT_MS = parseInt(process.env.X402_CHECK_WAIT_MS ?? '55000', 10);
+
+risk.get(
+  '/x402/:address',
+  rateLimit({ max: 60, windowSec: 60, prefix: 'rl:risk-x402' }),
+  async (c) => {
+    const parsed = addressSchema.safeParse(c.req.param('address'));
+    if (!parsed.success) {
+      throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
+    }
+    const address = parsed.data.toLowerCase();
+
+    const cached = await latestReport(address);
+    if (cached && computeTtlState(cached) === 'fresh') {
+      return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
+    }
+
+    const history = await checkHistory(address);
+    if (history.transactions_count === 0 && history.token_transfers_count === 0) {
+      const lookup = await new WalletLookupService(getRedis()).lookup(address);
+      const active =
+        lookup.transactions.length > 0 || lookup.balances.some((b) => hexToNumber(b.tokenBalance) > 0n);
+      if (!active) {
+        return c.json({ success: true, data: { status: 'no_history', address, disclaimer: DISCLAIMER } });
+      }
+    }
+
+    const started = Date.now();
+    const { riskCheck } = getQueues();
+    const job = await riskCheck.add(
+      'risk-check',
+      { input: address, walletAddress: address, chain: CHAIN, forceRecheck: true },
+      { jobId: `risk-${address}-x402-${started}` },
+    );
+
+    while (Date.now() - started < PAID_WAIT_MS) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const state = await job.getState();
+      if (state === 'failed') break;
+      if (state === 'completed') {
+        const fresh = await latestReport(address);
+        if (fresh && new Date(fresh.generatedAt).getTime() >= started - 5_000) {
+          return c.json({ success: true, data: { status: 'ready', report: rowToReport(fresh) } });
+        }
+        break;
+      }
+    }
+    logger.warn({ address, jobId: job.id }, 'x402 check did not finish in time; not charged');
+    throw new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; retry shortly.');
+  },
+);
+
 // GET /api/risk/library?sort=recent&limit=&offset= — the public, SEO-indexed library.
 risk.get(
   '/library',

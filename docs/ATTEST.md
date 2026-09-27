@@ -34,6 +34,16 @@ string band,string[] flagIds,uint8 highCount,uint8 mediumCount,uint8 lowCount,ui
 - **MCP:** the `check_counterparty` tool in [`chainward-mcp-server`](../packages/mcp-server).
 - **Example agent:** [`examples/check-counterparty.ts`](../examples/check-counterparty.ts) finds the latest ChainWard attestation for an address, re-reads it from the EAS contract, verifies the report hash, and applies a sample payment policy (`npx tsx examples/check-counterparty.ts 0x…`).
 
+## Pay per check (x402)
+
+Need a report that isn't on-chain yet, or one fresher than the last attestation? `GET https://api.chainward.ai/api/risk/x402/<address>` answers with a report no older than 24 hours, running a fresh check when needed. It is paid per request over [x402](https://x402.org): **0.05 USDC on Base**, no account, no API key. The first request returns `402` with the payment requirements; an x402 client signs a USDC authorization and retries. Settlement runs through the PayAI facilitator, which pays the gas, and only after the check succeeds: a failed or timed-out check (`>= 400`) is never charged.
+
+```
+BUYER_PRIVATE_KEY=0x… npx tsx examples/pay-per-check.ts 0x…
+```
+
+The response is the same report the site shows (`band`, `flags` with evidence and sources, `not_assessed`, `freshness`, and `attestation` when one exists), or `status: "no_history"` for an address with no on-chain activity. Reports that flag observed behavior are attested on Base by the next sweep.
+
 ## Verifying a report
 
 `canonical_json` is `{address, as_of_block, band, chain, classifier_version, flags[{evidence,id,severity,source,title}], not_assessed}` with every object's keys sorted and the address lowercased. Hash its UTF-8 bytes with keccak256; the result must equal the attestation's `reportHash`. Implementation: [`packages/decode/src/attestation.ts`](../packages/decode/src/attestation.ts).

@@ -200,6 +200,24 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
         <hr className="press-rule" />
 
         <section className="att-section">
+          <span className="press-label">Pay per check</span>
+          <h2 className="att-h2 press-display">
+            Need it fresh? <em>Pay per call.</em>
+          </h2>
+          <p className="att-p">
+            <span className="mono">GET api.chainward.ai/api/risk/x402/&lt;address&gt;</span> returns a
+            report no older than 24 hours, running a new check when needed. It is paid over x402: 0.05
+            USDC on Base per call, no account, no API key. Settlement happens only after the check
+            succeeds, so a failed check is never charged.
+          </p>
+          <pre className="att-code mono">
+            <code>{`$ BUYER_PRIVATE_KEY=0x… npx tsx chainward/examples/pay-per-check.ts 0x…`}</code>
+          </pre>
+        </section>
+
+        <hr className="press-rule" />
+
+        <section className="att-section">
           <span className="press-label">Start here</span>
           <h2 className="att-h2 press-display">Every free check becomes an attestation.</h2>
           <p className="att-p">

@@ -27,6 +27,7 @@ import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
 import { getWebhookProvider } from './providers/index.js';
+import { x402CheckMiddleware } from './lib/x402.js';
 // Observatory cache warming has been removed from the API process to keep the
 // /api/livez event loop unconditionally responsive. The warmer ran every 5min
 // and did periodic CPU work (drizzle row materialization, JSON serialization)
@@ -106,6 +107,10 @@ app.use('/api/observatory', async (c, next) => {
     );
   }
 });
+
+// Paid counterparty check (x402). Must run before the /api/risk routes.
+const x402Check = x402CheckMiddleware();
+if (x402Check) app.use('/api/risk/x402/*', x402Check);
 
 // Routes
 app.route('/api/health', health);
