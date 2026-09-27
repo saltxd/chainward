@@ -63,3 +63,7 @@ deploy/helm/chainward/values.private.yaml
 # Ops snapshots (monitored-address dumps, etc.) — captured runtime state, not
 # source. The canonical copy lives in a k8s configmap.
 deploy/snapshots/
+
+# x402 decode research notes and scripts name internal hosts; keep local
+deliverables/x402-on-base/research.md
+deliverables/x402-on-base/scripts/
