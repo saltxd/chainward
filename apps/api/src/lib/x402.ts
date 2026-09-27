@@ -53,6 +53,24 @@ export function x402CheckPrice(): string {
   return process.env.X402_CHECK_PRICE ?? '$0.05';
 }
 
+/**
+ * /.well-known/x402 discovery document. `version` is what indexers such as
+ * x402scan read today; `x402Version` is the draft discovery spec's field. Each
+ * resource's 402 challenge stays authoritative for price and payTo.
+ */
+export function x402DiscoveryDocument() {
+  return {
+    version: 1,
+    x402Version: 2,
+    name: 'ChainWard',
+    description:
+      'On-chain risk reports for Base addresses: check a counterparty before you pay it. Never a safety verdict.',
+    contact: 'https://chainward.ai',
+    resources: ['https://api.chainward.ai/api/risk/x402'],
+    docs: 'https://github.com/saltxd/chainward/blob/main/docs/ATTEST.md',
+  };
+}
+
 /** Payment middleware for the paid check, or null when no receiving address is configured. */
 export function x402CheckMiddleware(): MiddlewareHandler | null {
   const payTo = process.env.X402_PAY_TO ?? process.env.TREASURY_WALLET_ADDRESS;
