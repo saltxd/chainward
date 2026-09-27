@@ -126,13 +126,17 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
 
   return paymentMiddleware(
     {
-      [X402_CHECK_ROUTES[0]]: route(
-        declareDiscoveryExtension({
-          input: { address: example },
-          inputSchema: addressSchema,
-          output: { example: OUTPUT_EXAMPLE },
-        }),
-      ),
+      [X402_CHECK_ROUTES[0]]: {
+        ...route(
+          declareDiscoveryExtension({
+            input: { address: example },
+            inputSchema: addressSchema,
+            output: { example: OUTPUT_EXAMPLE },
+          }),
+        ),
+        // TLS ends at the proxy, so the request URL reads http://; catalogs key on this.
+        resource: 'https://api.chainward.ai/api/risk/x402',
+      },
       [X402_CHECK_ROUTES[1]]: route(
         declareDiscoveryExtension({
           pathParams: { address: example },
