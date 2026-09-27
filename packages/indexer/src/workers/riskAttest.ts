@@ -41,6 +41,11 @@ const DAILY_CAP = parseInt(process.env.ATTEST_DAILY_CAP ?? '50', 10);
 // 0.0002 ETH — below this the run is skipped rather than failing mid-batch.
 const MIN_BALANCE_WEI = BigInt(process.env.ATTEST_MIN_BALANCE_WEI ?? '200000000000000');
 const RECEIPT_TIMEOUT_MS = 120_000;
+// A pending tx with no receipt after this long is assumed dropped and retried.
+const PENDING_RETRY_MS = 30 * 60_000;
+// Writes + receipts need an RPC that serves eth_getTransactionReceipt without a
+// token — the indexer's BASE_RPC_URL (publicnode) refuses them (403).
+const ATTEST_RPC_URL = process.env.ATTEST_RPC_URL ?? 'https://mainnet.base.org';
 
 interface PendingReport {
   id: string;
@@ -55,7 +60,7 @@ interface PendingReport {
 
 function clients(key: Hex) {
   const account = privateKeyToAccount(key);
-  const transport = http(process.env.BASE_RPC_URL, { timeout: 20_000 });
+  const transport = http(ATTEST_RPC_URL, { timeout: 20_000 });
   return {
     account,
     pub: createPublicClient({ chain: base, transport }),
@@ -127,17 +132,59 @@ async function attestOne(c: ReturnType<typeof clients>, r: PendingReport): Promi
     ],
   });
   const hash = await c.wallet.writeContract(request);
+  // Persist the pending tx before waiting: if the receipt wait fails, the next
+  // sweep reconciles this hash instead of sending a second attestation.
+  await getDb()
+    .update(riskReports)
+    .set({ attestationTx: hash, attestedAt: new Date() })
+    .where(eq(riskReports.id, r.id));
   const receipt = await c.pub.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
-  if (receipt.status !== 'success') throw new Error(`attest tx reverted: ${hash}`);
+  return finalize(r.id, hash, receipt);
+}
 
+async function finalize(
+  reportId: string,
+  hash: Hex,
+  receipt: Awaited<ReturnType<ReturnType<typeof clients>['pub']['getTransactionReceipt']>>,
+): Promise<Hex> {
+  if (receipt.status !== 'success') {
+    // Reverted: clear the pending hash so the report is retried.
+    await getDb().update(riskReports).set({ attestationTx: null, attestedAt: null }).where(eq(riskReports.id, reportId));
+    throw new Error(`attest tx reverted: ${hash}`);
+  }
   const [event] = parseEventLogs({ abi: EAS_ABI, eventName: 'Attested', logs: receipt.logs });
   if (!event) throw new Error(`no Attested event in ${hash}`);
-
   await getDb()
     .update(riskReports)
     .set({ attestationUid: event.args.uid, attestationTx: hash, attestedAt: new Date() })
-    .where(eq(riskReports.id, r.id));
+    .where(eq(riskReports.id, reportId));
   return event.args.uid;
+}
+
+/** Finish attestations whose tx was sent but whose receipt we never saw. */
+async function reconcilePending(c: ReturnType<typeof clients>): Promise<number> {
+  const rows = await getDb().execute(sql`
+    SELECT id, attestation_tx, attested_at FROM risk_reports
+    WHERE attestation_uid IS NULL AND attestation_tx IS NOT NULL
+  `);
+  let done = 0;
+  for (const row of rows as unknown as Array<{ id: string; attestation_tx: Hex; attested_at: string | null }>) {
+    try {
+      const receipt = await c.pub.getTransactionReceipt({ hash: row.attestation_tx });
+      await finalize(row.id, row.attestation_tx, receipt);
+      done++;
+    } catch (err) {
+      const age = row.attested_at ? Date.now() - new Date(row.attested_at).getTime() : Infinity;
+      const notFound = /could not be found|not found/i.test((err as Error).message ?? '');
+      if (notFound && age > PENDING_RETRY_MS) {
+        await getDb().update(riskReports).set({ attestationTx: null, attestedAt: null }).where(eq(riskReports.id, row.id));
+        logger.warn({ id: row.id, tx: row.attestation_tx }, 'riskAttest: pending tx never mined, will retry');
+      } else if (!notFound) {
+        logger.warn({ id: row.id, err: (err as Error).message?.slice(0, 200) }, 'riskAttest: reconcile failed');
+      }
+    }
+  }
+  return done;
 }
 
 export async function runAttestSweep(): Promise<Record<string, unknown>> {
@@ -157,18 +204,19 @@ export async function runAttestSweep(): Promise<Record<string, unknown>> {
   }
 
   await ensureSchema(c);
+  const reconciled = await reconcilePending(c);
 
   // Newest public report per address, still unattested, non-thin.
   const rows = await getDb().execute(sql`
     SELECT * FROM (
       SELECT DISTINCT ON (lower(wallet_address))
         id, wallet_address, chain, as_of_block, classifier_version, band, flag_count,
-        risk_assessment, attestation_uid, generated_at
+        risk_assessment, attestation_uid, attestation_tx, generated_at
       FROM risk_reports
       WHERE is_public = true
       ORDER BY lower(wallet_address), generated_at DESC
     ) latest
-    WHERE attestation_uid IS NULL AND (flag_count > 0 OR band <> 'low-signal')
+    WHERE attestation_uid IS NULL AND attestation_tx IS NULL AND (flag_count > 0 OR band <> 'low-signal')
     ORDER BY generated_at DESC
     LIMIT ${BATCH * 4}
   `);
@@ -191,7 +239,7 @@ export async function runAttestSweep(): Promise<Record<string, unknown>> {
       logger.error({ address: r.wallet_address, err: (err as Error).message?.slice(0, 300) }, 'riskAttest: attestation failed');
     }
   }
-  return { attested, candidates: pending.length };
+  return { attested, reconciled, candidates: pending.length };
 }
 
 // ─── Worker ───────────────────────────────────────────────────────────────────
