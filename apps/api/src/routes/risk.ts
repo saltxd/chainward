@@ -22,6 +22,7 @@ import { logger } from '../lib/logger.js';
 import { WalletLookupService } from '../services/walletLookupService.js';
 import { extractProvenance, type ReportProvenance } from '../lib/reportProvenance.js';
 import { buildCoverage, type ReportCoverage } from '../lib/reportCoverage.js';
+import { alchemyTransferSource, analyzeSellerDemand, DEMAND_WINDOW_DAYS } from '../services/sellerDemandService.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -639,6 +640,56 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   logger.warn({ address, jobId: job.id }, 'x402 check did not finish in time; not charged');
   throw new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; retry shortly.');
 }
+
+// GET /api/risk/seller-demand?address= — the paid x402 seller check (services/
+// sellerDemandService.ts). Where the address's buyers get their USDC. Cached an
+// hour; a check that runs out of time returns 504, which cancels settlement.
+const DEMAND_CACHE_SEC = 3600;
+const DEMAND_BUDGET_MS = 50_000;
+
+async function baseHead(rpcUrl: string): Promise<bigint> {
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = (await res.json()) as { result: string };
+  return BigInt(body.result);
+}
+
+async function sellerDemandCheck(c: Context) {
+  const parsed = addressSchema.safeParse(c.req.query('address'));
+  if (!parsed.success) {
+    throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
+  }
+  const address = parsed.data.toLowerCase();
+  const redis = getRedis();
+  const cacheKey = `seller-demand:${address}`;
+  const cached = await redis.get(cacheKey);
+  if (cached) return c.json({ success: true, data: JSON.parse(cached) });
+
+  // alchemy_getAssetTransfers is Alchemy-only; self-hosters point this at an Alchemy URL.
+  const rpcUrl = process.env.SELLER_DEMAND_RPC_URL ?? process.env.BASE_RPC_URL;
+  if (!rpcUrl || !/alchemy\.com/.test(rpcUrl)) {
+    throw new AppError(503, 'UNAVAILABLE', 'Seller check needs an Alchemy Base RPC');
+  }
+  const head = await baseHead(rpcUrl);
+  const fromBlock = head - BigInt(DEMAND_WINDOW_DAYS * 43_200);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; retry shortly.')), DEMAND_BUDGET_MS);
+  });
+  try {
+    const report = await Promise.race([analyzeSellerDemand(address, alchemyTransferSource(rpcUrl, fromBlock)), timeout]);
+    await redis.set(cacheKey, JSON.stringify(report), 'EX', DEMAND_CACHE_SEC);
+    return c.json({ success: true, data: report });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+risk.get('/seller-demand', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:risk-seller-demand' }), sellerDemandCheck);
 
 const paidRateLimit = rateLimit({ max: 60, windowSec: 60, prefix: 'rl:risk-x402' });
 risk.get('/x402', paidRateLimit, (c) => paidCheck(c, c.req.query('address')));

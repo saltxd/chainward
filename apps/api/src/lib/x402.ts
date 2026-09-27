@@ -14,6 +14,8 @@ import { logger } from './logger.js';
 
 // Same check, two shapes: ?address= for generic x402 clients, /:address for REST callers.
 export const X402_CHECK_ROUTES = ['GET /api/risk/x402', 'GET /api/risk/x402/:address'] as const;
+// Seller demand: where a seller's buyers get their USDC (services/sellerDemandService.ts).
+export const SELLER_DEMAND_ROUTE = 'GET /api/risk/seller-demand' as const;
 const BASE_MAINNET = 'eip155:8453';
 // PayAI settles Base-mainnet `exact` payments without an API key (free tier).
 const DEFAULT_FACILITATOR = 'https://facilitator.payai.network';
@@ -53,6 +55,40 @@ export function x402CheckPrice(): string {
   return process.env.X402_CHECK_PRICE ?? '$0.05';
 }
 
+export function x402SellerPrice(): string {
+  return process.env.X402_SELLER_PRICE ?? '$0.10';
+}
+
+// The #2 seller from chainward.ai/decodes/x402-on-base, as the check reported it.
+const SELLER_OUTPUT_EXAMPLE = {
+  success: true,
+  data: {
+    address: '0x68396bd35874695ad86cd29410bd80a550991a2b',
+    window_days: 30,
+    sample: { inflow_transfers: 1000, buyers: 500, capped: true },
+    top_buyer_share: 0.037,
+    buyers_checked: 30,
+    seller_funded: { buyers: 30, volume_share: 1, hops: { '3': 30 } },
+    paid_back_share: 0,
+    common_first_funder: { address: '0x82b551e820efc3503a3a27fc450e07e328daf91c', buyer_share: 0.5 },
+    walk_stops: {},
+    signals: [
+      {
+        id: 'buyers_funded_by_seller',
+        title: "Most checked buyers' USDC traces back to this address",
+        evidence: '30 of 30 top buyers reach this address within 3 hops of their largest funders (100% of their volume).',
+      },
+      {
+        id: 'common_funder',
+        title: 'One wallet funds most checked buyers',
+        evidence: '0x82b551e820efc3503a3a27fc450e07e328daf91c is the largest funder of 50% of the top buyers checked.',
+      },
+    ],
+    disclaimer:
+      'Describes where USDC moved on Base, not why. A common funder can be a legitimate faucet, exchange or custodian. Not a safety verdict.',
+  },
+};
+
 /**
  * /.well-known/x402 discovery document. `version` is what indexers such as
  * x402scan read today; `x402Version` is the draft discovery spec's field. Each
@@ -66,7 +102,7 @@ export function x402DiscoveryDocument() {
     description:
       'On-chain risk reports for Base addresses: check a counterparty before you pay it. Never a safety verdict.',
     contact: 'https://chainward.ai',
-    resources: ['https://api.chainward.ai/api/risk/x402'],
+    resources: ['https://api.chainward.ai/api/risk/x402', 'https://api.chainward.ai/api/risk/seller-demand'],
     docs: 'https://github.com/saltxd/chainward/blob/main/docs/ATTEST.md',
   };
 }
@@ -77,6 +113,7 @@ export function x402DiscoveryDocument() {
  */
 export function x402OpenApiDocument() {
   const usd = (x402CheckPrice().match(/[\d.]+/) ?? ['0.05'])[0];
+  const sellerUsd = (x402SellerPrice().match(/[\d.]+/) ?? ['0.10'])[0];
   return {
     openapi: '3.1.0',
     info: {
@@ -117,6 +154,32 @@ export function x402OpenApiDocument() {
           },
         },
       },
+      '/api/risk/seller-demand': {
+        get: {
+          operationId: 'sellerDemandCheck',
+          summary: "Where an x402 seller's buyers get their USDC, paid per call over x402",
+          description:
+            "For any Base address that receives payments: samples its recent USDC inflows, walks each top buyer's funding back up to 4 hops, and reports how much traces to the seller itself, how much it pays back, and whether one wallet funds most buyers. Not charged if the check fails.",
+          parameters: [
+            {
+              name: 'address',
+              in: 'query',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+              description: 'Base address that receives payments (an x402 payTo)',
+            },
+          ],
+          'x-payment-info': {
+            price: { mode: 'fixed', currency: 'USD', amount: sellerUsd },
+            protocols: [{ x402: {} }],
+          },
+          responses: {
+            '200': { description: 'Seller demand report', content: { 'application/json': { example: SELLER_OUTPUT_EXAMPLE } } },
+            '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+            '504': { description: 'Check did not finish in time; not charged' },
+          },
+        },
+      },
     },
   };
 }
@@ -141,30 +204,52 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     },
     required: ['address'],
   };
-  const route = (discovery: ReturnType<typeof declareDiscoveryExtension>): RouteConfig => ({
+  interface Product {
+    price: string;
+    serviceName: string;
+    description: string;
+    tags: string[];
+    whatYouGet: string;
+  }
+  const counterparty: Product = {
+    price: x402CheckPrice(),
+    serviceName: 'ChainWard counterparty check',
+    description:
+      'Fresh on-chain risk report for a Base address before you pay it: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Never a safety verdict.',
+    tags: ['base', 'risk', 'counterparty', 'agents', 'eas', 'attestation'],
+    whatYouGet: 'A risk report no older than 24h (a fresh check runs if needed), JSON. Not charged if the check fails.',
+  };
+  const sellerDemand: Product = {
+    price: x402SellerPrice(),
+    serviceName: 'ChainWard x402 seller check',
+    description:
+      "Where an x402 seller's buyers get their USDC: how much of its top buyers' money traces back to the seller, how much it pays back, and whether one wallet funds most buyers. Describes money flows, never intent.",
+    tags: ['base', 'x402', 'seller', 'demand', 'wash', 'counterparty', 'agents'],
+    whatYouGet:
+      "A seller demand report for the last 30 days (top 30 buyers' funding walked back up to 4 hops), JSON. Not charged if the check fails.",
+  };
+  const route = (product: Product, discovery: ReturnType<typeof declareDiscoveryExtension>): RouteConfig => ({
     accepts: {
       scheme: 'exact',
-      price: x402CheckPrice(),
+      price: product.price,
       network: BASE_MAINNET,
       payTo,
       maxTimeoutSeconds: 120,
     },
-    serviceName: 'ChainWard counterparty check',
-    description:
-      'Fresh on-chain risk report for a Base address before you pay it: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Never a safety verdict.',
+    serviceName: product.serviceName,
+    description: product.description,
     mimeType: 'application/json',
-    tags: ['base', 'risk', 'counterparty', 'agents', 'eas', 'attestation'],
+    tags: product.tags,
     // Bazaar discovery: facilitators catalog the endpoint from this after a settled payment.
     extensions: discovery,
     unpaidResponseBody: () => ({
       contentType: 'application/json',
       body: {
         error: 'payment_required',
-        price: x402CheckPrice(),
+        price: product.price,
         network: 'base',
         asset: 'USDC',
-        what_you_get:
-          'A risk report no older than 24h (a fresh check runs if needed), JSON. Not charged if the check fails.',
+        what_you_get: product.whatYouGet,
         free_alternatives: {
           latest_attestation: 'GET https://api.chainward.ai/api/risk/attestation/<address>',
           web_check: 'https://chainward.ai',
@@ -178,6 +263,7 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     {
       [X402_CHECK_ROUTES[0]]: {
         ...route(
+          counterparty,
           declareDiscoveryExtension({
             input: { address: example },
             inputSchema: addressSchema,
@@ -188,12 +274,24 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
         resource: 'https://api.chainward.ai/api/risk/x402',
       },
       [X402_CHECK_ROUTES[1]]: route(
+        counterparty,
         declareDiscoveryExtension({
           pathParams: { address: example },
           pathParamsSchema: addressSchema,
           output: { example: OUTPUT_EXAMPLE },
         }),
       ),
+      [SELLER_DEMAND_ROUTE]: {
+        ...route(
+          sellerDemand,
+          declareDiscoveryExtension({
+            input: { address: '0x68396bd35874695ad86cd29410bd80a550991a2b' },
+            inputSchema: addressSchema,
+            output: { example: SELLER_OUTPUT_EXAMPLE },
+          }),
+        ),
+        resource: 'https://api.chainward.ai/api/risk/seller-demand',
+      },
     },
     server,
   );

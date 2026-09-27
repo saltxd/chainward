@@ -56,6 +56,17 @@ BUYER_PRIVATE_KEY=0x… npx tsx index.ts 0x…
 
 The response is the same report the site shows (`band`, `flags` with evidence and sources, `not_assessed`, `freshness`, and `attestation` when one exists), or `status: "no_history"` for an address with no on-chain activity. Reports that flag observed behavior are attested on Base by the next sweep.
 
+## x402 seller check
+
+`GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo>` answers the question an x402 buyer can't answer from volume or buyer counts: **where do this seller's buyers get their USDC?** It samples the address's last 30 days of USDC inflows (up to 1,000 transfers), walks each of its top 30 buyers' funding back through their largest funder up to 4 hops, and reports:
+
+- how many of those buyers, and how much of their volume, trace back to the seller itself (and at how many hops);
+- how much USDC the seller sends back to its own buyers;
+- whether one wallet is the largest funder of most buyers;
+- how concentrated its buyers are.
+
+Walks stop at high-throughput hubs (exchanges, routers, custodians), where a funding trail stops saying anything about the seller. Signals are neutral (`buyers_funded_by_seller`, `money_flows_back`, `common_funder`, `concentrated_buyers`) and describe where money moved, never why; a common funder can be a legitimate faucet or custodian. **0.10 USDC over x402**, not charged if the check fails, cached for an hour. The method is the one behind [the x402-on-Base decode](https://chainward.ai/decodes/x402-on-base); run against the cases there, it reproduces each classification.
+
 ## Verifying a report
 
 `canonical_json` is `{address, as_of_block, band, chain, classifier_version, flags[{evidence,id,severity,source,title}], not_assessed}` with every object's keys sorted and the address lowercased. Hash its UTF-8 bytes with keccak256; the result must equal the attestation's `reportHash`. Implementation: [`packages/decode/src/attestation.ts`](../packages/decode/src/attestation.ts).

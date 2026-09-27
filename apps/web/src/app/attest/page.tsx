@@ -210,6 +210,16 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
             USDC on Base per call, no account, no API key. Settlement happens only after the check
             succeeds, so a failed check is never charged.
           </p>
+          <p className="att-p">
+            Paying an x402 seller?{' '}
+            <span className="mono">GET api.chainward.ai/api/risk/seller-demand?address=0x…</span> (0.10
+            USDC) shows where its buyers get their USDC: how much traces back to the seller, how much it
+            pays back, and whether one wallet funds most buyers. It is the method behind{' '}
+            <a className="press-link" href="/decodes/x402-on-base">
+              the x402-on-Base decode
+            </a>
+            .
+          </p>
           <pre className="att-code mono">
             <code>{`$ cd chainward/examples/pay-per-check && npm install
 $ BUYER_PRIVATE_KEY=0x… npx tsx index.ts 0x…`}</code>

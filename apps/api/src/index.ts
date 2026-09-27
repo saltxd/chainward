@@ -113,6 +113,7 @@ const x402Check = x402CheckMiddleware();
 if (x402Check) {
   app.use('/api/risk/x402', x402Check);
   app.use('/api/risk/x402/*', x402Check);
+  app.use('/api/risk/seller-demand', x402Check);
 }
 
 app.get('/.well-known/x402', (c) => c.json(x402DiscoveryDocument()));

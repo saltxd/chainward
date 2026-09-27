@@ -7,6 +7,7 @@
 - Free web check: https://chainward.ai (paste any Base address; the report lives at https://chainward.ai/report/<address>)
 - Latest on-chain attestation for an address (free, JSON, includes the canonical report JSON to verify the hash): GET https://api.chainward.ai/api/risk/attestation/<address>
 - Fresh report on demand, paid per call over x402 (0.05 USDC on Base, no account; not charged if the check fails): GET https://api.chainward.ai/api/risk/x402?address=<address>
+- Where an x402 seller's buyers get their USDC (seller-funded buyers, money sent back, common funders), paid per call over x402 (0.10 USDC): GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo>
 - x402 discovery document: https://api.chainward.ai/.well-known/x402
 
 ## ChainWard Attest (EAS on Base)
