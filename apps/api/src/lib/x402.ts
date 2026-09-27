@@ -71,6 +71,56 @@ export function x402DiscoveryDocument() {
   };
 }
 
+/**
+ * /openapi.json — what x402 indexers (x402scan via @agentcash/discovery) read
+ * first. Lists only the paid operation; its 402 challenge stays authoritative.
+ */
+export function x402OpenApiDocument() {
+  const usd = (x402CheckPrice().match(/[\d.]+/) ?? ['0.05'])[0];
+  return {
+    openapi: '3.1.0',
+    info: {
+      title: 'ChainWard',
+      version: '1.0.0',
+      description:
+        'On-chain risk reports for Base addresses: check a counterparty before you pay it. Never a safety verdict.',
+      contact: { url: 'https://chainward.ai' },
+    },
+    servers: [{ url: 'https://api.chainward.ai' }],
+    paths: {
+      '/api/risk/x402': {
+        get: {
+          operationId: 'counterpartyCheck',
+          summary: 'Fresh risk report for a Base address, paid per call over x402',
+          description:
+            'Returns a report no older than 24h, running a fresh check when needed: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Not charged if the check fails.',
+          parameters: [
+            {
+              name: 'address',
+              in: 'query',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+              description: 'Base address to check',
+            },
+          ],
+          'x-payment-info': {
+            price: { mode: 'fixed', currency: 'USD', amount: usd },
+            protocols: [{ x402: {} }],
+          },
+          responses: {
+            '200': {
+              description: 'Report (status "ready") or status "no_history"',
+              content: { 'application/json': { example: OUTPUT_EXAMPLE } },
+            },
+            '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+            '504': { description: 'Check did not finish in time; not charged' },
+          },
+        },
+      },
+    },
+  };
+}
+
 /** Payment middleware for the paid check, or null when no receiving address is configured. */
 export function x402CheckMiddleware(): MiddlewareHandler | null {
   const payTo = process.env.X402_PAY_TO ?? process.env.TREASURY_WALLET_ADDRESS;
