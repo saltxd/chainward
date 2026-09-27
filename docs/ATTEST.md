@@ -58,7 +58,7 @@ The response is the same report the site shows (`band`, `flags` with evidence an
 
 ## x402 seller check
 
-`GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo>` answers the question an x402 buyer can't answer from volume or buyer counts: **where do this seller's buyers get their USDC?** It samples the address's last 30 days of USDC inflows (up to 1,000 transfers), walks each of its top 30 buyers' funding back through their largest funder up to 4 hops, and reports:
+`GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo>` (`npx tsx index.ts --seller 0x…` in `examples/pay-per-check`) answers the question an x402 buyer can't answer from volume or buyer counts: **where do this seller's buyers get their USDC?** It samples the address's last 30 days of USDC inflows (up to 1,000 transfers), walks each of its top 30 buyers' funding back through their largest funder up to 4 hops, and reports:
 
 - how many of those buyers, and how much of their volume, trace back to the seller itself (and at how many hops);
 - how much USDC the seller sends back to its own buyers;

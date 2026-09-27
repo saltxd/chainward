@@ -4,7 +4,8 @@
  * pays the gas; the wallet only needs the USDC. Not charged if the check fails.
  *
  *   cd examples/pay-per-check && npm install
- *   BUYER_PRIVATE_KEY=0x… npx tsx index.ts 0x…
+ *   BUYER_PRIVATE_KEY=0x… npx tsx index.ts 0x…            # counterparty check, 0.05 USDC
+ *   BUYER_PRIVATE_KEY=0x… npx tsx index.ts --seller 0x…   # x402 seller check, 0.10 USDC
  *
  * Docs: docs/ATTEST.md#pay-per-check-x402
  */
@@ -16,14 +17,15 @@ import { privateKeyToAccount } from 'viem/accounts';
 const API = process.env.CHAINWARD_API ?? 'https://api.chainward.ai';
 
 async function main(): Promise<void> {
-  const target = getAddress(process.argv[2] ?? '');
+  const seller = process.argv.includes('--seller');
+  const target = getAddress(process.argv.slice(2).find((a) => a.startsWith('0x')) ?? '');
   const key = process.env.BUYER_PRIVATE_KEY as Hex | undefined;
   if (!key) throw new Error('set BUYER_PRIVATE_KEY (a Base wallet holding a little USDC)');
 
   const pay = wrapFetchWithPaymentFromConfig(fetch, {
     schemes: [{ network: 'eip155:8453', client: new ExactEvmScheme(privateKeyToAccount(key)) }],
   });
-  const res = await pay(`${API}/api/risk/x402?address=${target}`);
+  const res = await pay(`${API}/api/risk/${seller ? 'seller-demand' : 'x402'}?address=${target}`);
   const body = await res.json();
   if (res.status === 402) {
     // Payment was refused (e.g. invalid_exact_evm_insufficient_balance); the reason rides in the header.
@@ -39,6 +41,14 @@ async function main(): Promise<void> {
     console.log(`paid · tx ${settled.transaction} on ${settled.network}`);
   }
 
+  if (seller) {
+    const d = body.data;
+    console.log(`${target}: ${d.buyers_checked} top buyers checked; ${d.seller_funded.buyers} trace back to the seller`);
+    for (const s of d.signals) console.log(`  ${s.title}: ${s.evidence}`);
+    if (d.signals.length === 0) console.log('  no signals raised');
+    console.log(`  ${d.disclaimer}`);
+    return;
+  }
   const { status, report } = body.data;
   if (status !== 'ready') {
     console.log(`${target}: ${status}`);
