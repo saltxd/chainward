@@ -57,7 +57,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
 
   const server = new McpServer({
     name: 'chainward',
-    version: '0.1.0',
+    version: '0.2.0',
   });
 
   // ── Tool 1: lookup_agent ────────────────────────────────────────────────────
@@ -199,7 +199,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
       } catch (err) {
         if (err instanceof ChainWardApiError && err.status === 404) {
           return asTextContent(
-            `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public and is attested on Base shortly after.`,
+            `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public, and one that flags observed behavior is attested on Base shortly after.`,
           );
         }
         return asError(err);

@@ -1,7 +1,8 @@
 {
   "name": "chainward-mcp-server",
-  "version": "0.1.0",
-  "description": "ChainWard MCP server — read-side intelligence on AI agents for Base, exposed as Model Context Protocol tools",
+  "version": "0.2.0",
+  "mcpName": "io.github.saltxd/chainward",
+  "description": "ChainWard MCP server: check a counterparty on Base before you pay it (EAS attestations + risk reports), plus read-side intelligence on AI agents",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -41,12 +42,17 @@
     "typescript": "^5.7.0"
   },
   "keywords": [
+    "ai-agent",
+    "attestation",
+    "base",
     "chainward",
+    "counterparty",
+    "eas",
     "mcp",
     "model-context-protocol",
-    "ai-agent",
-    "base",
-    "onchain"
+    "onchain",
+    "risk",
+    "x402"
   ],
   "license": "MIT",
   "homepage": "https://chainward.ai"
