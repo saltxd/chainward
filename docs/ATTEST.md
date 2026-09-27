@@ -50,6 +50,6 @@ An internal sort key used on the site is never published.
 
 ## Revocations
 
-Attestations are revocable, and ChainWard revokes its own when they no longer meet the rules above. On 2026-09-26 the first sweep had attested seven older reports (two about contracts, including USDC's, flagged only for missing transfers); those were revoked when the gate was tightened. Revoked attestations stay readable on EAS with `revoked: true`, so always filter on `revoked: false` (the example agent does).
+Attestations are revocable, and ChainWard revokes its own when they no longer meet the rules above. The first sweeps attested seventeen reports that fail them: filed before the head-freshness guard existed or weeks old, several flagged only for missing transfers (two of them contracts, USDC's among them). All seventeen were revoked on 2026-09-27 when the gate was tightened (txs `0x6ad9fd68…` and `0x8467f181…`). Revoked attestations stay readable on EAS with `revoked: true`, so always filter on `revoked: false` (the example agent does).
 
 `asOfBlock` is the block the report was read at, not the time it was attested. Check it: `examples/check-counterparty.ts` treats a report older than 30 days as unknown.
