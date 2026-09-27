@@ -34,6 +34,17 @@ string band,string[] flagIds,uint8 highCount,uint8 mediumCount,uint8 lowCount,ui
 - **MCP:** the `check_counterparty` tool in [`chainward-mcp-server`](../packages/mcp-server).
 - **Example agent:** [`examples/check-counterparty.ts`](../examples/check-counterparty.ts) finds the latest ChainWard attestation for an address, re-reads it from the EAS contract, verifies the report hash, and applies a sample payment policy (`pnpm install`, then `npx tsx examples/check-counterparty.ts 0x…`).
 
+## Guarding x402 payments
+
+[`examples/x402-guard`](../examples/x402-guard) is an x402 client hook. Before the client signs a payment, it reads ChainWard's latest attestation for the seller's `payTo` address from the EAS contract on Base and refuses to pay if the report carries a high-severity flag. Nothing is signed when it refuses.
+
+```ts
+const client = new x402Client().register('eip155:8453', new ExactEvmScheme(account));
+client.onBeforePaymentCreation(counterpartyGuard()); // { blockUnknown, maxReportAgeDays, onDecision }
+```
+
+`cd examples/x402-guard && npm install && npx tsx demo.ts` runs two local x402 sellers against a guarded buyer: one `payTo` with a high-severity attestation (refused before signing), one without (allowed). No money moves; the demo wallet is empty.
+
 ## Pay per check (x402)
 
 Need a report that isn't on-chain yet, or one fresher than the last attestation? `GET https://api.chainward.ai/api/risk/x402?address=<address>` (or `/api/risk/x402/<address>`) answers with a report no older than 24 hours, running a fresh check when needed. It is paid per request over [x402](https://x402.org): **0.05 USDC on Base**, no account, no API key. The first request returns `402` with the payment requirements; an x402 client signs a USDC authorization and retries. Settlement runs through the PayAI facilitator, which pays the gas, and only after the check succeeds: a failed or timed-out check (`>= 400`) is never charged.

@@ -42,7 +42,7 @@ const READ_PATHS = [
   },
   {
     name: 'Example agent',
-    body: 'examples/check-counterparty.ts — finds the attestation, re-reads it from the EAS contract, verifies the hash, applies a payment policy.',
+    body: 'examples/check-counterparty.ts finds the attestation, re-reads it from the EAS contract, verifies the hash, and applies a payment policy. examples/x402-guard does the same inside an x402 client and refuses to pay a flagged seller before signing.',
   },
 ];
 

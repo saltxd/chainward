@@ -1,0 +1,21 @@
+{
+  "name": "chainward-x402-guard-example",
+  "private": true,
+  "type": "module",
+  "description": "x402 client hook: refuse to pay counterparties with a high-severity ChainWard attestation on Base.",
+  "scripts": {
+    "demo": "tsx demo.ts"
+  },
+  "dependencies": {
+    "@x402/core": "2.27.0",
+    "@x402/evm": "2.27.0",
+    "@x402/fetch": "2.27.0",
+    "viem": "^2.47.6"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@x402/hono": "2.27.0",
+    "hono": "^4.6.0",
+    "tsx": "^4.21.0"
+  }
+}
