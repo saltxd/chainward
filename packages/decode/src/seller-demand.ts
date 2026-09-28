@@ -204,7 +204,8 @@ export function demandSignals(r: SellerDemandReport): DemandSignal[] {
       evidence: `${r.common_first_funder.address} is the largest funder of ${Math.round(r.common_first_funder.buyer_share * 100)}% of the top buyers checked.`,
     });
   }
-  if ((r.top_buyer_share ?? 0) >= 0.5) {
+  // Measured only on direct buyers; meaningless when most inflow arrives via intermediaries.
+  if ((r.top_buyer_share ?? 0) >= 0.5 && (r.via_intermediary_share ?? 0) < 0.5) {
     out.push({
       id: 'concentrated_buyers',
       title: 'One buyer dominates',

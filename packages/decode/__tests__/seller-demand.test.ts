@@ -79,5 +79,6 @@ describe('analyzeSellerDemand', () => {
     expect(r.buyers_checked).toBe(1);
     expect(r.paid_back_share).toBe(0);
     expect(r.signals.map((s) => s.id)).not.toContain('money_flows_back');
+    expect(r.signals.map((s) => s.id)).not.toContain('concentrated_buyers');
   });
 });
