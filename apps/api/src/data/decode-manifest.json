@@ -1,6 +1,126 @@
 {
-  "generatedAt": "2026-05-27T04:08:20.027Z",
+  "generatedAt": "2026-09-28T22:36:07.931Z",
   "decodes": [
+    {
+      "slug": "base-mcp-find-the-tag",
+      "title": "Every Base MCP Transaction Ends in bmcp_blue",
+      "subtitle": "We found Base MCP's on-chain tag, and it isn't the one we predicted. 12,691 tagged operations from 332 wallets since the May 26 launch; 89% of them came from 229 wallets running the same seven-protocol routine, mostly for a few cents.",
+      "date": "2026-09-28",
+      "url": "https://chainward.ai/decodes/base-mcp-find-the-tag",
+      "addresses": [
+        "0xc2e346ca220255225fcfb38e2b0d1c1ca83b245d",
+        "0x8fcbd85ece6bf02bbb811837a95b71beccb965c5",
+        "0x942a1f717627f5b794f18e8f4e6c630a5877c598",
+        "0xdcda0814759eba5f6f699c68c2c1fbf07a3c9933",
+        "0xcea4a97d4b39e8ca0a03ddd7c80ef275eda3cef5",
+        "0x8b51a3e8e693fce4ed2d3ffcfa89ffdd8d68a3ea",
+        "0x9cb57d33723bf26bef4dbd71d6b443aa621c8fcd",
+        "0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789",
+        "0xef1b073bd71013bd7cae38c112805fa0ea4dc3df",
+        "0x000000bc7e6457e610fe52dcc0ca5b3ce59c8e80"
+      ]
+    },
+    {
+      "slug": "x402-on-base",
+      "title": "The #2 x402 Seller on Base Funded Its Own Buyers",
+      "subtitle": "One week of x402 on Base (Sep 15–21): $128,977 settled. At least $56,268 of it looped back through the seller or a closed ring, and $30,000 more was a round trip. The #2 seller had 715 buyers; at least 675 were funded from its own revenue.",
+      "date": "2026-09-27",
+      "url": "https://chainward.ai/decodes/x402-on-base",
+      "addresses": [
+        "0x68396bd35874695ad86cd29410bd80a550991a2b",
+        "0x0a4135f9b7af754033bb7af6dc581ec0dc6e15d5",
+        "0x9a7c172a908c0f6bb89cfa89c6dbd7a8f83de416",
+        "0x82b551e820efc3503a3a27fc450e07e328daf91c",
+        "0xa88238e8ea666cdae41466c59c30b82cfc8ac736",
+        "0x6eb0e84ed094b41659cf8e2e95dbc9554b8d3034",
+        "0xcd4dbfe1ea06e4932e9fe6d1b277a0cf976e2d5c",
+        "0xe6a4d0b8c27c17e88a0b2d30ccf8e0d5f12375e9",
+        "0x36b70906d04d3d984a97b3e47e49440a5b0b618f",
+        "0x475436ef0a97286081d0fc2a762ad6296949327b",
+        "0x1cec447da1915f018bd74006ff6d695468b68dd4",
+        "0xa60fb201b4144456684f8eee1f69a17d8235dd15",
+        "0xe289d41efb500ef2cc8b51aa0378a07e454a7000",
+        "0x15eae0792636b3dca7b5002f673b66d27c9d7aff",
+        "0xfa02300b1a598daba1b27b2bf79f9775355dac82",
+        "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055",
+        "0x2a77866b6faa77545fb409ab1c94b3772b421f3d",
+        "0x32b9ce9331823fa5d0d092f9e6f90b1ef194b1c9",
+        "0x8736ae11c1f3c6eba0a023baa455b2372fca2aab",
+        "0xcc1984e79726e7a0ae2b9df2ac9e79fb4983930e",
+        "0x17cd53c04d707ef0dd615ef56c633f02915a7905",
+        "0x8d1e2ce4af9cc0fd872c1f4de2cc0a393e63545a",
+        "0x29f850e6da67d32554aed0d75de51652cbcf26aa",
+        "0x66c40946b0dffd04be467e18309857307ecd37cb",
+        "0x171edde4606c9d517282abf105208bcadf37f67b",
+        "0x7284d41b5b852f2bd4c99bdf95043d84452d299c",
+        "0x3dd6f35c88f3ae22feccbde524caf9874aab1af7",
+        "0x93862e5b2b1fa10a01772e7e9ca7cdc7deb5ca25",
+        "0xe9030014f5dae217d0a152f02a043567b16c1abf",
+        "0xa9dd7cc9cbf0e05551332209289f04be36bc2315"
+      ]
+    },
+    {
+      "slug": "clankertoken-honeypot-check",
+      "title": "The Honeypot Isn't in ClankerToken",
+      "subtitle": "The 'Clanker Hook' tokens people search for are real Clanker launches, and most never traded. The one working trap we found is a copycat whose verified source hides a mint inside an imported library.",
+      "date": "2026-09-26",
+      "url": "https://chainward.ai/decodes/clankertoken-honeypot-check",
+      "addresses": [
+        "0xaf41aa41723c3c032abe1ad120aac2d66b13472e",
+        "0x4200000000000000000000000000000000000028",
+        "0x3ec2156d4c0a9cbdab4a016633b7bcf6a8d68ea2",
+        "0xe85a59c628f7d27878aceb4bf3b35733630083a9",
+        "0x768ab578d15e1b0ee60fced3eeeefcc1d2750b07",
+        "0xfabeec6976b5cc7ee35ba792bfa9c52a157e25e5",
+        "0x5f13d8f3bd2a9bd439d6ec9734ac1b4fb32b3b07",
+        "0xdbd1c0e6c6252492bd5b99da162558de7f08d68b",
+        "0xdd47396c0fe5cda9ee66fab16aea8dc9af4dbb07",
+        "0x872a6699fbf8db6de6a3444dbbb4e77cb6b86c6d",
+        "0xde597c05788134c16054ad44bfc98aa1172b70cc",
+        "0xe0bc640d797e8915bdba732a6a444eb1a2805f38",
+        "0x4200000000000000000000000000000000000010",
+        "0xfda65631c6602d0ab09ed8a1644fa7acf0775705",
+        "0xd7d491a61b9ae6372868c661b90308973977858f",
+        "0x51a688284c3db1e188a1521473fbb1331c2122ff",
+        "0xf516a3645f011c6fd415045d409c34c1b6074fc7",
+        "0xdc000dd23cb5a20ad346325fbb353a3ced78c61f",
+        "0xb98204186be3206eb8508ebf86f9241040c892fe",
+        "0xc08cc91f6ef4cc99a6ede96fac08133848ef89b2"
+      ]
+    },
+    {
+      "slug": "butlerliquid-on-chain",
+      "title": "ButlerLiquid On-Chain Decode",
+      "subtitle": "$162K aGDP claimed. $408K USDC through the wallet on Base. On Hyperliquid, every ButlerLiquid-side address returns $0.",
+      "date": "2026-07-09",
+      "url": "https://chainward.ai/decodes/butlerliquid-on-chain",
+      "addresses": [
+        "0x0b2b0883f344b6d7b6c7094a13a656ba03b9bfa4",
+        "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0",
+        "0xf70da97812cb96acdf810712aa562db8dfa3dbef",
+        "0x85cfecba7516be4862ecb195c33fd780b27cec7f"
+      ]
+    },
+    {
+      "slug": "degen-claw-on-chain",
+      "title": "Degen Claw On-Chain Decode",
+      "subtitle": "The dashboard says $490,296 of agentic GDP. We checked Hyperliquid directly: the agent's account holds $11.18 and has never placed a trade.",
+      "date": "2026-06-04",
+      "url": "https://chainward.ai/decodes/degen-claw-on-chain",
+      "addresses": [
+        "0xd478a8b40372db16ca8045f28c6fe07228f3781a",
+        "0x4cce37351b338f9986fdac7d4768dfe8f78d5b48",
+        "0x000000000000c5a9089039570dd36455b5c07383",
+        "0x45b27f069b1639a70c2bc3097ff37f5adf78ca64",
+        "0x00000000000099de0bf6fa90deb851e2a2df7d83",
+        "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0",
+        "0x361deccfc381aca339218d2a148bc08943d02cdb",
+        "0x9547e85f3016303a2996271314bde78b02021a28",
+        "0x401b6568b78a440d0eb043a643e8ab9adb41ecef",
+        "0x653b1d8fb4c7d2b921c9d765ff8c478cc13082ed",
+        "0xacb6146dbf1e5cf137fa5b237ac3ce7be394691c"
+      ]
+    },
     {
       "slug": "bankr-hack-trace",
       "title": "Bankr's 14-Wallet Hack: Decoded On-Chain",
@@ -148,6 +268,234 @@
     }
   ],
   "byAddress": {
+    "0xc2e346ca220255225fcfb38e2b0d1c1ca83b245d": [
+      "base-mcp-find-the-tag"
+    ],
+    "0x8fcbd85ece6bf02bbb811837a95b71beccb965c5": [
+      "base-mcp-find-the-tag"
+    ],
+    "0x942a1f717627f5b794f18e8f4e6c630a5877c598": [
+      "base-mcp-find-the-tag"
+    ],
+    "0xdcda0814759eba5f6f699c68c2c1fbf07a3c9933": [
+      "base-mcp-find-the-tag"
+    ],
+    "0xcea4a97d4b39e8ca0a03ddd7c80ef275eda3cef5": [
+      "base-mcp-find-the-tag"
+    ],
+    "0x8b51a3e8e693fce4ed2d3ffcfa89ffdd8d68a3ea": [
+      "base-mcp-find-the-tag"
+    ],
+    "0x9cb57d33723bf26bef4dbd71d6b443aa621c8fcd": [
+      "base-mcp-find-the-tag"
+    ],
+    "0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789": [
+      "base-mcp-find-the-tag"
+    ],
+    "0xef1b073bd71013bd7cae38c112805fa0ea4dc3df": [
+      "base-mcp-find-the-tag"
+    ],
+    "0x000000bc7e6457e610fe52dcc0ca5b3ce59c8e80": [
+      "base-mcp-find-the-tag"
+    ],
+    "0x68396bd35874695ad86cd29410bd80a550991a2b": [
+      "x402-on-base"
+    ],
+    "0x0a4135f9b7af754033bb7af6dc581ec0dc6e15d5": [
+      "x402-on-base"
+    ],
+    "0x9a7c172a908c0f6bb89cfa89c6dbd7a8f83de416": [
+      "x402-on-base"
+    ],
+    "0x82b551e820efc3503a3a27fc450e07e328daf91c": [
+      "x402-on-base"
+    ],
+    "0xa88238e8ea666cdae41466c59c30b82cfc8ac736": [
+      "x402-on-base"
+    ],
+    "0x6eb0e84ed094b41659cf8e2e95dbc9554b8d3034": [
+      "x402-on-base"
+    ],
+    "0xcd4dbfe1ea06e4932e9fe6d1b277a0cf976e2d5c": [
+      "x402-on-base"
+    ],
+    "0xe6a4d0b8c27c17e88a0b2d30ccf8e0d5f12375e9": [
+      "x402-on-base"
+    ],
+    "0x36b70906d04d3d984a97b3e47e49440a5b0b618f": [
+      "x402-on-base"
+    ],
+    "0x475436ef0a97286081d0fc2a762ad6296949327b": [
+      "x402-on-base"
+    ],
+    "0x1cec447da1915f018bd74006ff6d695468b68dd4": [
+      "x402-on-base"
+    ],
+    "0xa60fb201b4144456684f8eee1f69a17d8235dd15": [
+      "x402-on-base"
+    ],
+    "0xe289d41efb500ef2cc8b51aa0378a07e454a7000": [
+      "x402-on-base"
+    ],
+    "0x15eae0792636b3dca7b5002f673b66d27c9d7aff": [
+      "x402-on-base"
+    ],
+    "0xfa02300b1a598daba1b27b2bf79f9775355dac82": [
+      "x402-on-base"
+    ],
+    "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055": [
+      "x402-on-base"
+    ],
+    "0x2a77866b6faa77545fb409ab1c94b3772b421f3d": [
+      "x402-on-base"
+    ],
+    "0x32b9ce9331823fa5d0d092f9e6f90b1ef194b1c9": [
+      "x402-on-base"
+    ],
+    "0x8736ae11c1f3c6eba0a023baa455b2372fca2aab": [
+      "x402-on-base"
+    ],
+    "0xcc1984e79726e7a0ae2b9df2ac9e79fb4983930e": [
+      "x402-on-base"
+    ],
+    "0x17cd53c04d707ef0dd615ef56c633f02915a7905": [
+      "x402-on-base"
+    ],
+    "0x8d1e2ce4af9cc0fd872c1f4de2cc0a393e63545a": [
+      "x402-on-base"
+    ],
+    "0x29f850e6da67d32554aed0d75de51652cbcf26aa": [
+      "x402-on-base"
+    ],
+    "0x66c40946b0dffd04be467e18309857307ecd37cb": [
+      "x402-on-base"
+    ],
+    "0x171edde4606c9d517282abf105208bcadf37f67b": [
+      "x402-on-base"
+    ],
+    "0x7284d41b5b852f2bd4c99bdf95043d84452d299c": [
+      "x402-on-base"
+    ],
+    "0x3dd6f35c88f3ae22feccbde524caf9874aab1af7": [
+      "x402-on-base"
+    ],
+    "0x93862e5b2b1fa10a01772e7e9ca7cdc7deb5ca25": [
+      "x402-on-base"
+    ],
+    "0xe9030014f5dae217d0a152f02a043567b16c1abf": [
+      "x402-on-base"
+    ],
+    "0xa9dd7cc9cbf0e05551332209289f04be36bc2315": [
+      "x402-on-base"
+    ],
+    "0xaf41aa41723c3c032abe1ad120aac2d66b13472e": [
+      "clankertoken-honeypot-check"
+    ],
+    "0x4200000000000000000000000000000000000028": [
+      "clankertoken-honeypot-check"
+    ],
+    "0x3ec2156d4c0a9cbdab4a016633b7bcf6a8d68ea2": [
+      "clankertoken-honeypot-check",
+      "bankr-hack-trace"
+    ],
+    "0xe85a59c628f7d27878aceb4bf3b35733630083a9": [
+      "clankertoken-honeypot-check"
+    ],
+    "0x768ab578d15e1b0ee60fced3eeeefcc1d2750b07": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xfabeec6976b5cc7ee35ba792bfa9c52a157e25e5": [
+      "clankertoken-honeypot-check"
+    ],
+    "0x5f13d8f3bd2a9bd439d6ec9734ac1b4fb32b3b07": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xdbd1c0e6c6252492bd5b99da162558de7f08d68b": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xdd47396c0fe5cda9ee66fab16aea8dc9af4dbb07": [
+      "clankertoken-honeypot-check"
+    ],
+    "0x872a6699fbf8db6de6a3444dbbb4e77cb6b86c6d": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xde597c05788134c16054ad44bfc98aa1172b70cc": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xe0bc640d797e8915bdba732a6a444eb1a2805f38": [
+      "clankertoken-honeypot-check"
+    ],
+    "0x4200000000000000000000000000000000000010": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xfda65631c6602d0ab09ed8a1644fa7acf0775705": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xd7d491a61b9ae6372868c661b90308973977858f": [
+      "clankertoken-honeypot-check"
+    ],
+    "0x51a688284c3db1e188a1521473fbb1331c2122ff": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xf516a3645f011c6fd415045d409c34c1b6074fc7": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xdc000dd23cb5a20ad346325fbb353a3ced78c61f": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xb98204186be3206eb8508ebf86f9241040c892fe": [
+      "clankertoken-honeypot-check"
+    ],
+    "0xc08cc91f6ef4cc99a6ede96fac08133848ef89b2": [
+      "clankertoken-honeypot-check"
+    ],
+    "0x0b2b0883f344b6d7b6c7094a13a656ba03b9bfa4": [
+      "butlerliquid-on-chain"
+    ],
+    "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0": [
+      "butlerliquid-on-chain",
+      "degen-claw-on-chain",
+      "bridgekitty-on-chain",
+      "live-leaderboard-2026-04"
+    ],
+    "0xf70da97812cb96acdf810712aa562db8dfa3dbef": [
+      "butlerliquid-on-chain"
+    ],
+    "0x85cfecba7516be4862ecb195c33fd780b27cec7f": [
+      "butlerliquid-on-chain"
+    ],
+    "0xd478a8b40372db16ca8045f28c6fe07228f3781a": [
+      "degen-claw-on-chain"
+    ],
+    "0x4cce37351b338f9986fdac7d4768dfe8f78d5b48": [
+      "degen-claw-on-chain"
+    ],
+    "0x000000000000c5a9089039570dd36455b5c07383": [
+      "degen-claw-on-chain",
+      "axelrod-on-chain"
+    ],
+    "0x45b27f069b1639a70c2bc3097ff37f5adf78ca64": [
+      "degen-claw-on-chain"
+    ],
+    "0x00000000000099de0bf6fa90deb851e2a2df7d83": [
+      "degen-claw-on-chain"
+    ],
+    "0x361deccfc381aca339218d2a148bc08943d02cdb": [
+      "degen-claw-on-chain"
+    ],
+    "0x9547e85f3016303a2996271314bde78b02021a28": [
+      "degen-claw-on-chain",
+      "axelrod-on-chain"
+    ],
+    "0x401b6568b78a440d0eb043a643e8ab9adb41ecef": [
+      "degen-claw-on-chain"
+    ],
+    "0x653b1d8fb4c7d2b921c9d765ff8c478cc13082ed": [
+      "degen-claw-on-chain"
+    ],
+    "0xacb6146dbf1e5cf137fa5b237ac3ce7be394691c": [
+      "degen-claw-on-chain"
+    ],
     "0x019d8eaa00e0dc19d78a917940ea3e0172e5949d": [
       "bankr-hack-trace"
     ],
@@ -161,9 +509,6 @@
       "bankr-hack-trace"
     ],
     "0xb1058c959987e3513600eb5b4fd82aeee2a0e4f9": [
-      "bankr-hack-trace"
-    ],
-    "0x3ec2156d4c0a9cbdab4a016633b7bcf6a8d68ea2": [
       "bankr-hack-trace"
     ],
     "0xe8e476bdd78b0aa6669509ec8d3e1c542d5a686b": [
@@ -186,10 +531,6 @@
     ],
     "0x44e7cb3f38abaf1a7448cf40bd7ee19e3678ecad": [
       "bridgekitty-on-chain"
-    ],
-    "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0": [
-      "bridgekitty-on-chain",
-      "live-leaderboard-2026-04"
     ],
     "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": [
       "bridgekitty-on-chain"
@@ -269,9 +610,6 @@
     "0xd4e2083974d467713ff9629ef3cd85bb81797ea8": [
       "axelrod-on-chain"
     ],
-    "0x000000000000c5a9089039570dd36455b5c07383": [
-      "axelrod-on-chain"
-    ],
     "0xffc60852775193e3b72758bac4f7c6e3050d82de": [
       "axelrod-on-chain"
     ],
@@ -300,9 +638,6 @@
       "axelrod-on-chain"
     ],
     "0x6f3c2a3ba9322f5b5d69c5513545062c4cad659d": [
-      "axelrod-on-chain"
-    ],
-    "0x9547e85f3016303a2996271314bde78b02021a28": [
       "axelrod-on-chain"
     ],
     "0xc31cf1168b2f6745650d7b088774041a10d76d55": [

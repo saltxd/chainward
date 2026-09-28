@@ -1,0 +1,7 @@
+[
+  "Every Base MCP transaction ends in the same 27 bytes. They spell \"bmcp_blue\".\n\nWe read Base since the May 26 launch: 12,691 tagged operations from 332 wallets. 89% came from 229 wallets running the same seven-protocol routine.\n\nchainward.ai/decodes/base-mcp-find-the-tag",
+  "In May we predicted each Base MCP plugin would leave its own 16-byte origin hash.\n\nWrong. None of 10 candidate hashes appears in 380M transactions. It's one ERC-8021 code for all of Base MCP, and it isn't registered in Base's Builder Codes registry.",
+  "How we know it's Base MCP: four plugin authors posted mainnet txs to base/skills as proof their plugin ran through it. All five carry bmcp_blue on exactly the operation they described.\n\nSo do all 8 KyberSwap swaps labeled \"Source\":\"base-mcp\".",
+  "Aug 21-22: 229 wallets, 986 operations, median $0.03, the same seven venues (0x, Moonwell, YO, Morpho, Uniswap, SwapProxy, LI.FI). The same wallets made 98.5% of July's peak. The chain doesn't show who runs them.\n\nEveryone else: ~100 wallets, ~20 ops a day.",
+  "Find it yourself: take a tx to ERC-4337 EntryPoint v0.6, decode handleOps, and check each userOp's callData for the tail 626d63705f626c7565 09 00 + the 16-byte 8021 marker.\n\nBlind spot: signatures and x402 payments made through Base MCP carry no tag."
+]
