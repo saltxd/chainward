@@ -20,6 +20,12 @@ export interface DecodeContent {
 
 const DELIVERABLES_DIR = path.join(process.cwd(), '../../deliverables');
 
+/** The page renders the frontmatter title as its <h1>; drop a leading markdown
+ * `# ` heading so the article doesn't print its title twice. */
+export function stripLeadingTitle(content: string): string {
+  return content.replace(/^\s*# [^\n]*\n+/, '');
+}
+
 function findMarkdownFile(dirPath: string): string | null {
   const files = fs.readdirSync(dirPath);
   const SKIP = new Set(['publish-checklist.md', 'thread.md', 'findings.md', 'architecture.md']);
@@ -77,7 +83,7 @@ export function getDecodeBySlug(slug: string): DecodeContent | null {
           slug: data.slug,
           seoTitle: data.seoTitle,
         },
-        content,
+        content: stripLeadingTitle(content),
       };
     }
   }
