@@ -3,7 +3,8 @@ import { PressShell, Masthead, PressDateline, Colophon } from '@/components/pres
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
-export const revalidate = 1800;
+// Rendered per request (the build can't reach the API); the board fetch itself is cached 30 min.
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'x402 Seller Board — where Base’s top x402 sellers’ buyers get their USDC',
