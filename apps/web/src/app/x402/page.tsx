@@ -25,6 +25,7 @@ interface Signal {
 }
 interface Report {
   buyers_checked: number;
+  via_intermediary_share?: number | null;
   seller_funded: { buyers: number; volume_share: number | null; hops: Record<string, number> };
   paid_back_share: number | null;
   common_first_funder: { address: string; buyer_share: number } | null;
@@ -61,7 +62,9 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 function traced(r: Report): string {
   if (r.buyers_checked === 0) return '—';
   const hops = Object.keys(r.seller_funded.hops).map(Number);
-  const via = hops.length ? ` · ${Math.min(...hops)}–${Math.max(...hops)} hops` : '';
+  const lo = Math.min(...hops);
+  const hi = Math.max(...hops);
+  const via = hops.length === 0 ? '' : ` · ${lo === hi ? lo : `${lo}–${hi}`} hop${hi === 1 ? '' : 's'}`;
   return `${r.seller_funded.buyers}/${r.buyers_checked}${via}`;
 }
 
@@ -137,7 +140,15 @@ export default async function X402BoardPage() {
                       </td>
                       {row.report ? (
                         <>
-                          <td>{traced(row.report)}</td>
+                          <td>
+                            {traced(row.report)}
+                            {(row.report.via_intermediary_share ?? 0) >= 0.5 && (
+                              <div className="xb-sub">
+                                {pct(row.report.via_intermediary_share)} arrives via a proxy; payers behind it
+                                not traced
+                              </div>
+                            )}
+                          </td>
                           <td>{pct(row.report.seller_funded.volume_share)}</td>
                           <td>{pct(row.report.paid_back_share)}</td>
                           <td>
@@ -178,7 +189,9 @@ export default async function X402BoardPage() {
             <strong>Top buyers tracing back to seller</strong>: of the seller’s 30 largest buyers in the
             last 30 days, how many reach the seller’s own address by following their largest funder (at
             most four hops, stopping at exchanges and other high-throughput hubs). A seller whose revenue
-            funds its buyers can show any buyer count; this column shows how much of it does.{' '}
+            funds its buyers can show any buyer count; this column shows how much of it does. Payments
+            that arrive through a facilitator proxy or another high-throughput address are not counted as
+            buyers, and the payers behind them are not traced.{' '}
             <strong>Sent back to buyers</strong>: USDC the seller transferred to its own buyers, as a share
             of what it received. <strong>Largest common funder</strong>: the share of top buyers whose
             largest funder is the same wallet, which can be an app seeding its users’ wallets.

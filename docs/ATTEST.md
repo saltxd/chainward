@@ -65,7 +65,7 @@ The response is the same report the site shows (`band`, `flags` with evidence an
 - whether one wallet is the largest funder of most buyers;
 - how concentrated its buyers are.
 
-Walks stop at high-throughput hubs (exchanges, routers, custodians), where a funding trail stops saying anything about the seller. Signals are neutral (`buyers_funded_by_seller`, `money_flows_back`, `common_funder`, `concentrated_buyers`) and describe where money moved, never why; a common funder can be a legitimate faucet or custodian. **0.10 USDC over x402**, not charged if the check fails, cached for an hour. The method is the one behind [the x402-on-Base decode](https://chainward.ai/decodes/x402-on-base); run against the cases there, it reproduces each classification.
+Walks stop at high-throughput hubs (exchanges, routers, custodians), where a funding trail stops saying anything about the seller. Payments that arrive through a facilitator proxy or another high-throughput sender are reported as `via_intermediary_share` rather than counted as buyers; the payers behind them are not traced. Signals are neutral (`buyers_funded_by_seller`, `money_flows_back`, `common_funder`, `concentrated_buyers`) and describe where money moved, never why; a common funder can be a legitimate faucet or custodian. **0.10 USDC over x402**, not charged if the check fails, cached for an hour. The method is the one behind [the x402-on-Base decode](https://chainward.ai/decodes/x402-on-base); run against the cases there, it reproduces each classification.
 
 ## Verifying a report
 

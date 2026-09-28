@@ -34,6 +34,9 @@ export interface SellerDemandReport {
   address: string;
   window_days: number;
   sample: { inflow_transfers: number; buyers: number; capped: boolean };
+  /** Share of inflow from high-throughput senders (facilitator proxies, exchanges):
+   * the real payers behind them aren't traced. */
+  via_intermediary_share: number | null;
   top_buyer_share: number | null;
   buyers_checked: number;
   seller_funded: { buyers: number; volume_share: number | null; hops: Record<string, number> };
@@ -48,6 +51,7 @@ export interface SellerDemandReport {
 const NOT_ASSESSED = [
   'Transfers older than the window or beyond the 1,000-transfer sample',
   'Funding trails past high-throughput hubs (exchanges, routers, custodians)',
+  'Payers behind facilitator proxies and other high-throughput senders',
   'Anything but the largest funder at each hop',
   'Who controls any address, or why money moved',
   'Payments in tokens other than USDC',
@@ -92,9 +96,22 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
   };
 
   const [inflows, outflows] = await Promise.all([get('in', seller), get('out', seller)]);
-  const byBuyer = sumBy(inflows.filter((t) => t.from !== seller), 'from');
+  const bySender = sumBy(inflows.filter((t) => t.from !== seller), 'from');
+  const totalIn = [...bySender.values()].reduce((a, b) => a + b, 0);
+
+  // Proxied facilitators (and exchanges) deliver payments from their own contract,
+  // so a high-throughput sender is an intermediary, not a buyer. Classify the
+  // largest senders; the lookups are the same ones the walk needs anyway.
+  const intermediaries = new Set<string>();
+  const top: string[] = [];
+  for (const [sender] of [...bySender.entries()].sort((a, b) => b[1] - a[1])) {
+    if (top.length >= TOP_BUYERS || top.length + intermediaries.size >= TOP_BUYERS * 2) break;
+    if ((await get('in', sender)).length >= HUB_INFLOWS) intermediaries.add(sender);
+    else top.push(sender);
+  }
+  const byBuyer = new Map([...bySender].filter(([a]) => !intermediaries.has(a)));
   const total = [...byBuyer.values()].reduce((a, b) => a + b, 0);
-  const top = [...byBuyer.entries()].sort((a, b) => b[1] - a[1]).slice(0, TOP_BUYERS).map(([b]) => b);
+  const viaIntermediary = [...intermediaries].reduce((a, i) => a + (bySender.get(i) ?? 0), 0);
 
   const walks = await mapLimit(top, 3, async (buyer): Promise<WalkResult> => {
     let node = buyer;
@@ -136,7 +153,8 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
     address: seller,
     window_days: DEMAND_WINDOW_DAYS,
     sample: { inflow_transfers: inflows.length, buyers: byBuyer.size, capped: inflows.length >= HUB_INFLOWS },
-    top_buyer_share: total > 0 ? round(Math.max(...byBuyer.values()) / total) : null,
+    via_intermediary_share: totalIn > 0 ? round(viaIntermediary / totalIn) : null,
+    top_buyer_share: total > 0 && byBuyer.size > 0 ? round(Math.max(...byBuyer.values()) / total) : null,
     buyers_checked: top.length,
     seller_funded: {
       buyers: reached.length,

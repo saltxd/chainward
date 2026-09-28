@@ -66,6 +66,7 @@ const SELLER_OUTPUT_EXAMPLE = {
     address: '0x68396bd35874695ad86cd29410bd80a550991a2b',
     window_days: 30,
     sample: { inflow_transfers: 1000, buyers: 500, capped: true },
+    via_intermediary_share: 0,
     top_buyer_share: 0.037,
     buyers_checked: 30,
     seller_funded: { buyers: 30, volume_share: 1, hops: { '3': 30 } },

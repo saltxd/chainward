@@ -65,4 +65,19 @@ describe('analyzeSellerDemand', () => {
     expect(r.top_buyer_share).toBeNull();
     expect(r.signals).toEqual([]);
   });
+
+  it('treats a facilitator proxy as an intermediary, not a buyer', async () => {
+    // Payments arrive from a busy proxy contract; the seller also pays through it.
+    const edges: Array<[string, string, number]> = [
+      ['0xproxy', '0xseller', 900],
+      ['0xseller', '0xproxy', 300],
+      ['0xexchange', '0xdirect', 50],
+      ['0xdirect', '0xseller', 100],
+    ];
+    const r = await analyzeSellerDemand('0xseller', graph(edges, ['0xproxy', '0xexchange']));
+    expect(r.via_intermediary_share).toBe(0.9);
+    expect(r.buyers_checked).toBe(1);
+    expect(r.paid_back_share).toBe(0);
+    expect(r.signals.map((s) => s.id)).not.toContain('money_flows_back');
+  });
 });
