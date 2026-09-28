@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePressPalette, type PressPalette } from '@/lib/pressPalette';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { PressShell, Masthead, PressDateline, Colophon, BriefOffer } from '@/components/press';
 import { reportPath } from '@/lib/risk';
@@ -46,14 +47,16 @@ interface AgentDetail {
   } | null;
 }
 
-const CHART_AXIS = '#6b6152'; // --ink-faint
-const CHART_STROKE = '#1b1815'; // --ink
-const CHART_TOOLTIP = {
-  background: '#f7f3ea',
-  border: '1px solid #bcb19b',
-  borderRadius: 0,
-  fontSize: 12,
-};
+// Chart furniture comes from usePressPalette() (light or night paper).
+
+function chartTooltip(palette: PressPalette) {
+  return {
+    background: palette.paper2,
+    border: `1px solid ${palette.ruleStrong}`,
+    borderRadius: 0,
+    fontSize: 12,
+  };
+}
 
 function healthColor(score: number): string {
   if (score >= 80) return 'var(--seal)';
@@ -78,6 +81,7 @@ function uniqueTransactions(txs: AgentDetail['transactions']): AgentDetail['tran
 }
 
 export function AgentDetailClient({ agent }: { agent: AgentDetail }) {
+  const palette = usePressPalette();
   const name = agent.agentName ?? agent.slug;
   const balanceData = agent.balanceSeries.map((p) => ({
     date: formatChartDate(p.date),
@@ -170,24 +174,24 @@ export function AgentDetailClient({ agent }: { agent: AgentDetail }) {
                 <LineChart data={balanceData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <XAxis
                     dataKey="date"
-                    stroke={CHART_AXIS}
+                    stroke={palette.inkFaint}
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     minTickGap={32}
                   />
-                  <YAxis stroke={CHART_AXIS} fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke={palette.inkFaint} fontSize={10} tickLine={false} axisLine={false} />
                   <Tooltip
-                    contentStyle={CHART_TOOLTIP}
-                    labelStyle={{ color: '#4a4238' }}
-                    itemStyle={{ color: '#1b1815' }}
-                    cursor={{ stroke: '#bcb19b' }}
+                    contentStyle={chartTooltip(palette)}
+                    labelStyle={{ color: palette.inkSoft }}
+                    itemStyle={{ color: palette.ink }}
+                    cursor={{ stroke: palette.ruleStrong }}
                     formatter={(v) => [`$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 4 })}`, 'balance']}
                   />
                   <Line
                     type="monotone"
                     dataKey="balanceUsd"
-                    stroke={CHART_STROKE}
+                    stroke={palette.ink}
                     strokeWidth={1.25}
                     dot={false}
                     isAnimationActive={false}

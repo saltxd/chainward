@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { usePressPalette, type PressPalette } from '@/lib/pressPalette';
 import Link from 'next/link';
 import {
   AreaChart,
@@ -118,15 +119,17 @@ const TAB_LABELS: Record<LeaderboardTab, string> = {
 };
 
 // Paper chart furniture — ink strokes on manila, hairline-consistent.
-const CHART_AXIS = '#6b6152'; // --ink-faint
-const CHART_STROKE = '#1b1815'; // --ink
-const CHART_TOOLTIP = {
-  backgroundColor: '#eae3d4', // --paper-2
-  border: '1px solid #bcb19b', // --rule-strong
-  borderRadius: 0,
-  fontSize: 11,
-  fontFamily: 'var(--font-mono), ui-monospace, monospace',
-};
+// Chart furniture comes from usePressPalette() (light or night paper).
+
+function chartTooltip(palette: PressPalette) {
+  return {
+    backgroundColor: palette.paper2,
+    border: `1px solid ${palette.ruleStrong}`,
+    borderRadius: 0,
+    fontSize: 11,
+    fontFamily: 'var(--font-mono), ui-monospace, monospace',
+  };
+}
 
 function healthColor(score: number): string {
   if (score >= 80) return 'var(--seal)';
@@ -135,6 +138,7 @@ function healthColor(score: number): string {
 }
 
 export function ObservatoryPage({ children }: { children?: ReactNode }) {
+  const palette = usePressPalette();
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [feed, setFeed] = useState<FeedItem[] | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
@@ -357,24 +361,24 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
                 >
                   <XAxis
                     dataKey="date"
-                    stroke={CHART_AXIS}
+                    stroke={palette.inkFaint}
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     minTickGap={32}
                   />
-                  <YAxis stroke={CHART_AXIS} fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke={palette.inkFaint} fontSize={10} tickLine={false} axisLine={false} />
                   <Tooltip
-                    contentStyle={CHART_TOOLTIP}
-                    labelStyle={{ color: '#4a4238' }}
-                    itemStyle={{ color: '#1b1815' }}
-                    cursor={{ stroke: '#bcb19b' }}
+                    contentStyle={chartTooltip(palette)}
+                    labelStyle={{ color: palette.inkSoft }}
+                    itemStyle={{ color: palette.ink }}
+                    cursor={{ stroke: palette.ruleStrong }}
                   />
                   <Area
                     type="monotone"
                     dataKey="count"
-                    stroke={CHART_STROKE}
-                    fill={CHART_STROKE}
+                    stroke={palette.ink}
+                    fill={palette.ink}
                     fillOpacity={0.07}
                     strokeWidth={1.25}
                     name="tx"
@@ -395,14 +399,14 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
                 >
                   <XAxis
                     dataKey="date"
-                    stroke={CHART_AXIS}
+                    stroke={palette.inkFaint}
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     minTickGap={32}
                   />
                   <YAxis
-                    stroke={CHART_AXIS}
+                    stroke={palette.inkFaint}
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
@@ -411,16 +415,16 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
                     }
                   />
                   <Tooltip
-                    contentStyle={CHART_TOOLTIP}
-                    labelStyle={{ color: '#4a4238' }}
-                    itemStyle={{ color: '#1b1815' }}
-                    cursor={{ stroke: '#bcb19b' }}
+                    contentStyle={chartTooltip(palette)}
+                    labelStyle={{ color: palette.inkSoft }}
+                    itemStyle={{ color: palette.ink }}
+                    cursor={{ stroke: palette.ruleStrong }}
                   />
                   <Area
                     type="monotone"
                     dataKey="gasUsd"
-                    stroke={CHART_STROKE}
-                    fill={CHART_STROKE}
+                    stroke={palette.ink}
+                    fill={palette.ink}
                     fillOpacity={0.07}
                     strokeWidth={1.25}
                     name="gas"

@@ -15,9 +15,9 @@
    ──────────────────────────────────────────────────────────────────────── */
 
 .press {
-  --paper: #f2ede3;
-  --paper-2: #eae3d4;
-  --paper-3: #e2dac8;
+  --paper: #ece6da;
+  --paper-2: #e3dccd;
+  --paper-3: #dad2c0;
 
   --ink: #1b1815;
   --ink-soft: #4a4238;
@@ -49,7 +49,41 @@
 /* Flip the (globally dark) body to paper only when a press page is mounted,
    so overscroll/rubber-banding doesn't reveal the dashboard's dark ground. */
 body:has(.press) {
-  background: #f2ede3;
+  background: #ece6da;
+}
+
+/* Night paper: the same dossier, for viewers in dark mode. Warm near-black
+   ground, off-white ink (never pure white), oxblood lifted so it stays legible.
+   Keep lib/pressPalette.ts (chart colors) in step with these values. */
+@media (prefers-color-scheme: dark) {
+  .press {
+    --paper: #15130f;
+    --paper-2: #1f1c16;
+    --paper-3: #28241c;
+
+    --ink: #e6ddcc;
+    --ink-soft: #bdb3a1;
+    --ink-faint: #8c8271;
+
+    --rule: #2f2a22;
+    --rule-strong: #4a4336;
+
+    --oxblood: #d77a63;
+    --oxblood-bright: #e58b73;
+    --oxblood-wash: rgba(215, 122, 99, 0.1);
+
+    --seal: #86b590;
+
+    --sev-high: #d77a63;
+    --sev-medium: #d6a24e;
+    --sev-low: #93a6c9;
+    --sev-info: #8c8271;
+
+    color-scheme: dark;
+  }
+  body:has(.press) {
+    background: #15130f;
+  }
 }
 
 .press ::selection {
