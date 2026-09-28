@@ -61,6 +61,13 @@ function fmtNum(n: number, maxFrac = 4): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: maxFrac });
 }
 
+const TITLE_BAND: Record<string, string> = {
+  'low-signal': 'low-signal',
+  mixed: 'mixed-signal',
+  elevated: 'elevated-signal',
+  'high-signal': 'high-signal',
+};
+
 export function ReportView({ address }: { address: string }) {
   const lowered = address.toLowerCase();
   const valid = ADDRESS_RE.test(address);
@@ -260,6 +267,16 @@ export function ReportView({ address }: { address: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcomeKey]);
 
+  // The server set the title from the report cached at page load; a re-check
+  // replaces the report client-side, so keep the tab title in step with it.
+  useEffect(() => {
+    if (state.kind !== 'ready' && state.kind !== 'stale') return;
+    const n = state.report.flags.length;
+    const band = TITLE_BAND[state.report.band] ?? state.report.band;
+    document.title = `Risk flags for ${lowered.slice(0, 6)}…${lowered.slice(-4)} — ${n} flag${n === 1 ? '' : 's'} · ${band} | ChainWard`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcomeKey]);
+
   useEffect(() => {
     load();
     return clearPoll;
@@ -311,8 +328,9 @@ export function ReportView({ address }: { address: string }) {
               <span className="rr-loading-pulse" aria-hidden /> Decode running
             </div>
             <p>
-              Running the forensic decode against our Base node. This usually takes
-              under a minute — flags will appear here automatically.
+              Running the forensic decode against{' '}
+              <NodeClaim live="our own Base node" neutral="the chain" />. This usually
+              takes under a minute — flags will appear here automatically.
             </p>
             <div className="rr-steps">
               <span>Fetching transfers</span>
