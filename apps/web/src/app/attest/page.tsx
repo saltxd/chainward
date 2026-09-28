@@ -218,6 +218,10 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
             <a className="press-link" href="/decodes/x402-on-base">
               the x402-on-Base decode
             </a>
+            , and it runs weekly on Base’s largest sellers on{' '}
+            <a className="press-link" href="/x402">
+              the x402 seller board
+            </a>
             .
           </p>
           <pre className="att-code mono">

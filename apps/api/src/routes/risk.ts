@@ -10,6 +10,9 @@ import {
   easScanUrl,
   reportHash,
   reportUri,
+  alchemyTransferSource,
+  analyzeSellerDemand,
+  DEMAND_WINDOW_DAYS,
   type RiskAssessment,
 } from '@chainward/decode';
 import { KNOWN_CONTRACTS } from '@chainward/common';
@@ -22,7 +25,6 @@ import { logger } from '../lib/logger.js';
 import { WalletLookupService } from '../services/walletLookupService.js';
 import { extractProvenance, type ReportProvenance } from '../lib/reportProvenance.js';
 import { buildCoverage, type ReportCoverage } from '../lib/reportCoverage.js';
-import { alchemyTransferSource, analyzeSellerDemand, DEMAND_WINDOW_DAYS } from '../services/sellerDemandService.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -681,7 +683,7 @@ async function sellerDemandCheck(c: Context) {
     timer = setTimeout(() => reject(new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; retry shortly.')), DEMAND_BUDGET_MS);
   });
   try {
-    const report = await Promise.race([analyzeSellerDemand(address, alchemyTransferSource(rpcUrl, fromBlock)), timeout]);
+    const report = await Promise.race([analyzeSellerDemand(address, alchemyTransferSource(rpcUrl, fromBlock, logger)), timeout]);
     await redis.set(cacheKey, JSON.stringify(report), 'EX', DEMAND_CACHE_SEC);
     return c.json({ success: true, data: report });
   } finally {

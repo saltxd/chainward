@@ -23,6 +23,7 @@ import { digest } from './routes/digest.js';
 import { payments } from './routes/payments.js';
 import { brief } from './routes/brief.js';
 import { telemetry } from './routes/telemetry.js';
+import { x402Board } from './routes/x402Board.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
@@ -139,6 +140,7 @@ app.route('/api/digest', digest);
 app.route('/api/payments', payments);
 app.route('/api/brief', brief);
 app.route('/api/telemetry', telemetry);
+app.route('/api/x402', x402Board);
 
 // 404 handler
 app.notFound((c) =>
