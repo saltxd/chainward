@@ -16,12 +16,12 @@ export const metadata: Metadata = {
       "Independent audit of Virtuals' Arena leaderboard vs Hyperliquid's public clearinghouse + spot endpoints.",
     url: 'https://chainward.ai/hyperliquid',
     type: 'website',
-    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Hyperliquid Agent Audit | ChainWard',
-    images: ['/chainward-og.png'],
+    images: ['/chainward-og-press.png'],
   },
 };
 

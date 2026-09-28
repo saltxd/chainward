@@ -8,7 +8,7 @@ export const metadata = {
   openGraph: {
     title: 'API Reference — ChainWard Docs',
     description: 'ChainWard REST API reference for AI agent wallet monitoring on Base.',
-    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
   },
 };
 

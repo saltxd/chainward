@@ -9,7 +9,7 @@ export const metadata = {
       'Install the ChainWard CLI to monitor AI agent wallets on Base from your terminal.',
     url: 'https://chainward.ai/docs/cli',
     type: 'website',
-    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image' as const,
@@ -17,7 +17,7 @@ export const metadata = {
     title: 'CLI — Monitor Agents from Your Terminal | ChainWard',
     description:
       'Install the ChainWard CLI to monitor AI agent wallets on Base from your terminal.',
-    images: ['/chainward-og.png'],
+    images: ['/chainward-og-press.png'],
   },
 };
 

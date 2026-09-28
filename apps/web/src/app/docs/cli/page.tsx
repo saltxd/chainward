@@ -8,7 +8,7 @@ export const metadata = {
   openGraph: {
     title: 'CLI — ChainWard Docs',
     description: 'Monitor your agents from the terminal.',
-    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
   },
 };
 

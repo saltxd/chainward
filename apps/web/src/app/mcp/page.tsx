@@ -10,7 +10,7 @@ export const metadata = {
     title: 'ChainWard MCP — read-side intel for your AI assistant',
     description:
       'npx -y chainward-mcp-server — labeled agent wallets, ACP economics, Decodes corpus, queryable from any MCP client.',
-    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
   },
 };
 

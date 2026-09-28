@@ -19,14 +19,14 @@ export const metadata: Metadata = {
       'Real-time intelligence on AI agent activity on Base. Tracking autonomous agents.',
     url: 'https://chainward.ai/base',
     type: 'website',
-    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Base Agent Observatory | ChainWard',
     description:
       'Real-time intelligence on AI agent activity on Base. Tracking autonomous agents.',
-    images: ['/chainward-og.png'],
+    images: ['/chainward-og-press.png'],
   },
 };
 

@@ -50,11 +50,11 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    default: 'ChainWard — the chain-verified source of truth for AI agents on Base',
+    default: 'ChainWard — on-chain risk checks for any Base address',
     template: '%s | ChainWard',
   },
   description:
-    'ChainWard is the chain-verified record of the AI agent economy on Base. We index every agent wallet straight from the chain — who is active, who is earning, who has gone quiet — and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
+    'Paste any Base address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
   metadataBase: new URL('https://chainward.ai'),
   alternates: { canonical: 'https://chainward.ai/' },
   robots: { index: true, follow: true },
@@ -76,21 +76,21 @@ export const metadata: Metadata = {
     apple: '/chainward-logo-180.png',
   },
   openGraph: {
-    title: 'ChainWard — the chain-verified source of truth for AI agents on Base',
+    title: 'ChainWard — on-chain risk checks for any Base address',
     description:
-      'The chain-verified record of AI agents on Base. We index every agent wallet straight from the chain and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
+      'Paste any Base address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
     siteName: 'ChainWard',
     url: 'https://chainward.ai',
     type: 'website',
-    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@chainwardai',
-    title: 'ChainWard — the chain-verified source of truth for AI agents on Base',
+    title: 'ChainWard — on-chain risk checks for any Base address',
     description:
-      'The chain-verified record of AI agents on Base. We index every agent wallet straight from the chain and rank by real on-chain activity, not marketing totals. Live observatory, forensic on-chain decodes, weekly intel.',
-    images: ['/chainward-og.png'],
+      'Paste any Base address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
+    images: ['/chainward-og-press.png'],
   },
 };
 

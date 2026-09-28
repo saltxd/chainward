@@ -10,7 +10,7 @@ export const metadata = {
     title: 'ChainWard Attest — on-chain risk flags for AI agents on Base',
     description:
       'Risk reports as EAS attestations on Base. Check a counterparty before you pay it.',
-    images: [{ url: '/chainward-og.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
   },
 };
 

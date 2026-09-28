@@ -45,7 +45,7 @@ For each new decode, in order:
    `/api/decodes/[slug]/og` works in browsers, Discord, iMessage, etc., but X's
    scraper choked on it inconsistently (200 + valid PNG response, X still
    showed "no image" placeholder). Static asset = same delivery path as
-   `/chainward-og.png` which X scrapes reliably.
+   `/chainward-og-press.png` which X scrapes reliably.
 
    To generate the OG file, easiest path is: deploy the decode first (dynamic
    route picks it up automatically), then `curl -o og.png
