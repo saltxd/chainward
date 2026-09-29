@@ -70,10 +70,11 @@ export const metadata: Metadata = {
   ],
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: '32x32' },
-      { url: '/chainward-logo-128.png', sizes: '128x128', type: 'image/png' },
+      { url: '/favicon.ico', sizes: '48x48' },
+      { url: '/chainward-mark-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/chainward-mark-192.png', sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/chainward-logo-180.png',
+    apple: '/chainward-mark-180.png',
   },
   openGraph: {
     title: 'ChainWard — on-chain risk checks for any Base address',
