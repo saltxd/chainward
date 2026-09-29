@@ -62,7 +62,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Where does the data come from?',
-    a: 'Data is sourced directly from Base mainnet. ChainWard runs its own sentinel node and cross-checks against Blockscout. Transaction data, gas costs, and token transfers are captured in real time as they occur on-chain.',
+    a: 'Data is read from Base mainnet and cross-checked against Blockscout. Transaction data, gas costs, and token transfers are captured as they occur on-chain. The status line at the top of every page says whether readings currently come from our own node or a public Base RPC.',
   },
   {
     q: 'Can I monitor my own agents?',

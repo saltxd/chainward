@@ -267,7 +267,7 @@ export default function PublicAgentPage({
                       Monitoring since
                     </span>{' '}
                     {monitoringSince}. Live on-chain telemetry — balance, tx flow, gas
-                    spend — served from the ChainWard sentinel node.
+                    spend — read from Base.
                   </span>
                 }
               />

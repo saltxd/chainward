@@ -26,7 +26,7 @@ interface AgentDetail {
     timestamp: string;
     direction: string;
     tokenSymbol: string | null;
-    amountUsd: number;
+    amountUsd: number | null;
     gasCostUsd: number;
     txHash: string;
     txType: string;
@@ -223,7 +223,7 @@ export function AgentDetailClient({ agent }: { agent: AgentDetail }) {
                   </span>
                   <span className="mono">{tx.txType}</span>
                   <span className="mono agd-token">{tx.tokenSymbol ?? '—'}</span>
-                  <span className="mono agd-right">${tx.amountUsd.toFixed(2)}</span>
+                  <span className="mono agd-right">{tx.amountUsd == null ? '—' : `$${tx.amountUsd.toFixed(2)}`}</span>
                   <span className="mono agd-right agd-muted agd-gas">${tx.gasCostUsd.toFixed(4)}</span>
                   <a
                     href={`https://basescan.org/tx/${tx.txHash}`}

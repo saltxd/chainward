@@ -33,7 +33,7 @@ interface FeedItem {
   walletAddress: string;
   direction: string;
   tokenSymbol: string | null;
-  amountUsd: number;
+  amountUsd: number | null;
   gasCostUsd: number;
   txHash: string;
   txType: string;
@@ -340,7 +340,7 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
                     </span>
                     <span className="obs-token mono">{r.tokenSymbol ?? 'ETH'}</span>
                     <span className="obs-usd mono obs-right">
-                      {formatUsd(r.amountUsd)}
+                      {r.amountUsd == null ? '—' : formatUsd(r.amountUsd)}
                     </span>
                   </Link>
                 ))
