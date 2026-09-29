@@ -71,6 +71,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '48x48' },
+      { url: '/chainward-mark.svg', type: 'image/svg+xml' },
       { url: '/chainward-mark-32.png', sizes: '32x32', type: 'image/png' },
       { url: '/chainward-mark-192.png', sizes: '192x192', type: 'image/png' },
     ],

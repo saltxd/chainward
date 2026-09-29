@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/web/public/chainward-logo.svg" alt="ChainWard" width="64" height="64" />
+  <img src="apps/web/public/chainward-mark.svg" alt="ChainWard" width="64" height="64" />
 </p>
 
 <h1 align="center">ChainWard</h1>
