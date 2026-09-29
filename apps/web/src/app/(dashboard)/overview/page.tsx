@@ -34,7 +34,7 @@ export default function OverviewPage() {
   const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: volumeData } = useApi<TxVolumeBucket[]>(
-    () => api.getTxStats({ bucket: '1h', from }),
+    () => api.getTxStats({ bucket: '1d', from }),
     [],
   );
 
@@ -202,7 +202,7 @@ export default function OverviewPage() {
         <div className="v2-dash-card">
           <SectionHead tag="volume.7d" title="Transaction volume." />
           {hasVolumeData ? (
-            <VolumeChart data={volumeData!} />
+            <VolumeChart data={volumeData!} bucket="1d" />
           ) : (
             <div className="v2-dash-empty">
               No transaction volume yet. Data appears when your agents transact.

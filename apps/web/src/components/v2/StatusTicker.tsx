@@ -111,7 +111,7 @@ export function StatusTicker() {
       live: true,
     },
     {
-      label: 'fleet.size',
+      label: 'observatory.agents',
       value: observatory ? String(observatory.agentsTracked) : '…',
       mobileHide: true,
     },

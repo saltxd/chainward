@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
+import { PressShell, Masthead, PressDateline, Colophon, BriefOffer } from '@/components/press';
 import { fetchDedup } from '@/lib/api-dedup';
 
 interface OverviewData {
@@ -114,7 +114,7 @@ type LeaderboardTab = 'mostActive' | 'highestGas' | 'largestPortfolio' | 'health
 const TAB_LABELS: Record<LeaderboardTab, string> = {
   mostActive: 'Most active',
   highestGas: 'Highest gas',
-  largestPortfolio: 'Largest portfolio',
+  largestPortfolio: 'Most ETH',
   healthiest: 'Healthiest',
 };
 
@@ -234,7 +234,7 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
               </span>
             </div>
             <div className="obs-stat">
-              <span className="obs-stat-label">Portfolio (USD)</span>
+              <span className="obs-stat-label">ETH held (USD)</span>
               <span className="obs-stat-value mono">
                 {overview ? formatUsd(overview.totalPortfolioValue) : '—'}
               </span>
@@ -435,21 +435,11 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
           </div>
         </section>
 
-        <section className="obs-cta">
-          <div>
-            <h3 className="obs-cta-title press-display">
-              Private monitoring for your fleet.
-            </h3>
-            <p className="obs-cta-sub">
-              The public observatory watches the whole ecosystem. Want Discord
-              pings when one of YOUR agents fails a swap? Free tier — 3 agents,
-              every alert type.
-            </p>
-          </div>
-          <Link href="/login" className="press-btn">
-            Start monitoring →
-          </Link>
-        </section>
+        <BriefOffer
+          placement="observatory"
+          title="Need one of these agents traced end to end?"
+          lede="The observatory shows activity. The Intel Brief is the full investigation of one agent or wallet: we trace the fund flows, test every public claim against on-chain evidence, and hand you a written brief you can cite."
+        />
 
         {children}
 
@@ -622,26 +612,6 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
           padding: 14px 10px 6px;
         }
 
-        .obs-cta {
-          margin-top: 56px;
-          border-top: 3px double var(--rule-strong);
-          border-bottom: 1px solid var(--rule);
-          padding: 32px 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 32px;
-          flex-wrap: wrap;
-        }
-        .obs-cta-title { margin: 0; font-size: clamp(22px, 3vw, 32px); }
-        .obs-cta-sub {
-          margin: 10px 0 0;
-          font-family: var(--font-text);
-          font-size: 16px;
-          line-height: 1.55;
-          color: var(--ink-soft);
-          max-width: 520px;
-        }
       `}</style>
     </PressShell>
   );
