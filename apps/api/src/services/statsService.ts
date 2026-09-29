@@ -2,6 +2,7 @@ import { eq, sql, and, gte, count, sum, inArray } from 'drizzle-orm';
 import { agentRegistry, transactions } from '@chainward/db';
 import type { Database } from '@chainward/db';
 import { spamFilter } from '@chainward/observatory';
+import { usableSnapshotSets } from './balanceSets.js';
 
 export class StatsService {
   constructor(private db: Database) {}
@@ -48,19 +49,26 @@ export class StatsService {
       txCount24h = txStats?.txCount ?? 0;
       gasSpend24h = parseFloat(txStats?.totalGas ?? '0');
 
-      // Latest balance per wallet (most recent snapshot per wallet)
+      // Every token in each wallet's latest full snapshot (last 7 days)
       const walletArray = `{${wallets.join(',')}}`;
-      const latestBalances = await this.db.execute(sql`
-        SELECT DISTINCT ON (wallet_address) wallet_address, balance_usd
-        FROM balance_snapshots
-        WHERE wallet_address = ANY(${walletArray}::text[])
-          AND token_address IS NULL
-        ORDER BY wallet_address, timestamp DESC
-      `);
+      const fromStr = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const toStr = now.toISOString();
+      const [portfolio] = (await this.db.execute(sql`
+        WITH ${usableSnapshotSets(walletArray, fromStr, toStr)},
+        latest AS (
+          SELECT DISTINCT ON (wallet_address) wallet_address, timestamp
+          FROM usable
+          ORDER BY wallet_address, timestamp DESC
+        )
+        SELECT COALESCE(SUM(b.balance_usd), 0) AS total_usd
+        FROM latest l
+        JOIN balance_snapshots b
+          ON b.wallet_address = l.wallet_address
+         AND b.timestamp = l.timestamp
+        WHERE b.timestamp >= ${fromStr}::timestamptz
+      `)) as unknown as Array<{ total_usd: string }>;
 
-      for (const row of latestBalances as unknown as Array<{ balance_usd: string }>) {
-        totalValue += parseFloat(row.balance_usd ?? '0');
-      }
+      totalValue = parseFloat(portfolio?.total_usd ?? '0');
     }
 
     return {

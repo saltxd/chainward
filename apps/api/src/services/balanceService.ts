@@ -1,6 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
+import { usableSnapshotSets } from './balanceSets.js';
 
 export class BalanceService {
   constructor(private db: Database) {}
@@ -15,12 +16,25 @@ export class BalanceService {
 
     const wallets = agents.map((a) => a.walletAddress);
 
+    // Rows of each wallet's latest full snapshot. Latest-row-per-token would keep
+    // showing a token sold to zero, since zero balances are never written.
+    const walletArray = `{${wallets.join(',')}}`;
+    const fromStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const toStr = new Date().toISOString();
     const result = await this.db.execute(sql`
-      SELECT DISTINCT ON (wallet_address, token_address)
-        wallet_address, chain, token_address, token_symbol, balance_raw, balance_usd, timestamp
-      FROM balance_snapshots
-      WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
-      ORDER BY wallet_address, token_address, timestamp DESC
+      WITH ${usableSnapshotSets(walletArray, fromStr, toStr)},
+      latest AS (
+        SELECT DISTINCT ON (wallet_address) wallet_address, timestamp
+        FROM usable
+        ORDER BY wallet_address, timestamp DESC
+      )
+      SELECT b.wallet_address, b.chain, b.token_address, b.token_symbol, b.balance_raw, b.balance_usd, b.timestamp
+      FROM latest l
+      JOIN balance_snapshots b
+        ON b.wallet_address = l.wallet_address
+       AND b.timestamp = l.timestamp
+      WHERE b.timestamp >= ${fromStr}::timestamptz
+      ORDER BY b.wallet_address, b.token_address
     `);
 
     return result;
@@ -63,19 +77,32 @@ export class BalanceService {
     const fromStr = (from ?? defaultFrom).toISOString();
     const toStr = (to ?? new Date()).toISOString();
 
+    // Each wallet's latest full snapshot in the bucket, summed across wallets per token.
+    const walletArray = `{${wallets.join(',')}}`;
     const result = await this.db.execute(sql`
+      WITH ${usableSnapshotSets(walletArray, fromStr, toStr)},
+      latest AS (
+        SELECT DISTINCT ON (wallet_address, bucket) wallet_address, bucket, timestamp
+        FROM (
+          SELECT wallet_address, time_bucket(${interval}::interval, timestamp) AS bucket, timestamp
+          FROM usable
+        ) u
+        ORDER BY wallet_address, bucket, timestamp DESC
+      )
       SELECT
-        time_bucket(${interval}::interval, timestamp) AS bucket,
-        token_symbol,
-        token_address,
-        LAST(balance_usd, timestamp) AS balance_usd,
-        LAST(balance_raw, timestamp) AS balance_raw
-      FROM balance_snapshots
-      WHERE wallet_address = ANY(${`{${wallets.join(',')}}`}::text[])
-        AND timestamp >= ${fromStr}::timestamptz
-        AND timestamp <= ${toStr}::timestamptz
-      GROUP BY bucket, token_symbol, token_address
-      ORDER BY bucket ASC
+        l.bucket,
+        b.token_symbol,
+        b.token_address,
+        SUM(b.balance_usd) AS balance_usd,
+        SUM(b.balance_raw) AS balance_raw
+      FROM latest l
+      JOIN balance_snapshots b
+        ON b.wallet_address = l.wallet_address
+       AND b.timestamp = l.timestamp
+      WHERE b.timestamp >= ${fromStr}::timestamptz
+        AND b.timestamp <= ${toStr}::timestamptz
+      GROUP BY l.bucket, b.token_symbol, b.token_address
+      ORDER BY l.bucket ASC
     `);
 
     return result;
