@@ -83,3 +83,7 @@ deliverables/virtuals-top-dog/data/
 
 # Crypto AI agent landscape ("who is top dog now") research notes, scripts and data; keep local
 deliverables/agent-landscape/
+
+# Client deliverables for TermiX (points-farming wallet list) and Bankr (fee reconciliation): private; never commit
+deliverables/termix-audit/
+deliverables/bankr-audit/
