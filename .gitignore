@@ -72,3 +72,14 @@ deliverables/x402-on-base/scripts/
 deliverables/base-mcp-find-the-tag/research.md
 deliverables/base-mcp-find-the-tag/scripts/
 deliverables/base-mcp-find-the-tag/data/
+
+# Meridian cashback-farming audit: private paid client deliverable; never commit
+deliverables/meridian-audit/
+
+# Virtuals "top dog or graveyard" research notes, scripts and raw data; keep local
+deliverables/virtuals-top-dog/research.md
+deliverables/virtuals-top-dog/scripts/
+deliverables/virtuals-top-dog/data/
+
+# Crypto AI agent landscape ("who is top dog now") research notes, scripts and data; keep local
+deliverables/agent-landscape/
