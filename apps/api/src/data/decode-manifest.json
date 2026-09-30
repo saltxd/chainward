@@ -1,6 +1,17 @@
 {
-  "generatedAt": "2026-09-28T22:36:07.931Z",
+  "generatedAt": "2026-09-30T12:58:42.820Z",
   "decodes": [
+    {
+      "slug": "virtuals-top-dog",
+      "title": "Virtuals' Agent Commerce Earned $345,197 in March. In September: $5.48",
+      "subtitle": "VIRTUAL is still the #2 AI-agent token. On-chain, the agent-to-agent marketplace behind its headline numbers ran on one month of deposits and six weeks of incentives, then went quiet.",
+      "date": "2026-09-30",
+      "url": "https://chainward.ai/decodes/virtuals-top-dog",
+      "addresses": [
+        "0x8ee4a1c32335be59778aba32b878abc0ca58dc7c",
+        "0xca1e1b4a4e58d3f9779685d53124fce6a75e3226"
+      ]
+    },
     {
       "slug": "base-mcp-find-the-tag",
       "title": "Every Base MCP Transaction Ends in bmcp_blue",
@@ -268,6 +279,12 @@
     }
   ],
   "byAddress": {
+    "0x8ee4a1c32335be59778aba32b878abc0ca58dc7c": [
+      "virtuals-top-dog"
+    ],
+    "0xca1e1b4a4e58d3f9779685d53124fce6a75e3226": [
+      "virtuals-top-dog"
+    ],
     "0xc2e346ca220255225fcfb38e2b0d1c1ca83b245d": [
       "base-mcp-find-the-tag"
     ],
