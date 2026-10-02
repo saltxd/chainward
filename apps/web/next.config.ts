@@ -43,12 +43,14 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob:",
               "font-src 'self' data:",
               // Hosts the wallet stack actually calls: WalletConnect (relay/rpc/pulse/verify
-              // on .org, legacy .com), viem's default public RPCs for base + mainnet,
+              // on .org, legacy .com, Reown config), viem's default public RPCs for base + mainnet,
               // Coinbase Wallet SDK and MetaMask SDK backends.
               [
                 "connect-src 'self' https://api.chainward.ai",
                 'https://*.walletconnect.org wss://*.walletconnect.org',
                 'https://*.walletconnect.com wss://*.walletconnect.com',
+                // Reown/AppKit remote project config (inside the WalletConnect connector)
+                'https://api.web3modal.org',
                 'https://mainnet.base.org https://mainnet-preconf.base.org https://eth.merkle.io',
                 'https://*.coinbase.com wss://*.coinbase.com',
                 'https://*.metamask.io wss://*.metamask.io',
