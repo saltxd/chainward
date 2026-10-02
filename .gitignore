@@ -87,3 +87,6 @@ deliverables/agent-landscape/
 # Client deliverables for TermiX (points-farming wallet list) and Bankr (fee reconciliation): private; never commit
 deliverables/termix-audit/
 deliverables/bankr-audit/
+
+# Next incentive-audit targets (scout notes, scan scripts, raw data): private research; never commit
+deliverables/next-targets/
