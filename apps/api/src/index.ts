@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 import { bodyLimit } from 'hono/body-limit';
 import { serve } from '@hono/node-server';
@@ -110,11 +110,22 @@ app.use('/api/observatory', async (c, next) => {
 });
 
 // Paid counterparty check (x402). Must run before the /api/risk routes.
+// The payment middleware matches its routes as 'GET …', but Hono also runs GET
+// handlers for HEAD, so a HEAD request ran the paid handler for free. Paid paths
+// answer GET only.
+const paidGetOnly: MiddlewareHandler = async (c, next) => {
+  if (c.req.method !== 'GET') {
+    c.header('Allow', 'GET');
+    return c.json({ success: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Use GET' } }, 405);
+  }
+  await next();
+};
 const x402Check = x402CheckMiddleware();
 if (x402Check) {
-  app.use('/api/risk/x402', x402Check);
-  app.use('/api/risk/x402/*', x402Check);
-  app.use('/api/risk/seller-demand', x402Check);
+  for (const path of ['/api/risk/x402', '/api/risk/x402/*', '/api/risk/seller-demand']) {
+    app.use(path, paidGetOnly);
+    app.use(path, x402Check);
+  }
 }
 
 app.get('/.well-known/x402', (c) => c.json(x402DiscoveryDocument()));

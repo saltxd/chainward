@@ -9,6 +9,7 @@
  * real Discord webhook for manual verification.
  */
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { parsePgInterval } from '../../lib/interval.js';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before any imports that depend on them
@@ -454,19 +455,16 @@ describe('Duplicate Alert Prevention', () => {
 // Cooldown
 // ---------------------------------------------------------------------------
 describe('Cooldown Logic', () => {
+  // Mirrors alertEvaluator's parseCooldown: the real parser, 5-minute fallback.
   function parseCooldown(cooldown: string): number {
-    const match = cooldown.match(/(\d+)\s*(minute|minutes|hour|hours|second|seconds|day|days)/i);
-    if (!match) return 5 * 60 * 1000;
-    const value = parseInt(match[1]!, 10);
-    const unit = match[2]!.toLowerCase();
-    switch (unit) {
-      case 'second': case 'seconds': return value * 1000;
-      case 'minute': case 'minutes': return value * 60 * 1000;
-      case 'hour': case 'hours': return value * 60 * 60 * 1000;
-      case 'day': case 'days': return value * 24 * 60 * 60 * 1000;
-      default: return 5 * 60 * 1000;
-    }
+    const ms = parsePgInterval(cooldown);
+    return ms === null || ms < 0 ? 5 * 60 * 1000 : ms;
   }
+
+  it('parses Postgres interval output ("01:00:00", "1 day 02:00:00")', () => {
+    expect(parseCooldown('01:00:00')).toBe(3600000);
+    expect(parseCooldown('1 day 02:00:00')).toBe(93600000);
+  });
 
   it('parses "5 minutes" to 300000ms', () => {
     expect(parseCooldown('5 minutes')).toBe(300000);

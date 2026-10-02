@@ -4,8 +4,9 @@ import { ObservatoryService } from '@chainward/observatory';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
 import { rateLimit } from '../middleware/rateLimit.js';
-import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
+import { requireOpsKey } from '../middleware/opsKey.js';
 import { findDecodesForAddress } from '../lib/decodeManifest.js';
+import { SYSTEM_USER_ID } from '../lib/systemUser.js';
 import type { AppVariables } from '../types.js';
 
 let _service: ObservatoryService | null = null;
@@ -146,6 +147,9 @@ observatory.get('/lookup/:wallet', async (c) => {
       SELECT wallet_address, agent_name, agent_framework, chain, is_public
       FROM agent_registry
       WHERE LOWER(wallet_address) = ${lower} AND is_public = true
+        -- Only ChainWard-curated rows. Any user can register any address with any
+        -- name, so a user row here would let them label a wallet as a known agent.
+        AND user_id = ${SYSTEM_USER_ID}
       LIMIT 1
     `),
     db.execute(sql`
@@ -215,10 +219,12 @@ observatory.get('/agent/:slug', async (c) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Candidates — auth required, for reviewing ERC-8004 scout results
+// Candidates — operator only (ops key), for reviewing ERC-8004 scout results.
+// A user session or self-minted API key is not enough: any signed-in user could
+// otherwise dismiss candidates and stop auto-promotion.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-observatory.get('/candidates', requireApiKeyOrSession(), async (c) => {
+observatory.get('/candidates', requireOpsKey, async (c) => {
   const db = getDb();
   const rawStatus = c.req.query('status') ?? 'pending';
   const validStatuses = ['pending', 'approved', 'dismissed'] as const;
@@ -238,7 +244,7 @@ observatory.get('/candidates', requireApiKeyOrSession(), async (c) => {
   return c.json({ success: true, data: rows });
 });
 
-observatory.patch('/candidates/:id', requireApiKeyOrSession('admin'), async (c) => {
+observatory.patch('/candidates/:id', requireOpsKey, async (c) => {
   const db = getDb();
   const id = Number(c.req.param('id'));
   if (Number.isNaN(id)) {

@@ -15,3 +15,13 @@
 .idea
 *.log
 .DS_Store
+
+# Gitignored research and private client deliverables: never bake into an image
+# (CI builds from git, but a local `docker build` would pick them up)
+deliverables/meridian-audit
+deliverables/termix-audit
+deliverables/bankr-audit
+deliverables/agent-landscape
+deliverables/*/research.md
+deliverables/*/scripts
+deliverables/*/data

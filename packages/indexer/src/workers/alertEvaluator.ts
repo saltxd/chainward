@@ -4,6 +4,7 @@ import { alertConfigs, alertEvents, transactions, balanceSnapshots, agentRegistr
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
+import { parsePgInterval } from '../lib/interval.js';
 
 interface TxAlertJobData {
   type: 'tx-triggered';
@@ -607,14 +608,16 @@ async function claimAlertEvent(
   const now = new Date();
 
   return db.transaction(async (trx) => {
+    // Cooldown as seconds straight from Postgres: this is the authoritative
+    // check, so it doesn't go through text parsing at all.
     const rows = await trx.execute<{
       enabled: boolean;
-      cooldown: string;
+      cooldown_seconds: string | number | null;
       last_triggered: Date | null;
     }>(sql`
       SELECT
         enabled,
-        cooldown::text AS cooldown,
+        EXTRACT(EPOCH FROM cooldown) AS cooldown_seconds,
         last_triggered
       FROM alert_configs
       WHERE id = ${config.id}
@@ -627,7 +630,10 @@ async function claimAlertEvent(
     }
 
     if (locked.last_triggered) {
-      const cooldownMs = parseCooldown(locked.cooldown);
+      const cooldownSeconds = Number(locked.cooldown_seconds ?? Number.NaN);
+      const cooldownMs = Number.isFinite(cooldownSeconds)
+        ? cooldownSeconds * 1000
+        : DEFAULT_COOLDOWN_MS;
       const elapsed = now.getTime() - new Date(locked.last_triggered).getTime();
       if (elapsed < cooldownMs) {
         return null;
@@ -674,34 +680,26 @@ async function claimAlertEvent(
   });
 }
 
-/** Parse a PostgreSQL interval string to milliseconds */
+const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
+
+/**
+ * Cooldown interval (as Postgres returns it, e.g. '00:05:00' or
+ * '1 day 02:00:00') to milliseconds. Falls back to 5 minutes, loudly.
+ */
 function parseCooldown(cooldown: string): number {
-  // Handle common PostgreSQL interval formats
-  const match = cooldown.match(/(\d+)\s*(minute|minutes|hour|hours|second|seconds|day|days)/i);
-  if (!match) return 5 * 60 * 1000; // default 5 minutes
-
-  const value = parseInt(match[1]!, 10);
-  const unit = match[2]!.toLowerCase();
-
-  switch (unit) {
-    case 'second':
-    case 'seconds':
-      return value * 1000;
-    case 'minute':
-    case 'minutes':
-      return value * 60 * 1000;
-    case 'hour':
-    case 'hours':
-      return value * 60 * 60 * 1000;
-    case 'day':
-    case 'days':
-      return value * 24 * 60 * 60 * 1000;
-    default:
-      return 5 * 60 * 1000;
-  }
+  return intervalMsOr(cooldown, DEFAULT_COOLDOWN_MS);
 }
 
-/** Parse a lookback window string to milliseconds */
+/** Parse a lookback window interval to milliseconds */
 function parseLookback(lookback: string): number {
-  return parseCooldown(lookback); // Same parsing logic
+  return intervalMsOr(lookback, DEFAULT_COOLDOWN_MS);
+}
+
+function intervalMsOr(interval: string, fallbackMs: number): number {
+  const ms = parsePgInterval(interval);
+  if (ms === null || ms < 0) {
+    logger.warn({ interval, fallbackMs }, 'Unparseable alert interval, using fallback');
+    return fallbackMs;
+  }
+  return ms;
 }

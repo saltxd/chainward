@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { ZodError } from 'zod';
 import type { ApiErrorResponse } from '@chainward/common';
 import { logger } from '../lib/logger.js';
 
@@ -25,6 +26,19 @@ export function handleError(err: Error, c: Context): Response {
       },
     };
     return c.json(body, err.statusCode as 400);
+  }
+
+  // Schema .parse() failures are bad input, not server faults.
+  if (err instanceof ZodError) {
+    const body: ApiErrorResponse = {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid request',
+        details: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      },
+    };
+    return c.json(body, 400);
   }
 
   logger.error({ err }, 'Unhandled error');

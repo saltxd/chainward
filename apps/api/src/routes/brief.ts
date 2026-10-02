@@ -1,13 +1,12 @@
 import { Hono } from 'hono';
-import type { MiddlewareHandler } from 'hono';
 import { z } from 'zod';
-import { eq, and, desc } from 'drizzle-orm';
-import { timingSafeEqual } from 'node:crypto';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { briefOrders } from '@chainward/db';
 import type { AppVariables } from '../types.js';
 import { getDb } from '../lib/db.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { requireOpsKey } from '../middleware/opsKey.js';
 import { logger } from '../lib/logger.js';
 import { verifyUsdcPayment } from '../lib/verifyUsdcPayment.js';
 import { buildFulfillmentUpdate } from '../lib/briefFulfillment.js';
@@ -96,7 +95,9 @@ brief.post('/orders/:id/pay', requireApiKeyOrSession('write'), async (c) => {
     throw new AppError(400, 'INVALID_ORDER_ID', 'Invalid order id');
   }
   const body = await c.req.json().catch(() => ({}));
-  const { txHash } = paySchema.parse(body);
+  // Stored and compared lowercase: the unique index is on lower(tx_hash), so a
+  // mixed-case resubmission used to slip past the duplicate check into a 500.
+  const txHash = paySchema.parse(body).txHash.toLowerCase();
 
   const treasury = treasuryOrThrow();
   const db = getDb();
@@ -117,7 +118,7 @@ brief.post('/orders/:id/pay', requireApiKeyOrSession('write'), async (c) => {
   const [dupe] = await db
     .select({ id: briefOrders.id })
     .from(briefOrders)
-    .where(eq(briefOrders.txHash, txHash))
+    .where(sql`lower(${briefOrders.txHash}) = ${txHash}`)
     .limit(1);
   if (dupe && dupe.id !== order.id) {
     throw new AppError(409, 'PAYMENT_ALREADY_USED', 'This transaction is already attached to another order');
@@ -128,6 +129,9 @@ brief.post('/orders/:id/pay', requireApiKeyOrSession('write'), async (c) => {
     fromWallet: user.walletAddress,
     toTreasury: treasury,
     minAmount: BigInt(order.amountUsdc),
+    // A transfer from before the order was placed (an older brief or tier
+    // payment to the same treasury) can't pay for it. 60s slack for clock skew.
+    notBefore: new Date(order.createdAt.getTime() - 60_000),
   });
 
   if (!result.ok) {
@@ -136,6 +140,9 @@ brief.post('/orders/:id/pay', requireApiKeyOrSession('write'), async (c) => {
     }
     if (result.reason === 'TX_FAILED') {
       throw new AppError(400, 'TX_FAILED', 'Transaction reverted on-chain');
+    }
+    if (result.reason === 'TOO_OLD') {
+      throw new AppError(400, 'PAYMENT_BEFORE_ORDER', 'This transaction was sent before the order was placed');
     }
     throw new AppError(
       400,
@@ -174,19 +181,8 @@ brief.get('/orders/mine', requireApiKeyOrSession('read'), async (c) => {
 });
 
 // ── Ops endpoints (fulfillment worker) ────────────────────────────────────────
-// Authed by a shared OPS_API_KEY (chainward-secrets), used by the off-cluster
+// Authed by OPS_API_KEY (middleware/opsKey.ts); used by the off-cluster
 // fulfillment poller on the ops host to claim + settle orders. No session/wallet.
-const requireOpsKey: MiddlewareHandler = async (c, next) => {
-  const expected = process.env.OPS_API_KEY;
-  if (!expected) throw new AppError(503, 'OPS_DISABLED', 'Ops API not configured');
-  const got = c.req.header('x-ops-key') ?? '';
-  const a = Buffer.from(got);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    throw new AppError(401, 'UNAUTHORIZED', 'Invalid ops key');
-  }
-  await next();
-};
 
 // Paid orders awaiting fulfillment, oldest first.
 brief.get('/ops/queue', requireOpsKey, async (c) => {

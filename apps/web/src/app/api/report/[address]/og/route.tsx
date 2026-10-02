@@ -1,6 +1,7 @@
 import { ImageResponse } from '@vercel/og';
 import { DISCLAIMER, SEVERITY_HEX, topSeverity } from '@/lib/risk';
 import type { RiskBand, RiskReport, RiskSeverity } from '@/lib/api';
+import { isAddress } from '@/lib/params';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
@@ -27,8 +28,9 @@ function truncate(addr: string): string {
 }
 
 async function fetchReport(address: string): Promise<RiskReport | null> {
+  if (!isAddress(address)) return null;
   try {
-    const res = await fetch(`${API_URL}/api/risk/report/${address}`, {
+    const res = await fetch(`${API_URL}/api/risk/report/${encodeURIComponent(address)}`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return null;

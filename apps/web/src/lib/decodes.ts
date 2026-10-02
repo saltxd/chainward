@@ -20,6 +20,13 @@ export interface DecodeContent {
 
 const DELIVERABLES_DIR = path.join(process.cwd(), '../../deliverables');
 
+// gray-matter evaluates `---js` / `---javascript` front matter with eval. Decodes
+// only ever use YAML, so refuse the JS engines outright.
+function refuseJsFrontMatter(): never {
+  throw new Error('JavaScript front matter is not allowed in decodes');
+}
+const MATTER_OPTIONS = { engines: { js: refuseJsFrontMatter, javascript: refuseJsFrontMatter } };
+
 /** The page renders the frontmatter title as its <h1>; drop a leading markdown
  * `# ` heading so the article doesn't print its title twice. */
 export function stripLeadingTitle(content: string): string {
@@ -46,7 +53,7 @@ export function getAllDecodes(): DecodeMeta[] {
     if (!mdPath) continue;
 
     const raw = fs.readFileSync(mdPath, 'utf-8');
-    const { data } = matter(raw);
+    const { data } = matter(raw, MATTER_OPTIONS);
 
     if (data.title && data.slug && data.date && data.draft !== true) {
       decodes.push({
@@ -72,7 +79,7 @@ export function getDecodeBySlug(slug: string): DecodeContent | null {
     if (!mdPath) continue;
 
     const raw = fs.readFileSync(mdPath, 'utf-8');
-    const { data, content } = matter(raw);
+    const { data, content } = matter(raw, MATTER_OPTIONS);
 
     if (data.slug === slug && data.draft !== true) {
       return {

@@ -6,7 +6,7 @@ import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { processWebhookTx } from '../processors/baseProcessor.js';
 import { backfillAgent } from './backfill.js';
-import { isAddressPaused, recordAndCheck } from '../lib/rateLimiter.js';
+import { isAddressPaused, isOutbound, recordAndCheck } from '../lib/rateLimiter.js';
 import { insertTransactionIfNew } from '../lib/transactionStore.js';
 
 interface WebhookJobData {
@@ -85,9 +85,15 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
 
   for (const tx of processed) {
     try {
-      // Rate limit check — skip if address is paused
-      if (await isAddressPaused(redis, tx.walletAddress)) {
-        logger.debug({ address: tx.walletAddress, txHash: tx.txHash }, 'Skipping rate-limited address');
+      // A paused address only sheds INBOUND transfers. Outbound txs are always
+      // inserted and evaluated — otherwise anyone could pause a wallet and
+      // drain it unobserved (see lib/rateLimiter.ts).
+      const outbound = isOutbound(tx.direction);
+      if (!outbound && (await isAddressPaused(redis, tx.walletAddress))) {
+        logger.debug(
+          { address: tx.walletAddress, txHash: tx.txHash },
+          'Skipping inbound tx for rate-limited address',
+        );
         continue;
       }
 
@@ -102,8 +108,8 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
 
       insertedCount++;
 
-      // Record tx and check if we just hit the rate limit
-      const justPaused = await recordAndCheck(redis, tx.walletAddress);
+      // Only the wallet's own sends count toward the rate limit
+      const justPaused = outbound && (await recordAndCheck(redis, tx.walletAddress));
       if (justPaused) {
         // Send rate-limit alert to the user via the alert delivery queue
         const alertDeliveryQueue = new Queue('alert-deliver', { connection: redis });

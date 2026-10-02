@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { ReportView } from './report-view';
 import { isThinReport } from '@/lib/risk';
 import type { RiskBand, RiskReport } from '@/lib/api';
+import { isAddress } from '@/lib/params';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
-const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 function truncateAddress(addr: string): string {
   if (!addr || addr.length < 10) return addr;
@@ -23,7 +23,7 @@ const BAND_WORD: Record<RiskBand, string> = {
  * metadata fetch reads the same row. Returns null when there is no report. */
 async function fetchReport(address: string): Promise<RiskReport | null> {
   try {
-    const res = await fetch(`${API_URL}/api/risk/report/${address}`, {
+    const res = await fetch(`${API_URL}/api/risk/report/${encodeURIComponent(address)}`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return null;
@@ -47,7 +47,7 @@ export async function generateMetadata({
   const lowered = address.toLowerCase();
   const truncated = truncateAddress(address);
 
-  if (!ADDRESS_RE.test(address)) {
+  if (!isAddress(address)) {
     return {
       title: 'Risk Check — Invalid Address',
       robots: { index: false, follow: false },

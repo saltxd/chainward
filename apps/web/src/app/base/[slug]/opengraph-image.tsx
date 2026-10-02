@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { isAgentSlug } from '@/lib/params';
 
 export const runtime = 'edge';
 export const alt = 'ChainWard agent profile';
@@ -9,7 +10,10 @@ const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000'
 
 export default async function og({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const res = await fetch(`${API_INTERNAL_URL}/api/observatory/agent/${slug}`);
+  if (!isAgentSlug(slug)) {
+    return new ImageResponse(<div>not found</div>, { ...size });
+  }
+  const res = await fetch(`${API_INTERNAL_URL}/api/observatory/agent/${encodeURIComponent(slug)}`);
   if (!res.ok) {
     return new ImageResponse(<div>not found</div>, { ...size });
   }

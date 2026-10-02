@@ -28,16 +28,35 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // Cloudflare also sets HSTS at the edge; this covers the origin.
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          // allow-popups: Coinbase Smart Wallet and WalletConnect open popups that post back.
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              // No 'unsafe-eval': the built chunks don't eval (only guarded
+              // Function('return this') globalThis fallbacks that never run in a browser).
+              "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self' data:",
-              "connect-src 'self' https://api.chainward.ai wss://*.walletconnect.com https://*.walletconnect.com https://*.alchemy.com",
-              "frame-src 'self' https://verify.walletconnect.com",
+              // Hosts the wallet stack actually calls: WalletConnect (relay/rpc/pulse/verify
+              // on .org, legacy .com), viem's default public RPCs for base + mainnet,
+              // Coinbase Wallet SDK and MetaMask SDK backends.
+              [
+                "connect-src 'self' https://api.chainward.ai",
+                'https://*.walletconnect.org wss://*.walletconnect.org',
+                'https://*.walletconnect.com wss://*.walletconnect.com',
+                'https://mainnet.base.org https://mainnet-preconf.base.org https://eth.merkle.io',
+                'https://*.coinbase.com wss://*.coinbase.com',
+                'https://*.metamask.io wss://*.metamask.io',
+                'https://*.alchemy.com',
+              ].join(' '),
+              'frame-src https://*.walletconnect.org https://*.walletconnect.com',
+              "frame-ancestors 'none'",
+              "form-action 'self'",
               "object-src 'none'",
               "base-uri 'self'",
             ].join('; '),

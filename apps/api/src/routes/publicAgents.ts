@@ -7,6 +7,7 @@ import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { spamFilter, spamExclusionSql } from '@chainward/observatory';
 import { findDecodesForAddress } from '../lib/decodeManifest.js';
+import { SYSTEM_USER_ID } from '../lib/systemUser.js';
 
 const walletParamSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
 
@@ -36,7 +37,19 @@ publicAgents.get('/:wallet', async (c) => {
       createdAt: agentRegistry.createdAt,
     })
     .from(agentRegistry)
-    .where(and(sql`lower(${agentRegistry.walletAddress}) = ${wallet}`, eq(agentRegistry.isPublic, true)))
+    .where(
+      and(
+        sql`lower(${agentRegistry.walletAddress}) = ${wallet}`,
+        eq(agentRegistry.isPublic, true),
+        // Public profiles carry a user-chosen name. Only show rows ChainWard
+        // curated, or rows whose owner signed in with the agent's own wallet,
+        // so nobody can publish a label for someone else's address.
+        sql`(${agentRegistry.userId} = ${SYSTEM_USER_ID} OR EXISTS (
+          SELECT 1 FROM users u
+          WHERE u.id = ${agentRegistry.userId} AND lower(u.wallet_address) = ${wallet}
+        ))`,
+      ),
+    )
     .limit(1);
 
   if (!agent) {

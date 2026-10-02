@@ -11,7 +11,7 @@ apiKeysRoute.use('*', requireAuth);
 
 const createKeySchema = z.object({
   name: z.string().min(1).max(100),
-  scopes: z.array(z.enum(['read', 'write', 'admin'])).min(1).optional(),
+  scopes: z.array(z.enum(['read', 'write'])).min(1).optional(),
   expiresAt: z.string().datetime().optional(),
 });
 

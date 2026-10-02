@@ -20,17 +20,17 @@ agents.use('*', requireApiKeyOrSession());
 
 const createAgentSchema = z.object({
   chain: z.enum(['base', 'solana']),
-  walletAddress: z.string().min(1),
-  agentName: z.string().optional(),
+  walletAddress: z.string().min(1).max(64),
+  agentName: z.string().trim().max(64).optional(),
   agentFramework: z.enum(AGENT_FRAMEWORKS).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().trim().max(32)).max(10).optional(),
   confirmContract: z.boolean().optional(),
 });
 
 const updateAgentSchema = z.object({
-  agentName: z.string().optional(),
+  agentName: z.string().trim().max(64).optional(),
   agentFramework: z.enum(AGENT_FRAMEWORKS).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().trim().max(32)).max(10).optional(),
   isPublic: z.boolean().optional(),
 });
 
@@ -39,10 +39,19 @@ agents.post('/', async (c) => {
   const body = await c.req.json();
   const input = createAgentSchema.parse(body);
 
-  // Contract detection — warn on non-wallet contracts
-  if (input.chain === 'base' && !input.confirmContract) {
-    const { isContract, isKnownWallet } = await checkAddressType(input.walletAddress);
-    if (isContract && !isKnownWallet) {
+  // Contract detection: tokens and busy shared contracts are refused outright
+  // (confirmContract used to let anyone add e.g. USDC to the shared Alchemy
+  // webhook); other non-wallet contracts need an explicit confirm.
+  if (input.chain === 'base') {
+    const { isContract, isKnownWallet, isHighVolume } = await checkAddressType(input.walletAddress);
+    if (isHighVolume) {
+      throw new AppError(
+        422,
+        'HIGH_VOLUME_CONTRACT',
+        'This is a token or shared protocol contract, not an agent wallet, and cannot be monitored.',
+      );
+    }
+    if (isContract && !isKnownWallet && !input.confirmContract) {
       logger.warn(
         { address: input.walletAddress, userId: user.id },
         'User registering non-wallet contract address',

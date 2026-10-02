@@ -383,11 +383,20 @@ risk.post(
     if (!parsed.success) {
       throw new AppError(400, 'INVALID_TARGET', 'Missing or invalid target');
     }
-    const { target: rawTarget, force_recheck = false } = parsed.data;
+    const { target: rawTarget } = parsed.data;
+    let force_recheck = parsed.data.force_recheck ?? false;
 
     const resolved = await resolveTarget(rawTarget);
     const address = resolved.address.toLowerCase();
     const redis = getRedis();
+
+    // One forced re-check per address per 10 minutes, whoever asks: each one is
+    // a full decode, uniquely keyed so it can't coalesce. Inside the window a
+    // forced request is served like a normal one (cached report or pending job).
+    if (force_recheck) {
+      const first = await redis.set(`risk:recheck:${address}`, '1', 'EX', 600, 'NX');
+      if (first !== 'OK') force_recheck = false;
+    }
 
     // 1. Cache check — a usable cached report short-circuits the decode.
     if (!force_recheck) {
@@ -509,7 +518,7 @@ risk.get(
   },
 );
 
-// GET /api/risk/report/:address — public report page. Increments view_count. 404 if none.
+// GET /api/risk/report/:address — public report page. Counts unique daily views. 404 if none.
 risk.get(
   '/report/:address',
   rateLimit({ max: 60, windowSec: 60, prefix: 'rl:risk-report' }),
@@ -524,15 +533,30 @@ risk.get(
       throw new AppError(404, 'NOT_FOUND', 'No risk report for this address');
     }
 
-    // Increment view_count (best-effort; a failed bump never blocks the read).
-    const db = getDb();
-    await db
-      .update(riskReports)
-      .set({ viewCount: sql`${riskReports.viewCount} + 1` })
-      .where(eq(riskReports.id, cached.id))
-      .catch((err) => logger.warn({ err, id: cached.id }, 'view_count bump failed'));
+    // Count a view once per visitor IP per address per day, and only for
+    // requests that came through Cloudflare: the web server's own SSR/OG fetches
+    // carry no CF-Connecting-IP and used to bump the public count on every render.
+    // Best-effort; a failed bump never blocks the read.
+    let counted = false;
+    const visitorIp = c.req.header('cf-connecting-ip');
+    if (visitorIp) {
+      const firstView = await getRedis()
+        .set(`risk:view:${address}:${visitorIp}`, '1', 'EX', 86_400, 'NX')
+        .catch(() => null);
+      if (firstView === 'OK') {
+        counted = await getDb()
+          .update(riskReports)
+          .set({ viewCount: sql`${riskReports.viewCount} + 1` })
+          .where(eq(riskReports.id, cached.id))
+          .then(() => true)
+          .catch((err) => {
+            logger.warn({ err, id: cached.id }, 'view_count bump failed');
+            return false;
+          });
+      }
+    }
 
-    const report = rowToReport({ ...cached, viewCount: cached.viewCount + 1 });
+    const report = rowToReport({ ...cached, viewCount: cached.viewCount + (counted ? 1 : 0) });
     return c.json({ success: true, data: { report } });
   },
 );

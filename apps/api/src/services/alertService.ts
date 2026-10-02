@@ -3,6 +3,9 @@ import { alertConfigs, alertEvents, agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
 import { AppError } from '../middleware/errorHandler.js';
 
+/** Per-user cap; each config is an outbound delivery target we fire on their behalf. */
+const MAX_ALERT_CONFIGS_PER_USER = 25;
+
 interface CreateAlertInput {
   walletAddress: string;
   chain: string;
@@ -47,6 +50,14 @@ export class AlertService {
 
     if (!agent) {
       throw new AppError(403, 'FORBIDDEN', 'You can only create alerts for wallets you have registered as agents');
+    }
+
+    const [existing] = await this.db
+      .select({ total: count() })
+      .from(alertConfigs)
+      .where(eq(alertConfigs.userId, userId));
+    if ((existing?.total ?? 0) >= MAX_ALERT_CONFIGS_PER_USER) {
+      throw new AppError(409, 'ALERT_LIMIT', `Alert limit reached (${MAX_ALERT_CONFIGS_PER_USER}). Delete one first.`);
     }
 
     const [alert] = await this.db

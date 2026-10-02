@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { AgentDetailClient } from './agent-detail-client';
+import { isAgentSlug } from '@/lib/params';
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
@@ -9,7 +10,8 @@ interface PageProps {
 }
 
 async function fetchAgent(slug: string) {
-  const res = await fetch(`${API_INTERNAL_URL}/api/observatory/agent/${slug}`, {
+  if (!isAgentSlug(slug)) return null;
+  const res = await fetch(`${API_INTERNAL_URL}/api/observatory/agent/${encodeURIComponent(slug)}`, {
     next: { revalidate: 120 },
   });
   if (!res.ok) return null;

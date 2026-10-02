@@ -1,11 +1,17 @@
 import { Worker, type Job } from 'bullmq';
 import { eq, and } from 'drizzle-orm';
-import { lookup } from 'node:dns/promises';
 import { alertEvents, alertConfigs, agentRegistry } from '@chainward/db';
 import { getExplorerTxUrl, type SupportedChain } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
+import {
+  BlockedDestinationError,
+  deliveryFetch,
+  describeUrlForLog,
+  validateDeliveryUrl,
+  type DeliveryRequest,
+} from '../lib/deliveryGuard.js';
 
 interface DeliveryJobData {
   alertConfigId: number;
@@ -88,22 +94,25 @@ async function handleRateLimitAlert(data: RateLimitJobData) {
     .limit(1);
 
   const agentLabel = agent.agentName ?? `${data.walletAddress.slice(0, 8)}...`;
-  const message = `⚠️ High transaction volume detected on ${agentLabel}. Indexing paused for 5 minutes to protect resources. This address is generating >10 transactions per minute.`;
+  const pauseNote =
+    'Incoming transfers to this address are not indexed for the next 5 minutes. Outgoing transactions are still indexed and alerted on.';
 
   logger.info({ address: data.walletAddress, agent: agentLabel }, 'Sending rate-limit alert');
 
-  // If the user has any alert configs, use the first one's channels
+  // If the user has any alert configs, use the first one's channels. These
+  // URLs are user-supplied: they go through the same guarded path as alerts.
   const config = configs[0];
   if (config) {
     if (config.discordWebhook) {
       try {
-        await fetch(config.discordWebhook, {
+        validateDeliveryUrl(config.discordWebhook);
+        await retryFetch(config.discordWebhook, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             embeds: [{
-              title: '⚠️ Indexing Paused — High Volume',
-              description: `**${agentLabel}** is generating >10 transactions/minute. Indexing paused for 5 minutes.`,
+              title: '⚠️ High Transaction Volume',
+              description: `**${agentLabel}** is sending >10 transactions/minute. ${pauseNote}`,
               color: 0xfbbf24, // amber
               footer: { text: 'ChainWard Rate Limiter' },
               timestamp: new Date().toISOString(),
@@ -111,24 +120,24 @@ async function handleRateLimitAlert(data: RateLimitJobData) {
           }),
         });
       } catch (err) {
-        logger.error({ err }, 'Failed to send rate-limit Discord alert');
+        logger.error({ err: errorMessage(err) }, 'Failed to send rate-limit Discord alert');
       }
     }
     if (config.telegramChatId) {
       const token = process.env.TELEGRAM_BOT_TOKEN;
       if (token) {
         try {
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          await retryFetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: config.telegramChatId,
-              text: message,
+              text: `⚠️ High transaction volume on <b>${escapeHtml(agentLabel)}</b>: more than 10 outgoing transactions per minute. ${pauseNote}`,
               parse_mode: 'HTML',
             }),
           });
         } catch (err) {
-          logger.error({ err }, 'Failed to send rate-limit Telegram alert');
+          logger.error({ err: errorMessage(err) }, 'Failed to send rate-limit Telegram alert');
         }
       }
     }
@@ -166,8 +175,7 @@ async function deliverAlert(data: DeliveryJobData) {
           logger.warn({ channel }, 'Unknown delivery channel');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      errors.push(`${channel}: ${message}`);
+      errors.push(`${channel}: ${errorMessage(err)}`);
       logger.error({ err, channel, alertConfigId: data.alertConfigId }, 'Delivery failed for channel');
     }
   }
@@ -208,7 +216,7 @@ async function deliverAlert(data: DeliveryJobData) {
 
 /** Deliver via generic webhook (POST JSON) with retry */
 async function deliverWebhook(data: DeliveryJobData, url: string) {
-  await validateDeliveryUrl(url);
+  validateDeliveryUrl(url);
   const payload = buildPayload(data);
 
   await retryFetch(url, {
@@ -231,15 +239,17 @@ async function deliverTelegram(data: DeliveryJobData, chatId: string) {
 
   const agentDisplay = data.agent.name ?? `${data.agent.wallet.slice(0, 10)}...`;
   const txLine = data.triggerTxHash
-    ? `\n<b>Tx:</b> <a href="${getExplorerTxUrl(data.agent.chain as SupportedChain, data.triggerTxHash)}">${data.triggerTxHash.slice(0, 16)}...</a>`
+    ? `\n<b>Tx:</b> <a href="${escapeHtml(getExplorerTxUrl(data.agent.chain as SupportedChain, data.triggerTxHash))}">${escapeHtml(data.triggerTxHash.slice(0, 16))}...</a>`
     : '';
 
+  // Everything interpolated below is escaped: parse_mode is HTML, and names,
+  // titles and descriptions are user- or chain-controlled.
   const text = [
     `${severityEmoji} <b>${escapeHtml(data.title)}</b>`,
     '',
     `<b>Agent:</b> ${escapeHtml(agentDisplay)}`,
-    `<b>Chain:</b> ${data.agent.chain}`,
-    `<b>Type:</b> ${data.alertType}`,
+    `<b>Chain:</b> ${escapeHtml(data.agent.chain)}`,
+    `<b>Type:</b> ${escapeHtml(data.alertType)}`,
     ...(data.triggerValue !== null ? [`<b>${triggerFieldName(data.alertType)}:</b> ${formatTriggerValue(data.alertType, data.triggerValue)}`] : []),
     ...(data.description ? ['', escapeHtml(data.description)] : []),
     txLine,
@@ -260,13 +270,18 @@ async function deliverTelegram(data: DeliveryJobData, chatId: string) {
   });
 }
 
+/** Escape for Telegram's HTML parse mode (it supports exactly these four entities). */
 function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /** Deliver via Discord webhook using embed format */
 async function deliverDiscord(data: DeliveryJobData, webhookUrl: string) {
-  await validateDeliveryUrl(webhookUrl);
+  validateDeliveryUrl(webhookUrl);
   const color =
     data.severity === 'critical' ? 0xd32f2f :
     data.severity === 'warning' ? 0xf59e0b : 0x4ade80;
@@ -369,107 +384,37 @@ function buildPayload(data: DeliveryJobData) {
   };
 }
 
-/** Known-safe webhook domains (skip DNS resolution check) */
-const ALLOWED_WEBHOOK_HOSTS = new Set([
-  'api.telegram.org',
-  'discord.com',
-  'discordapp.com',
-]);
-
-/** Private/reserved IPv4 ranges */
-const PRIVATE_RANGES = [
-  { start: '10.0.0.0', end: '10.255.255.255' },
-  { start: '172.16.0.0', end: '172.31.255.255' },
-  { start: '192.168.0.0', end: '192.168.255.255' },
-  { start: '127.0.0.0', end: '127.255.255.255' },
-  { start: '169.254.0.0', end: '169.254.255.255' },
-  { start: '0.0.0.0', end: '0.255.255.255' },
-  // CGNAT (RFC 6598) — Tailscale hands every tailnet node an address here, so
-  // without this line a webhook could reach the homelab through the node's
-  // tailscale interface exactly as easily as through 192.168.
-  { start: '100.64.0.0', end: '100.127.255.255' },
-  { start: '192.0.0.0', end: '192.0.0.255' }, // IETF protocol assignments
-  { start: '198.18.0.0', end: '198.19.255.255' }, // benchmarking
-  { start: '224.0.0.0', end: '255.255.255.255' }, // multicast + reserved + broadcast
-];
-
-function ipToNum(ip: string): number {
-  return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+/** Error text for logs and alert_events.delivery_error. undici reports
+ * network failures as "fetch failed" with the real reason on `cause`. */
+function errorMessage(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  return err.cause instanceof Error ? `${err.message}: ${err.cause.message}` : err.message;
 }
 
-function isPrivateIp(ip: string): boolean {
-  // Normalize IPv4-mapped IPv6 (e.g., ::ffff:127.0.0.1 → 127.0.0.1)
-  if (ip.startsWith('::ffff:')) {
-    ip = ip.slice(7);
-  }
-  // IPv6 loopback and private ranges
-  if (ip === '::1' || ip === '::' || ip.startsWith('fc') || ip.startsWith('fd') || ip.startsWith('fe80')) {
-    return true;
-  }
-  // Check IPv4 private ranges
-  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
-    const num = ipToNum(ip);
-    return PRIVATE_RANGES.some((r) => num >= ipToNum(r.start) && num <= ipToNum(r.end));
-  }
-  return false;
+function isBlockedDestination(err: unknown): boolean {
+  return err instanceof BlockedDestinationError
+    || (err instanceof Error && err.cause instanceof BlockedDestinationError);
 }
 
 /**
- * Validate a webhook URL at delivery time by resolving DNS and checking
- * the resolved IP isn't private. Prevents SSRF via DNS rebinding.
+ * Deliver with retry and exponential backoff. Every attempt goes through
+ * `deliveryFetch` (URL validation, guarded DNS, no redirects). Logs carry the
+ * host only — Telegram and Discord URLs embed their credentials in the path.
  */
-async function validateDeliveryUrl(urlStr: string): Promise<void> {
-  const url = new URL(urlStr);
-  const hostname = url.hostname.toLowerCase();
-
-  if (url.protocol !== 'https:') {
-    throw new Error('Webhook URL must use HTTPS');
-  }
-
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
-    throw new Error('Webhook URL cannot point to localhost');
-  }
-
-  // Skip DNS check for known-safe hosts
-  if (ALLOWED_WEBHOOK_HOSTS.has(hostname)) return;
-
-  // Skip DNS check for raw IPs but validate they're not private
-  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
-    if (isPrivateIp(hostname)) {
-      throw new Error('Webhook URL cannot point to private IP addresses');
-    }
-    return;
-  }
-
-  const result = await lookup(hostname);
-  if (isPrivateIp(result.address)) {
-    throw new Error('Webhook URL resolves to a private IP address');
-  }
-}
-
-/** Fetch with retry and exponential backoff */
-async function retryFetch(url: string, options: RequestInit, attempt = 1): Promise<void> {
+async function retryFetch(url: string, request: DeliveryRequest, attempt = 1): Promise<void> {
   try {
-    const response = await fetch(url, {
-      ...options,
-      signal: AbortSignal.timeout(10000),
-      redirect: 'error',
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
+    await deliveryFetch(url, request);
   } catch (err) {
-    if (attempt >= MAX_RETRIES) {
+    if (attempt >= MAX_RETRIES || isBlockedDestination(err)) {
       throw err;
     }
 
     const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
     logger.warn(
-      { url, attempt, delay, err: err instanceof Error ? err.message : String(err) },
+      { target: describeUrlForLog(url), attempt, delay, err: errorMessage(err) },
       'Delivery attempt failed, retrying',
     );
     await new Promise((resolve) => setTimeout(resolve, delay));
-    return retryFetch(url, options, attempt + 1);
+    return retryFetch(url, request, attempt + 1);
   }
 }

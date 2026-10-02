@@ -8,7 +8,7 @@ const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a
 
 export type UsdcVerifyResult =
   | { ok: true; value: bigint }
-  | { ok: false; reason: 'TX_NOT_FOUND' | 'TX_FAILED' | 'NO_MATCH' };
+  | { ok: false; reason: 'TX_NOT_FOUND' | 'TX_FAILED' | 'NO_MATCH' | 'TOO_OLD' };
 
 /**
  * Verify that `txHash` contains a USDC Transfer of at least `minAmount`
@@ -24,8 +24,10 @@ export async function verifyUsdcPayment(opts: {
   fromWallet: string;
   toTreasury: string;
   minAmount: bigint;
+  /** Reject transfers mined before this time (e.g. before the order existed). */
+  notBefore?: Date;
 }): Promise<UsdcVerifyResult> {
-  const { txHash, fromWallet, toTreasury, minAmount } = opts;
+  const { txHash, fromWallet, toTreasury, minAmount, notBefore } = opts;
 
   const client = getBaseClient();
   const receipt = await client
@@ -34,6 +36,11 @@ export async function verifyUsdcPayment(opts: {
 
   if (!receipt) return { ok: false, reason: 'TX_NOT_FOUND' };
   if (receipt.status !== 'success') return { ok: false, reason: 'TX_FAILED' };
+
+  if (notBefore) {
+    const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+    if (Number(block.timestamp) * 1000 < notBefore.getTime()) return { ok: false, reason: 'TOO_OLD' };
+  }
 
   const from = fromWallet.toLowerCase();
   const to = toTreasury.toLowerCase();

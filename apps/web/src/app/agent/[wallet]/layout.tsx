@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { isAddress } from '@/lib/params';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
@@ -13,9 +14,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { wallet } = await params;
   const truncated = truncateAddress(wallet);
+  if (!isAddress(wallet)) return fallbackMetadata(truncated);
 
   try {
-    const res = await fetch(`${API_URL}/api/public/agents/${wallet}`, {
+    const res = await fetch(`${API_URL}/api/public/agents/${encodeURIComponent(wallet)}`, {
       next: { revalidate: 600 },
     });
 

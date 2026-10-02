@@ -289,7 +289,7 @@ export default function SettingsPage() {
               <label>
                 <span>scopes</span>
                 <div className="v2-settings-scopes">
-                  {['read', 'write', 'admin'].map((scope) => {
+                  {['read', 'write'].map((scope) => {
                     const active = keyForm.scopes.includes(scope);
                     return (
                       <button

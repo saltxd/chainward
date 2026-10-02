@@ -33,7 +33,7 @@ export class ApiKeyService {
   /** Generate a new API key. Returns the raw key (shown only once). */
   async create(userId: string, input: CreateApiKeyInput): Promise<ApiKeyWithRawKey> {
     const scopes = input.scopes ?? ['read'];
-    const validScopes = ['read', 'write', 'admin'];
+    const validScopes = ['read', 'write'];
     for (const scope of scopes) {
       if (!validScopes.includes(scope)) {
         throw new AppError(400, 'INVALID_SCOPE', `Invalid scope: ${scope}`);
