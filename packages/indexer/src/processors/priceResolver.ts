@@ -1,5 +1,6 @@
 import { getRedis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
+import { pricedSymbolForToken } from '../lib/pricedTokens.js';
 
 const CACHE_TTL = 300; // 5 minutes
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
@@ -25,7 +26,13 @@ const COINGECKO_TO_TOKEN: Record<string, string> = Object.fromEntries(
 
 const RATE_LIMIT_TTL = 120; // Cache "rate limited" for 2 minutes to stop thundering herd
 
-/** Get current USD price for a token symbol */
+/** Current USD price of a Base token, looked up by contract address. */
+export async function getTokenUsdPrice(tokenAddress: string): Promise<number | null> {
+  const symbol = pricedSymbolForToken(tokenAddress);
+  return symbol ? getUsdPrice(symbol) : null;
+}
+
+/** Current USD price for one of our own price symbols. Never pass a token's on-chain symbol(). */
 export async function getUsdPrice(symbol: string): Promise<number | null> {
   const upper = symbol.toUpperCase();
   if (STABLECOINS.has(upper)) return 1.0;

@@ -2,7 +2,7 @@ import { formatEther, formatUnits, type TransactionReceipt } from 'viem';
 import { getBaseClient } from '../lib/viem.js';
 import { resolveToken } from './tokenResolver.js';
 import { resolveProtocol } from './protocolResolver.js';
-import { getEthPrice, getUsdPrice } from './priceResolver.js';
+import { getEthPrice, getTokenUsdPrice } from './priceResolver.js';
 import { decodeMethod, classifyTxType } from './decoder.js';
 import { resolveAgentByAddress } from './agentResolver.js';
 import { logger } from '../lib/logger.js';
@@ -129,7 +129,7 @@ export async function processWebhookTx(
       const rawBigInt = BigInt(data.rawContract.rawValue);
       amountRaw = rawBigInt.toString();
       const amount = parseFloat(formatUnits(rawBigInt, tokenDecimals));
-      const price = await getUsdPrice(tokenSymbol);
+      const price = await getTokenUsdPrice(data.rawContract.address);
       if (price) amountUsd = (amount * price).toFixed(6);
     } else if (data.category === 'external' || data.category === 'internal') {
       tokenSymbol = 'ETH';

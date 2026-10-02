@@ -5,7 +5,7 @@ import { logger } from '../lib/logger.js';
 import { IndexerChainDataProvider } from '../lib/chainDataProvider.js';
 import { resolveToken } from '../processors/tokenResolver.js';
 import { resolveProtocol } from '../processors/protocolResolver.js';
-import { getEthPrice, getUsdPrice } from '../processors/priceResolver.js';
+import { getEthPrice, getTokenUsdPrice } from '../processors/priceResolver.js';
 import { decodeMethod, classifyTxType } from '../processors/decoder.js';
 import { insertTransactionIfNew } from '../lib/transactionStore.js';
 
@@ -94,7 +94,7 @@ export async function backfillAgent(walletAddress: string, chain: string) {
           amountRaw = rawBigInt.toString();
           if (tokenDecimals !== null) {
             const amount = parseFloat(formatUnits(rawBigInt, tokenDecimals));
-            const price = tokenSymbol ? await getUsdPrice(tokenSymbol) : null;
+            const price = await getTokenUsdPrice(tokenAddress);
             if (price) amountUsd = (amount * price).toFixed(6);
           }
         }

@@ -19,7 +19,7 @@ import { logger } from '../lib/logger.js';
 import { insertTransactionIfNew } from '../lib/transactionStore.js';
 import { resolveToken } from '../processors/tokenResolver.js';
 import { resolveProtocol } from '../processors/protocolResolver.js';
-import { getEthPrice, getUsdPrice } from '../processors/priceResolver.js';
+import { getEthPrice, getTokenUsdPrice } from '../processors/priceResolver.js';
 import { isSpamToken } from '@chainward/common';
 
 // Mirror scripts/backfill.ts: Alchemy RPC host keyed by ALCHEMY_API_KEY — NOT BASE_RPC_URL
@@ -250,7 +250,7 @@ export async function backfillWalletViaTransfers(walletAddress: string): Promise
           amountRaw = rawBigInt.toString();
           if (tokenDecimals !== null) {
             const amount = parseFloat(formatUnits(rawBigInt, tokenDecimals));
-            const price = tokenSymbol ? await getUsdPrice(tokenSymbol) : null;
+            const price = await getTokenUsdPrice(tokenAddress);
             if (price) amountUsd = (amount * price).toFixed(6);
           }
         }
