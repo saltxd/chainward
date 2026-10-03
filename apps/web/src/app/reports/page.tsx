@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
-import { BAND_LABEL, reportPath, isThinReport } from '@/lib/risk';
+import { reportPath, isThinReport } from '@/lib/risk';
 import type { RiskLibraryResult, RiskReportCard, RiskSeverity } from '@/lib/api';
 import { chainMeta } from '@/lib/chains';
 
@@ -71,6 +71,10 @@ function formatDate(iso: string): string {
 
 function RegisterRow({ card }: { card: RiskReportCard }) {
   const thin = isThinReport(card.flag_count, card.band);
+  // The headline flag: the highest-severity one the API denormalised onto the card.
+  const topFlag =
+    card.top_flags?.[0] ??
+    (card.top_severity ? { title: `${card.flag_count} flag${card.flag_count === 1 ? '' : 's'}`, severity: card.top_severity } : null);
   return (
     <Link
       href={reportPath(card.address, card.chain)}
@@ -80,7 +84,7 @@ function RegisterRow({ card }: { card: RiskReportCard }) {
       rel={thin ? 'nofollow' : undefined}
     >
       <span className="reg-cell reg-subject">
-        <span className="reg-cell-label">Subject</span>
+        <span className="reg-cell-label">Address</span>
         <span className="reg-subject-name mono">
           {card.agent_name ?? truncate(card.address)}
           <span className="reg-chain">{chainMeta(card.chain).shortName}</span>
@@ -90,28 +94,30 @@ function RegisterRow({ card }: { card: RiskReportCard }) {
         )}
       </span>
       <span className="reg-cell reg-flags">
-        <span className="reg-cell-label">Flags</span>
-        <span
-          className="mono"
-          style={{ color: card.top_severity ? SEV_VAR[card.top_severity] : 'var(--ink-faint)' }}
-        >
-          {card.top_severity
-            ? `${card.flag_count} · top ${card.top_severity}`
-            : 'no signal'}
-        </span>
-      </span>
-      <span className="reg-cell reg-band">
-        <span className="reg-cell-label">Band</span>
-        {BAND_LABEL[card.band]}
+        <span className="reg-cell-label">What we found</span>
+        {topFlag ? (
+          <span className="reg-found">
+            <span className="reg-found-title">
+              <span className="reg-sev-dot" style={{ background: SEV_VAR[topFlag.severity] }} aria-hidden="true" />
+              {topFlag.title}
+            </span>
+            <span className="reg-found-meta mono">
+              {topFlag.severity}
+              {card.flag_count > 1 ? ` · +${card.flag_count - 1} more` : ''}
+            </span>
+          </span>
+        ) : (
+          <span className="reg-found reg-found--none">Nothing flagged in the window checked</span>
+        )}
       </span>
       <span className="reg-cell reg-filed">
-        <span className="reg-cell-label">Filed</span>
+        <span className="reg-cell-label">Last checked</span>
         <span className="reg-filed-val">
           <time className="mono" dateTime={card.as_of_date}>
             {formatDate(card.as_of_date)}
           </time>
           {(card.report_count ?? 1) > 1 && (
-            <span className="reg-filed-count mono">filed {card.report_count}×</span>
+            <span className="reg-filed-count mono">re-checked {(card.report_count ?? 1) - 1}×</span>
           )}
         </span>
       </span>
@@ -142,6 +148,10 @@ export default async function ReportsLibraryPage() {
             public, shareable record — free, forever. Flags from on-chain behavior,
             with evidence. Never a safety verdict.
           </p>
+          <p className="reg-legend mono">
+            A flag is one observation with the transactions behind it, ranked info → low → medium → high.
+            &ldquo;Nothing flagged&rdquo; means nothing in the window checked, not a clearance.
+          </p>
         </section>
 
         {reports.length === 0 ? (
@@ -158,10 +168,9 @@ export default async function ReportsLibraryPage() {
             </div>
             <div className="reg-table">
               <div className="reg-head">
-                <span>Subject</span>
-                <span>Flags</span>
-                <span>Band</span>
-                <span>Filed</span>
+                <span>Address</span>
+                <span>What we found</span>
+                <span>Last checked</span>
                 <span>Views</span>
               </div>
               {reports.map((card) => (
@@ -201,7 +210,7 @@ export default async function ReportsLibraryPage() {
         }
         .reg-head {
           display: grid;
-          grid-template-columns: 2.4fr 1.4fr 1fr 0.9fr 0.6fr;
+          grid-template-columns: 2fr 2.6fr 1.1fr 0.5fr;
           gap: 20px;
           padding: 10px 12px;
           border-bottom: 1px solid var(--rule-strong);
@@ -213,7 +222,7 @@ export default async function ReportsLibraryPage() {
         }
         .reg-row {
           display: grid;
-          grid-template-columns: 2.4fr 1.4fr 1fr 0.9fr 0.6fr;
+          grid-template-columns: 2fr 2.6fr 1.1fr 0.5fr;
           gap: 20px;
           align-items: center;
           padding: 14px 12px;
@@ -250,13 +259,12 @@ export default async function ReportsLibraryPage() {
           color: var(--ink-faint);
         }
         .reg-flags { font-size: 12.5px; }
-        .reg-band {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 11px;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: var(--ink-soft);
-        }
+        .reg-found { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .reg-found-title { color: var(--ink); font-size: 14px; line-height: 1.3; display: flex; align-items: center; gap: 8px; }
+        .reg-sev-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+        .reg-found-meta { font-size: 11px; color: var(--ink-soft); letter-spacing: 0.04em; }
+        .reg-found--none { color: var(--ink-faint); font-size: 13px; font-style: italic; }
+        .reg-legend { font-size: 11.5px; color: var(--ink-soft); margin-top: 10px; max-width: 70ch; line-height: 1.5; }
         .reg-filed { font-size: 12px; color: var(--ink-faint); }
         .reg-filed-val { display: flex; flex-direction: column; gap: 2px; }
         .reg-filed-count { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
