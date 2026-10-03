@@ -123,6 +123,8 @@ export const api = {
   // Paid datasets (the full file behind a decode). Price + treasury at runtime.
   getPaidFile: (slug: string) =>
     fetchApi<{ success: true; data: PaidFileMeta; treasuryAddress: string | null }>(`/api/paid/${encodeURIComponent(slug)}`),
+  lookupPaidFile: (slug: string, address: string) =>
+    fetchApi<{ success: true; data: PaidFileLookup }>(`/api/paid/${encodeURIComponent(slug)}/lookup/${encodeURIComponent(address)}`),
   claimPaidFile: (slug: string, txHash: string) =>
     fetchApi<{ success: true; data: { token: string; downloadUrl: string } }>(`/api/paid/${encodeURIComponent(slug)}/claim`, {
       method: 'POST',
@@ -600,4 +602,10 @@ export interface PaidFileMeta {
   priceUsdc: number;
   sizeBytes: number;
   createdAt: string;
+}
+
+export interface PaidFileLookup {
+  address: string;
+  found: boolean;
+  matches: Array<{ chain: string; tier: string; fields: Record<string, string | number | boolean | null> }>;
 }

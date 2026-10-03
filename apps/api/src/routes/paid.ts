@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { SignJWT, jwtVerify } from 'jose';
-import { paidFiles, paidFileClaims } from '@chainward/db';
+import { paidFiles, paidFileClaims, datasetLookup } from '@chainward/db';
 import { getDb } from '../lib/db.js';
 import { getEnv } from '../config.js';
 import { logger } from '../lib/logger.js';
@@ -23,6 +23,7 @@ import { rateLimit } from '../middleware/rateLimit.js';
 const paid = new Hono();
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,59}$/;
+const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const TOKEN_TTL = '24h';
 
 const META_COLUMNS = {
@@ -97,6 +98,20 @@ paid.get('/:slug', async (c) => {
 // x402-paid download. index.ts puts the payment middleware in front of this
 // path; settlement happens only after this handler succeeds, so a 404 never charges.
 paid.get('/:slug/file', async (c) => sendFile(c, slugParam(c)));
+
+// Free single-wallet check against the dataset: tier plus a few public fields.
+// The full file is the paid product; this is the reason to come look.
+paid.get('/:slug/lookup/:address', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:paid-lookup' }), async (c) => {
+  const slug = slugParam(c);
+  const address = (c.req.param('address') ?? '').toLowerCase();
+  if (!ADDRESS_RE.test(address)) throw new AppError(400, 'INVALID_ADDRESS', 'Invalid wallet address');
+  await fileMeta(slug);
+  const rows = await getDb()
+    .select({ chain: datasetLookup.chain, tier: datasetLookup.tier, fields: datasetLookup.fields })
+    .from(datasetLookup)
+    .where(and(eq(datasetLookup.slug, slug), eq(datasetLookup.address, address)));
+  return c.json({ success: true, data: { address, found: rows.length > 0, matches: rows } });
+});
 
 const claimSchema = z.object({ txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/) });
 

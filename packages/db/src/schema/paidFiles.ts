@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, bigint, timestamp, customType } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, bigint, timestamp, customType, jsonb } from 'drizzle-orm/pg-core';
 
 // drizzle-orm/pg-core has no bytea column type; node-postgres maps bytea <-> Buffer.
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -28,4 +28,13 @@ export const paidFileClaims = pgTable('paid_file_claims', {
   payerWallet: text('payer_wallet').notNull(),
   amountUsdc: bigint('amount_usdc', { mode: 'number' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Per-address rows behind a paid file; free single-wallet lookups (migration 0022). */
+export const datasetLookup = pgTable('dataset_lookup', {
+  slug: text('slug').notNull(),
+  chain: text('chain').notNull(),
+  address: text('address').notNull(),
+  tier: text('tier').notNull(),
+  fields: jsonb('fields').notNull().default({}),
 });

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { api, ApiError, type PaidFileMeta } from '@/lib/api';
+import { api, ApiError, type PaidFileMeta, type PaidFileLookup } from '@/lib/api';
 import { track } from '@/lib/track';
 import { Masthead, PressDateline, Colophon } from '@/components/press';
 import { PayButton } from '@/components/payment/pay-button';
@@ -26,6 +26,9 @@ export default function PaidFilePage() {
   const [treasury, setTreasury] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [lookupAddr, setLookupAddr] = useState('');
+  const [lookup, setLookup] = useState<PaidFileLookup | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
 
@@ -80,6 +83,60 @@ export default function PaidFilePage() {
             </aside>
 
             <div className="brf-action">
+              <form
+                className="brf-form"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setLookupError(null);
+                  setLookup(null);
+                  try {
+                    const res = await api.lookupPaidFile(file.slug, lookupAddr.trim());
+                    setLookup(res.data);
+                    track('paid_file_lookup', { slug: file.slug, found: res.data.found });
+                  } catch (err) {
+                    setLookupError(err instanceof ApiError ? err.message : 'Lookup failed');
+                  }
+                }}
+              >
+                <div className="brf-step">Free — check one wallet against this list</div>
+                <label>
+                  <span>Wallet address</span>
+                  <input
+                    value={lookupAddr}
+                    onChange={(e) => setLookupAddr(e.target.value)}
+                    placeholder="0x…"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </label>
+                <button className="press-btn press-btn--full" type="submit" disabled={!/^0x[a-fA-F0-9]{40}$/.test(lookupAddr.trim())}>
+                  Check this wallet
+                </button>
+                {lookupError && <div className="brf-error">{lookupError}</div>}
+                {lookup && (
+                  <div className="brf-summary">
+                    {lookup.found ? (
+                      lookup.matches.map((m) => (
+                        <div key={m.chain}>
+                          <span>{m.chain}</span>
+                          <code>
+                            tier {m.tier}
+                            {Object.entries(m.fields)
+                              .map(([k, v]) => ` · ${k.replace(/_/g, ' ')} ${v}`)
+                              .join('')}
+                          </code>
+                        </div>
+                      ))
+                    ) : (
+                      <div>
+                        <span>result</span>
+                        <code>not in this list</code>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </form>
+
               {!treasury && <div className="brf-notice">Payments are being configured — please check back shortly.</div>}
 
               {!downloadUrl && (
