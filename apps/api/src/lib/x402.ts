@@ -135,7 +135,7 @@ export function x402OpenApiDocument() {
       '/api/risk/x402': {
         get: {
           operationId: 'counterpartyCheck',
-          summary: 'Fresh risk report for a Base address, paid per call over x402',
+          summary: 'Fresh risk report for a Base or BNB Chain address, paid per call over x402',
           description:
             'Returns a report no older than 24h, running a fresh check when needed: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Not charged if the check fails.',
           parameters: [
@@ -144,7 +144,14 @@ export function x402OpenApiDocument() {
               in: 'query',
               required: true,
               schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-              description: 'Base address to check',
+              description: 'Address to check',
+            },
+            {
+              name: 'chain',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['base', 'bsc'], default: 'base' },
+              description: 'Chain the address is on. Payment is USDC on Base either way.',
             },
           ],
           'x-payment-info': {
