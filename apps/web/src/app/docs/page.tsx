@@ -95,7 +95,10 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
               <code>GET /api/risk/x402/:address</code>
             </td>
             <td>0.05 USDC</td>
-            <td>A risk report no older than 24h (a fresh check runs if needed).</td>
+            <td>
+              A risk report no older than 24h (a fresh check runs if needed). Add{' '}
+              <code>?chain=bsc</code> for a BNB Chain address; payment is still USDC on Base.
+            </td>
           </tr>
           <tr>
             <td>

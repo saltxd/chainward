@@ -742,19 +742,32 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
     throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
   }
   const address = parsed.data.toLowerCase();
+  // ?chain=bsc checks a BNB Chain address; payment is still USDC on Base.
+  const chainParsed = chainSchema.safeParse(c.req.query('chain') ?? CHAIN);
+  if (!chainParsed.success) {
+    throw new AppError(400, 'INVALID_CHAIN', `chain must be one of: ${RISK_CHAIN_IDS.join(', ')}`);
+  }
+  const chain: RiskChainId = chainParsed.data;
 
-  const cached = await latestReport(address);
+  const cached = await latestReport(address, chain);
   if (cached && computeTtlState(cached) === 'fresh') {
     return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
   }
 
-  const history = await checkHistory(address);
-  if (history.transactions_count === 0 && history.token_transfers_count === 0) {
-    const lookup = await new WalletLookupService(getRedis()).lookup(address);
-    const active =
-      lookup.transactions.length > 0 || lookup.balances.some((b) => hexToNumber(b.tokenBalance) > 0n);
-    if (!active) {
-      return c.json({ success: true, data: { status: 'no_history', address, disclaimer: DISCLAIMER } });
+  if (chain !== CHAIN) {
+    const pre = await rpcChainPrecheck(chain, address);
+    if (!pre.history) {
+      return c.json({ success: true, data: { status: 'no_history', address, chain, disclaimer: DISCLAIMER } });
+    }
+  } else {
+    const history = await checkHistory(address);
+    if (history.transactions_count === 0 && history.token_transfers_count === 0) {
+      const lookup = await new WalletLookupService(getRedis()).lookup(address);
+      const active =
+        lookup.transactions.length > 0 || lookup.balances.some((b) => hexToNumber(b.tokenBalance) > 0n);
+      if (!active) {
+        return c.json({ success: true, data: { status: 'no_history', address, disclaimer: DISCLAIMER } });
+      }
     }
   }
 
@@ -762,8 +775,8 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   const { riskCheck } = getQueues();
   const job = await riskCheck.add(
     'risk-check',
-    { input: address, walletAddress: address, chain: CHAIN, forceRecheck: true },
-    { jobId: `risk-${address}-x402-${started}` },
+    { input: address, walletAddress: address, chain, forceRecheck: true },
+    { jobId: jobIdFor(address, chain, `x402-${started}`) },
   );
 
   while (Date.now() - started < PAID_WAIT_MS) {
@@ -771,14 +784,14 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
     const state = await job.getState();
     if (state === 'failed') break;
     if (state === 'completed') {
-      const fresh = await latestReport(address);
+      const fresh = await latestReport(address, chain);
       if (fresh && new Date(fresh.generatedAt).getTime() >= started - 5_000) {
         return c.json({ success: true, data: { status: 'ready', report: rowToReport(fresh) } });
       }
       break;
     }
   }
-  logger.warn({ address, jobId: job.id }, 'x402 check did not finish in time; not charged');
+  logger.warn({ address, chain, jobId: job.id }, 'x402 check did not finish in time; not charged');
   throw new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; retry shortly.');
 }
 

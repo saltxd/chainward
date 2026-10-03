@@ -222,9 +222,10 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     price: x402CheckPrice(),
     serviceName: 'ChainWard counterparty check',
     description:
-      'Fresh on-chain risk report for a Base address before you pay it: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Never a safety verdict.',
+      'Fresh on-chain risk report for a Base or BNB Chain (?chain=bsc) address before you pay it: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Never a safety verdict.',
     tags: ['base', 'risk', 'counterparty', 'agents', 'eas', 'attestation'],
-    whatYouGet: 'A risk report no older than 24h (a fresh check runs if needed), JSON. Not charged if the check fails.',
+    whatYouGet:
+      'A risk report no older than 24h (a fresh check runs if needed), JSON. Base by default; add ?chain=bsc for a BNB Chain address. Not charged if the check fails.',
   };
   const sellerDemand: Product = {
     price: x402SellerPrice(),
