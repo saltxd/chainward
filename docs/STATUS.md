@@ -57,6 +57,7 @@ Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes
 | **Basename** | Done | `chainward.base.eth` registered on Base |
 | **Provider Abstraction** | Done | Provider abstraction layer (Alchemy default, swappable via `CHAIN_PROVIDER` env var) |
 | **Base Agent Observatory** | Done | Public `/base` page — 39 tracked agent wallets, live feed, leaderboard, trend charts, 5 cached API endpoints |
+| **BNB Chain risk check** | Done | Free check runs on BSC (`chain: 'bsc'`, `/report/<addr>?chain=bsc`) from keyless public RPC over a bounded log window; ACP / factory / cluster / EAS attestation are Base-only and listed under not_assessed. See `docs/BSC.md`. |
 
 ### Alert Pipeline (end-to-end)
 

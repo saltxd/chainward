@@ -18,9 +18,11 @@ import {
   BAND_DESCRIPTION,
   BAND_LABEL,
   countBySeverity,
+  windowLabel,
   zeroFlagsCopy,
 } from '@/lib/risk';
 import type { RiskBand } from '@/lib/api';
+import { chainMeta } from '@/lib/chains';
 
 function shortSource(url: string): string {
   try {
@@ -132,6 +134,9 @@ export function CoverageBlock({ coverage }: { coverage: RiskCoverage | undefined
   const raised = coverage.checks.filter((c) => c.raised).length;
   const quiet = coverage.checks.length - raised;
   const w = coverage.window;
+  const win = windowLabel(w.days);
+  // Reports without a recorded window are the 30-day Base path; keep its labels.
+  const bounded = w.days !== undefined;
   const latest = w.latest_transfer_at
     ? new Date(w.latest_transfer_at).toLocaleDateString(undefined, { dateStyle: 'medium' })
     : 'none in window';
@@ -167,12 +172,12 @@ export function CoverageBlock({ coverage }: { coverage: RiskCoverage | undefined
           <span className="rr-stat-unit">transfers scanned</span>
         </div>
         <div className="rr-stat">
-          <span className="rr-stat-label">transfers.30d</span>
+          <span className="rr-stat-label">{bounded ? 'transfers.window' : 'transfers.30d'}</span>
           <span className="rr-stat-value mono">{w.transfers_30d.toLocaleString()}</span>
-          <span className="rr-stat-unit">in the 30-day window</span>
+          <span className="rr-stat-unit">in the {win} window</span>
         </div>
         <div className="rr-stat">
-          <span className="rr-stat-label">counterparties.30d</span>
+          <span className="rr-stat-label">{bounded ? 'counterparties.window' : 'counterparties.30d'}</span>
           <span className="rr-stat-value mono">{w.unique_counterparties_30d.toLocaleString()}</span>
           <span className="rr-stat-unit">unique counterparties</span>
         </div>
@@ -226,16 +231,25 @@ export function FreshnessStamp({ freshness }: { freshness: RiskFreshness }) {
 /**
  * Which RPC served this report — the per-report, data-driven version of the
  * "own node" claim. Says so only when the decode actually read from our node;
- * names the public fallback otherwise; renders nothing for reports filed before
+ * names the public fallback otherwise; on chains where we run no node (BSC) it
+ * names the public RPC plainly; renders nothing for reports filed before
  * provenance was recorded.
  */
-export function ProvenanceLine({ provenance }: { provenance: RiskProvenance | undefined }) {
+export function ProvenanceLine({
+  provenance,
+  chain,
+}: {
+  provenance: RiskProvenance | undefined;
+  chain?: string;
+}) {
   if (!provenance) return null;
   const lag = `${Math.round(provenance.head_lag_seconds)}s behind head`;
   const source =
     provenance.data_source === 'sentinel'
       ? 'Read from our own Base node'
-      : 'Read from a public Base RPC (our node was resyncing)';
+      : provenance.data_source === 'public'
+        ? `Read from a public ${chainMeta(chain).name} RPC (we run no ${chainMeta(chain).name} node)`
+        : 'Read from a public Base RPC (our node was resyncing)';
   return (
     <p className="rr-classifier mono">
       {source} · {lag}

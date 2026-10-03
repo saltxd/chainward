@@ -30,7 +30,20 @@ export interface Source {
   timestamp: string;
 }
 
+/** Chains the quick decode can run on. Mirrors RiskChainId in @chainward/common. */
+export type DecodeChain = 'base' | 'bsc';
+
+/**
+ * Which kind of RPC served a report's `latest` reads.
+ *   sentinel — our own Base node
+ *   fallback — a public Base RPC, used because the sentinel was unfit
+ *   public   — a public RPC on a chain where we run no node (BSC)
+ */
+export type DecodeDataSource = 'sentinel' | 'fallback' | 'public';
+
 export interface QuickDecodeResultData {
+  /** Chain the decode ran on. Absent on reports filed before multi-chain (= base). */
+  chain?: DecodeChain;
   target: {
     input: string;
     wallet_address: string;
@@ -74,9 +87,20 @@ export interface QuickDecodeResultData {
     transfers_fetched: number;
     transfers_truncated: boolean;
     /** Which RPC served the `latest` reads this report was built from. */
-    data_source?: 'sentinel' | 'fallback';
+    data_source?: DecodeDataSource;
     /** Head age (seconds) of that source at fetch time. */
     head_lag_seconds?: number;
+    /**
+     * How far back the transfer scan ACTUALLY looked, in days. Set when the
+     * window is narrower than the 30-day activity horizon (public-RPC chains),
+     * so the report can state the limit instead of implying 30 days. May be
+     * fractional when the scan stopped at its time budget.
+     */
+    window_days?: number;
+    /** Days the scan was asked for, when it differs from `window_days`. */
+    window_requested_days?: number;
+    /** Block range the transfer scan covered, when read from eth_getLogs. */
+    window_blocks?: { from: number; to: number };
     /**
      * True if the source head was stale beyond the freshness threshold. Should
      * never be true in a persisted report (the fetch fails loud first); when set,

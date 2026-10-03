@@ -29,6 +29,7 @@ import {
 } from '@/components/press';
 import { ApiError, publicApi, type RiskReport, type RiskTeaser } from '@/lib/api';
 import { DISCLAIMER } from '@/lib/risk';
+import { chainMeta, chainQuery, type RiskChainParam } from '@/lib/chains';
 import { track } from '@/lib/track';
 import {
   BandSummary,
@@ -68,9 +69,17 @@ const TITLE_BAND: Record<string, string> = {
   'high-signal': 'high-signal',
 };
 
-export function ReportView({ address }: { address: string }) {
+export function ReportView({ address, chain = 'base' }: { address: string; chain?: RiskChainParam }) {
   const lowered = address.toLowerCase();
   const valid = ADDRESS_RE.test(address);
+  const meta = chainMeta(chain);
+  // Only Base may ever claim our own node; other chains read a public RPC and say so.
+  const nodeClaim =
+    chain === 'base' ? (
+      <NodeClaim live="our own Base node" neutral="the chain" />
+    ) : (
+      <>{meta.readsFrom}</>
+    );
 
   const [state, setState] = useState<ViewState>(
     valid ? { kind: 'loading' } : { kind: 'invalid' },
@@ -135,7 +144,7 @@ export function ReportView({ address }: { address: string }) {
       const tick = async () => {
         attemptsRef.current += 1;
         try {
-          const res = await publicApi.getReport(addr);
+          const res = await publicApi.getReport(addr, chain);
           clearPoll();
           const report = res.data.report;
           setState(
@@ -158,7 +167,7 @@ export function ReportView({ address }: { address: string }) {
       };
       pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
     },
-    [clearPoll],
+    [clearPoll, chain],
   );
 
   // Initial load — try the cached public report first.
@@ -169,7 +178,7 @@ export function ReportView({ address }: { address: string }) {
     }
     setState({ kind: 'loading' });
     try {
-      const res = await publicApi.getReport(lowered);
+      const res = await publicApi.getReport(lowered, chain);
       const report = res.data.report;
       setState(
         report.freshness.ttl_state === 'stale'
@@ -192,7 +201,7 @@ export function ReportView({ address }: { address: string }) {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lowered, valid]);
+  }, [lowered, valid, chain]);
 
   // Run / re-run a check. forceRecheck=true for the re-check button.
   const runCheck = useCallback(
@@ -201,7 +210,7 @@ export function ReportView({ address }: { address: string }) {
       attemptsRef.current = 0;
       setCheckLoading(true);
       try {
-        const res = await publicApi.checkAddress(lowered, forceRecheck);
+        const res = await publicApi.checkAddress(lowered, forceRecheck, chain);
         const data = res.data;
         switch (data.status) {
           case 'ready':
@@ -240,7 +249,7 @@ export function ReportView({ address }: { address: string }) {
         setCheckLoading(false);
       }
     },
-    [lowered, clearPoll, pollCheck, pollReport],
+    [lowered, chain, clearPoll, pollCheck, pollReport],
   );
 
   // Funnel: one event per outcome the visitor actually sees. Categories only —
@@ -281,7 +290,7 @@ export function ReportView({ address }: { address: string }) {
     load();
     return clearPoll;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lowered]);
+  }, [lowered, chain]);
 
   return (
     <PressShell>
@@ -295,8 +304,18 @@ export function ReportView({ address }: { address: string }) {
           </div>
           <div className="rr-subject mono">{address}</div>
           <div className="rr-hero-note">
-            <span className="rr-chip">Base</span>
+            <span className="rr-chip" data-chain={chain}>{meta.name}</span>
             <span>Flags, not promises — read from the chain.</span>
+            {valid && (
+              <a
+                className="press-link rr-explorer"
+                href={meta.explorerAddressUrl(lowered)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {meta.explorerName} →
+              </a>
+            )}
           </div>
         </section>
 
@@ -305,7 +324,7 @@ export function ReportView({ address }: { address: string }) {
           <div className="rr-notice rr-notice--danger">
             <div className="rr-notice-tag">Invalid target</div>
             <p>
-              That doesn&apos;t look like a Base address. Paste a 40-character hex
+              That doesn&apos;t look like a {meta.name} address. Paste a 40-character hex
               address starting with <code>0x</code>.
             </p>
             <Link href="/" className="press-btn press-btn--ghost">
@@ -328,8 +347,7 @@ export function ReportView({ address }: { address: string }) {
               <span className="rr-loading-pulse" aria-hidden /> Decode running
             </div>
             <p>
-              Running the forensic decode against{' '}
-              <NodeClaim live="our own Base node" neutral="the chain" />. This usually
+              Running the forensic decode against {nodeClaim}. This usually
               takes under a minute — flags will appear here automatically.
             </p>
             <div className="rr-steps">
@@ -371,7 +389,7 @@ export function ReportView({ address }: { address: string }) {
             <div className="rr-notice">
               <div className="rr-notice-tag">No on-chain history</div>
               <p>
-                This address has no transactions and no token transfers on Base.
+                This address has no transactions and no token transfers on {meta.name}.
                 There is nothing on-chain to check yet.
               </p>
               <Link href="/" className="press-btn press-btn--ghost">
@@ -391,15 +409,18 @@ export function ReportView({ address }: { address: string }) {
               <span className="press-label">Public stats</span>
               <h2 className="rr-h2 press-display">Has history. Decoding now.</h2>
               <p className="rr-lede">
-                The full forensic decode is running against{' '}
-                <NodeClaim live="our own Base node" neutral="the chain" /> — flags
+                The full forensic decode is running against {nodeClaim} — flags
                 appear below automatically when it finishes. Here is the cheap
                 public snapshot meanwhile. No flags are shown until the decode
                 completes.
               </p>
               <div className="rr-stats">
                 <Stat label="sent txs" value={fmtNum(state.teaser.public_stats.tx_count, 0)} unit="from this wallet" />
-                <Stat label="eth.balance" value={fmtNum(state.teaser.public_stats.eth_balance)} unit="eth" />
+                <Stat
+                  label={`${(state.teaser.native_symbol ?? meta.nativeSymbol).toLowerCase()}.balance`}
+                  value={fmtNum(state.teaser.public_stats.eth_balance)}
+                  unit={(state.teaser.native_symbol ?? meta.nativeSymbol).toLowerCase()}
+                />
                 <Stat label="usdc.balance" value={fmtNum(state.teaser.public_stats.usdc_balance, 2)} unit="usdc" />
                 <Stat label="tokens.held" value={fmtNum(state.teaser.public_stats.token_count, 0)} unit="assets" />
                 <Stat
@@ -407,11 +428,13 @@ export function ReportView({ address }: { address: string }) {
                   value={fmtNum(state.teaser.public_stats.unique_counterparties_30d, 0)}
                   unit="lower bound"
                 />
-                <Stat
-                  label="acp.agent"
-                  value={state.teaser.public_stats.is_acp_agent ? 'yes' : 'no'}
-                  unit="virtuals acp"
-                />
+                {chain === 'base' && (
+                  <Stat
+                    label="acp.agent"
+                    value={state.teaser.public_stats.is_acp_agent ? 'yes' : 'no'}
+                    unit="virtuals acp"
+                  />
+                )}
               </div>
             </div>
 
@@ -421,8 +444,7 @@ export function ReportView({ address }: { address: string }) {
                   <span className="rr-loading-pulse" aria-hidden /> Decode running
                 </div>
                 <p>
-                  Running the full forensic decode against{' '}
-                  <NodeClaim live="our own Base node" neutral="the chain" /> now —
+                  Running the full forensic decode against {nodeClaim} now —
                   reading transfers, classifying behavior, deriving flags with
                   on-chain evidence. Flags appear here automatically, usually under
                   a minute. The result becomes a free, public, shareable report.
@@ -446,6 +468,7 @@ export function ReportView({ address }: { address: string }) {
         {(state.kind === 'ready' || state.kind === 'stale') && (
           <FullReport
             report={state.report}
+            chain={chain}
             stale={state.kind === 'stale'}
             recheckLoading={checkLoading}
             onRecheck={() => runCheck(true)}
@@ -487,15 +510,18 @@ function NotAssessedTeaserNote() {
 
 function FullReport({
   report,
+  chain,
   stale,
   recheckLoading,
   onRecheck,
 }: {
   report: RiskReport;
+  chain: RiskChainParam;
   stale: boolean;
   recheckLoading: boolean;
   onRecheck: () => void;
 }) {
+  const meta = chainMeta(chain);
   return (
     <>
       {stale && (
@@ -540,7 +566,7 @@ function FullReport({
 
       <div className="rr-block">
         <FreshnessStamp freshness={report.freshness} />
-        <ProvenanceLine provenance={report.provenance} />
+        <ProvenanceLine provenance={report.provenance} chain={report.chain ?? chain} />
         <p className="rr-classifier mono">
           classifier v{report.classifier_version} · {report.view_count}{' '}
           {report.view_count === 1 ? 'view' : 'views'}
@@ -561,6 +587,12 @@ function FullReport({
               : '· readable by any agent or contract'}
           </p>
         )}
+        {!report.attestation && chain !== 'base' && (
+          <p className="rr-classifier mono">
+            Not attested on-chain · ChainWard Attest publishes to Base (EAS); {meta.name} attestation is not
+            live yet
+          </p>
+        )}
       </div>
 
       <div className="rr-block">
@@ -574,6 +606,10 @@ function FullReport({
       <div className="rr-block">
         <Link href="/reports" className="press-link">
           ← Browse the public record
+        </Link>
+        {' · '}
+        <Link href={`/${chainQuery(chain)}`} className="press-link">
+          Check another {meta.name} address →
         </Link>
       </div>
     </>
@@ -617,6 +653,7 @@ function ReportStyles() {
         color: var(--ink-soft);
       }
       .rr-chip--amber { color: var(--sev-medium); border-color: var(--sev-medium); }
+      .rr-explorer { margin-left: auto; font-size: 12px; }
       .rr-chip--fresh { color: var(--seal); border-color: var(--seal); }
 
       .rr-block { padding-top: 40px; }

@@ -59,8 +59,15 @@ const PRINCIPLES = [
   },
 ];
 
-export default function CheckHomePage() {
+export default async function CheckHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ chain?: string | string[] }>;
+}) {
   const featuredDecodes = getAllDecodes().slice(0, 3);
+  // `/?chain=bsc` preselects the chain toggle (the report page links back here).
+  const { chain } = await searchParams;
+  const initialChain = Array.isArray(chain) ? chain[0] : chain;
 
   return (
     <PressShell>
@@ -84,7 +91,7 @@ export default function CheckHomePage() {
             </h1>
             <p className="home-kicker press-kicker">Flags, not promises.</p>
             <p className="home-lede">
-              Paste any Base address. In about a minute you get every{' '}
+              Paste any Base or BNB Chain address. In about a minute you get every{' '}
               <strong>risk flag</strong> we can prove on-chain: dormant wallets, USDC
               stranded in them, transfers concentrated among a few counterparties,
               factory-clone contracts, online claims the chain doesn&apos;t back. Each
@@ -95,7 +102,7 @@ export default function CheckHomePage() {
           </div>
 
           <div className="home-intake-row">
-            <CheckForm />
+            <CheckForm initialChain={initialChain} />
             <aside className="home-stamp">
               <div className="press-stamp" aria-hidden>
                 <span className="press-stamp-lead">No Safety Verdict</span>

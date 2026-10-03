@@ -1,8 +1,11 @@
 import { Worker, type Job } from 'bullmq';
+import { RISK_CHAINS, parseRiskChain, type RiskChainId } from '@chainward/common';
 import {
   computeQuickDecodeData,
   deriveRiskFlags,
   fetchFixtures,
+  fetchRpcFixtures,
+  type QuickDecodeInput,
   type RiskFlag,
 } from '@chainward/decode';
 import { riskReports } from '@chainward/db';
@@ -37,6 +40,7 @@ export interface RiskCheckJobData {
   walletAddress: string;
   /** Bare handle without @, when the target was a handle. */
   agentHandle?: string;
+  /** Chain to decode on ('base' | 'bsc'). Absent = base. */
   chain?: string;
   /** Forced re-check requested by the user — bypasses cache (cache check is the API's job). */
   forceRecheck?: boolean;
@@ -96,14 +100,55 @@ export function createRiskCheckWorker() {
   return worker;
 }
 
+/**
+ * Fixtures for the job's chain. Base reads our own node (freshness-gated, with
+ * Blockscout + ACP); other chains read public RPC only, through the same Redis
+ * cache the API's history gate / teaser just filled — one scan per check.
+ */
+async function fetchFixturesFor(
+  chain: RiskChainId,
+  walletAddress: string,
+  agentHandle: string | undefined,
+): Promise<QuickDecodeInput['fixtures']> {
+  if (chain === 'base') {
+    return fetchFixtures(walletAddress, {
+      sentinelRpc: SENTINEL_RPC,
+      fallbackRpc: BASE_RPC_FALLBACK_URL,
+      fetchTimeoutMs: FETCH_TIMEOUT_MS,
+      agentName: agentHandle ? `@${agentHandle}` : undefined,
+      logger,
+    });
+  }
+  const redis = getRedis();
+  const fx = await fetchRpcFixtures(chain, walletAddress, {
+    fetchTimeoutMs: FETCH_TIMEOUT_MS,
+    cache: {
+      get: (key) => redis.get(key),
+      set: (key, value, ttlSec) => redis.set(key, value, 'EX', ttlSec),
+    },
+    logger,
+  });
+  return {
+    ...fx,
+    window: {
+      days: fx.window.days,
+      requested_days: fx.window.requested_days,
+      from_block: fx.window.from_block,
+      to_block: fx.window.to_block,
+    },
+  };
+}
+
 async function runRiskCheck(job: Job<RiskCheckJobData>): Promise<{ persisted: boolean; band: string }> {
-  const { input, walletAddress, agentHandle, chain = 'base' } = job.data;
+  const { input, walletAddress, agentHandle } = job.data;
+  const chain = parseRiskChain(job.data.chain);
+  if (!chain) throw new Error(`risk-check: unknown chain ${String(job.data.chain)}`);
   const redis = getRedis();
   const db = getDb();
 
   const addr = walletAddress.toLowerCase();
   const bucket = Math.floor(Date.now() / AS_OF_BUCKET_MS);
-  const lockKey = `risk:lock:${addr}:${bucket}`;
+  const lockKey = chain === 'base' ? `risk:lock:${addr}:${bucket}` : `risk:lock:${chain}:${addr}:${bucket}`;
 
   // Per-(address, as_of_bucket) lock so concurrent requests for the same wallet
   // coalesce — only one worker does the live fetch + classify per bucket window.
@@ -119,13 +164,7 @@ async function runRiskCheck(job: Job<RiskCheckJobData>): Promise<{ persisted: bo
     // That propagates out of runRiskCheck → the job fails → GET /api/risk/check/:id
     // reports 'failed' (the UI's existing failure path). We never persist a report
     // built on a stale head.
-    const fixtures = await fetchFixtures(walletAddress, {
-      sentinelRpc: SENTINEL_RPC,
-      fallbackRpc: BASE_RPC_FALLBACK_URL,
-      fetchTimeoutMs: FETCH_TIMEOUT_MS,
-      agentName: agentHandle ? `@${agentHandle}` : undefined,
-      logger,
-    });
+    const fixtures = await fetchFixturesFor(chain, walletAddress, agentHandle);
 
     // Compute the full classifier result WITHOUT the LLM prose step — flags are
     // pure over QuickDecodeResultData, so the hot path never spawns claude.
@@ -134,6 +173,7 @@ async function runRiskCheck(job: Job<RiskCheckJobData>): Promise<{ persisted: bo
       wallet_address: walletAddress,
       job_id: job.id ?? `risk-${addr}`,
       pipeline_version: PIPELINE_VERSION,
+      chain,
       fixtures,
     });
 
@@ -174,6 +214,7 @@ async function runRiskCheck(job: Job<RiskCheckJobData>): Promise<{ persisted: bo
     logger.info(
       {
         address: addr,
+        chain: RISK_CHAINS[chain].id,
         band: assessment.band,
         flagCount: assessment.flags.length,
         asOfBlock: meta.as_of_block.number,

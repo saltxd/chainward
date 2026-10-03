@@ -67,3 +67,23 @@ describe('zeroFlagsCopy', () => {
     ).toContain('at least 40 transfers');
   });
 });
+
+describe('CoverageBlock window days', () => {
+  it('labels the window with the days actually scanned when the report says so', () => {
+    const bsc: RiskCoverage = { ...coverage, window: { ...coverage.window, days: 14 } };
+    const html = renderToStaticMarkup(<CoverageBlock coverage={bsc} />);
+    expect(html).toContain('in the 14-day window');
+    expect(html).toContain('transfers.window');
+    expect(html).not.toContain('30-day');
+    expect(zeroFlagsCopy(bsc)).toContain('14-day window');
+    const partial: RiskCoverage = { ...coverage, window: { ...coverage.window, days: 4.63 } };
+    expect(renderToStaticMarkup(<CoverageBlock coverage={partial} />)).toContain('in the 4.6-day window');
+    const hours: RiskCoverage = { ...coverage, window: { ...coverage.window, days: 0.1 } };
+    expect(renderToStaticMarkup(<CoverageBlock coverage={hours} />)).toContain('in the 2-hour window');
+  });
+
+  it('defaults to the 30-day label for reports without a recorded window', () => {
+    const html = renderToStaticMarkup(<CoverageBlock coverage={coverage} />);
+    expect(html).toContain('in the 30-day window');
+  });
+});

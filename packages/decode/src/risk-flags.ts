@@ -1,5 +1,7 @@
-import type { QuickDecodeResultData, Discrepancy } from './types.js';
+import { RISK_CHAINS, riskChainAddressUrl } from '@chainward/common';
+import type { DecodeChain, QuickDecodeResultData, Discrepancy } from './types.js';
 import { CLASSIFIER_VERSION } from './types.js';
+import { formatWindowDays, formatWindowSpan } from './rpc-fixtures.js';
 
 /**
  * Risk-Check v1 flag derivation.
@@ -65,6 +67,34 @@ const NOT_ASSESSED: readonly string[] = [
   'Anything older than the 30-day activity window or beyond the transfer-page cap',
 ];
 
+/**
+ * The not-assessed list for a given chain + fetch. Off Base, the Base-only
+ * sources (Virtuals ACP, the agent observatory, EAS attestation) are named as
+ * not checked, and the window line states the bounded log window that was
+ * actually read instead of implying 30 days.
+ */
+export function notAssessedFor(chain: DecodeChain, fetchMeta: QuickDecodeResultData['fetch_meta']): string[] {
+  if (chain === 'base') return [...NOT_ASSESSED];
+  const cfg = RISK_CHAINS[chain];
+  const days = fetchMeta.window_days;
+  const requested = fetchMeta.window_requested_days;
+  const shortfall =
+    days !== undefined && requested !== undefined && requested > days
+      ? ` — the scan asked for ${formatWindowSpan(requested)} and stopped early at its time budget or transfer cap`
+      : '';
+  const windowLine =
+    days !== undefined
+      ? `Anything older than the ${formatWindowDays(days)} transfer window actually read from public ${cfg.name} RPC logs${shortfall} (no Blockscout on ${cfg.name}; a BscScan key widens this to 30 days)`
+      : `Anything older than the bounded transfer window read from public ${cfg.name} RPC logs`;
+  return [
+    ...NOT_ASSESSED.slice(0, -1),
+    windowLine,
+    'Virtuals ACP claims, online status and handle identity (a Base-only registry)',
+    'Peer cluster and agent cohort status (Base observatory only)',
+    `On-chain attestation of this report (ChainWard Attest is on Base via EAS; not yet on ${cfg.name})`,
+  ];
+}
+
 export type RiskCheckId =
   | 'claim_vs_chain_offline'
   | 'dormant_wallet'
@@ -81,6 +111,8 @@ export interface RiskCheck {
   title: string;
   /** What the check looks for, in the neutral lexicon. Rendered as coverage. */
   looks_for: string;
+  /** Depends on a Base-only source (ACP, Virtuals factory, observatory); skipped elsewhere. */
+  base_only?: true;
 }
 
 /**
@@ -93,6 +125,7 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     id: 'claim_vs_chain_offline',
     title: 'ACP online claim not reflected on-chain',
     looks_for: "An ACP 'online' status that the wallet's recent on-chain activity does not reflect",
+    base_only: true,
   },
   {
     id: 'dormant_wallet',
@@ -108,6 +141,7 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     id: 'factory_proxy_clone',
     title: 'Virtuals factory proxy clone',
     looks_for: 'Virtuals factory minimal-proxy bytecode (a clone, not bespoke code)',
+    base_only: true,
   },
   {
     id: 'counterparty_concentration',
@@ -118,6 +152,7 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     id: 'cluster_collapsed',
     title: 'Peer cluster is largely dormant',
     looks_for: 'A peer cohort where most members have gone dormant',
+    base_only: true,
   },
   {
     id: 'inactive_no_history',
@@ -130,6 +165,12 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     looks_for: 'The transfer scan hit its page cap, so activity counts are a lower bound',
   },
 ];
+
+/** The checks that actually run on a chain — Base-only ones drop off elsewhere. */
+export function riskChecksFor(chain: DecodeChain | undefined): readonly RiskCheck[] {
+  if (!chain || chain === 'base') return RISK_CHECKS;
+  return RISK_CHECKS.filter((c) => !c.base_only);
+}
 
 const CHECK_TITLE = Object.fromEntries(RISK_CHECKS.map((c) => [c.id, c.title])) as Record<
   RiskCheckId,
@@ -197,15 +238,21 @@ function findDiscrepancy(discrepancies: Discrepancy[], field: string): Discrepan
  */
 export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   const address = data.target.wallet_address;
+  const chain: DecodeChain = data.chain ?? 'base';
+  const chainCfg = RISK_CHAINS[chain];
   const allowlist = loadAllowlist();
-  const source = blockscoutAddressUrl(address);
+  // Base keeps its Blockscout citation; other chains cite their explorer.
+  const source = chain === 'base' ? blockscoutAddressUrl(address) : riskChainAddressUrl(chain, address);
+  const not_assessed = notAssessedFor(chain, data.fetch_meta);
+  // Base-only checks need ACP / the Virtuals factory / the observatory.
+  const baseSources = chain === 'base';
 
   // Self-flag guard: ChainWard's own wallets + known infra never get flagged.
   if (isAllowlisted(address, allowlist)) {
     return {
       band: 'low-signal',
       flags: [],
-      not_assessed: [...NOT_ASSESSED],
+      not_assessed,
       classifier_version: CLASSIFIER_VERSION,
       signal_density: 0,
     };
@@ -224,7 +271,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
 
   // 1. claim_vs_chain_offline (medium) <- discrepancies[] entry field 'isOnline'
   const onlineDisc = findDiscrepancy(data.discrepancies, 'isOnline');
-  if (onlineDisc && !headStale) {
+  if (baseSources && onlineDisc && !headStale) {
     flags.push({
       id: 'claim_vs_chain_offline',
       severity: 'medium',
@@ -257,7 +304,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   }
 
   // 4. factory_proxy_clone (info) <- data.wallet.is_virtuals_factory === true
-  if (data.wallet.is_virtuals_factory === true) {
+  if (baseSources && data.wallet.is_virtuals_factory === true) {
     flags.push({
       id: 'factory_proxy_clone',
       severity: 'info',
@@ -283,7 +330,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   }
 
   // 6. cluster_collapsed (medium) <- data.peers.cluster_status === 'collapsed'
-  if (data.peers.cluster_status === 'collapsed') {
+  if (baseSources && data.peers.cluster_status === 'collapsed') {
     flags.push({
       id: 'cluster_collapsed',
       severity: 'medium',
@@ -304,8 +351,12 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
       severity: 'low',
       title: CHECK_TITLE.inactive_no_history,
       evidence:
-        `No ERC-20 transfers in the checked window (last ~30 days), read from ${
-          data.fetch_meta.data_source === 'sentinel' ? 'our own Base node' : 'Base'
+        `No ERC-20 transfers in the checked window (the last ${formatWindowSpan(data.fetch_meta.window_days ?? 30)}), read from ${
+          data.fetch_meta.data_source === 'sentinel'
+            ? 'our own Base node'
+            : data.fetch_meta.data_source === 'public'
+              ? `public ${chainCfg.name} RPC logs`
+              : chainCfg.name
         }. The wallet may be new, paused, or operating through a different address — this is a recent-activity signal, not a lifetime-history claim.`,
       source,
     });
@@ -318,7 +369,12 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
       id: 'activity_truncated',
       severity: 'info',
       title: CHECK_TITLE.activity_truncated,
-      evidence: `Fetched ${data.fetch_meta.transfers_fetched} transfers and hit the page cap; activity counts are a lower bound, not a lifetime total.`,
+      evidence:
+        data.fetch_meta.data_source === 'public'
+          ? `Kept ${data.fetch_meta.transfers_fetched} transfers and hit the scan cap or time budget after covering ${formatWindowSpan(data.fetch_meta.window_days ?? 30)}${
+              data.fetch_meta.window_requested_days ? ` of the ${formatWindowDays(data.fetch_meta.window_requested_days)} window requested` : ''
+            }; activity counts are a lower bound, not a lifetime total.`
+          : `Fetched ${data.fetch_meta.transfers_fetched} transfers and hit the page cap; activity counts are a lower bound, not a lifetime total.`,
       source,
     });
   }
@@ -328,7 +384,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   return {
     band: computeBand(flags),
     flags,
-    not_assessed: [...NOT_ASSESSED],
+    not_assessed,
     classifier_version: CLASSIFIER_VERSION,
     signal_density,
   };

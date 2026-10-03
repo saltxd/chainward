@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
 import { BAND_LABEL, reportPath, isThinReport } from '@/lib/risk';
 import type { RiskLibraryResult, RiskReportCard, RiskSeverity } from '@/lib/api';
+import { chainMeta } from '@/lib/chains';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 const PAGE_SIZE = 60;
@@ -72,7 +73,7 @@ function RegisterRow({ card }: { card: RiskReportCard }) {
   const thin = isThinReport(card.flag_count, card.band);
   return (
     <Link
-      href={reportPath(card.address)}
+      href={reportPath(card.address, card.chain)}
       className="reg-row"
       // Thin entries (empty/quiet wallets, zero flags) are deindexed at the
       // page level; nofollow so crawlers don't follow into them.
@@ -82,6 +83,7 @@ function RegisterRow({ card }: { card: RiskReportCard }) {
         <span className="reg-cell-label">Subject</span>
         <span className="reg-subject-name mono">
           {card.agent_name ?? truncate(card.address)}
+          <span className="reg-chain">{chainMeta(card.chain).shortName}</span>
         </span>
         {card.agent_name && (
           <span className="reg-subject-addr mono">{truncate(card.address)}</span>
@@ -232,6 +234,16 @@ export default async function ReportsLibraryPage() {
           font-size: 13px;
           color: var(--ink);
           overflow-wrap: anywhere;
+        }
+        .reg-chain {
+          margin-left: 8px;
+          padding: 1px 5px;
+          border: 1px solid var(--rule-strong);
+          font-size: 9.5px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+          vertical-align: middle;
         }
         .reg-subject-addr {
           font-size: 11px;

@@ -15,7 +15,9 @@ import {
   DEMAND_WINDOW_DAYS,
   type RiskAssessment,
 } from '@chainward/decode';
-import { KNOWN_CONTRACTS } from '@chainward/common';
+import { KNOWN_CONTRACTS, RISK_CHAINS, RISK_CHAIN_IDS, type RiskChainId } from '@chainward/common';
+import { rpcFixturesHaveHistory, type RpcFixtures } from '@chainward/decode';
+import { fetchChainFixtures, teaserStatsFromFixtures } from '../lib/riskChainFixtures.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getDb } from '../lib/db.js';
@@ -30,8 +32,10 @@ import { buildCoverage, type ReportCoverage } from '../lib/reportCoverage.js';
 // Constants
 // ---------------------------------------------------------------------------
 
-const CHAIN = 'base';
+// The original (and default) chain. Paid checks + attestation stay Base-only.
+const CHAIN: RiskChainId = 'base';
 const USDC_ADDRESS = KNOWN_CONTRACTS.base.USDC.toLowerCase();
+const chainSchema = z.enum(RISK_CHAIN_IDS);
 
 // A report is stale once it is older than this OR its classifier_version no
 // longer matches the current engine. Stale reports are served free + flagged.
@@ -60,6 +64,8 @@ const addressSchema = z.string().regex(ADDRESS_RE, 'Invalid Ethereum address');
 const checkBodySchema = z.object({
   target: z.string().min(1),
   force_recheck: z.boolean().optional(),
+  /** Chain to check on. Defaults to base. */
+  chain: chainSchema.optional(),
 });
 
 const librarySchema = z.object({
@@ -69,6 +75,8 @@ const librarySchema = z.object({
   // distinct=address → one card per address (its latest filing). Re-checks of
   // the same wallet otherwise surface as near-duplicate rows.
   distinct: z.enum(['address']).optional(),
+  /** Restrict to one chain; default is every chain. */
+  chain: chainSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -113,6 +121,9 @@ interface AttestationInfo {
 
 interface TeaserPayload {
   address: string;
+  chain: RiskChainId;
+  /** Native asset of `chain` — the eth_balance figure is denominated in it. */
+  native_symbol: string;
   public_stats: {
     tx_count: number;
     eth_balance: number;
@@ -133,6 +144,7 @@ interface TopFlagPreview {
 
 interface ReportCard {
   address: string;
+  chain: string;
   agent_name?: string;
   band: string;
   flag_count: number;
@@ -202,9 +214,15 @@ function topSeverity(row: RiskReportRow): string | null {
   return top;
 }
 
+/** The web report route for a filing — base stays bare so existing links hold. */
+function reportPath(address: string, chain: string): string {
+  return chain === CHAIN ? `/report/${address}` : `/report/${address}?chain=${chain}`;
+}
+
 function rowToCard(row: RiskReportRow): ReportCard {
   return {
     address: row.walletAddress,
+    chain: row.chain,
     agent_name: row.agentName ?? undefined,
     band: row.band,
     flag_count: row.flagCount,
@@ -212,17 +230,17 @@ function rowToCard(row: RiskReportRow): ReportCard {
     top_flags: (row.topFlags as TopFlagPreview[] | null) ?? [],
     as_of_date: new Date(row.generatedAt).toISOString(),
     view_count: row.viewCount,
-    report_url: `/report/${row.walletAddress}`,
+    report_url: reportPath(row.walletAddress, row.chain),
   };
 }
 
 /** Most recent report for an address+chain, or undefined. */
-async function latestReport(address: string): Promise<RiskReportRow | undefined> {
+async function latestReport(address: string, chain: RiskChainId = CHAIN): Promise<RiskReportRow | undefined> {
   const db = getDb();
   const rows = await db
     .select()
     .from(riskReports)
-    .where(and(sql`lower(${riskReports.walletAddress}) = ${address.toLowerCase()}`, eq(riskReports.chain, CHAIN)))
+    .where(and(sql`lower(${riskReports.walletAddress}) = ${address.toLowerCase()}`, eq(riskReports.chain, chain)))
     .orderBy(desc(riskReports.generatedAt))
     .limit(1);
   return rows[0];
@@ -310,6 +328,8 @@ async function buildTeaser(
 
   return {
     address: address.toLowerCase(),
+    chain: CHAIN,
+    native_symbol: RISK_CHAINS[CHAIN].nativeSymbol,
     public_stats: {
       tx_count: txCount,
       eth_balance: ethBalance,
@@ -324,8 +344,48 @@ async function buildTeaser(
   };
 }
 
-function pendingKey(address: string): string {
-  return `risk:pending:${address.toLowerCase()}`;
+/** Base keeps its historical key/id shapes; other chains are namespaced. */
+function pendingKey(address: string, chain: RiskChainId): string {
+  const addr = address.toLowerCase();
+  return chain === CHAIN ? `risk:pending:${addr}` : `risk:pending:${chain}:${addr}`;
+}
+
+function jobIdFor(address: string, chain: RiskChainId, suffix?: string): string {
+  const addr = address.toLowerCase();
+  const head = chain === CHAIN ? `risk-${addr}` : `risk-${chain}-${addr}`;
+  return suffix ? `${head}-${suffix}` : head;
+}
+
+/** Recover (address, chain) from our jobId convention `risk-[<chain>-]<addr>[-recheck-...]`. */
+function parseJobId(id: string): { address: string; chain: RiskChainId } | null {
+  const m = id.match(/^risk-(?:([a-z0-9]+)-)?(0x[a-fA-F0-9]{40})/);
+  if (!m?.[2]) return null;
+  const chain = m[1] ?? CHAIN;
+  if (!(RISK_CHAIN_IDS as readonly string[]).includes(chain)) return null;
+  return { address: m[2], chain: chain as RiskChainId };
+}
+
+/**
+ * Chain-aware pre-check for chains read through public RPC only (no Blockscout,
+ * no wallet-lookup provider): one cached fixture fetch answers both the
+ * history gate and the teaser, and the worker reuses it from Redis.
+ */
+async function rpcChainPrecheck(
+  chain: RiskChainId,
+  address: string,
+): Promise<{ history: boolean; fixtures: RpcFixtures }> {
+  const fixtures = await fetchChainFixtures(chain, address, getRedis());
+  return { history: rpcFixturesHaveHistory(fixtures), fixtures };
+}
+
+function rpcTeaser(address: string, fixtures: RpcFixtures): TeaserPayload {
+  return {
+    address: address.toLowerCase(),
+    chain: fixtures.chain,
+    native_symbol: RISK_CHAINS[fixtures.chain].nativeSymbol,
+    public_stats: teaserStatsFromFixtures(address, fixtures),
+    history_present: true,
+  };
 }
 
 /** Resolve a @handle to a wallet address via the ACP API. null on miss. */
@@ -351,11 +411,18 @@ interface ResolvedTarget {
 }
 
 /** Parse + resolve the POST target into a wallet address. Throws INVALID_TARGET on bad input. */
-async function resolveTarget(rawTarget: string): Promise<ResolvedTarget> {
+async function resolveTarget(rawTarget: string, chain: RiskChainId): Promise<ResolvedTarget> {
   const target = rawTarget.trim();
   if (target.startsWith('@')) {
     const handle = target.slice(1);
     if (!HANDLE_RE.test(handle)) throw new AppError(400, 'INVALID_TARGET', 'Invalid agent handle');
+    if (!RISK_CHAINS[chain].sources.acp) {
+      throw new AppError(
+        400,
+        'INVALID_TARGET',
+        `Handles resolve through Virtuals ACP, which is Base-only — paste a 0x address to check on ${RISK_CHAINS[chain].name}`,
+      );
+    }
     const resolved = await resolveHandle(handle);
     if (!resolved) throw new AppError(400, 'INVALID_TARGET', 'Handle could not be resolved to a wallet');
     return { address: resolved, handle, input: target };
@@ -386,9 +453,10 @@ risk.post(
       throw new AppError(400, 'INVALID_TARGET', 'Missing or invalid target');
     }
     const { target: rawTarget } = parsed.data;
+    const chain: RiskChainId = parsed.data.chain ?? CHAIN;
     let force_recheck = parsed.data.force_recheck ?? false;
 
-    const resolved = await resolveTarget(rawTarget);
+    const resolved = await resolveTarget(rawTarget, chain);
     const address = resolved.address.toLowerCase();
     const redis = getRedis();
 
@@ -396,13 +464,13 @@ risk.post(
     // a full decode, uniquely keyed so it can't coalesce. Inside the window a
     // forced request is served like a normal one (cached report or pending job).
     if (force_recheck) {
-      const first = await redis.set(`risk:recheck:${address}`, '1', 'EX', 600, 'NX');
+      const first = await redis.set(`risk:recheck:${chain}:${address}`, '1', 'EX', 600, 'NX');
       if (first !== 'OK') force_recheck = false;
     }
 
     // 1. Cache check — a usable cached report short-circuits the decode.
     if (!force_recheck) {
-      const cached = await latestReport(address);
+      const cached = await latestReport(address, chain);
       if (cached) {
         const report = rowToReport(cached);
         if (report.freshness.ttl_state === 'fresh') {
@@ -416,22 +484,34 @@ risk.post(
       }
 
       // Already-enqueued decode for this novel address → tell the client to poll.
-      const pendingId = await redis.get(pendingKey(address));
+      const pendingId = await redis.get(pendingKey(address, chain));
       if (pendingId) {
         return c.json({ success: true, data: { status: 'queued', check_id: pendingId } }, 202);
       }
     }
 
     // 2. No usable cached report (or a forced re-check). Gate on history BEFORE enqueue.
+    // Chains without Blockscout / a lookup provider (BSC) gate on one cached RPC
+    // fixture fetch — nonce, balances, code, and the bounded transfer window.
+    let rpcFixtures: RpcFixtures | undefined;
+    if (chain !== CHAIN) {
+      const pre = await rpcChainPrecheck(chain, address);
+      if (!pre.history) {
+        return c.json({ success: true, data: { status: 'no_history' } });
+      }
+      rpcFixtures = pre.fixtures;
+    }
     // Blockscout's /counters endpoint is eventually-consistent and intermittently
     // returns 0 for active addresses — especially ERC-4337 smart accounts whose
     // activity is token-transfer / UserOp based (e.g. an agent with 90k+ ACP jobs but
     // few top-level txns). So we declare no_history ONLY when Blockscout AND our own
     // node both show nothing — the node-backed wallet lookup (balances / token
     // holdings / tx list, independent of Blockscout) is the reliable tiebreaker.
-    const history = await checkHistory(address);
+    const history = rpcFixtures
+      ? { transactions_count: parseInt(rpcFixtures.sentinel_nonce.result, 16) || 0, token_transfers_count: 1 }
+      : await checkHistory(address);
     let prefetchedLookup: Awaited<ReturnType<WalletLookupService['lookup']>> | undefined;
-    if (history.transactions_count === 0 && history.token_transfers_count === 0) {
+    if (!rpcFixtures && history.transactions_count === 0 && history.token_transfers_count === 0) {
       prefetchedLookup = await new WalletLookupService(getRedis()).lookup(address);
       const hasNodeActivity =
         prefetchedLookup.transactions.length > 0 ||
@@ -449,19 +529,17 @@ risk.post(
         input: resolved.input,
         walletAddress: resolved.address,
         agentHandle: resolved.handle,
-        chain: CHAIN,
+        chain,
         forceRecheck: force_recheck,
       },
       // jobId == check_id the client polls. Coalesce concurrent novel-address
       // submissions onto one job; a forced re-check is uniquely keyed so it always runs.
       {
-        jobId: force_recheck
-          ? `risk-${address}-recheck-${Date.now()}`
-          : `risk-${address}`,
+        jobId: force_recheck ? jobIdFor(address, chain, `recheck-${Date.now()}`) : jobIdFor(address, chain),
       },
     );
-    const checkId = job.id ?? `risk-${address}`;
-    await redis.set(pendingKey(address), checkId, 'EX', PENDING_TTL_SEC);
+    const checkId = job.id ?? jobIdFor(address, chain);
+    await redis.set(pendingKey(address, chain), checkId, 'EX', PENDING_TTL_SEC);
 
     // 4a. Forced re-check, or a re-check of an existing (stale) report → client polls.
     if (force_recheck) {
@@ -470,6 +548,9 @@ risk.post(
 
     // 4b. Truly novel address: return a cheap synchronous teaser (NO flags) while
     //     the background decode runs. The teaser is what the user sees immediately.
+    if (rpcFixtures) {
+      return c.json({ success: true, data: { status: 'teaser', teaser: rpcTeaser(address, rpcFixtures) } });
+    }
     const acpAgent = await isAcpAgent(address);
     const teaser = await buildTeaser(address, history.transactions_count, acpAgent, prefetchedLookup);
     return c.json({ success: true, data: { status: 'teaser', teaser } });
@@ -490,10 +571,10 @@ risk.get(
 
     if (!job) {
       // Job removed (completed + reaped) — fall back to the cached report.
-      // Recover the address from our jobId convention `risk-<addr>[-recheck-...]`.
-      const m = id.match(/^risk-(0x[a-fA-F0-9]{40})/);
-      if (m?.[1]) {
-        const cached = await latestReport(m[1]);
+      // Recover the address + chain from our jobId convention.
+      const parsedId = parseJobId(id);
+      if (parsedId) {
+        const cached = await latestReport(parsedId.address, parsedId.chain);
         if (cached) {
           return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
         }
@@ -502,8 +583,9 @@ risk.get(
     }
 
     const state = await job.getState();
+    const jobChain = chainSchema.safeParse(job.data.chain);
     if (state === 'completed') {
-      const cached = await latestReport(job.data.walletAddress);
+      const cached = await latestReport(job.data.walletAddress, jobChain.success ? jobChain.data : CHAIN);
       if (cached) {
         return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
       }
@@ -530,7 +612,12 @@ risk.get(
       throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
     }
     const address = parsed.data.toLowerCase();
-    const cached = await latestReport(address);
+    const chainParam = chainSchema.optional().safeParse(c.req.query('chain') || undefined);
+    if (!chainParam.success) {
+      throw new AppError(400, 'INVALID_QUERY', `Unknown chain; expected one of ${RISK_CHAIN_IDS.join(', ')}`);
+    }
+    const chain: RiskChainId = chainParam.data ?? CHAIN;
+    const cached = await latestReport(address, chain);
     if (!cached) {
       throw new AppError(404, 'NOT_FOUND', 'No risk report for this address');
     }
@@ -543,7 +630,7 @@ risk.get(
     const visitorIp = c.req.header('cf-connecting-ip');
     if (visitorIp) {
       const firstView = await getRedis()
-        .set(`risk:view:${address}:${visitorIp}`, '1', 'EX', 86_400, 'NX')
+        .set(`risk:view:${chain}:${address}:${visitorIp}`, '1', 'EX', 86_400, 'NX')
         .catch(() => null);
       if (firstView === 'OK') {
         counted = await getDb()
@@ -565,18 +652,19 @@ risk.get(
     const [agg] = (await db.execute(sql`
       SELECT COALESCE(SUM(view_count), 0)::int AS views
       FROM risk_reports
-      WHERE lower(wallet_address) = ${address} AND chain = ${CHAIN}
+      WHERE lower(wallet_address) = ${address} AND chain = ${chain}
     `)) as unknown as Array<{ views: number }>;
     const totalViews = (agg?.views ?? cached.viewCount) + (counted ? 1 : 0);
     const report = rowToReport({ ...cached, viewCount: totalViews });
-    if (!report.attestation) {
+    // Attestation is Base-only (EAS); off-base there is nothing to carry forward.
+    if (!report.attestation && RISK_CHAINS[chain].sources.attestation) {
       const [prev] = await db
         .select()
         .from(riskReports)
         .where(
           and(
             sql`lower(${riskReports.walletAddress}) = ${address}`,
-            eq(riskReports.chain, CHAIN),
+            eq(riskReports.chain, chain),
             sql`${riskReports.attestationUid} IS NOT NULL`,
           ),
         )
@@ -758,22 +846,27 @@ risk.get(
       limit: c.req.query('limit'),
       offset: c.req.query('offset'),
       distinct: c.req.query('distinct'),
+      chain: c.req.query('chain') || undefined,
     });
     if (!parsed.success) {
       throw new AppError(400, 'INVALID_QUERY', 'Invalid library query');
     }
-    const { limit, offset, distinct } = parsed.data;
+    const { limit, offset, distinct, chain } = parsed.data;
     const db = getDb();
+    const publicFilter = chain
+      ? and(eq(riskReports.isPublic, true), eq(riskReports.chain, chain))
+      : eq(riskReports.isPublic, true);
 
     if (distinct === 'address') {
-      // One card per address — its latest filing. DISTINCT ON requires the
-      // leading ORDER BY to match the distinct key, so the recency sort happens
-      // on the outer select. (walletAddress is canonical-lowercase at insert.)
+      // One card per (address, chain) — its latest filing. DISTINCT ON requires
+      // the leading ORDER BY to match the distinct key, so the recency sort
+      // happens on the outer select. (walletAddress is canonical-lowercase at
+      // insert.) The same address checked on two chains is two filings.
       const latest = db
-        .selectDistinctOn([riskReports.walletAddress])
+        .selectDistinctOn([riskReports.walletAddress, riskReports.chain])
         .from(riskReports)
-        .where(eq(riskReports.isPublic, true))
-        .orderBy(riskReports.walletAddress, desc(riskReports.generatedAt))
+        .where(publicFilter)
+        .orderBy(riskReports.walletAddress, riskReports.chain, desc(riskReports.generatedAt))
         .as('latest');
       const rows = await db
         .select()
@@ -782,27 +875,26 @@ risk.get(
         .limit(limit)
         .offset(offset);
 
-      // "Filed N×" — total public filings per returned address.
+      // "Filed N×" — total public filings per returned (address, chain).
       const addresses = rows.map((r) => r.walletAddress);
       const filingCounts = new Map<string, number>();
       if (addresses.length > 0) {
         const countRows = await db
           .select({
             addr: riskReports.walletAddress,
+            chain: riskReports.chain,
             n: sql<number>`count(*)::int`,
           })
           .from(riskReports)
-          .where(
-            and(eq(riskReports.isPublic, true), inArray(riskReports.walletAddress, addresses)),
-          )
-          .groupBy(riskReports.walletAddress);
-        for (const r of countRows) filingCounts.set(r.addr, r.n);
+          .where(and(publicFilter, inArray(riskReports.walletAddress, addresses)))
+          .groupBy(riskReports.walletAddress, riskReports.chain);
+        for (const r of countRows) filingCounts.set(`${r.chain}:${r.addr}`, r.n);
       }
 
       const totalRows = await db
-        .select({ total: sql<number>`count(distinct ${riskReports.walletAddress})::int` })
+        .select({ total: sql<number>`count(distinct (${riskReports.walletAddress}, ${riskReports.chain}))::int` })
         .from(riskReports)
-        .where(eq(riskReports.isPublic, true));
+        .where(publicFilter);
       const total = totalRows[0]?.total ?? 0;
 
       return c.json({
@@ -810,7 +902,7 @@ risk.get(
         data: {
           reports: rows.map((row) => ({
             ...rowToCard(row),
-            report_count: filingCounts.get(row.walletAddress) ?? 1,
+            report_count: filingCounts.get(`${row.chain}:${row.walletAddress}`) ?? 1,
           })),
           pagination: { limit, offset, total },
         },
@@ -820,7 +912,7 @@ risk.get(
     const rows = await db
       .select()
       .from(riskReports)
-      .where(eq(riskReports.isPublic, true))
+      .where(publicFilter)
       .orderBy(desc(riskReports.generatedAt))
       .limit(limit)
       .offset(offset);
@@ -828,7 +920,7 @@ risk.get(
     const countRows = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(riskReports)
-      .where(eq(riskReports.isPublic, true));
+      .where(publicFilter);
     const total = countRows[0]?.total ?? 0;
 
     return c.json({

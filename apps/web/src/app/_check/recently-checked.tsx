@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useApi } from '@/hooks/use-api';
 import { publicApi, type RiskLibraryResult, type RiskSeverity } from '@/lib/api';
 import { BAND_LABEL, reportPath } from '@/lib/risk';
+import { chainMeta } from '@/lib/chains';
 
 function truncate(addr: string): string {
   if (!addr || addr.length < 12) return addr;
@@ -61,11 +62,12 @@ export function RecentlyChecked() {
             ? SEV_VAR[card.top_severity]
             : 'var(--ink-faint)';
           return (
-            <li key={card.address} className="recent-row">
-              <Link href={reportPath(card.address)} className="recent-link">
+            <li key={`${card.chain ?? 'base'}:${card.address}`} className="recent-row">
+              <Link href={reportPath(card.address, card.chain)} className="recent-link">
                 <span className="recent-main">
                   <span className="recent-subject mono">
                     {card.agent_name ?? truncate(card.address)}
+                    <span className="recent-chain">{chainMeta(card.chain).shortName}</span>
                   </span>
                   <span className="recent-finding">
                     {topFlag ? (
@@ -154,6 +156,16 @@ export function RecentlyChecked() {
           transition: color 0.15s;
         }
         .recent-link:hover .recent-subject { color: var(--oxblood); }
+        .recent-chain {
+          margin-left: 8px;
+          padding: 1px 5px;
+          border: 1px solid var(--rule-strong);
+          font-size: 9.5px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+          vertical-align: middle;
+        }
         .recent-finding {
           display: inline-flex;
           align-items: baseline;

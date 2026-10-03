@@ -14,4 +14,5 @@ export * from './sentinel-block.js';
 export * from './risk-flags.js';
 export * from './attestation.js';
 export * from './data-fetch.js';
+export * from './rpc-fixtures.js';
 export * from './seller-demand.js';

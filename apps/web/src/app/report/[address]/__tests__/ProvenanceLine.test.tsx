@@ -23,4 +23,13 @@ describe('ProvenanceLine', () => {
     expect(html).toContain('public Base RPC');
     expect(html).not.toContain('own Base node');
   });
+
+  it('names the public RPC for a chain where we run no node, never claiming our node', () => {
+    const html = renderToStaticMarkup(
+      <ProvenanceLine provenance={{ data_source: 'public', head_lag_seconds: 1 }} chain="bsc" />,
+    );
+    expect(html).toContain('public BNB Chain RPC');
+    expect(html).toContain('no BNB Chain node');
+    expect(html).not.toContain('own Base node');
+  });
 });

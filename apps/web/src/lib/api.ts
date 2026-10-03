@@ -446,9 +446,10 @@ export interface RiskFreshness {
 }
 
 /** Which RPC actually served this report's `latest` reads. Absent on reports
- * filed before provenance was recorded (pre-2026-07-09). */
+ * filed before provenance was recorded (pre-2026-07-09). 'public' = a public
+ * RPC on a chain where we run no node (BNB Chain). */
 export interface RiskProvenance {
-  data_source: 'sentinel' | 'fallback';
+  data_source: 'sentinel' | 'fallback' | 'public';
   head_lag_seconds: number;
 }
 
@@ -463,6 +464,8 @@ export interface RiskCoverageCheck {
 export interface RiskCoverage {
   checks: RiskCoverageCheck[];
   window: {
+    /** Days the transfer scan covered; absent = the full 30-day horizon. */
+    days?: number;
     transfers_scanned: number;
     transfers_truncated: boolean;
     transfers_30d: number;
@@ -503,6 +506,10 @@ export interface RiskAttestation {
 
 export interface RiskTeaser {
   address: string;
+  /** Optional for API skew: absent means base. */
+  chain?: string;
+  /** Native asset eth_balance is denominated in (ETH on Base, BNB on BSC). */
+  native_symbol?: string;
   public_stats: {
     tx_count: number;
     eth_balance: number;
@@ -523,6 +530,8 @@ export interface RiskTopFlagPreview {
 
 export interface RiskReportCard {
   address: string;
+  /** Optional for API skew: absent means base. */
+  chain?: string;
   agent_name?: string;
   band: RiskBand;
   flag_count: number;
@@ -561,32 +570,39 @@ export const publicApi = {
   getPublicAgent: (wallet: string) =>
     fetchApi<{ success: true; data: PublicAgentData }>(`/api/public/agents/${wallet}`),
 
-  // Risk check — POST returns a discriminated union on `status`.
-  checkAddress: (target: string, forceRecheck = false) =>
+  // Risk check — POST returns a discriminated union on `status`. `chain`
+  // defaults to base server-side; only sent when set so older APIs are unaffected.
+  checkAddress: (target: string, forceRecheck = false, chain?: string) =>
     fetchApi<{ success: true; data: RiskCheckResult }>('/api/risk/check', {
       method: 'POST',
-      body: JSON.stringify({ target, force_recheck: forceRecheck }),
+      body: JSON.stringify({
+        target,
+        force_recheck: forceRecheck,
+        ...(chain && chain !== 'base' ? { chain } : {}),
+      }),
     }),
   // Poll a queued decode by job id.
   getCheckStatus: (id: string) =>
     fetchApi<{ success: true; data: RiskCheckStatus }>(`/api/risk/check/${id}`),
   // Public report page; increments view_count server-side.
-  getReport: (address: string) =>
+  getReport: (address: string, chain?: string) =>
     fetchApi<{ success: true; data: { report: RiskReport } }>(
-      `/api/risk/report/${address}`,
+      `/api/risk/report/${address}${chain && chain !== 'base' ? `?chain=${chain}` : ''}`,
     ),
-  // Public, SEO-indexed library. distinct: 'address' → latest filing per address.
+  // Public, SEO-indexed library. distinct: 'address' → latest filing per (address, chain).
   listReports: (params?: {
     sort?: string;
     limit?: number;
     offset?: number;
     distinct?: 'address';
+    chain?: string;
   }) => {
     const qs = new URLSearchParams();
     if (params?.sort) qs.set('sort', params.sort);
     if (params?.limit != null) qs.set('limit', String(params.limit));
     if (params?.offset != null) qs.set('offset', String(params.offset));
     if (params?.distinct) qs.set('distinct', params.distinct);
+    if (params?.chain) qs.set('chain', params.chain);
     const suffix = qs.toString() ? `?${qs.toString()}` : '';
     return fetchApi<{ success: true; data: RiskLibraryResult }>(
       `/api/risk/library${suffix}`,

@@ -218,7 +218,8 @@ export async function runAttestSweep(): Promise<Record<string, unknown>> {
         risk_assessment, attestation_uid, attestation_tx, generated_at,
         (report_data->'fetch_meta'->>'head_stale')::boolean AS head_stale
       FROM risk_reports
-      WHERE is_public = true
+      -- EAS attestation is Base-only; BSC filings are never swept here.
+      WHERE is_public = true AND chain = 'base'
       ORDER BY lower(wallet_address), generated_at DESC
     ) latest
     WHERE attestation_uid IS NULL AND attestation_tx IS NULL AND flag_count > 0
