@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
 
 const navItems = [
-  { href: '/docs', label: 'Overview' },
+  { href: '/docs', label: 'Public API' },
+  { href: '/docs/api', label: 'Monitoring API' },
   { href: '/docs/cli', label: 'CLI' },
-  { href: '/docs/api', label: 'API' },
   { href: '/docs/alerts', label: 'Alerts' },
 ];
 
