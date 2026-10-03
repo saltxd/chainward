@@ -44,8 +44,8 @@ export function NodeSyncNoteText({
     return (
       <>
         {' '}
-        Our node is resyncing{behind}; readings come from a public Base RPC until it
-        is back at head.
+        Readings come from a public Base RPC at head; our own node is resyncing{behind}
+        and is not used for any figure until it catches up.
       </>
     );
   }

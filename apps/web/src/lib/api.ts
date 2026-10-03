@@ -498,6 +498,7 @@ export interface RiskAttestation {
   attested_at: string | null;
   schema_uid: string;
   explorer_url: string;
+  from_previous_report?: boolean;
 }
 
 export interface RiskTeaser {

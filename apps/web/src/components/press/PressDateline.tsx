@@ -48,15 +48,12 @@ export function PressDateline() {
     if (nodeLive) {
       return { dot: 'ph-dateline-dot', text: 'Node live' };
     }
+    // Nothing a visitor sees depends on our node: readings come from a public
+    // Base RPC at head. Say where the reading comes from, not that something is behind.
     if (nodeSyncing) {
-      const behind =
-        tel.nodeLag != null ? ` · ${tel.nodeLag.toLocaleString()} behind` : '';
-      return {
-        dot: 'ph-dateline-dot ph-dateline-dot--warn',
-        text: `Node syncing${behind} · via fallback`,
-      };
+      return { dot: 'ph-dateline-dot', text: 'Source · public Base RPC' };
     }
-    return { dot: 'ph-dateline-dot ph-dateline-dot--down', text: 'Node offline · via fallback' };
+    return { dot: 'ph-dateline-dot', text: 'Source · public Base RPC' };
   })();
 
   const indexerUp = tel

@@ -72,8 +72,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         data?: RiskLibraryResult;
       };
       const reports = json.data?.reports ?? [];
+      // One URL per address: re-checks create a new report row for the same page.
+      const seen = new Set<string>();
       reportRoutes = reports
         .filter((r) => !isThinReport(r.flag_count, r.band))
+        .filter((r) => {
+          const key = r.address.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
         .map((r) => ({
           url: `${SITE}${reportPath(r.address)}`,
           lastModified: new Date(r.as_of_date),

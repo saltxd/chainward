@@ -398,7 +398,7 @@ export function ReportView({ address }: { address: string }) {
                 completes.
               </p>
               <div className="rr-stats">
-                <Stat label="txs" value={fmtNum(state.teaser.public_stats.tx_count, 0)} unit="transactions" />
+                <Stat label="sent txs" value={fmtNum(state.teaser.public_stats.tx_count, 0)} unit="from this wallet" />
                 <Stat label="eth.balance" value={fmtNum(state.teaser.public_stats.eth_balance)} unit="eth" />
                 <Stat label="usdc.balance" value={fmtNum(state.teaser.public_stats.usdc_balance, 2)} unit="usdc" />
                 <Stat label="tokens.held" value={fmtNum(state.teaser.public_stats.token_count, 0)} unit="assets" />
@@ -556,7 +556,9 @@ function FullReport({
             >
               {report.attestation.uid.slice(0, 10)}…
             </a>{' '}
-            · readable by any agent or contract
+            {report.attestation.from_previous_report
+              ? '· from the previous report; this re-check is queued for attestation'
+              : '· readable by any agent or contract'}
           </p>
         )}
       </div>

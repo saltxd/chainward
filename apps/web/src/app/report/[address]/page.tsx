@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { ReportView } from './report-view';
 import { isThinReport } from '@/lib/risk';
 import type { RiskBand, RiskReport } from '@/lib/api';
@@ -102,5 +103,7 @@ export default async function ReportPage({
   params: Promise<{ address: string }>;
 }) {
   const { address } = await params;
+  // A non-address is a 404, not a 200 "invalid target" page (crawlers index status codes).
+  if (!isAddress(address)) notFound();
   return <ReportView address={address} />;
 }

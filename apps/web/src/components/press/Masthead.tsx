@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { MastheadAccount } from './MastheadAccount';
 
 export interface MastLink {
   href: string;
@@ -55,10 +56,7 @@ export function Masthead({ links = DEFAULT_LINKS, brandHref = '/' }: MastheadPro
               </Link>
             ),
           )}
-          {/* Quiet account entry — the route the retired ./connect button served. */}
-          <Link href="/login" className="ph-nav-signin">
-            Connect Wallet
-          </Link>
+          <MastheadAccount />
         </nav>
       </div>
     </header>

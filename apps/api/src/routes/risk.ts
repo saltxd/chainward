@@ -107,6 +107,8 @@ interface AttestationInfo {
   attested_at: string | null;
   schema_uid: string;
   explorer_url: string;
+  /** Set when this attestation belongs to the previous report for the address (a re-check is pending attestation). */
+  from_previous_report?: boolean;
 }
 
 interface TeaserPayload {
@@ -210,7 +212,7 @@ function rowToCard(row: RiskReportRow): ReportCard {
     top_flags: (row.topFlags as TopFlagPreview[] | null) ?? [],
     as_of_date: new Date(row.generatedAt).toISOString(),
     view_count: row.viewCount,
-    report_url: `/risk/report/${row.walletAddress}`,
+    report_url: `/report/${row.walletAddress}`,
   };
 }
 
@@ -556,7 +558,32 @@ risk.get(
       }
     }
 
-    const report = rowToReport({ ...cached, viewCount: cached.viewCount + (counted ? 1 : 0) });
+    // A re-check files a new row, so the newest report starts at 0 views and
+    // without an attestation until the sweep re-attests it. Show the address's
+    // total views, and carry the previous report's attestation forward, labelled.
+    const db = getDb();
+    const [agg] = (await db.execute(sql`
+      SELECT COALESCE(SUM(view_count), 0)::int AS views
+      FROM risk_reports
+      WHERE lower(wallet_address) = ${address} AND chain = ${CHAIN}
+    `)) as unknown as Array<{ views: number }>;
+    const totalViews = (agg?.views ?? cached.viewCount) + (counted ? 1 : 0);
+    const report = rowToReport({ ...cached, viewCount: totalViews });
+    if (!report.attestation) {
+      const [prev] = await db
+        .select()
+        .from(riskReports)
+        .where(
+          and(
+            sql`lower(${riskReports.walletAddress}) = ${address}`,
+            eq(riskReports.chain, CHAIN),
+            sql`${riskReports.attestationUid} IS NOT NULL`,
+          ),
+        )
+        .orderBy(desc(riskReports.generatedAt))
+        .limit(1);
+      if (prev) report.attestation = { ...attestationInfo(prev), from_previous_report: true };
+    }
     return c.json({ success: true, data: { report } });
   },
 );
