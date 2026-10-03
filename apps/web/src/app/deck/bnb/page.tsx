@@ -61,11 +61,11 @@ const BUDGET = [
 
 const SHIPPED = [
   {
-    name: 'Free risk check',
-    body: 'Any address, every flag tied to the transactions behind it. Neutral signals, never a verdict.',
+    name: 'Free risk check, Base + BNB Chain',
+    body: 'Any address, every flag tied to the transactions behind it. Neutral signals, never a verdict. Live on BNB Chain since 3 Oct 2026 (14-day window, public RPCs).',
   },
   {
-    name: '16 published decodes',
+    name: '17 published decodes',
     body: 'Each passed through an adversarial verifier that re-fetches every number from the chain. Nothing ships with a wrong number.',
   },
   {
@@ -86,7 +86,7 @@ const SHIPPED = [
   },
   {
     name: 'Open source, MIT',
-    body: 'github.com/saltxd/chainward. Decode core: typed, LLM-independent, 128 unit tests. Live on Base since March 2026 on a self-hosted archive node.',
+    body: 'github.com/saltxd/chainward. Decode core: typed, LLM-independent, 160+ unit tests. Live on Base since March 2026 on a self-hosted archive node.',
   },
 ];
 
@@ -286,8 +286,8 @@ export default function BnbDeckPage() {
             </dl>
             <p className="deck-note">
               Coverage so far: 483,738 marketplace jobs on BSC and Base classified, full history;
-              19,900 wallets classified by funding, timing and cycling. BSC data read via public
-              RPCs for the TermiX investigation; production is on Base mainnet.
+              19,900 wallets classified by funding, timing and cycling. Production is on Base
+              mainnet; the BNB Chain risk check reads public RPCs and is not attested yet.
             </p>
           </div>
           <SlideFoot n={4} />
@@ -461,12 +461,8 @@ export default function BnbDeckPage() {
                     <dd className="mono">github.com/saltxd/chainward</dd>
                   </div>
                   <div>
-                    <dt>Email</dt>
-                    <dd className="mono">[contact]</dd>
-                  </div>
-                  <div>
-                    <dt>Telegram</dt>
-                    <dd className="mono">[contact]</dd>
+                    <dt>Founder</dt>
+                    <dd className="mono">Marley · X @SaltCx (DMs open)</dd>
                   </div>
                 </dl>
                 <span className="press-label">Reference</span>
