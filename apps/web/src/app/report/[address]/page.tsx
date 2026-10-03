@@ -4,6 +4,7 @@ import { ReportView } from './report-view';
 import { isThinReport } from '@/lib/risk';
 import type { RiskBand, RiskReport } from '@/lib/api';
 import { isAddress } from '@/lib/params';
+import { chainMeta, chainQuery, parseChainParam, type RiskChainParam } from '@/lib/chains';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
@@ -22,9 +23,9 @@ const BAND_WORD: Record<RiskBand, string> = {
 /** Server-side fetch of the cached report for metadata. Does NOT increment
  * view_count concerns here — the GET route bumps on the client read; the
  * metadata fetch reads the same row. Returns null when there is no report. */
-async function fetchReport(address: string): Promise<RiskReport | null> {
+async function fetchReport(address: string, chain: RiskChainParam): Promise<RiskReport | null> {
   try {
-    const res = await fetch(`${API_URL}/api/risk/report/${encodeURIComponent(address)}`, {
+    const res = await fetch(`${API_URL}/api/risk/report/${encodeURIComponent(address)}${chainQuery(chain)}`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return null;
@@ -39,25 +40,31 @@ async function fetchReport(address: string): Promise<RiskReport | null> {
   }
 }
 
+type SearchParams = Promise<{ chain?: string | string[] }>;
+
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ address: string }>;
+  searchParams: SearchParams;
 }): Promise<Metadata> {
   const { address } = await params;
+  const chain = parseChainParam((await searchParams).chain);
   const lowered = address.toLowerCase();
   const truncated = truncateAddress(address);
 
-  if (!isAddress(address)) {
+  if (!isAddress(address) || !chain) {
     return {
       title: 'Risk Check — Invalid Address',
       robots: { index: false, follow: false },
     };
   }
 
-  const report = await fetchReport(lowered);
-  const canonical = `https://chainward.ai/report/${lowered}`;
-  const ogImageUrl = `https://chainward.ai/api/report/${lowered}/og`;
+  const chainName = chainMeta(chain).name;
+  const report = await fetchReport(lowered, chain);
+  const canonical = `https://chainward.ai/report/${lowered}${chainQuery(chain)}`;
+  const ogImageUrl = `https://chainward.ai/api/report/${lowered}/og${chainQuery(chain)}`;
 
   // No report yet (teaser/no_history) or a thin/empty-wallet report → noindex.
   const thin =
@@ -69,8 +76,8 @@ export async function generateMetadata({
     ? `Risk flags for ${truncated} — ${flagCount} flag${flagCount === 1 ? '' : 's'} · ${bandWord}`
     : `Risk check — ${truncated}`;
   const description = report
-    ? `${flagCount} on-chain risk flag${flagCount === 1 ? '' : 's'} for ${truncated} on Base, with evidence. Risk flags from on-chain behavior only — not a safety verdict.`
-    : `Run a free forensic on-chain risk check for ${truncated} on Base. Flags, not promises.`;
+    ? `${flagCount} on-chain risk flag${flagCount === 1 ? '' : 's'} for ${truncated} on ${chainName}, with evidence. Risk flags from on-chain behavior only — not a safety verdict.`
+    : `Run a free forensic on-chain risk check for ${truncated} on ${chainName}. Flags, not promises.`;
 
   return {
     title,
@@ -99,11 +106,15 @@ export async function generateMetadata({
 
 export default async function ReportPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ address: string }>;
+  searchParams: SearchParams;
 }) {
   const { address } = await params;
-  // A non-address is a 404, not a 200 "invalid target" page (crawlers index status codes).
-  if (!isAddress(address)) notFound();
-  return <ReportView address={address} />;
+  const chain = parseChainParam((await searchParams).chain);
+  // A non-address (or unknown chain) is a 404, not a 200 "invalid target" page
+  // (crawlers index status codes).
+  if (!isAddress(address) || !chain) notFound();
+  return <ReportView address={address} chain={chain} />;
 }

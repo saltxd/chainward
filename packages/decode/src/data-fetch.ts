@@ -1,12 +1,13 @@
 import { assessNodeFreshness, getMaxHeadLagSec, type NodeFreshness } from '@chainward/common';
 import { fetchCurrentBlock } from './sentinel-block.js';
+import type { DecodeDataSource } from './types.js';
 
 // USDC contract on Base mainnet (8453). balanceOf(address) selector + 32-byte address arg.
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const BALANCE_OF_SELECTOR = '0x70a08231';
 
 // ERC-20 Transfer(address indexed from, address indexed to, uint256 value).
-const TRANSFER_TOPIC =
+export const TRANSFER_TOPIC =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 // Base targets ~2s blocks — used to approximate a log's timestamp from its block
 // number, so the node transfer fetch needs no eth_getBlockByNumber per block.
@@ -34,7 +35,7 @@ const SENTINEL_SCAN_BUDGET_MS = parseInt(
   10,
 );
 
-function addressTopic(address: string): string {
+export function addressTopic(address: string): string {
   return '0x' + address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
 }
 
@@ -45,7 +46,7 @@ function addressTopic(address: string): string {
  */
 export interface NodeDataSource {
   /** Which RPC supplied the `latest` reads. */
-  rpc_role: 'sentinel' | 'fallback';
+  rpc_role: DecodeDataSource;
   /** Head block number of the chosen source. */
   head_number: number;
   /** Head age of the chosen source, in seconds. */
@@ -411,7 +412,7 @@ export async function fetchBlockscoutTransfers(
 // on-brand — instead of the eventually-consistent Blockscout endpoint that
 // intermittently returned empty for active ERC-4337 agents.
 
-interface RpcLog {
+export interface RpcLog {
   address: string;
   topics: string[];
   blockNumber: string;
@@ -419,14 +420,14 @@ interface RpcLog {
   logIndex: string;
 }
 
-interface NodeTransfer {
+export interface NodeTransfer {
   from: { hash: string };
   to: { hash: string };
   timestamp: string;
   token: { address: string };
 }
 
-async function jsonRpcResult<T>(
+export async function jsonRpcResult<T>(
   rpcUrl: string,
   method: string,
   params: unknown[],
@@ -450,13 +451,15 @@ async function jsonRpcResult<T>(
  * fungible ERC-20 transfers (exactly 3 topics; ERC-721 has 4), dedupes by
  * txHash:logIndex, sorts newest-first, and caps at `cap` so the kept set is the
  * most-recent — what the activity windows care about — flagging truncation.
- * Timestamps are approximated from block number (Base ~2s blocks).
+ * Timestamps are approximated from block number (`blockSeconds` per block;
+ * Base ~2s by default — BSC callers pass the rate they measured).
  */
 export function mapLogsToTransfers(
   logs: RpcLog[],
   headBlockNumber: number,
   headTimestampSec: number,
   cap: number = MAX_SENTINEL_TRANSFERS,
+  blockSeconds: number = BASE_BLOCK_SECONDS,
 ): { items: NodeTransfer[]; truncated: boolean } {
   const valid = logs.filter(
     (lg) =>
@@ -485,8 +488,9 @@ export function mapLogsToTransfers(
     const toTopic = lg.topics[2];
     if (!fromTopic || !toTopic) continue;
     const blockNum = parseInt(lg.blockNumber, 16);
-    const tsSec =
-      headTimestampSec - Math.max(0, headBlockNumber - blockNum) * BASE_BLOCK_SECONDS;
+    const tsSec = Math.round(
+      headTimestampSec - Math.max(0, headBlockNumber - blockNum) * blockSeconds,
+    );
     items.push({
       from: { hash: '0x' + fromTopic.slice(-40) },
       to: { hash: '0x' + toTopic.slice(-40) },

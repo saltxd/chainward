@@ -3,12 +3,13 @@
  * public report payload can state which source actually served it.
  *
  * The decode engine (packages/decode quick-decode) records `fetch_meta.data_source`
- * ('sentinel' = our own node, 'fallback' = public Base RPC) and the source's head
+ * ('sentinel' = our own node, 'fallback' = public Base RPC, 'public' = a public
+ * RPC on a chain where we run no node, e.g. BNB Chain) and the source's head
  * lag at fetch time. Reports written before that existed have neither, and the
  * payload simply omits provenance rather than guessing.
  */
 
-export type ReportDataSource = 'sentinel' | 'fallback';
+export type ReportDataSource = 'sentinel' | 'fallback' | 'public';
 
 export interface ReportProvenance {
   data_source: ReportDataSource;
@@ -23,7 +24,7 @@ export function extractProvenance(reportData: unknown): ReportProvenance | undef
     data_source?: unknown;
     head_lag_seconds?: unknown;
   };
-  if (data_source !== 'sentinel' && data_source !== 'fallback') return undefined;
+  if (data_source !== 'sentinel' && data_source !== 'fallback' && data_source !== 'public') return undefined;
   if (typeof head_lag_seconds !== 'number' || !Number.isFinite(head_lag_seconds)) return undefined;
   return { data_source, head_lag_seconds };
 }

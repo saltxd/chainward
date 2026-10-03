@@ -11,3 +11,7 @@ data:
   REDIS_URL: "redis://redis:6379"
   CORS_ORIGINS: "http://{{ .Values.domain }}{{ if .Values.publicDomain }},https://{{ .Values.publicDomain }}{{ end }}"
   API_INTERNAL_URL: "http://api:{{ .Values.api.port }}"
+  # BNB Chain risk check (docs/BSC.md). Keyless public RPC; the registry default
+  # applies when empty. BSCSCAN_API_KEY, if ever used, belongs in the secret.
+  BSC_RPC_URL: {{ .Values.bsc.rpcUrl | quote }}
+  RISK_RPC_WINDOW_DAYS: {{ .Values.bsc.windowDays | quote }}

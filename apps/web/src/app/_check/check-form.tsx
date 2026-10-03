@@ -3,20 +3,24 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { track } from '@/lib/track';
+import { CHAINS, CHAIN_IDS, chainQuery, parseChainParam, type RiskChainParam } from '@/lib/chains';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const HANDLE_RE = /^@[A-Za-z0-9_]{1,15}$/;
 
 /**
- * The home-page checker — styled as a forensic case-intake document. Accepts a
- * Base address or an @handle. Addresses route straight to the report page
- * (lowercased, canonical). Handle resolution is server-side and not wired yet,
- * so we nudge toward an address. Data logic is unchanged from v1.
+ * The home-page checker — styled as a forensic case-intake document. Accepts an
+ * address on Base or BNB Chain (chain toggle), or an @handle on Base. Addresses
+ * route straight to the report page (lowercased, canonical; `?chain=bsc` for
+ * BNB Chain). Handle resolution is server-side and not wired yet, so we nudge
+ * toward an address. Data logic is unchanged from v1.
  */
-export function CheckForm() {
+export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
   const router = useRouter();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const [chain, setChain] = useState<RiskChainParam>(parseChainParam(initialChain) ?? 'base');
+  const meta = CHAINS[chain];
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,21 +28,23 @@ export function CheckForm() {
 
     if (ADDRESS_RE.test(trimmed)) {
       setError('');
-      track('check_submit', { kind: 'address' });
-      router.push(`/report/${trimmed.toLowerCase()}`);
+      track('check_submit', { kind: 'address', chain });
+      router.push(`/report/${trimmed.toLowerCase()}${chainQuery(chain)}`);
       return;
     }
 
     if (HANDLE_RE.test(trimmed)) {
-      track('check_submit', { kind: 'handle' });
+      track('check_submit', { kind: 'handle', chain });
       setError(
-        'Handle resolution is coming soon — paste the agent wallet address (0x…) for now.',
+        chain === 'base'
+          ? 'Handle resolution is coming soon — paste the agent wallet address (0x…) for now.'
+          : `Handles resolve through Virtuals ACP on Base only — paste the ${meta.name} wallet address (0x…).`,
       );
       return;
     }
 
-    track('check_submit', { kind: 'invalid' });
-    setError('Paste a Base address (0x followed by 40 hex characters) or an @handle.');
+    track('check_submit', { kind: 'invalid', chain });
+    setError(`Paste a ${meta.name} address (0x followed by 40 hex characters)${chain === 'base' ? ' or an @handle' : ''}.`);
   }
 
   return (
@@ -51,9 +57,28 @@ export function CheckForm() {
       </div>
 
       <div className="intake-body">
-        <label className="intake-field-label" htmlFor="intake-subject">
-          Subject — Base address
-        </label>
+        <div className="intake-row">
+          <label className="intake-field-label" htmlFor="intake-subject">
+            Subject — {meta.name} address
+          </label>
+          <div className="intake-chains" role="radiogroup" aria-label="Chain">
+            {CHAIN_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={chain === id}
+                className={`intake-chain${chain === id ? ' intake-chain--on' : ''}`}
+                onClick={() => {
+                  setChain(id);
+                  if (error) setError('');
+                }}
+              >
+                {CHAINS[id].name}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="intake-field">
           <input
             id="intake-subject"
@@ -69,7 +94,7 @@ export function CheckForm() {
             autoCapitalize="off"
             autoCorrect="off"
             className="intake-input mono"
-            aria-label="Base address or agent handle"
+            aria-label={`${meta.name} address${chain === 'base' ? ' or agent handle' : ''}`}
             aria-invalid={error ? true : undefined}
           />
         </div>
@@ -122,6 +147,14 @@ export function CheckForm() {
         .intake-body {
           padding: 24px 22px 22px;
         }
+        .intake-row {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          margin-bottom: 10px;
+        }
         .intake-field-label {
           display: block;
           font-family: var(--font-mono), ui-monospace, monospace;
@@ -129,7 +162,28 @@ export function CheckForm() {
           letter-spacing: 0.14em;
           text-transform: uppercase;
           color: var(--ink-faint);
-          margin-bottom: 10px;
+        }
+        .intake-chains {
+          display: inline-flex;
+          border: 1px solid var(--rule-strong);
+        }
+        .intake-chain {
+          appearance: none;
+          background: transparent;
+          border: none;
+          border-right: 1px solid var(--rule-strong);
+          padding: 4px 10px;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 10.5px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+          cursor: pointer;
+        }
+        .intake-chain:last-child { border-right: none; }
+        .intake-chain--on {
+          background: var(--ink);
+          color: var(--paper);
         }
         .intake-field {
           border-bottom: 2px solid var(--ink);

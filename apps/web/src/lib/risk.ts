@@ -9,6 +9,7 @@
  */
 
 import type { RiskBand, RiskCoverage, RiskSeverity } from './api';
+import { chainQuery } from './chains';
 
 export const DISCLAIMER =
   'Risk flags from on-chain behavior only. ChainWard cannot see social engineering, ' +
@@ -86,13 +87,23 @@ export function zeroFlagsCopy(coverage: RiskCoverage | undefined): string {
   const parties = `${w.unique_counterparties_30d.toLocaleString()} ${
     w.unique_counterparties_30d === 1 ? 'counterparty' : 'counterparties'
   }`;
-  return `No flags raised across ${transfers} and ${parties} in the 30-day window checked, against ${coverage.checks.length} checks.`;
+  return `No flags raised across ${transfers} and ${parties} in the ${windowLabel(w.days)} window checked, against ${coverage.checks.length} checks.`;
 }
 
-/** The FE report route. The backend's report_url uses /risk/report; the web app
- * serves these at /report. Canonical, lowercased address. */
-export function reportPath(address: string): string {
-  return `/report/${address.toLowerCase()}`;
+/** "30-day" / "4.6-day" / "3-hour" — the window the scan actually covered.
+ * Mirrors formatWindowDays in packages/decode: whole days stay whole, a partial
+ * scan keeps one decimal (4.6 never reads as 5), under a day it is hours. */
+export function windowLabel(days: number | undefined): string {
+  const d = days ?? 30;
+  if (d < 1) return `${Math.max(1, Math.round(d * 24))}-hour`;
+  const rounded = Math.round(d * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}-day` : `${rounded.toFixed(1)}-day`;
+}
+
+/** The FE report route. Canonical, lowercased address; Base stays bare, other
+ * chains carry `?chain=` so existing Base links never change. */
+export function reportPath(address: string, chain?: string): string {
+  return `/report/${address.toLowerCase()}${chainQuery(chain)}`;
 }
 
 /** A report is "thin" (noindex) when it has zero flags AND low signal — i.e. an

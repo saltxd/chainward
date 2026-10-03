@@ -113,4 +113,11 @@ acpDecoder:
     apiKeySecret: phoenix-otlp
 
 # External secret name (created via kubectl, not managed by Helm)
+# BNB Chain for the free risk check (api + indexer read these from the ConfigMap).
+# Keyless endpoint; eth_getLogs is capped at 10k blocks there, so the worker scans
+# a bounded window (days) and the report states what it covered. See docs/BSC.md.
+bsc:
+  rpcUrl: https://rpc.sentio.xyz/bsc
+  windowDays: 14
+
 externalSecret: chainward-secrets

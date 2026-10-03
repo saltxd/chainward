@@ -63,13 +63,15 @@ export interface ComputeBalancesInput {
   usdcRawBalance: string; // hex from eth_call
   ethUsdPrice: number;
   usdcUsdPrice: number;
+  /** USDC token decimals — 6 on Base, 18 on BNB Chain. Defaults to 6. */
+  usdcDecimals?: number;
 }
 
 export function computeBalances(
   input: ComputeBalancesInput,
 ): QuickDecodeResultData['balances'] {
   const ethWei = BigInt(input.ethBalanceWei);
-  const usdc = Number(BigInt(input.usdcRawBalance)) / 1e6;
+  const usdc = Number(BigInt(input.usdcRawBalance)) / 10 ** (input.usdcDecimals ?? 6);
   const ethAmount = Number(ethWei) / 1e18;
   return {
     eth: { wei: ethWei.toString(), usd: ethAmount * input.ethUsdPrice },

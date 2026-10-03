@@ -2,6 +2,7 @@ import { ImageResponse } from '@vercel/og';
 import { DISCLAIMER, SEVERITY_HEX, topSeverity } from '@/lib/risk';
 import type { RiskBand, RiskReport, RiskSeverity } from '@/lib/api';
 import { isAddress } from '@/lib/params';
+import { chainMeta, chainQuery, parseChainParam, type RiskChainParam } from '@/lib/chains';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
@@ -27,10 +28,10 @@ function truncate(addr: string): string {
   return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
 }
 
-async function fetchReport(address: string): Promise<RiskReport | null> {
+async function fetchReport(address: string, chain: RiskChainParam): Promise<RiskReport | null> {
   if (!isAddress(address)) return null;
   try {
-    const res = await fetch(`${API_URL}/api/risk/report/${encodeURIComponent(address)}`, {
+    const res = await fetch(`${API_URL}/api/risk/report/${encodeURIComponent(address)}${chainQuery(chain)}`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return null;
@@ -45,11 +46,12 @@ async function fetchReport(address: string): Promise<RiskReport | null> {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ address: string }> },
 ) {
   const { address } = await params;
-  const report = await fetchReport(address.toLowerCase());
+  const chain = parseChainParam(new URL(request.url).searchParams.get('chain')) ?? 'base';
+  const report = await fetchReport(address.toLowerCase(), chain);
 
   const flagCount = report?.flags.length ?? 0;
   const top: RiskSeverity | null = report ? topSeverity(report.flags) : null;
@@ -82,7 +84,7 @@ export async function GET(
             ChainWard
           </span>
           <span style={{ fontSize: 22, color: GRAY, fontWeight: 400 }}>
-            On-Chain Risk Flags
+            On-Chain Risk Flags · {chainMeta(chain).name}
           </span>
         </div>
 

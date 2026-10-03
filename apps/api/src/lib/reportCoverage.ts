@@ -1,4 +1,4 @@
-import { RISK_CHECKS } from '@chainward/decode';
+import { riskChecksFor, type DecodeChain } from '@chainward/decode';
 
 /**
  * "What this check covered" — the per-report coverage block. Turns a quiet
@@ -19,6 +19,8 @@ export interface ReportCoverageCheck {
 export interface ReportCoverage {
   checks: ReportCoverageCheck[];
   window: {
+    /** Days the transfer scan covered. Absent = the full 30-day activity horizon. */
+    days?: number;
     transfers_scanned: number;
     transfers_truncated: boolean;
     transfers_30d: number;
@@ -40,15 +42,18 @@ export function buildCoverage(
 ): ReportCoverage | undefined {
   if (!reportData || typeof reportData !== 'object') return undefined;
   const d = reportData as {
+    chain?: unknown;
     wallet?: { type?: unknown; nonce?: unknown };
     activity?: {
       transfers_30d?: unknown;
       unique_counterparties_30d?: unknown;
       latest_transfer_at?: unknown;
     };
-    fetch_meta?: { transfers_fetched?: unknown; transfers_truncated?: unknown };
+    fetch_meta?: { transfers_fetched?: unknown; transfers_truncated?: unknown; window_days?: unknown };
     survival?: { classification?: unknown };
   };
+  const chain: DecodeChain = d.chain === 'bsc' ? 'bsc' : 'base';
+  const windowDays = num(d.fetch_meta?.window_days);
   const transfers_scanned = num(d.fetch_meta?.transfers_fetched);
   const transfers_30d = num(d.activity?.transfers_30d);
   const unique_counterparties_30d = num(d.activity?.unique_counterparties_30d);
@@ -64,13 +69,16 @@ export function buildCoverage(
   const raised = new Set(flags.map((f) => f.id));
   const latest = d.activity?.latest_transfer_at;
   return {
-    checks: RISK_CHECKS.map((c) => ({
+    // Only the checks that ran on this chain — Base-only ones are not listed as
+    // "not raised" off Base, because they were never evaluated.
+    checks: riskChecksFor(chain).map((c) => ({
       id: c.id,
       title: c.title,
       looks_for: c.looks_for,
       raised: raised.has(c.id),
     })),
     window: {
+      ...(windowDays !== undefined ? { days: windowDays } : {}),
       transfers_scanned,
       transfers_truncated: d.fetch_meta?.transfers_truncated === true,
       transfers_30d,

@@ -1,3 +1,4 @@
+import { RISK_CHAINS } from '@chainward/common';
 import { logger } from './logger.js';
 import { getBaseClient } from './viem.js';
 
@@ -12,18 +13,10 @@ const KNOWN_WALLET_CONTRACTS = new Set([
 
 /**
  * Busy shared contracts that are never an agent wallet. Watching one adds every
- * call on Base to our Alchemy webhook (lowercase).
+ * call on Base to our Alchemy webhook. The list lives in the chain registry
+ * (@chainward/common RISK_CHAINS) so the risk check and this guard agree.
  */
-const HIGH_VOLUME_CONTRACTS = new Set([
-  '0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789', // ERC-4337 EntryPoint v0.6
-  '0x0000000071727de22e5e9d8baf0edac6f37da032', // ERC-4337 EntryPoint v0.7
-  '0x000000000022d473030f116ddee9f6b43ac78ba3', // Permit2
-  '0x6ff5693b99212da76ad316178a184ab56d299b43', // Uniswap Universal Router (Base)
-  '0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad', // Uniswap Universal Router (legacy)
-  '0x2626664c2603336e57b271c5c0b26f421741e481', // Uniswap SwapRouter02 (Base)
-  '0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43', // Aerodrome Router
-  '0x498581ff718922c3f8e6a244956af099b2652b2b', // Uniswap v4 PoolManager (Base)
-]);
+const HIGH_VOLUME_CONTRACTS = new Set(RISK_CHAINS.base.highVolumeContracts);
 
 const ERC20_TOTAL_SUPPLY_ABI = [
   { type: 'function', name: 'totalSupply', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },

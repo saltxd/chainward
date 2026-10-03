@@ -1,6 +1,8 @@
-import type { QuickDecodeResult, QuickDecodeResultData, Source } from './types.js';
+import { RISK_CHAINS, riskChainAddressUrl, riskChainStablecoin } from '@chainward/common';
+import type { DecodeChain, DecodeDataSource, QuickDecodeResult, QuickDecodeResultData, Source } from './types.js';
 import { SCHEMA_VERSION, CLASSIFIER_VERSION, DISCLOSURE_TEXT } from './types.js';
 import { classifyWallet } from './wallet-arch.js';
+import { formatWindowDays } from './rpc-fixtures.js';
 import { computeActivity, computeBalances } from './chain-audit.js';
 import { compareACPClaims } from './discrepancies.js';
 import { classifySurvival } from './survival.js';
@@ -16,6 +18,8 @@ export interface QuickDecodeInput {
   job_id: string;
   pipeline_version: string;
   now?: Date;
+  /** Chain the fixtures were read from. Defaults to base (the original path). */
+  chain?: DecodeChain;
   fixtures: {
     acp_details: any;
     blockscout_counters: any;
@@ -29,11 +33,13 @@ export interface QuickDecodeInput {
     sentinel_block?: { number: string; hash: string };
     /** Freshness provenance of the RPC that served the `latest` reads (see data-fetch). */
     data_source?: {
-      rpc_role: 'sentinel' | 'fallback';
+      rpc_role: DecodeDataSource;
       head_number: number;
       head_age_seconds: number;
       head_stale: boolean;
     };
+    /** The transfer window actually scanned, when narrower than 30 days (rpc-fixtures). */
+    window?: { days: number; requested_days?: number; from_block: number; to_block: number };
   };
   // Optional spot prices for ETH and USDC, used to USD-quote balances.
   // Defaulting USDC to 1 is fine; ETH defaults to 0 and yields a $0 USD
@@ -65,6 +71,8 @@ export interface QuickDecodeData {
  */
 export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData {
   const now = input.now ?? new Date();
+  const chain: DecodeChain = input.chain ?? 'base';
+  const chainCfg = RISK_CHAINS[chain];
   const observatory = input.fixtures.observatory ?? [];
 
   const acp = input.fixtures.acp_details?.data ?? input.fixtures.acp_details ?? {};
@@ -78,13 +86,15 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
     usdcRawBalance: input.fixtures.sentinel_usdc_balance?.result ?? '0x0',
     ethUsdPrice: input.ethUsdPrice ?? 0,
     usdcUsdPrice: input.usdcUsdPrice ?? 1,
+    usdcDecimals: riskChainStablecoin(chain, 'USDC')?.decimals ?? 6,
   });
 
   const transfers = input.fixtures.blockscout_transfers ?? { items: [] };
   const transferItems: any[] = Array.isArray(transfers.items) ? transfers.items : [];
   const activity = computeActivity(transferItems, now);
   const ds = input.fixtures.data_source;
-  const fetch_meta = {
+  const win = input.fixtures.window;
+  const fetch_meta: QuickDecodeResultData['fetch_meta'] = {
     transfers_fetched: transferItems.length,
     transfers_truncated: transfers.truncated === true,
     // Record the RPC source only when the freshness-gated fetch provided it, so
@@ -94,6 +104,17 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
           data_source: ds.rpc_role,
           head_lag_seconds: ds.head_age_seconds,
           head_stale: ds.head_stale,
+        }
+      : {}),
+    // The scan window, when the fetch bounded it (public-RPC chains). `days` is
+    // what was covered; the requested span is kept only when the scan fell short.
+    ...(win
+      ? {
+          window_days: Math.round(win.days * 100) / 100,
+          ...(win.requested_days !== undefined && win.requested_days !== win.days
+            ? { window_requested_days: win.requested_days }
+            : {}),
+          window_blocks: { from: win.from_block, to: win.to_block },
         }
       : {}),
   };
@@ -150,6 +171,8 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
   });
 
   const data: QuickDecodeResultData = {
+    // Only stamped off-base so Base reports keep their historical shape.
+    ...(chain === 'base' ? {} : { chain }),
     target: {
       input: input.input,
       wallet_address: input.wallet_address,
@@ -157,7 +180,8 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
       name: acp.name ?? null,
       acp_id: acp.id ?? null,
       virtuals_agent_id: acp.virtualAgentId ?? null,
-      framework: 'virtuals_acp' as const,
+      // ACP is a Base registry; off-base there is no framework signal.
+      framework: chainCfg.sources.acp ? ('virtuals_acp' as const) : ('unknown' as const),
       owner_address: acp.ownerAddress ?? null,
     },
     wallet,
@@ -174,22 +198,33 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
     peers: { ...peerResult, cluster, cluster_status },
   };
 
-  const sources: Source[] = [
-    {
-      label: 'Blockscout token-transfers',
-      url: `https://base.blockscout.com/api/v2/addresses/${input.wallet_address}/token-transfers`,
-      block_number: null,
-      block_hash: null,
-      timestamp: now.toISOString(),
-    },
-    {
-      label: 'ACP API agent details',
-      url: acp.id ? `https://acpx.virtuals.io/api/agents/${acp.id}/details` : 'https://acpx.virtuals.io/api',
-      block_number: null,
-      block_hash: null,
-      timestamp: now.toISOString(),
-    },
-  ];
+  const sources: Source[] =
+    chain === 'base'
+      ? [
+          {
+            label: 'Blockscout token-transfers',
+            url: `https://base.blockscout.com/api/v2/addresses/${input.wallet_address}/token-transfers`,
+            block_number: null,
+            block_hash: null,
+            timestamp: now.toISOString(),
+          },
+          {
+            label: 'ACP API agent details',
+            url: acp.id ? `https://acpx.virtuals.io/api/agents/${acp.id}/details` : 'https://acpx.virtuals.io/api',
+            block_number: null,
+            block_hash: null,
+            timestamp: now.toISOString(),
+          },
+        ]
+      : [
+          {
+            label: `${chainCfg.name} RPC — ERC-20 Transfer logs (${win ? `${formatWindowDays(win.days)} window` : 'bounded window'})`,
+            url: riskChainAddressUrl(chain, input.wallet_address),
+            block_number: win?.to_block ?? null,
+            block_hash: null,
+            timestamp: now.toISOString(),
+          },
+        ];
 
   return {
     data,
