@@ -1,0 +1,7 @@
+[
+  "Bankr's dashboard says it earned $1,751,372 in fees from Sep 1–28.\n\nWe read every fee transfer to its fee wallet and two fee Safes, on Base and Robinhood Chain: $1,739,683. That's 99.3%.\n\nchainward.ai/decodes/bankr-on-chain",
+  "79% of the fees Bankr received came in on Robinhood Chain: $1.43M of $1.82M, mostly from pools paired with tokenized stocks like META and GME.\n\nDefiLlama books Bankr's revenue there at $0.",
+  "So why does DefiLlama show $1.03M for the same 28 days?\n\nIts adapter copies Bankr's dashboard once a day, before Bankr fills that day in, and keeps the early reading.\n\nSep 16: DefiLlama $104. Dashboard $263.8K. On-chain $265.9K.",
+  "How Bankr gets paid: every swap in a Bankr-launched pool pays a hook fee.\n\nOlder hooks send Bankr's cut to its fee wallet on every swap: 61,323 transfers on Base in four weeks. The newer hook fills two Safes, which claim several times a day.",
+  "Then it moves. On Sep 25 Bankr's fee wallet bridged 249,750 USDG from Robinhood Chain to Base and swapped it into BNKR.\n\nOn Sep 29, one of the fee Safes funded the first BNKR staking reward period: 124.97M BNKR."
+]
