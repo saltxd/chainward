@@ -59,6 +59,12 @@ export function x402SellerPrice(): string {
   return process.env.X402_SELLER_PRICE ?? '$0.10';
 }
 
+// Paid datasets (routes/paid.ts). One price for every file; must match paid_files.price_usdc.
+export const PAID_FILE_ROUTE = 'GET /api/paid/:slug/file' as const;
+export function x402FilePrice(): string {
+  return process.env.X402_FILE_PRICE ?? '$10';
+}
+
 // The #2 seller from chainward.ai/decodes/x402-on-base, as the check reported it.
 const SELLER_OUTPUT_EXAMPLE = {
   success: true,
@@ -229,6 +235,14 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     whatYouGet:
       "A seller demand report for the last 30 days (top 30 buyers' funding walked back up to 4 hops), JSON. Not charged if the check fails.",
   };
+  const paidFile: Product = {
+    price: x402FilePrice(),
+    serviceName: 'ChainWard dataset',
+    description:
+      'The full dataset behind a published ChainWard decode (e.g. every wallet in an incentive-farming audit, tiered, with the transactions behind each one). CSV.',
+    tags: ['base', 'dataset', 'sybil', 'airdrop', 'points', 'agents'],
+    whatYouGet: 'The CSV named by the slug (see GET /api/paid for what is available). Not charged if the file does not exist.',
+  };
   const route = (product: Product, discovery: ReturnType<typeof declareDiscoveryExtension>): RouteConfig => ({
     accepts: {
       scheme: 'exact',
@@ -280,6 +294,18 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
           pathParams: { address: example },
           pathParamsSchema: addressSchema,
           output: { example: OUTPUT_EXAMPLE },
+        }),
+      ),
+      [PAID_FILE_ROUTE]: route(
+        paidFile,
+        declareDiscoveryExtension({
+          pathParams: { slug: 'termix-wallets' },
+          pathParamsSchema: {
+            type: 'object',
+            properties: { slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,59}$', description: 'File slug from GET /api/paid' } },
+            required: ['slug'],
+          },
+          output: { example: { contentType: 'text/csv' } },
         }),
       ),
       [SELLER_DEMAND_ROUTE]: {

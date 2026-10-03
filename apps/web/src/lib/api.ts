@@ -120,6 +120,15 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // Paid datasets (the full file behind a decode). Price + treasury at runtime.
+  getPaidFile: (slug: string) =>
+    fetchApi<{ success: true; data: PaidFileMeta; treasuryAddress: string | null }>(`/api/paid/${encodeURIComponent(slug)}`),
+  claimPaidFile: (slug: string, txHash: string) =>
+    fetchApi<{ success: true; data: { token: string; downloadUrl: string } }>(`/api/paid/${encodeURIComponent(slug)}/claim`, {
+      method: 'POST',
+      body: JSON.stringify({ txHash }),
+    }),
+
   // Intel Brief (paid forensic decode) — treasury + price come from /config at
   // runtime (NEXT_PUBLIC_* is baked at build time, so we never rely on it).
   getBriefConfig: () => fetchApi<BriefConfig>('/api/brief/config'),
@@ -581,3 +590,14 @@ export const publicApi = {
     );
   },
 };
+
+export interface PaidFileMeta {
+  slug: string;
+  title: string;
+  description: string;
+  filename: string;
+  contentType: string;
+  priceUsdc: number;
+  sizeBytes: number;
+  createdAt: string;
+}

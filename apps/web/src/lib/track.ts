@@ -15,7 +15,8 @@ export type TrackEvent =
   | 'brief_connect_click'
   | 'brief_signin_ok'
   | 'brief_order_created'
-  | 'brief_paid';
+  | 'brief_paid'
+  | 'paid_file_bought';
 
 export type TrackData = Record<string, string | number | boolean>;
 

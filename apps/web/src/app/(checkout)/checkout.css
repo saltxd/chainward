@@ -1,0 +1,164 @@
+/* Checkout pages (request-brief, paid files): shared .brf-* layout. Was an inline
+   <style> block on request-brief; moved here so /paid/[slug] can reuse it. */
+        .brf-lead { padding: 40px 0 32px; max-width: 720px; }
+        .brf-title { margin: 14px 0 0; font-size: clamp(34px, 5vw, 56px); line-height: 1; letter-spacing: -0.03em; }
+        .brf-lede {
+          margin: 18px 0 0; font-family: var(--font-text); font-size: 18px;
+          line-height: 1.55; color: var(--ink-soft);
+        }
+        .brf-grid {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;
+        }
+        @media (max-width: 780px) { .brf-grid { grid-template-columns: 1fr; } }
+
+        .brf-offer {
+          border: 1px solid var(--rule-strong);
+          border-top: 3px double var(--rule-strong);
+          background: var(--paper-2);
+          padding: 26px 28px;
+        }
+        .brf-offer-head {
+          display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+          padding-bottom: 12px; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+        }
+        .brf-offer-price { font-size: 16px; color: var(--ink); letter-spacing: 0.01em; }
+        .brf-offer-terms {
+          margin: 12px 0 0; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+          color: var(--ink-faint);
+        }
+        .brf-offer-list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 9px; }
+        .brf-offer-list li {
+          position: relative; padding-left: 22px; font-family: var(--font-text);
+          font-size: 15.5px; line-height: 1.5; color: var(--ink-soft);
+        }
+        .brf-offer-list li::before { content: '§'; position: absolute; left: 0; color: var(--oxblood); }
+        .brf-offer-fine { margin: 20px 0 0; font-family: var(--font-mono), monospace; font-size: 11px; line-height: 1.6; color: var(--ink-faint); }
+
+        .brf-action {
+          border: 1px solid var(--rule-strong); background: var(--paper);
+          padding: 26px 28px; display: flex; flex-direction: column; gap: 14px;
+        }
+        .brf-step {
+          font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px;
+          color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase;
+        }
+        .brf-form { display: flex; flex-direction: column; gap: 14px; }
+        .brf-form label { display: flex; flex-direction: column; gap: 6px; }
+        .brf-form label > span {
+          font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px;
+          color: var(--ink-faint); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.5;
+        }
+        .brf-form input, .brf-form textarea {
+          background: transparent; border: 0; border-bottom: 2px solid var(--ink); color: var(--ink);
+          padding: 8px 2px; font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 14px; min-height: 38px; resize: vertical;
+        }
+        .brf-form input::placeholder, .brf-form textarea::placeholder { color: var(--rule-strong); }
+        .brf-form input:focus, .brf-form textarea:focus { outline: none; border-bottom-color: var(--oxblood); }
+        .brf-delivery { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; }
+        .brf-delivery legend {
+          font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px;
+          color: var(--ink-faint); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px;
+        }
+        .brf-form .brf-delivery label { flex-direction: row; align-items: flex-start; gap: 10px; cursor: pointer; }
+        .brf-form .brf-delivery input { min-height: 0; margin: 3px 0 0; accent-color: var(--oxblood); }
+        .brf-form .brf-delivery label > span {
+          font-family: var(--font-text); font-size: 15px; color: var(--ink);
+          letter-spacing: 0; text-transform: none; line-height: 1.45;
+        }
+        .brf-delivery small {
+          display: block; font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px;
+          color: var(--ink-faint); margin-top: 2px;
+        }
+        .brf-summary {
+          display: flex; flex-direction: column; gap: 8px; padding: 14px;
+          border: 1px dashed var(--rule-strong); font-size: 12px; background: var(--paper-2);
+        }
+        .brf-summary > div { display: flex; justify-content: space-between; gap: 12px; }
+        .brf-summary span {
+          font-family: var(--font-mono), monospace; font-size: 10px; text-transform: uppercase;
+          letter-spacing: 0.08em; color: var(--ink-faint);
+        }
+        .brf-summary code { font-family: var(--font-mono), monospace; color: var(--ink); }
+        .brf-pay { display: flex; flex-direction: column; gap: 14px; }
+        .brf-error {
+          padding: 10px 14px; background: var(--oxblood-wash); border: 1px solid var(--oxblood);
+          color: var(--oxblood); font-family: var(--font-mono), monospace; font-size: 12px;
+        }
+        .brf-notice {
+          padding: 10px 14px; background: rgba(138,90,18,0.08); border: 1px solid var(--sev-medium);
+          color: var(--sev-medium); font-family: var(--font-mono), monospace; font-size: 12px;
+        }
+        .brf-hint { margin: 0; font-family: var(--font-mono), monospace; font-size: 11px; color: var(--ink-faint); line-height: 1.5; }
+        .brf-link-btn {
+          background: none; border: 0; color: var(--ink-faint); font-size: 12px; cursor: pointer;
+          padding: 0; text-align: left; font-family: var(--font-mono), monospace;
+        }
+        .brf-link-btn:hover { color: var(--oxblood); }
+        .brf-done { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+        .brf-done-check {
+          width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+          border: 2px solid var(--seal); color: var(--seal); font-size: 20px;
+        }
+        .brf-done h3 { margin: 6px 0 0; font-size: 24px; }
+        .brf-done p { margin: 0; font-family: var(--font-text); font-size: 16px; color: var(--ink-soft); line-height: 1.55; }
+        .brf-done strong { color: var(--ink); }
+
+        .brf-offer-sample { display: inline-block; margin-top: 10px; font-size: 12px; }
+        .brf-bespoke {
+          margin-top: 40px; padding: 26px 28px; border: 1px solid var(--rule-strong);
+          border-top: 3px double var(--rule-strong); background: var(--paper);
+        }
+        .brf-bespoke-head {
+          display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+          padding-bottom: 12px; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+        }
+        .brf-bespoke-mark { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
+        .brf-bespoke-price { font-size: 13px; color: var(--ink); }
+        .brf-bespoke-title { margin: 18px 0 0; font-size: clamp(22px, 3vw, 30px); }
+        .brf-bespoke-copy {
+          margin: 10px 0 0; font-family: var(--font-text); font-size: 17px; line-height: 1.55;
+          color: var(--ink-soft); max-width: 680px;
+        }
+        .brf-bespoke-foot { margin-top: 22px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+
+        .brf-orders { margin-top: 40px; border: 1px solid var(--rule-strong); }
+        .brf-orders-head { padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+        .brf-order-row {
+          display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center;
+          padding: 12px 16px; border-bottom: 1px solid var(--rule); font-size: 12.5px;
+        }
+        .brf-order-row:last-child { border-bottom: none; }
+        .brf-order-row code { color: var(--ink); }
+        .brf-order-date { color: var(--ink-faint); font-size: 11px; }
+        .brf-status {
+          font-family: var(--font-mono), monospace; font-size: 10px; text-transform: uppercase;
+          letter-spacing: 0.08em; padding: 3px 8px; border: 1px solid var(--rule-strong); color: var(--ink-soft);
+        }
+        .brf-status-queued, .brf-status-in_progress { color: var(--seal); border-color: var(--seal); }
+        .brf-status-ready, .brf-status-delivered { color: var(--sev-low); border-color: var(--sev-low); }
+        .brf-status-failed { color: var(--oxblood); border-color: var(--oxblood); }
+        .brf-order { border-bottom: 1px solid var(--rule); }
+        .brf-order:last-child { border-bottom: none; }
+        .brf-order .brf-order-row { border-bottom: none; }
+        .brf-order-hint {
+          margin: 0; padding: 0 16px 12px; font-family: var(--font-mono), monospace;
+          font-size: 11px; color: var(--ink-faint); line-height: 1.5;
+        }
+        .brf-order-brief { padding: 0 16px 14px; }
+        .brf-order-brief summary { cursor: pointer; font-size: 13px; list-style: none; }
+        .brf-order-brief summary::-webkit-details-marker { display: none; }
+        .brf-order-brief-body {
+          margin-top: 14px; padding: 18px 20px; border: 1px solid var(--rule-strong);
+          border-top: 3px double var(--rule-strong); background: var(--paper-2);
+          font-family: var(--font-text); font-size: 15.5px; line-height: 1.6; color: var(--ink);
+        }
+        .brf-order-brief-body h2, .brf-order-brief-body h3 {
+          font-family: var(--font-display), Georgia, serif; font-weight: 500; margin: 18px 0 6px;
+        }
+        .brf-order-brief-body h2 { font-size: 22px; margin-top: 0; }
+        .brf-order-brief-body h3 { font-size: 17px; }
+        .brf-order-brief-body p, .brf-order-brief-body li { margin: 6px 0; }
+        .brf-order-brief-body a { color: var(--oxblood); }
+        .brf-order-brief-body code { font-family: var(--font-mono), monospace; font-size: 13px; }
+        .brf-status-cancelled { color: var(--oxblood); border-color: var(--oxblood); }

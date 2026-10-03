@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { ToastProvider } from '@/components/ui/toast';
+import './checkout.css';
 
 // Web3Provider is client-only (wagmi/RainbowKit). Mounting it here means the
 // checkout route works for logged-OUT visitors arriving from a link/tweet —

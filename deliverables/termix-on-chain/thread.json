@@ -1,0 +1,8 @@
+[
+  "TermiX's agent-job escrow collected $507,564 in fees on Base and BNB Chain.\n\n99.11% came from wallets that hire each other and get their money back. In the last 30 days: 99.23%.\n\nWe read all 483,738 jobs.\n\nchainward.ai/decodes/termix-on-chain",
+  "The pattern: a wallet gets paid for a job, waits about an hour, then hires a different wallet for roughly the same amount. TermiX takes 2% per hop.\n\n99.4% of buyer-seller pairs on Base were used once. The money runs through a pool of thousands and comes back over days.",
+  "Base: one custodial account sent the first USDC to 720 wallets, 700 of them in five bursts.\n\n680 of those wallets each funded exactly four new ones. 686 of the trees hold exactly five wallets.",
+  "BNB Chain: 3,730 wallets got their first USDC in eight exchange withdrawal bursts. Sizes: 30, 1,000, 200, then 500 five times.\n\n8,748 wallets were hired for their first job a median 49 seconds after registering their agent.",
+  "Sep 22: 79 Base wallets sent their last USDC to one address within 98 seconds. That evening, 42 BNB Chain wallets paid the same address.\n\n488 wallets look like ordinary users. Their fees in the last 30 days: $2.12.\n\nTermiX's own wallets are not in the cycles.",
+  "DefiLlama's ~$219K of 30-day TermiX fees holds up. On-chain we get $208,679.\n\nThe fees are real. What matters before points convert to $TMT is who earned them.\n\nThe full wallet list (19,900 wallets, tiered, txs included) is 10 USDC: chainward.ai/paid/termix-wallets"
+]

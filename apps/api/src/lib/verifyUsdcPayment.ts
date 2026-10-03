@@ -7,12 +7,12 @@ export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'.toLower
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
 export type UsdcVerifyResult =
-  | { ok: true; value: bigint }
+  | { ok: true; value: bigint; from: string }
   | { ok: false; reason: 'TX_NOT_FOUND' | 'TX_FAILED' | 'NO_MATCH' | 'TOO_OLD' };
 
 /**
  * Verify that `txHash` contains a USDC Transfer of at least `minAmount`
- * (micro-USDC) FROM `fromWallet` TO `toTreasury` on Base.
+ * (micro-USDC) FROM `fromWallet` (any sender when omitted) TO `toTreasury` on Base.
  *
  * Single source of truth for on-chain payment verification — used by both the
  * tier-upgrade flow (routes/payments.ts) and the paid Intel Brief flow
@@ -21,7 +21,7 @@ export type UsdcVerifyResult =
  */
 export async function verifyUsdcPayment(opts: {
   txHash: string;
-  fromWallet: string;
+  fromWallet?: string;
   toTreasury: string;
   minAmount: bigint;
   /** Reject transfers mined before this time (e.g. before the order existed). */
@@ -42,7 +42,7 @@ export async function verifyUsdcPayment(opts: {
     if (Number(block.timestamp) * 1000 < notBefore.getTime()) return { ok: false, reason: 'TOO_OLD' };
   }
 
-  const from = fromWallet.toLowerCase();
+  const from = fromWallet?.toLowerCase();
   const to = toTreasury.toLowerCase();
 
   for (const log of receipt.logs) {
@@ -54,8 +54,8 @@ export async function verifyUsdcPayment(opts: {
     const logTo = ('0x' + log.topics[2]!.slice(26)).toLowerCase();
     const value = BigInt(log.data);
 
-    if (logFrom === from && logTo === to && value >= minAmount) {
-      return { ok: true, value };
+    if ((from === undefined || logFrom === from) && logTo === to && value >= minAmount) {
+      return { ok: true, value, from: logFrom };
     }
   }
 

@@ -24,6 +24,7 @@ import { payments } from './routes/payments.js';
 import { brief } from './routes/brief.js';
 import { telemetry } from './routes/telemetry.js';
 import { x402Board } from './routes/x402Board.js';
+import { paid } from './routes/paid.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
@@ -122,7 +123,7 @@ const paidGetOnly: MiddlewareHandler = async (c, next) => {
 };
 const x402Check = x402CheckMiddleware();
 if (x402Check) {
-  for (const path of ['/api/risk/x402', '/api/risk/x402/*', '/api/risk/seller-demand']) {
+  for (const path of ['/api/risk/x402', '/api/risk/x402/*', '/api/risk/seller-demand', '/api/paid/:slug/file']) {
     app.use(path, paidGetOnly);
     app.use(path, x402Check);
   }
@@ -152,6 +153,7 @@ app.route('/api/payments', payments);
 app.route('/api/brief', brief);
 app.route('/api/telemetry', telemetry);
 app.route('/api/x402', x402Board);
+app.route('/api/paid', paid);
 
 // 404 handler
 app.notFound((c) =>
