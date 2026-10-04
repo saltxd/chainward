@@ -3,10 +3,12 @@ import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import {
   HTTPFacilitatorClient,
+  type FacilitatorConfig,
   type HTTPTransportContext,
   type RouteConfig,
   type SettleResultContext,
 } from '@x402/core/server';
+import { createFacilitatorConfig } from '@coinbase/x402';
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { x402Settlements } from '@chainward/db';
 import { getDb } from './db.js';
@@ -357,6 +359,21 @@ async function notifySale(ctx: SettleResultContext, path: string | undefined): P
   }
 }
 
+/**
+ * Facilitators in priority order. The first one whose /supported lists a kind
+ * handles it; a facilitator whose /supported fails at startup is skipped, so
+ * PayAI stays the fallback. CDP first because Coinbase's x402 Bazaar only
+ * catalogs resources settled through the CDP facilitator.
+ */
+export function facilitatorConfigs(env: NodeJS.ProcessEnv): Array<{ name: 'cdp' | 'payai'; config: FacilitatorConfig }> {
+  const list: Array<{ name: 'cdp' | 'payai'; config: FacilitatorConfig }> = [];
+  if (env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET) {
+    list.push({ name: 'cdp', config: createFacilitatorConfig(env.CDP_API_KEY_ID, env.CDP_API_KEY_SECRET) });
+  }
+  list.push({ name: 'payai', config: { url: env.X402_FACILITATOR_URL ?? DEFAULT_FACILITATOR } });
+  return list;
+}
+
 /** Payment middleware for the paid check, or null when no receiving address is configured. */
 export function x402CheckMiddleware(): MiddlewareHandler | null {
   const payTo = process.env.X402_PAY_TO ?? process.env.TREASURY_WALLET_ADDRESS;
@@ -364,8 +381,9 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     logger.warn('x402: no X402_PAY_TO / TREASURY_WALLET_ADDRESS; paid check disabled');
     return null;
   }
-  const facilitator = new HTTPFacilitatorClient({ url: process.env.X402_FACILITATOR_URL ?? DEFAULT_FACILITATOR });
-  const server = new x402ResourceServer(facilitator)
+  const facilitators = facilitatorConfigs(process.env);
+  logger.info({ facilitators: facilitators.map((f) => f.name) }, 'x402: facilitators in priority order');
+  const server = new x402ResourceServer(facilitators.map((f) => new HTTPFacilitatorClient(f.config)))
     .register(BASE_MAINNET, new ExactEvmScheme())
     .registerExtension(bazaarResourceServerExtension)
     .onAfterSettle(recordSettlement);

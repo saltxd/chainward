@@ -16,6 +16,7 @@
     "@chainward/db": "workspace:*",
     "@chainward/decode": "workspace:*",
     "@chainward/observatory": "workspace:*",
+    "@coinbase/x402": "2.1.0",
     "@hono/node-server": "^1.19.14",
     "@x402/core": "2.27.0",
     "@x402/evm": "2.27.0",

@@ -26,6 +26,7 @@ export default tseslint.config(
     // so `eslint .` from the root is the only invocation anyone needs.
     ignores: [
       '**/node_modules/**',
+      '.claude/**', // agent worktrees live here; each is linted in its own checkout
       '**/dist/**',
       '**/.next/**',
       '**/.turbo/**',

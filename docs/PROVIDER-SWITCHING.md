@@ -85,6 +85,15 @@ kubectl -n chainward rollout restart deployment/api
 kubectl -n chainward rollout restart deployment/indexer
 ```
 
+## x402 facilitators
+
+`apps/api/src/lib/x402.ts#facilitatorConfigs` returns the facilitators in priority
+order. With `CDP_API_KEY_ID` + `CDP_API_KEY_SECRET` set, Coinbase's CDP facilitator
+comes first (its Bazaar only catalogs resources settled through it) and PayAI
+(`X402_FACILITATOR_URL`, default `https://facilitator.payai.network`) is the
+fallback. A facilitator whose `/supported` fails at startup is skipped. Keys:
+https://portal.cdp.coinbase.com → API keys → Secret API key.
+
 ## Emergency: Alchemy Down
 
 ### Quick mitigation (5 minutes)

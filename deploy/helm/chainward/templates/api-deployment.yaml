@@ -105,6 +105,21 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: DIGEST_DISCORD_WEBHOOK
                   optional: true
+            # Coinbase CDP x402 facilitator (optional). When both are set the API
+            # settles through CDP first, which lists the paid routes in the x402
+            # Bazaar; PayAI stays the fallback.
+            - name: CDP_API_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: CDP_API_KEY_ID
+                  optional: true
+            - name: CDP_API_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: CDP_API_KEY_SECRET
+                  optional: true
             - name: BRIEF_PRICE_MICRO_USDC
               valueFrom:
                 secretKeyRef:
