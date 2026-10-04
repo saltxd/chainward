@@ -120,6 +120,22 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: CDP_API_KEY_SECRET
                   optional: true
+            # x402 seller check RPCs (optional). alchemy_getAssetTransfers is
+            # Alchemy-only, so both must be Alchemy URLs. Unset, Base uses
+            # BASE_RPC_URL and BNB Chain is derived from the Base URL
+            # (base-mainnet -> bnb-mainnet, same key).
+            - name: SELLER_DEMAND_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: SELLER_DEMAND_RPC_URL
+                  optional: true
+            - name: SELLER_DEMAND_BSC_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: SELLER_DEMAND_BSC_RPC_URL
+                  optional: true
             - name: BRIEF_PRICE_MICRO_USDC
               valueFrom:
                 secretKeyRef:
