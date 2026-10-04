@@ -1,6 +1,6 @@
 {
   "name": "chainward-mcp-server",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "mcpName": "io.github.saltxd/chainward",
   "description": "ChainWard MCP server: check a counterparty on Base before you pay it (EAS attestations + risk reports), plus read-side intelligence on AI agents",
   "type": "module",

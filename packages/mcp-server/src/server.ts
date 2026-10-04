@@ -57,7 +57,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
 
   const server = new McpServer({
     name: 'chainward',
-    version: '0.2.0',
+    version: '0.2.1',
   });
 
   // ── Tool 1: lookup_agent ────────────────────────────────────────────────────
