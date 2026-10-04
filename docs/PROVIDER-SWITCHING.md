@@ -94,6 +94,13 @@ comes first (its Bazaar only catalogs resources settled through it) and PayAI
 fallback. A facilitator whose `/supported` fails at startup is skipped. Keys:
 https://portal.cdp.coinbase.com → API keys → Secret API key.
 
+This is a startup-time fallback only; a CDP outage after startup needs a pod restart
+(`kubectl -n chainward rollout restart deployment/api`). The API binds each payment
+kind to one facilitator when it starts, and verify/settle never fall through to the
+next one. If CDP's `/supported` still answers while its settles fail, a restart picks
+CDP again: delete `CDP_API_KEY_ID` from `chainward-secrets` and restart, and the API
+runs on PayAI alone until the key is put back.
+
 ## Emergency: Alchemy Down
 
 ### Quick mitigation (5 minutes)

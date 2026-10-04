@@ -107,7 +107,8 @@ spec:
                   optional: true
             # Coinbase CDP x402 facilitator (optional). When both are set the API
             # settles through CDP first, which lists the paid routes in the x402
-            # Bazaar; PayAI stays the fallback.
+            # Bazaar; PayAI stays the fallback. Startup-time fallback only; a CDP
+            # outage after startup needs a pod restart.
             - name: CDP_API_KEY_ID
               valueFrom:
                 secretKeyRef:

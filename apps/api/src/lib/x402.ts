@@ -380,6 +380,12 @@ async function notifySale(ctx: SettleResultContext, path: string | undefined): P
  * handles it; a facilitator whose /supported fails at startup is skipped, so
  * PayAI stays the fallback. CDP first because Coinbase's x402 Bazaar only
  * catalogs resources settled through the CDP facilitator.
+ *
+ * Startup-time fallback only; a CDP outage after startup needs a pod restart.
+ * initialize() binds each payment kind to one facilitator and verify/settle
+ * never try the next. No runtime retry through the onVerifyFailure /
+ * onSettleFailure hooks: a recovered settle skips the afterSettle hooks
+ * (recordSettlement), and a settle that timed out may already be on-chain.
  */
 export function facilitatorConfigs(env: NodeJS.ProcessEnv): Array<{ name: 'cdp' | 'payai'; config: FacilitatorConfig }> {
   const list: Array<{ name: 'cdp' | 'payai'; config: FacilitatorConfig }> = [];
