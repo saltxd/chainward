@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { saleMessage } from '../lib/x402.js';
+import { saleMessage, salePayload } from '../lib/x402.js';
 
 const ctx = {
   paymentPayload: { x402Version: 2, accepted: {}, payload: {}, resource: { url: 'https://api.chainward.ai/api/risk/seller-demand' } },
@@ -28,5 +28,24 @@ describe('saleMessage', () => {
   it('prefers the settled amount over the authorized maximum', () => {
     const upto = { ...ctx, result: { ...ctx.result, amount: '50000' } } as typeof ctx;
     expect(saleMessage(upto, '/x')).toContain('0.05 USDC');
+  });
+});
+
+describe('saleMessage hardening', () => {
+  it('neutralises backticks and newlines in the buyer-controlled path and truncates it', () => {
+    const hostile = '/api/risk/x402?address=0x1`@everyone`\nhttps://evil.test/' + 'a'.repeat(500);
+    const msg = saleMessage(ctx, hostile);
+    const bought = msg.split('\n').find((l) => l.startsWith('**Bought:**')) ?? '';
+    expect(bought).not.toMatch(/`.*`.*`/); // exactly one code span, nothing escapes it
+    expect(bought).not.toContain('\n');
+    expect(bought.length).toBeLessThan(340);
+  });
+});
+
+describe('salePayload', () => {
+  it('disables mentions so a path containing @everyone cannot ping the channel', () => {
+    const body = salePayload(ctx, '/x?note=@everyone');
+    expect(body.allowed_mentions).toEqual({ parse: [] });
+    expect(body.content).toContain('@everyone');
   });
 });
