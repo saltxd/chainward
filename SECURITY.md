@@ -19,6 +19,7 @@ ChainWard has **not had an external security audit yet.** What that covers, and 
 
 ## Reporting a vulnerability
 
-Please report security issues privately: DM [@SaltCx](https://x.com/SaltCx) on X, or open a
+Please report security issues privately: email [hello@chainward.ai](mailto:hello@chainward.ai),
+DM [@SaltCx](https://x.com/SaltCx) on X, or open a
 [GitHub security advisory](https://github.com/saltxd/chainward/security/advisories/new). Don't open a public
 issue for anything exploitable.

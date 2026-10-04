@@ -148,7 +148,8 @@ curl https://api.chainward.ai/api/paid/termix-wallets/lookup/0xb709860b8a1ce2001
         <code>lookup_agent</code>, <code>get_agent_profile</code>,{' '}
         <code>get_agent_economics</code>, <code>get_observatory_overview</code>,{' '}
         <code>get_top_agents</code>, <code>get_activity_feed</code>,{' '}
-        <code>list_decodes</code>, <code>find_decodes_for_address</code>.
+        <code>list_decodes</code>, <code>find_decodes_for_address</code>. Questions or
+        listing requests: <a href="mailto:hello@chainward.ai">hello@chainward.ai</a>.
       </p>
 
       <h2>Agent monitoring (signed-in)</h2>

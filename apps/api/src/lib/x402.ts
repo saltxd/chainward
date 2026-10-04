@@ -118,6 +118,7 @@ export function x402DiscoveryDocument() {
     description:
       'On-chain risk reports for Base and BNB Chain addresses: check a counterparty before you pay it. Also sells the datasets behind published decodes. Never a safety verdict.',
     contact: 'https://chainward.ai',
+    contactEmail: 'hello@chainward.ai',
     resources: [
       'https://api.chainward.ai/api/risk/x402',
       'https://api.chainward.ai/api/risk/seller-demand',
