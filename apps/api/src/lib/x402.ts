@@ -1,8 +1,15 @@
 import type { MiddlewareHandler } from 'hono';
 import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
-import { HTTPFacilitatorClient, type RouteConfig } from '@x402/core/server';
+import {
+  HTTPFacilitatorClient,
+  type HTTPTransportContext,
+  type RouteConfig,
+  type SettleResultContext,
+} from '@x402/core/server';
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from '@x402/extensions/bazaar';
+import { x402Settlements } from '@chainward/db';
+import { getDb } from './db.js';
 import { logger } from './logger.js';
 
 // ─── Pay-per-check over x402 ──────────────────────────────────────────────────
@@ -117,6 +124,46 @@ export function x402DiscoveryDocument() {
     ],
     docs: 'https://chainward.ai/docs',
   };
+}
+
+/**
+ * api.chainward.ai/ — x402scan scrapes an origin's homepage for its title and
+ * description, and without one it fell back to chainward.ai's, which describes the
+ * free web check. Static apart from the prices; no request data is rendered.
+ */
+export function apiHomePage(): string {
+  const title = 'ChainWard API: on-chain risk checks an agent pays for per call';
+  const description =
+    `Check a Base or BNB Chain address before your agent pays it (${x402CheckPrice()}), ` +
+    `see where an x402 seller's buyers get their USDC (${x402SellerPrice()}), or buy the dataset behind a ` +
+    `published decode (${x402FilePrice()}). Paid in USDC on Base over x402; a check that fails is never charged.`;
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title>
+<meta name="description" content="${description}">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${description}">
+<meta property="og:url" content="https://api.chainward.ai/">
+<meta property="og:image" content="https://chainward.ai/chainward-og-press.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="https://chainward.ai/favicon.ico">
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#1a1a1a}code{font-size:14px}</style>
+</head>
+<body>
+<h1>ChainWard API</h1>
+<p>${description}</p>
+<ul>
+<li><code>GET /api/risk/x402?address=0x…</code> (add <code>&amp;chain=bsc</code> for BNB Chain): a risk report no older than 24h, every flag tied to its transactions.</li>
+<li><code>GET /api/risk/seller-demand?address=0x…</code>: how much of an x402 seller's revenue traces back to the seller itself.</li>
+<li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
+</ul>
+<p>A report is a list of flags, never a safety verdict. Discovery: <a href="/.well-known/x402">/.well-known/x402</a> and <a href="/openapi.json">/openapi.json</a>. Docs: <a href="https://chainward.ai/docs">chainward.ai/docs</a>. Free reports: <a href="https://chainward.ai">chainward.ai</a>.</p>
+</body>
+</html>
+`;
 }
 
 /**
@@ -242,6 +289,42 @@ export const x402PublicUrl: MiddlewareHandler = async (c, next) => {
   await next();
 };
 
+/**
+ * Keeps one row per settled payment: what was bought, by whom, in which transaction.
+ * Pod logs don't survive a deploy. Never fails the paid response.
+ */
+async function recordSettlement(ctx: SettleResultContext): Promise<void> {
+  if (!ctx.result.success) return;
+  const request = (ctx.transportContext as HTTPTransportContext | undefined)?.request;
+  let path = request?.path;
+  try {
+    if (request) {
+      const url = new URL(request.adapter.getUrl());
+      path = `${url.pathname}${url.search}`;
+    }
+  } catch {
+    // keep the bare path
+  }
+  try {
+    await getDb()
+      .insert(x402Settlements)
+      .values({
+        txHash: ctx.result.transaction,
+        network: ctx.result.network,
+        payer: ctx.result.payer ?? null,
+        payTo: ctx.requirements.payTo,
+        asset: ctx.requirements.asset,
+        amount: Number(ctx.result.amount ?? ctx.requirements.amount),
+        route: request?.routePattern ?? null,
+        path: path ?? null,
+      })
+      .onConflictDoNothing();
+    logger.info({ tx: ctx.result.transaction, payer: ctx.result.payer, path }, 'x402 settlement recorded');
+  } catch (err) {
+    logger.warn({ err, tx: ctx.result.transaction }, 'x402: could not record settlement');
+  }
+}
+
 /** Payment middleware for the paid check, or null when no receiving address is configured. */
 export function x402CheckMiddleware(): MiddlewareHandler | null {
   const payTo = process.env.X402_PAY_TO ?? process.env.TREASURY_WALLET_ADDRESS;
@@ -252,7 +335,8 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
   const facilitator = new HTTPFacilitatorClient({ url: process.env.X402_FACILITATOR_URL ?? DEFAULT_FACILITATOR });
   const server = new x402ResourceServer(facilitator)
     .register(BASE_MAINNET, new ExactEvmScheme())
-    .registerExtension(bazaarResourceServerExtension);
+    .registerExtension(bazaarResourceServerExtension)
+    .onAfterSettle(recordSettlement);
 
   const example = '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2';
   const addressSchema = {
