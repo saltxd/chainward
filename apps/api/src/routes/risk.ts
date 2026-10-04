@@ -13,7 +13,10 @@ import {
   alchemyTransferSource,
   analyzeSellerDemand,
   DEMAND_WINDOW_DAYS,
+  SELLER_BLOCKS_PER_DAY,
+  SELLER_STABLECOINS,
   type RiskAssessment,
+  type SellerChain,
 } from '@chainward/decode';
 import { KNOWN_CONTRACTS, RISK_CHAINS, RISK_CHAIN_IDS, type RiskChainId } from '@chainward/common';
 import { rpcFixturesHaveHistory, type RpcFixtures } from '@chainward/decode';
@@ -812,32 +815,59 @@ async function baseHead(rpcUrl: string): Promise<bigint> {
   return BigInt(body.result);
 }
 
+const sellerChainSchema = z.enum(['base', 'bsc']).default('base');
+
+/** The Alchemy RPC for a chain's seller check; BNB is derived from the Base URL unless set explicitly. */
+export function sellerDemandRpcUrl(chain: SellerChain, env: NodeJS.ProcessEnv): string | undefined {
+  const base = env.SELLER_DEMAND_RPC_URL ?? env.BASE_RPC_URL;
+  if (!base || !/alchemy\.com/.test(base)) return undefined;
+  if (chain === 'base') return base;
+  return env.SELLER_DEMAND_BSC_RPC_URL ?? base.replace('base-mainnet', 'bnb-mainnet');
+}
+
+/** Alchemy answers this when the network isn't switched on for the app in its dashboard. */
+export function isAlchemyNetworkDisabled(err: unknown): boolean {
+  return err instanceof Error && /is not enabled for this app/i.test(err.message);
+}
+
 async function sellerDemandCheck(c: Context) {
   const parsed = addressSchema.safeParse(c.req.query('address'));
   if (!parsed.success) {
     throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
   }
+  const chainParsed = sellerChainSchema.safeParse(c.req.query('chain') ?? undefined);
+  if (!chainParsed.success) {
+    throw new AppError(400, 'INVALID_TARGET', 'chain must be base or bsc');
+  }
+  const chain = chainParsed.data;
   const address = parsed.data.toLowerCase();
   const redis = getRedis();
-  const cacheKey = `seller-demand:${address}`;
+  const cacheKey = chain === 'base' ? `seller-demand:${address}` : `seller-demand:${chain}:${address}`;
   const cached = await redis.get(cacheKey);
   if (cached) return c.json({ success: true, data: JSON.parse(cached) });
 
   // alchemy_getAssetTransfers is Alchemy-only; self-hosters point this at an Alchemy URL.
-  const rpcUrl = process.env.SELLER_DEMAND_RPC_URL ?? process.env.BASE_RPC_URL;
-  if (!rpcUrl || !/alchemy\.com/.test(rpcUrl)) {
-    throw new AppError(503, 'UNAVAILABLE', 'Seller check needs an Alchemy Base RPC');
+  const rpcUrl = sellerDemandRpcUrl(chain, process.env);
+  if (!rpcUrl) {
+    throw new AppError(503, 'UNAVAILABLE', 'Seller check needs an Alchemy RPC');
   }
   const head = await baseHead(rpcUrl);
-  const fromBlock = head - BigInt(DEMAND_WINDOW_DAYS * 43_200);
+  const fromBlock = head - BigInt(DEMAND_WINDOW_DAYS * SELLER_BLOCKS_PER_DAY[chain]);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; retry shortly.')), DEMAND_BUDGET_MS);
   });
   try {
-    const report = await Promise.race([analyzeSellerDemand(address, alchemyTransferSource(rpcUrl, fromBlock, logger)), timeout]);
-    await redis.set(cacheKey, JSON.stringify(report), 'EX', DEMAND_CACHE_SEC);
-    return c.json({ success: true, data: report });
+    const source = alchemyTransferSource(rpcUrl, fromBlock, logger, SELLER_STABLECOINS[chain]);
+    const report = await Promise.race([analyzeSellerDemand(address, source), timeout]);
+    const data = { ...report, chain };
+    await redis.set(cacheKey, JSON.stringify(data), 'EX', DEMAND_CACHE_SEC);
+    return c.json({ success: true, data });
+  } catch (err) {
+    if (isAlchemyNetworkDisabled(err)) {
+      throw new AppError(503, 'UNAVAILABLE', `Seller check is not available on ${chain} yet`);
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }

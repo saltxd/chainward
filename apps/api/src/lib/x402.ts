@@ -101,7 +101,7 @@ const SELLER_OUTPUT_EXAMPLE = {
       },
     ],
     disclaimer:
-      'Describes where USDC moved on Base, not why. A common funder can be a legitimate faucet, exchange or custodian. Not a safety verdict.',
+      'Describes where stablecoins moved on this chain, not why. A common funder can be a legitimate faucet, exchange or custodian. Not a safety verdict.',
   },
 };
 
@@ -227,7 +227,7 @@ export function x402OpenApiDocument() {
       '/api/risk/seller-demand': {
         get: {
           operationId: 'sellerDemandCheck',
-          summary: "Where an x402 seller's buyers get their USDC, paid per call over x402",
+          summary: "Where an x402 or agent-marketplace seller's buyers get their stablecoins, paid per call over x402",
           description:
             "For any Base address that receives payments: samples its recent USDC inflows, walks each top buyer's funding back up to 4 hops, and reports how much traces to the seller itself, how much it pays back, and whether one wallet funds most buyers. Not charged if the check fails.",
           parameters: [
@@ -236,7 +236,14 @@ export function x402OpenApiDocument() {
               in: 'query',
               required: true,
               schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-              description: 'Base address that receives payments (an x402 payTo)',
+              description: 'Address that receives payments (an x402 payTo or a marketplace escrow/agent wallet)',
+            },
+            {
+              name: 'chain',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['base', 'bsc'], default: 'base' },
+              description: 'Chain the seller is on. Payment is USDC on Base either way.',
             },
           ],
           'x-payment-info': {
@@ -430,8 +437,8 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     price: x402SellerPrice(),
     serviceName: 'ChainWard x402 seller check',
     description:
-      "Where an x402 seller's buyers get their USDC: how much of its top buyers' money traces back to the seller, how much it pays back, and whether one wallet funds most buyers. Describes money flows, never intent.",
-    tags: ['base', 'x402', 'seller', 'demand', 'wash', 'counterparty', 'agents'],
+      "Where a seller's buyers get their stablecoins, on Base or BNB Chain (?chain=bsc): how much of its top buyers' money traces back to the seller, how much it pays back, and whether one wallet funds most buyers. Describes money flows, never intent.",
+    tags: ['base', 'bsc', 'x402', 'seller', 'demand', 'wash', 'counterparty', 'agents'],
     whatYouGet:
       "A seller demand report for the last 30 days (top 30 buyers' funding walked back up to 4 hops), JSON. Not charged if the check fails.",
   };
@@ -513,7 +520,7 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
           sellerDemand,
           declareDiscoveryExtension({
             input: { address: '0x68396bd35874695ad86cd29410bd80a550991a2b' },
-            inputSchema: addressSchema,
+            inputSchema: checkSchema,
             output: { example: SELLER_OUTPUT_EXAMPLE },
           }),
         ),

@@ -8,6 +8,18 @@
 // chainward.ai/decodes/x402-on-base. Describes where money moved, never why.
 
 export const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+
+export type SellerChain = 'base' | 'bsc';
+
+/** The stablecoins x402 / agent-marketplace payments move in, per chain. */
+export const SELLER_STABLECOINS: Record<SellerChain, string[]> = {
+  base: [USDC_BASE],
+  // BSC: Binance-Peg USDT and USDC (18 decimals; Alchemy scales `value` for us)
+  bsc: ['0x55d398326f99059fF775485246999027B3197955', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'],
+};
+
+/** Base 2 s blocks; BSC ~0.45 s after Maxwell (measured 2026-10-03, docs/BSC.md). */
+export const SELLER_BLOCKS_PER_DAY: Record<SellerChain, number> = { base: 43_200, bsc: 192_000 };
 const MAX_HOPS = 4;
 const TOP_BUYERS = 30;
 /** An address with this many USDC inflows in the window is a hub (exchange, router,
@@ -58,7 +70,7 @@ const NOT_ASSESSED = [
 ];
 
 const DISCLAIMER =
-  'Describes where USDC moved on Base, not why. A common funder can be a legitimate faucet, exchange or custodian. Not a safety verdict.';
+  'Describes where stablecoins moved on this chain, not why. A common funder can be a legitimate faucet, exchange or custodian. Not a safety verdict.';
 
 type WalkResult =
   | { buyer: string; reached: true; hops: number }
@@ -218,13 +230,14 @@ export function demandSignals(r: SellerDemandReport): DemandSignal[] {
 // ─── Alchemy transfer source ──────────────────────────────────────────────────
 
 /**
- * USDC transfers via alchemy_getAssetTransfers on the API's Base RPC, with
- * backoff for the free tier's compute-units-per-second limit.
+ * USDC/USDT transfers via alchemy_getAssetTransfers on an Alchemy RPC (Base or
+ * BNB), with backoff for the free tier's compute-units-per-second limit.
  */
 export function alchemyTransferSource(
   rpcUrl: string,
   fromBlock: bigint,
   log?: { warn: (msg: string) => void },
+  tokens: string[] = SELLER_STABLECOINS.base,
 ): TransferSource {
   async function call(params: Record<string, unknown>): Promise<{ transfers: Array<{ from: string; to: string | null; value: number | null }> }> {
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -250,7 +263,7 @@ export function alchemyTransferSource(
   return async (direction, address) => {
     const result = await call({
       category: ['erc20'],
-      contractAddresses: [USDC_BASE],
+      contractAddresses: tokens,
       order: 'desc',
       maxCount: '0x3e8',
       excludeZeroValue: true,

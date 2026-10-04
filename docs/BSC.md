@@ -115,3 +115,14 @@ pnpm --filter @chainward/indexer exec tsx scripts/verify-bsc-risk.mts 0x<address
 
 Runs the worker's core path (fetch → classify → flags) against the live RPC and
 prints the window, balances, activity, flags and `not_assessed`. No Redis/DB.
+
+## Seller check on BSC
+
+`GET /api/risk/seller-demand?address=<seller>&chain=bsc` (0.10 USDC on Base) walks the
+seller's USDT/USDC inflows on BNB Smart Chain the same way the Base check walks USDC:
+top 30 buyers, each buyer's largest funder back up to 4 hops, hubs stop the walk.
+Data comes from `alchemy_getAssetTransfers` on `bnb-mainnet.g.alchemy.com` (same key as
+Base; the network must be enabled for the app in the Alchemy dashboard, or set
+`SELLER_DEMAND_BSC_RPC_URL`). 30 days = 5.76M blocks at ~0.45 s. Built for BNB Chain's
+Set and Earn verification ("3 hires from wallets you neither own nor fund") and the nine
+shortlisted marketplaces; a marketplace escrow or an agent's payout wallet is a valid target.
