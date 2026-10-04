@@ -29,7 +29,7 @@ import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
 import { getWebhookProvider } from './providers/index.js';
-import { x402CheckMiddleware, x402DiscoveryDocument, x402OpenApiDocument } from './lib/x402.js';
+import { x402CheckMiddleware, x402DiscoveryDocument, x402OpenApiDocument, x402PublicUrl } from './lib/x402.js';
 // Observatory cache warming has been removed from the API process to keep the
 // /api/livez event loop unconditionally responsive. The warmer ran every 5min
 // and did periodic CPU work (drizzle row materialization, JSON serialization)
@@ -125,6 +125,7 @@ const x402Check = x402CheckMiddleware();
 if (x402Check) {
   for (const path of ['/api/risk/x402', '/api/risk/x402/*', '/api/risk/seller-demand', '/api/paid/:slug/file']) {
     app.use(path, paidGetOnly);
+    app.use(path, x402PublicUrl);
     app.use(path, x402Check);
   }
 }

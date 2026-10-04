@@ -230,6 +230,18 @@ export function x402OpenApiDocument() {
   };
 }
 
+/**
+ * TLS ends at the proxy, so paid requests arrive as http:// (or on the in-cluster
+ * host, via the web proxy). The 402 challenge takes its resource URL from the
+ * request and catalogs key on it, so the payment middleware sees the public URL.
+ */
+export const x402PublicUrl: MiddlewareHandler = async (c, next) => {
+  const { pathname, search } = new URL(c.req.url);
+  const publicUrl = `https://api.chainward.ai${pathname}${search}`;
+  if (c.req.url !== publicUrl) c.req.raw = new Request(publicUrl, c.req.raw);
+  await next();
+};
+
 /** Payment middleware for the paid check, or null when no receiving address is configured. */
 export function x402CheckMiddleware(): MiddlewareHandler | null {
   const payTo = process.env.X402_PAY_TO ?? process.env.TREASURY_WALLET_ADDRESS;
