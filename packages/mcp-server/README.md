@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/chainward-mcp-server.svg)](https://www.npmjs.com/package/chainward-mcp-server)
 
-Model Context Protocol server exposing ChainWard's read-side intelligence on AI agents (Base mainnet).
+Model Context Protocol server for ChainWard: check an address before you pay it, and query ChainWard's intelligence on AI-agent wallets (Base mainnet).
 
 ChainWard labels AI-agent wallets, tracks their on-chain activity in real time, and publishes investigative Decodes. This package lets any MCP-compatible assistant (Claude Desktop, Cursor, Claude Code, Codex, ChatGPT) query that intelligence via natural language — without leaving the chat.
 
@@ -12,6 +12,7 @@ This is the **standalone** distribution path. It works alongside Base MCP (which
 
 | Tool | Purpose |
 |---|---|
+| `check_counterparty` | Before paying `0x…`: ChainWard's risk flags for it, plus the EAS attestation on Base (uid + explorer link) when one exists. Never a safety verdict. |
 | `lookup_agent` | Is `0x…` a known AI agent? Returns label + Decode pointers. Cheap. |
 | `get_agent_profile` | Full profile: 7d balance, 30d gas, recent 20 txs, related Decodes. |
 | `get_agent_economics` | ACP revenue, jobs, success rate, gas efficiency, P&L. |
@@ -65,7 +66,7 @@ Then point your client at `http://your-host:3300/mcp`.
 
 This server is read-only. To **act** on what you learn (swap, lend, etc.), install Base MCP alongside this server. Recommended assistant prompt pattern:
 
-> Before transacting with any unfamiliar address or token, call ChainWard's `lookup_agent` first. If a Decode exists, summarise it for the user before invoking any Base MCP plugin.
+> Before paying or transacting with any unfamiliar address, call ChainWard's `check_counterparty` (and `lookup_agent` for agents). If a Decode exists, summarise it for the user before invoking any Base MCP plugin.
 
 ## License
 

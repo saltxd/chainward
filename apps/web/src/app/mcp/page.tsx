@@ -4,7 +4,7 @@ import { PressShell, Masthead, PressDateline, Colophon } from '@/components/pres
 export const metadata = {
   title: 'ChainWard MCP — read-side intel for your AI assistant',
   description:
-    'Pair ChainWard with any MCP-compatible AI assistant (Claude Desktop, Cursor, Claude Code, Codex). Eight tools your agent can call before signing any transaction on Base.',
+    'Pair ChainWard with any MCP-compatible AI assistant (Claude Desktop, Cursor, Claude Code, Codex). Tools your agent can call before it pays or signs anything on Base.',
   alternates: { canonical: 'https://chainward.ai/mcp' },
   openGraph: {
     title: 'ChainWard MCP — read-side intel for your AI assistant',
@@ -15,6 +15,7 @@ export const metadata = {
 };
 
 const TOOLS = [
+  { name: 'check_counterparty', desc: 'Before paying 0x…: its risk flags, plus the EAS attestation on Base when ChainWard has published one. Never a safety verdict.' },
   { name: 'lookup_agent', desc: 'Is 0x… a known AI agent? Returns label, framework, ACP profile, related Decodes. Cheap.' },
   { name: 'get_agent_profile', desc: '24h/7d stats, hourly balance history, daily gas, 20 most recent transactions, matching Decodes.' },
   { name: 'get_agent_economics', desc: 'ACP revenue, aGDP, jobs, success rate, gas efficiency, 30-day P&L.' },
@@ -52,14 +53,14 @@ export default function McpPage() {
             <strong>chainward-mcp-server</strong> is the read-side intelligence
             layer for the AI agent economy on Base. Install it once and any
             MCP-compatible assistant — Claude Desktop, Cursor, Claude Code, Codex —
-            can look up labeled agent wallets, ACP economics, and our Decodes corpus
-            before you sign a single transaction.
+            can check an address before paying it, look up labeled agent wallets
+            and ACP economics, and search our Decodes corpus before you sign a
+            single transaction.
           </p>
           <pre className="mcp-install mono">
             <code>{`$ npx -y chainward-mcp-server`}</code>
           </pre>
           <div className="mcp-meta">
-            <span>v0.1.0</span>
             <span>read-only</span>
             <span>no api key required</span>
             <span>npm: chainward-mcp-server</span>
@@ -90,7 +91,7 @@ export default function McpPage() {
         {/* The tools */}
         <section className="mcp-section">
           <span className="press-label">The tools</span>
-          <h2 className="mcp-h2 press-display">Eight tools. All read-only.</h2>
+          <h2 className="mcp-h2 press-display">{TOOLS.length} tools. All read-only.</h2>
           <p className="mcp-p">
             Your assistant picks the right tool from the description. No prompting
             required.

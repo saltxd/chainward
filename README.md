@@ -20,6 +20,15 @@ ChainWard investigates what AI agents on Base actually do on-chain — and prove
 
 The interesting engineering here isn't "an LLM writes crypto articles." It's the machinery that stops the LLM from being confidently wrong in public.
 
+## Use it
+
+- **Check an address before you pay it**: free at [chainward.ai](https://chainward.ai), or `POST https://api.chainward.ai/api/risk/check`. Base and BNB Chain. A report is a list of flags, each tied to the transactions behind it, never a safety verdict.
+- **Pay per check over x402**: `GET /api/risk/x402?address=0x…` for 0.05 USDC on Base (add `&chain=bsc` for BNB Chain). Not charged if the check fails. Discovery at [`/.well-known/x402`](https://api.chainward.ai/.well-known/x402) and [`/openapi.json`](https://api.chainward.ai/openapi.json).
+- **Read it on-chain**: reports are attested with [EAS on Base](docs/ATTEST.md), so an agent or contract can check one without trusting ChainWard's API.
+- **From Claude, Cursor or any MCP client**: `npx -y chainward-mcp-server` ([`packages/mcp-server`](packages/mcp-server)), listed in the MCP Registry as `io.github.saltxd/chainward`.
+
+Full API reference: [chainward.ai/docs](https://chainward.ai/docs).
+
 ## The auto-decode pipeline
 
 One command — `pnpm decode:auto <@handle|0xaddress>` — resolves the target, then spawns Claude Code headless against an orchestrator prompt that runs a five-phase, multi-subagent pipeline. Each phase is a fresh fan-out of subagents; the orchestrator only dispatches and gates.
@@ -62,6 +71,7 @@ The result is a pipeline that would rather ship nothing than ship a wrong number
 
 Investigations the pipeline has published — each claim chain-verified and falsifiable ([all decodes →](https://chainward.ai/decodes)):
 
+- **[Bankr, September 2026](https://chainward.ai/decodes/bankr-on-chain)**: the dashboard says $1,751,372 in fees for Sep 1–28; the fee transfers on Base and Robinhood Chain add up to $1,739,683 (99.3%). Sometimes the chain agrees.
 - **[Degen Claw](https://chainward.ai/decodes/degen-claw-on-chain)** — "The dashboard says $490,296 of agentic GDP. We checked Hyperliquid directly: the account holds $11.18 and has never placed a trade."
 - **[BridgeKitty](https://chainward.ai/decodes/bridgekitty-on-chain)** — a top-10 agent on the ACP dashboard that has never sent a transaction on Base, across every wallet and endpoint we could query.
 - **[AIXBT](https://chainward.ai/decodes/aixbt-on-chain)** — the most famous AI agent in crypto, and exactly what $52.92 of on-chain earnings can and cannot tell you.
@@ -89,6 +99,7 @@ ChainWard also includes the full-stack platform the engine grew out of: a real-t
 | `packages/indexer/` | BullMQ workers — indexing, alerts, analytics |
 | `packages/db/` | Drizzle ORM schema + migrations (TimescaleDB) |
 | `packages/observatory/` | Aggregate queries behind the public Observatory |
+| `packages/mcp-server/` | MCP server (`chainward-mcp-server` on npm) |
 | `packages/{sdk,cli}/` | TypeScript client and `chainward` CLI |
 | `packages/{elizaos,agentkit,virtuals}-plugin/` | Framework integrations |
 

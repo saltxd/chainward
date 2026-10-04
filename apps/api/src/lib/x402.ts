@@ -107,10 +107,15 @@ export function x402DiscoveryDocument() {
     x402Version: 2,
     name: 'ChainWard',
     description:
-      'On-chain risk reports for Base addresses: check a counterparty before you pay it. Never a safety verdict.',
+      'On-chain risk reports for Base and BNB Chain addresses: check a counterparty before you pay it. Also sells the datasets behind published decodes. Never a safety verdict.',
     contact: 'https://chainward.ai',
-    resources: ['https://api.chainward.ai/api/risk/x402', 'https://api.chainward.ai/api/risk/seller-demand'],
-    docs: 'https://github.com/saltxd/chainward/blob/main/docs/ATTEST.md',
+    resources: [
+      'https://api.chainward.ai/api/risk/x402',
+      'https://api.chainward.ai/api/risk/seller-demand',
+      // One concrete dataset URL so crawlers can probe the route; GET /api/paid lists them all.
+      'https://api.chainward.ai/api/paid/termix-wallets/file',
+    ],
+    docs: 'https://chainward.ai/docs',
   };
 }
 
@@ -121,13 +126,14 @@ export function x402DiscoveryDocument() {
 export function x402OpenApiDocument() {
   const usd = (x402CheckPrice().match(/[\d.]+/) ?? ['0.05'])[0];
   const sellerUsd = (x402SellerPrice().match(/[\d.]+/) ?? ['0.10'])[0];
+  const fileUsd = (x402FilePrice().match(/[\d.]+/) ?? ['10'])[0];
   return {
     openapi: '3.1.0',
     info: {
       title: 'ChainWard',
       version: '1.0.0',
       description:
-        'On-chain risk reports for Base addresses: check a counterparty before you pay it. Never a safety verdict.',
+        'On-chain risk reports for Base and BNB Chain addresses: check a counterparty before you pay it. Also sells the datasets behind published decodes. Never a safety verdict.',
       contact: { url: 'https://chainward.ai' },
     },
     servers: [{ url: 'https://api.chainward.ai' }],
@@ -194,6 +200,32 @@ export function x402OpenApiDocument() {
           },
         },
       },
+      '/api/paid/{slug}/file': {
+        get: {
+          operationId: 'datasetFile',
+          summary: 'The full dataset behind a published decode, as CSV, paid over x402',
+          description:
+            'Every wallet in a published ChainWard audit, tiered, with the transactions behind each one. GET /api/paid lists what is available; GET /api/paid/{slug}/lookup/{address} checks one wallet for free. Not charged if the file does not exist.',
+          parameters: [
+            {
+              name: 'slug',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,59}$', example: 'termix-wallets' },
+              description: 'Dataset slug from GET /api/paid',
+            },
+          ],
+          'x-payment-info': {
+            price: { mode: 'fixed', currency: 'USD', amount: fileUsd },
+            protocols: [{ x402: {} }],
+          },
+          responses: {
+            '200': { description: 'The dataset', content: { 'text/csv': {} } },
+            '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+            '404': { description: 'No dataset with that slug; not charged' },
+          },
+        },
+      },
     },
   };
 }
@@ -215,6 +247,19 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     type: 'object',
     properties: {
       address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', description: 'Base address to check' },
+    },
+    required: ['address'],
+  };
+  const checkSchema = {
+    type: 'object',
+    properties: {
+      address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', description: 'Address to check' },
+      chain: {
+        type: 'string',
+        enum: ['base', 'bsc'],
+        default: 'base',
+        description: 'Chain the address is on. Payment is USDC on Base either way.',
+      },
     },
     required: ['address'],
   };
@@ -289,7 +334,7 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
           counterparty,
           declareDiscoveryExtension({
             input: { address: example },
-            inputSchema: addressSchema,
+            inputSchema: checkSchema,
             output: { example: OUTPUT_EXAMPLE },
           }),
         ),
