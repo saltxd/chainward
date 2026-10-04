@@ -323,6 +323,38 @@ async function recordSettlement(ctx: SettleResultContext): Promise<void> {
   } catch (err) {
     logger.warn({ err, tx: ctx.result.transaction }, 'x402: could not record settlement');
   }
+  await notifySale(ctx, path);
+}
+
+/** The Discord line for one settled payment. Pure so it can be tested. */
+export function saleMessage(ctx: SettleResultContext, path: string | undefined): string {
+  const atomic = Number(ctx.result.amount ?? ctx.requirements.amount);
+  const usdc = (atomic / 1e6).toFixed(2);
+  return [
+    `💸 **x402 sale — ${usdc} USDC**`,
+    `**Bought:** \`${path ?? ctx.paymentPayload.resource?.url ?? 'unknown'}\``,
+    ctx.result.payer ? `**Buyer:** \`${ctx.result.payer}\`` : null,
+    `**Tx:** https://basescan.org/tx/${ctx.result.transaction}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** Same Discord webhook the brief orders use; a sale is rare enough to be worth a ping. */
+async function notifySale(ctx: SettleResultContext, path: string | undefined): Promise<void> {
+  const webhookUrl = process.env.DIGEST_DISCORD_WEBHOOK;
+  if (!webhookUrl) return;
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: saleMessage(ctx, path) }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) logger.warn({ status: res.status }, 'x402: Discord sale notify non-OK');
+  } catch (err) {
+    logger.warn({ err }, 'x402: Discord sale notify failed');
+  }
 }
 
 /** Payment middleware for the paid check, or null when no receiving address is configured. */
