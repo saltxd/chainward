@@ -804,14 +804,18 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
 const DEMAND_CACHE_SEC = 3600;
 const DEMAND_BUDGET_MS = 50_000;
 
-async function baseHead(rpcUrl: string): Promise<bigint> {
+/** eth_blockNumber on an Alchemy RPC; a JSON-RPC error (e.g. network not enabled) becomes a thrown Error. */
+export async function rpcHead(rpcUrl: string): Promise<bigint> {
   const res = await fetch(rpcUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
     signal: AbortSignal.timeout(10_000),
   });
-  const body = (await res.json()) as { result: string };
+  const body = (await res.json()) as { result?: string; error?: { message?: string } };
+  if (body.error || typeof body.result !== 'string') {
+    throw new Error(`eth_blockNumber: ${body.error?.message ?? 'no result'}`);
+  }
   return BigInt(body.result);
 }
 
@@ -822,7 +826,10 @@ export function sellerDemandRpcUrl(chain: SellerChain, env: NodeJS.ProcessEnv): 
   const base = env.SELLER_DEMAND_RPC_URL ?? env.BASE_RPC_URL;
   if (!base || !/alchemy\.com/.test(base)) return undefined;
   if (chain === 'base') return base;
-  return env.SELLER_DEMAND_BSC_RPC_URL ?? base.replace('base-mainnet', 'bnb-mainnet');
+  if (env.SELLER_DEMAND_BSC_RPC_URL) return env.SELLER_DEMAND_BSC_RPC_URL;
+  // Only a Base Alchemy host can be rewritten; anything else would silently run the check on the wrong chain.
+  const derived = base.replace('base-mainnet', 'bnb-mainnet');
+  return derived === base ? undefined : derived;
 }
 
 /** Alchemy answers this when the network isn't switched on for the app in its dashboard. */
@@ -851,13 +858,13 @@ async function sellerDemandCheck(c: Context) {
   if (!rpcUrl) {
     throw new AppError(503, 'UNAVAILABLE', 'Seller check needs an Alchemy RPC');
   }
-  const head = await baseHead(rpcUrl);
-  const fromBlock = head - BigInt(DEMAND_WINDOW_DAYS * SELLER_BLOCKS_PER_DAY[chain]);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; retry shortly.')), DEMAND_BUDGET_MS);
   });
   try {
+    const head = await rpcHead(rpcUrl);
+    const fromBlock = head - BigInt(DEMAND_WINDOW_DAYS * SELLER_BLOCKS_PER_DAY[chain]);
     const source = alchemyTransferSource(rpcUrl, fromBlock, logger, SELLER_STABLECOINS[chain]);
     const report = await Promise.race([analyzeSellerDemand(address, source), timeout]);
     const data = { ...report, chain };
@@ -865,6 +872,7 @@ async function sellerDemandCheck(c: Context) {
     return c.json({ success: true, data });
   } catch (err) {
     if (isAlchemyNetworkDisabled(err)) {
+      logger.warn({ err, chain }, 'seller check: Alchemy network not enabled for this app');
       throw new AppError(503, 'UNAVAILABLE', `Seller check is not available on ${chain} yet`);
     }
     throw err;

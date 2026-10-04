@@ -138,7 +138,7 @@ export function apiHomePage(): string {
   const title = 'ChainWard API: on-chain risk checks an agent pays for per call';
   const description =
     `Check a Base or BNB Chain address before your agent pays it (${x402CheckPrice()}), ` +
-    `see where an x402 seller's buyers get their USDC (${x402SellerPrice()}), or buy the dataset behind a ` +
+    `see where an x402 or agent-marketplace seller's buyers get their stablecoins, on either chain (${x402SellerPrice()}), or buy the dataset behind a ` +
     `published decode (${x402FilePrice()}). Paid in USDC on Base over x402; a check that fails is never charged.`;
   return `<!doctype html>
 <html lang="en">
@@ -160,7 +160,7 @@ export function apiHomePage(): string {
 <p>${description}</p>
 <ul>
 <li><code>GET /api/risk/x402?address=0x…</code> (add <code>&amp;chain=bsc</code> for BNB Chain): a risk report no older than 24h, every flag tied to its transactions.</li>
-<li><code>GET /api/risk/seller-demand?address=0x…</code>: how much of an x402 seller's revenue traces back to the seller itself.</li>
+<li><code>GET /api/risk/seller-demand?address=0x…</code> (add <code>&amp;chain=bsc</code>): how much of a seller's revenue traces back to the seller itself.</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
 <p>A report is a list of flags, never a safety verdict. Discovery: <a href="/.well-known/x402">/.well-known/x402</a> and <a href="/openapi.json">/openapi.json</a>. Docs: <a href="https://chainward.ai/docs">chainward.ai/docs</a>. Free reports: <a href="https://chainward.ai">chainward.ai</a>.</p>
@@ -229,7 +229,7 @@ export function x402OpenApiDocument() {
           operationId: 'sellerDemandCheck',
           summary: "Where an x402 or agent-marketplace seller's buyers get their stablecoins, paid per call over x402",
           description:
-            "For any Base address that receives payments: samples its recent USDC inflows, walks each top buyer's funding back up to 4 hops, and reports how much traces to the seller itself, how much it pays back, and whether one wallet funds most buyers. Not charged if the check fails.",
+            "For any Base or BNB Chain address that receives payments: samples its recent stablecoin inflows (USDC on Base; USDT and USDC on BNB Chain), walks each top buyer's funding back up to 4 hops, and reports how much traces to the seller itself, how much it pays back, and whether one wallet funds most buyers. Not charged if the check fails.",
           parameters: [
             {
               name: 'address',
@@ -375,11 +375,33 @@ async function notifySale(ctx: SettleResultContext, path: string | undefined): P
  */
 export function facilitatorConfigs(env: NodeJS.ProcessEnv): Array<{ name: 'cdp' | 'payai'; config: FacilitatorConfig }> {
   const list: Array<{ name: 'cdp' | 'payai'; config: FacilitatorConfig }> = [];
+  // 30 s per facilitator request: initialize() asks each in turn, and a hanging one must not stall startup for 90 s.
+  const timeoutMs = 30_000;
   if (env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET) {
-    list.push({ name: 'cdp', config: createFacilitatorConfig(env.CDP_API_KEY_ID, env.CDP_API_KEY_SECRET) });
+    list.push({ name: 'cdp', config: { ...createFacilitatorConfig(env.CDP_API_KEY_ID, env.CDP_API_KEY_SECRET), timeoutMs } });
   }
-  list.push({ name: 'payai', config: { url: env.X402_FACILITATOR_URL ?? DEFAULT_FACILITATOR } });
+  list.push({ name: 'payai', config: { url: env.X402_FACILITATOR_URL ?? DEFAULT_FACILITATOR, timeoutMs } });
   return list;
+}
+
+/**
+ * The library only console.warns, without a name, when a facilitator's /supported
+ * fails at startup, so a wrong CDP key would look identical to a working one.
+ * Log the outcome per facilitator; the failure is rethrown so the server still skips it.
+ */
+export function withStartupLog(name: string, client: HTTPFacilitatorClient): HTTPFacilitatorClient {
+  const inner = client.getSupported.bind(client);
+  client.getSupported = async () => {
+    try {
+      const supported = await inner();
+      logger.info({ facilitator: name }, 'x402: facilitator ready');
+      return supported;
+    } catch (err) {
+      logger.warn({ err, facilitator: name }, 'x402: facilitator skipped at startup');
+      throw err;
+    }
+  };
+  return client;
 }
 
 /** Payment middleware for the paid check, or null when no receiving address is configured. */
@@ -391,7 +413,7 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
   }
   const facilitators = facilitatorConfigs(process.env);
   logger.info({ facilitators: facilitators.map((f) => f.name) }, 'x402: facilitators in priority order');
-  const server = new x402ResourceServer(facilitators.map((f) => new HTTPFacilitatorClient(f.config)))
+  const server = new x402ResourceServer(facilitators.map((f) => withStartupLog(f.name, new HTTPFacilitatorClient(f.config))))
     .register(BASE_MAINNET, new ExactEvmScheme())
     .registerExtension(bazaarResourceServerExtension)
     .onAfterSettle(recordSettlement);

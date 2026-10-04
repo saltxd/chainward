@@ -66,7 +66,7 @@ const NOT_ASSESSED = [
   'Payers behind facilitator proxies and other high-throughput senders',
   'Anything but the largest funder at each hop',
   'Who controls any address, or why money moved',
-  'Payments in tokens other than USDC',
+  'Payments in tokens other than the chain\'s main stablecoins',
 ];
 
 const DISCLAIMER =
@@ -192,15 +192,15 @@ export function demandSignals(r: SellerDemandReport): DemandSignal[] {
     const maxHop = Math.max(...Object.keys(r.seller_funded.hops).map(Number));
     out.push({
       id: 'buyers_funded_by_seller',
-      title: "Most checked buyers' USDC traces back to this address",
+      title: "Most checked buyers' stablecoins trace back to this address",
       evidence: `${r.seller_funded.buyers} of ${checked} top buyers reach this address within ${maxHop} hop${maxHop === 1 ? '' : 's'} of their largest funders (${Math.round((r.seller_funded.volume_share ?? 0) * 100)}% of their volume).`,
     });
   }
   if ((r.paid_back_share ?? 0) >= 0.25) {
     out.push({
       id: 'money_flows_back',
-      title: 'Sends USDC back to its own buyers',
-      evidence: `USDC sent to its own buyers equals ${Math.round((r.paid_back_share ?? 0) * 100)}% of sampled inflow.`,
+      title: 'Sends stablecoins back to its own buyers',
+      evidence: `Stablecoins sent to its own buyers equal ${Math.round((r.paid_back_share ?? 0) * 100)}% of sampled inflow.`,
     });
   }
   // A shared funder means little on a handful of buyers.
