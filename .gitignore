@@ -90,3 +90,8 @@ deliverables/bankr-audit/
 
 # Next incentive-audit targets (scout notes, scan scripts, raw data): private research; never commit
 deliverables/next-targets/
+
+# Set and Earn week-one decode: wallet-level research stays local
+deliverables/set-and-earn-week-one/research.md
+deliverables/set-and-earn-week-one/scripts/
+deliverables/set-and-earn-week-one/data/
