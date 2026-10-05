@@ -77,6 +77,10 @@ const SHIPPED = [
     body: '0.05 USDC for a fresh report, 0.10 USDC for a seller-demand check. No account, no key. Failed checks are never charged.',
   },
   {
+    name: 'Funding trace on BNB Chain',
+    body: 'The seller-demand check runs on BSC since 4 Oct 2026 (?chain=bsc): who funded each of a seller’s top payers, up to 4 hops back. Proof run on TermiX’s BSC escrow: 7 seconds, 1,000 payments sampled, all 30 top payers funded by the escrow itself one hop back. This is the “wallets you neither own nor fund” test from Set and Earn, per agent, on demand.',
+  },
+  {
     name: 'MCP server',
     body: '9 tools, on npm and the MCP registry. SDK, CLI and three framework plugins on npm.',
   },
