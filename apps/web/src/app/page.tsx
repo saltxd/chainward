@@ -26,7 +26,7 @@ const jsonLd = {
   applicationCategory: 'SecurityApplication',
   operatingSystem: 'Web',
   description:
-    'Paste any Base address and get a forensic on-chain risk report — risk flags from on-chain behavior, with evidence. Free, public, and never a safety verdict.',
+    'Paste any Base or BNB Chain address and get a forensic on-chain risk report — risk flags from on-chain behavior, with evidence. Free, public, and never a safety verdict.',
   url: 'https://chainward.ai',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   publisher: {
@@ -87,7 +87,7 @@ export default async function CheckHomePage({
               File № CW-∎ <span className="ph-dateline-sep">·</span> Forensic risk intake
             </div>
             <h1 className="home-title press-display">
-              Run an on-chain risk check on any Base address.
+              Run an on-chain risk check on any Base or BNB Chain address.
             </h1>
             <p className="home-kicker press-kicker">Flags, not promises.</p>
             <p className="home-lede">

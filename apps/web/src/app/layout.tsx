@@ -50,11 +50,11 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    default: 'ChainWard — on-chain risk checks for any Base address',
+    default: 'ChainWard — on-chain risk checks for any Base or BNB Chain address',
     template: '%s | ChainWard',
   },
   description:
-    'Paste any Base address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
+    'Paste any Base or BNB Chain address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
   metadataBase: new URL('https://chainward.ai'),
   alternates: { canonical: 'https://chainward.ai/' },
   robots: { index: true, follow: true },
@@ -78,9 +78,9 @@ export const metadata: Metadata = {
     apple: '/chainward-mark-180.png',
   },
   openGraph: {
-    title: 'ChainWard — on-chain risk checks for any Base address',
+    title: 'ChainWard — on-chain risk checks for any Base or BNB Chain address',
     description:
-      'Paste any Base address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
+      'Paste any Base or BNB Chain address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
     siteName: 'ChainWard',
     url: 'https://chainward.ai',
     type: 'website',
@@ -89,9 +89,9 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     site: '@chainwardai',
-    title: 'ChainWard — on-chain risk checks for any Base address',
+    title: 'ChainWard — on-chain risk checks for any Base or BNB Chain address',
     description:
-      'Paste any Base address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
+      'Paste any Base or BNB Chain address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
     images: ['/chainward-og-press.png'],
   },
 };
