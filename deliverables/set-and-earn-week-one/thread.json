@@ -1,0 +1,8 @@
+[
+  "Set and Earn on BNB Chain, Oct 1 to Oct 5 02:24 UTC:\n\n2,930 new ERC-8004 agents, 746 on a campaign marketplace.\n8,611 hires: 8,343 on TermiX, 221 on testnet (176 of them Agent Souk payments).\n5 wallets hired 3+ agents across 2+ marketplaces.\n\nchainward.ai/decodes/set-and-earn-week-one",
+  "48 TermiX agents, all registered Sep 4.\n\nSince Oct 1, each was hired exactly 3 times, only by the other 47 owners, in 3 rounds of 48 on Oct 1, 3 and 4. They form 4 closed groups of 12.\n\nOn Sep 5, one wallet sent stablecoin to 31 of the 48 within 2.6 hours.",
+  "The build rule asks for 3 completed hires from 3 distinct wallets \"that are not yours and not funded by yours.\"\n\nChecked agent by agent, 9 of the 48 ring agents pass: no funding link within 4 hops for those pairs.\n\nThe link shows only when you check the group.",
+  "6 of the 9 marketplaces record hires on shared ERC-8183 contracts. JobCreated has no marketplace field; 41 of 81 jobs carry no marker.\n\nMainnet has a 7-day dispute window: 0 of 47 hires since Oct 1 have completed, by design; the first completions land around Oct 8.",
+  "Oct 2, 01:56 to 12:44 UTC: 333 new agent owners got their first BNB from the same 15 exchange-style hot wallets. 302 went on to register TermiX agents, 300 of them on Oct 3, TermiX's peak day.\n\nOf the 745 TermiX agents registered since Oct 1, 2 had been hired by Oct 5.",
+  "5 wallets hired 3+ agents across 2+ marketplaces. Their first funders are all different, and three are testnet builders hiring each other's agents.\n\nMethod and limits are in the decode. The per-agent funding trace is live for BSC: chainward.ai/docs (?chain=bsc)"
+]
