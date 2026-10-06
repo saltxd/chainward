@@ -365,9 +365,11 @@ export function hiresByAgent(input: {
   return stats;
 }
 
-/** Board order: most hires first, then lowest agent id. */
+/** Board order: most distinct hirers first (the campaign's bar is 3), then most hires, then lowest agent id. */
 export function boardOrder(stats: Map<number, AgentHireStats>): AgentHireStats[] {
-  return [...stats.values()].sort((a, b) => b.hires_total - a.hires_total || a.agent_id - b.agent_id);
+  return [...stats.values()].sort(
+    (a, b) => b.distinct_hirers - a.distinct_hirers || b.hires_total - a.hires_total || a.agent_id - b.agent_id,
+  );
 }
 
 // ─── The board ────────────────────────────────────────────────────────────────

@@ -336,7 +336,7 @@ describe('assembleSetAndEarnBoard', () => {
     passes_three_independent: independent >= 3,
   });
 
-  it('lists hired agents by hires then id, with verdict columns per status, and totals over every agent', () => {
+  it('lists hired agents by distinct hirers, then hires, then id, with verdict columns per status, and totals over every agent', () => {
     const regs = new Map([
       [10, reg(10, { name: 'Ten' })],
       [11, reg(11, { marketplace: 'dolphin' })],
@@ -355,6 +355,8 @@ describe('assembleSetAndEarnBoard', () => {
       termixHire(14, addr(0x51)),
       termixHire(14, addr(0x52)),
       termixHire(14, addr(0x53)),
+      // One hirer, four hires: more hires than anyone, but ranks below every agent with more distinct hirers.
+      ...[1, 2, 3, 4].map(() => termixHire(13, addr(0x91))),
     ];
     const verdicts = new Map<number, AgentVerdict>([
       [10, { status: 'checked', summary: summary(3), checked_at: '2026-10-05T21:05:00.000Z' }],
@@ -366,7 +368,7 @@ describe('assembleSetAndEarnBoard', () => {
 
     expect(board.window).toEqual({ from_block: B, start: '2026-10-01T00:00:00Z', end: '2026-11-05T23:59:59Z' });
     expect(board.as_of).toEqual(asOf);
-    expect(board.rows.map((r) => r.agent_id)).toEqual([10, 11, 14, 20, 12, 30]);
+    expect(board.rows.map((r) => r.agent_id)).toEqual([10, 11, 14, 20, 13, 12, 30]);
     expect(board.rows[0]).toEqual({
       agent_id: 10,
       name: 'Ten',
@@ -388,7 +390,7 @@ describe('assembleSetAndEarnBoard', () => {
     expect(board.rows[1]).toMatchObject({ verdict_status: 'checked', owner_linked: 2, passes_three_independent: false });
     expect(board.rows[2]).toMatchObject({ verdict_status: 'error', owner_linked: null, independent_within_limits: null, passes_three_independent: null, checked_at: null });
     expect(board.rows[3]).toMatchObject({ agent_id: 20, owner: addr(20), registered_during_campaign: false, registered_at: null, passes_three_independent: true });
-    expect(board.rows[5]).toMatchObject({
+    expect(board.rows[6]).toMatchObject({
       agent_id: 30,
       name: null,
       owner: null,
@@ -396,7 +398,7 @@ describe('assembleSetAndEarnBoard', () => {
       registered_during_campaign: false,
       verdict_status: 'fewer_than_3_hirers',
     });
-    expect(board.rows[4]).toMatchObject({
+    expect(board.rows[5]).toMatchObject({
       agent_id: 12,
       hires_total: 2,
       distinct_hirers: 1,
@@ -407,9 +409,9 @@ describe('assembleSetAndEarnBoard', () => {
     expect(board.totals).toEqual({
       agents_registered: 5,
       agents_on_campaign_marketplaces: 3,
-      agents_with_hires: 4,
-      agents_hired: 6,
-      hires: { total: 15, by_source: { termix_escrow: 15, erc8183_shared: 0 } },
+      agents_with_hires: 5,
+      agents_hired: 7,
+      hires: { total: 19, by_source: { termix_escrow: 19, erc8183_shared: 0 } },
       agents_with_3_distinct_hirers: 4,
       agents_passing: 2,
     });
