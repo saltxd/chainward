@@ -17,8 +17,9 @@ export default function DocsPage() {
       <h1>ChainWard API</h1>
       <p>
         Everything on chainward.ai is available over HTTP. The public endpoints need
-        no account and no key. Base URL: <code>https://api.chainward.ai</code> (the
-        same paths also work under <code>https://chainward.ai/api/…</code>). The
+        no account and no key. Base URL: <code>https://api.chainward.ai</code>. The
+        free paths also work under <code>https://chainward.ai/api/…</code>; send paid
+        requests to <code>https://api.chainward.ai</code> directly. The
         machine-readable spec is at <a href="/openapi.json">/openapi.json</a>.
       </p>
       <p>
@@ -79,7 +80,9 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
         Base with any x402 client; the first request returns <code>402</code> with
         the payment requirements, the retry with a payment header returns the data.
         Settlement happens only after the handler succeeds, so a failed check is
-        never charged.
+        never charged. Send paid requests to <code>https://api.chainward.ai</code>{' '}
+        directly, not through <code>chainward.ai/api/…</code>: a fresh check can take
+        close to a minute.
       </p>
       <table>
         <thead>

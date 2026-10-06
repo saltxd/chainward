@@ -105,6 +105,8 @@ ConfigMap (api + indexer). A BscScan key, if ever added, belongs in the secret.
 - No attestation on BSC (EAS is not there; BAS is the candidate).
 - All three paid checks (`/api/risk/x402`, `/api/risk/seller-demand`,
   `/api/risk/hires`) take `chain=bsc`; payment itself is always USDC on Base.
+  Send paid requests to `https://api.chainward.ai` directly, not through
+  `chainward.ai/api/…`: a fresh paid check can run close to a minute.
 - Spam-sender filtering (`spam-tokens.ts`) is Base-tuned; BSC airdrop spam is
   not filtered yet.
 

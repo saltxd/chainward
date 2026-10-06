@@ -23,7 +23,7 @@ The interesting engineering here isn't "an LLM writes crypto articles." It's the
 ## Use it
 
 - **Check an address before you pay it**: free at [chainward.ai](https://chainward.ai), or `POST https://api.chainward.ai/api/risk/check`. Base and BNB Chain. A report is a list of flags, each tied to the transactions behind it, never a safety verdict.
-- **Pay per check over x402**: `GET /api/risk/x402?address=0x…` for 0.05 USDC on Base (add `&chain=bsc` for BNB Chain). Not charged if the check fails. Discovery at [`/.well-known/x402`](https://api.chainward.ai/.well-known/x402) and [`/openapi.json`](https://api.chainward.ai/openapi.json).
+- **Pay per check over x402**: `GET https://api.chainward.ai/api/risk/x402?address=0x…` for 0.05 USDC on Base (add `&chain=bsc` for BNB Chain). Not charged if the check fails. Send paid requests to `https://api.chainward.ai` directly, not through `chainward.ai/api/…`. Discovery at [`/.well-known/x402`](https://api.chainward.ai/.well-known/x402) and [`/openapi.json`](https://api.chainward.ai/openapi.json).
 - **Read it on-chain**: reports are attested with [EAS on Base](docs/ATTEST.md), so an agent or contract can check one without trusting ChainWard's API.
 - **From Claude, Cursor or any MCP client**: `npx -y chainward-mcp-server` ([`packages/mcp-server`](packages/mcp-server)), listed in the MCP Registry as `io.github.saltxd/chainward`.
 

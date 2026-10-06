@@ -47,7 +47,7 @@ client.onBeforePaymentCreation(counterpartyGuard()); // { blockUnknown, maxRepor
 
 ## Pay per check (x402)
 
-Need a report that isn't on-chain yet, or one fresher than the last attestation? `GET https://api.chainward.ai/api/risk/x402?address=<address>` (or `/api/risk/x402/<address>`) answers with a report no older than 24 hours, running a fresh check when needed. It is paid per request over [x402](https://x402.org): **0.05 USDC on Base**, no account, no API key. The first request returns `402` with the payment requirements; an x402 client signs a USDC authorization and retries. Settlement runs through the PayAI facilitator, which pays the gas, and only after the check succeeds: a failed or timed-out check (`>= 400`) is never charged.
+Need a report that isn't on-chain yet, or one fresher than the last attestation? `GET https://api.chainward.ai/api/risk/x402?address=<address>` (or `/api/risk/x402/<address>`) answers with a report no older than 24 hours, running a fresh check when needed. It is paid per request over [x402](https://x402.org): **0.05 USDC on Base**, no account, no API key. The first request returns `402` with the payment requirements; an x402 client signs a USDC authorization and retries. Settlement runs through the PayAI facilitator, which pays the gas, and only after the check succeeds: a failed or timed-out check (`>= 400`) is never charged. Send paid requests to `https://api.chainward.ai` directly, not through `chainward.ai/api/…`: a fresh check can take close to a minute.
 
 ```
 cd examples/pay-per-check && npm install
