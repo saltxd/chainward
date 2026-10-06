@@ -354,6 +354,23 @@ describe('runSetAndEarnBoard', () => {
     expect(board.as_of.block).toBeGreaterThanOrEqual(B + 105);
     expect(board.totals.agents_with_hires).toBe(2);
   });
+
+  it('counts only agents registered by the as_of block when the hire scan stops short of the registry scan', async () => {
+    const chain = campaignChain();
+    chain.register(361300, addr(0xd0), 'https://termix.ai/a/late.json', B + 420_000);
+    const hireScanFails: RpcCall = async (url, method, params, t) => {
+      const f = params[0] as { address?: string[]; fromBlock?: string } | undefined;
+      const hireFilter = f?.address?.some((a) => a.toLowerCase() === ESCROW);
+      if (method === 'eth_getLogs' && hireFilter && Number(BigInt(f!.fromBlock!)) >= B + 400_000) throw new Error('upstream 502');
+      return chain.rpcCall(url, method, params, t);
+    };
+    await run(chain, fakeGraph(FUNDERS).graph, { rpcCall: hireScanFails });
+    const board = stored();
+    expect(board.as_of.block).toBe(B + 399_999);
+    expect(board.totals.agents_registered).toBe(3);
+    // The registry itself was read to the head, so the next run does not re-read it.
+    expect(redis.strings.get(SET_AND_EARN_KEYS.registryCursor)).toBe(String(chain.head - 5));
+  });
 });
 
 describe('buildSetAndEarnBoard', () => {

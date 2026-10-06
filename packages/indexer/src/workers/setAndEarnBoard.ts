@@ -334,7 +334,9 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
   if (asOfBlock < SET_AND_EARN_START_BLOCK) throw new Error('setAndEarnBoard: no blocks scanned yet');
   const asOf = { block: asOfBlock, time: await blockTime(asOfBlock) };
 
-  const ordered = boardOrder(hiresByAgent(regs, [...hires.values()], completions));
+  // The registry can be read further than the hires (a failed segment); the board stops at as_of.
+  const listed = new Map([...regs].filter(([, r]) => r.registered_block <= asOfBlock));
+  const ordered = boardOrder(hiresByAgent(listed, [...hires.values()], completions));
 
   // Registration times for agents that make the board, once each.
   const undated = ordered
@@ -408,7 +410,7 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
   });
 
   const board = assembleSetAndEarnBoard({
-    registrations: regs,
+    registrations: listed,
     hires: [...hires.values()],
     completions,
     verdicts,
