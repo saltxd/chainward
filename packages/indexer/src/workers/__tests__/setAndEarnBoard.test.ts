@@ -192,7 +192,10 @@ class FakeChain {
 }
 
 /** A funding graph from a table of first funders; everything else is an unfunded EOA. */
-function fakeGraph(native: Record<string, string>, opts: { failFor?: Set<string>; failOnce?: Set<string> } = {}) {
+function fakeGraph(
+  native: Record<string, string>,
+  opts: { failFor?: Set<string>; failOnce?: Set<string>; transfers?: Array<[string, string]> } = {},
+) {
   const calls: string[] = [];
   const graph: FundingGraph = {
     firstFunder: async (kind, address): Promise<FirstFunder | null> => {
@@ -201,6 +204,10 @@ function fakeGraph(native: Record<string, string>, opts: { failFor?: Set<string>
       if (opts.failOnce?.delete(address)) throw new Error('transfer source throttled');
       const from = kind === 'native' ? native[address] : undefined;
       return from ? { from, block: B - 1000 } : null;
+    },
+    hasTransfer: async (from, to) => {
+      calls.push(`t:${from}>${to}`);
+      return (opts.transfers ?? []).some(([f, t]) => f === from && t === to);
     },
     isHub: async () => false,
     isContract: async () => false,
@@ -315,6 +322,22 @@ describe('runSetAndEarnBoard', () => {
     expect(JSON.parse(redis.hashes.get(`set-and-earn:funder:${H(1)}`)!.get('native')!)).toEqual({ from: F(1), block: B - 1000 });
     expect(redis.ttls.get(`set-and-earn:funder:${H(1)}`)).toBe(30 * 86_400);
     expect(redis.hashes.get(`set-and-earn:funder:${F(1)}`)?.get('native')).toBeUndefined();
+  });
+
+  it('caches a direct hirer-owner transfer for 30 days and asks again after a day when there was none', async () => {
+    const chain = campaignChain();
+    const first = fakeGraph(FUNDERS, { transfers: [[H(1), OA]] });
+    await run(chain, first.graph);
+    expect(stored().rows.find((r) => r.agent_id === A)!.owner_linked).toBe(1);
+    expect(redis.strings.get(`set-and-earn:pair:${H(1)}:${OA}`)).toBe('1');
+    expect(redis.ttls.get(`set-and-earn:pair:${H(1)}:${OA}`)).toBe(30 * 86_400);
+    expect(redis.strings.get(`set-and-earn:pair:${H(2)}:${OA}`)).toBe('0');
+    expect(redis.ttls.get(`set-and-earn:pair:${H(2)}:${OA}`)).toBe(86_400);
+
+    const second = fakeGraph(FUNDERS, { transfers: [[H(1), OA]] });
+    chain.head += 50_000;
+    await run(chain, second.graph);
+    expect(second.calls.filter((c) => c.startsWith('t:'))).toEqual([]);
   });
 
   it('reads getLogs in chunks of at most 10,000 blocks, starting at Set and Earn\'s first block', async () => {

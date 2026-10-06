@@ -96,6 +96,9 @@ export const SET_AND_EARN_KEYS = {
 } as const;
 const datedKey = (iso: string) => `set-and-earn:board:${iso.slice(0, 10)}`;
 const funderKey = (address: string) => `set-and-earn:funder:${address}`;
+/** A direct hirer↔owner transfer, cached per direction: 'found' lasts 30 days, 'none yet' is re-asked after a day. */
+const pairKey = (from: string, to: string) => `set-and-earn:pair:${from}:${to}`;
+const PAIR_NONE_TTL_SEC = 86_400;
 
 const HISTORY_TTL_SEC = 90 * 86_400;
 const FUNDER_TTL_SEC = 30 * 86_400;
@@ -277,6 +280,22 @@ function cachedGraph(
     isContract: (address) => {
       const a = address.toLowerCase();
       return once(`c:${a}`, () => lookup(a, 'contract', flag, () => base.isContract(a), false));
+    },
+    hasTransfer: (from, to) => {
+      const f = from.toLowerCase();
+      const t = to.toLowerCase();
+      return once(`t:${f}>${t}`, async () => {
+        const key = pairKey(f, t);
+        const cached = await redis.get(key);
+        if (cached !== null) {
+          counters.funding_cache_hits += 1;
+          return cached === '1';
+        }
+        counters.alchemy_lookups += 1;
+        const found = await pace(() => base.hasTransfer(f, t));
+        await redis.set(key, found ? '1' : '0', 'EX', found ? FUNDER_TTL_SEC : PAIR_NONE_TTL_SEC);
+        return found;
+      });
     },
   };
 }
