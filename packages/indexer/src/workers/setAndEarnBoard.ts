@@ -108,7 +108,9 @@ const TRACE_CONCURRENCY = 3;
 const AGENT_PAUSE_MS = 1_000;
 const RETRY_PAUSE_MS = 20_000;
 const HSET_BATCH = 500;
-const REGISTRY_CONCURRENCY = 8;
+/** Registry reads are 3 eth_calls each; public RPCs answer 429 well before 8 at a time. */
+const REGISTRY_CONCURRENCY = 3;
+const READ_ATTEMPTS = 3;
 const PROVIDER_TTL_SEC = 7 * 86_400;
 const providerKey = (address: string) => `set-and-earn:provider:${address}`;
 const MINT_LOOKUPS_PER_RUN = 100;
@@ -328,12 +330,26 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
   };
   const pointCall = withRpcFallback(logCall, rpcs);
 
+  /** A public-RPC read retried after 1 s, then 2 s: every endpoint in the list can be throttling at once. */
+  const retrying = async <T>(fn: () => Promise<T>): Promise<T> => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        if (attempt >= READ_ATTEMPTS) throw err;
+        await sleep(1_000 * attempt);
+      }
+    }
+  };
+
   const blockTimes = new Map<number, Promise<string>>();
   const blockTime = (block: number): Promise<string> => {
     let p = blockTimes.get(block);
     if (!p) {
       p = (async () => {
-        const b = (await pointCall(rpcUrl, 'eth_getBlockByNumber', [hex(block), false], RPC_TIMEOUT_MS)) as { timestamp: string } | null;
+        const b = (await retrying(() => pointCall(rpcUrl, 'eth_getBlockByNumber', [hex(block), false], RPC_TIMEOUT_MS))) as {
+          timestamp: string;
+        } | null;
         if (!b) throw new Error(`eth_getBlockByNumber: block ${block} not found`);
         return new Date(Number(BigInt(b.timestamp)) * 1000).toISOString();
       })();
@@ -481,7 +497,7 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
   const unread = [...new Set(needed.map((s) => s.agent_id))].filter((id) => !regs.has(id));
   const read = await mapLimit(unread, REGISTRY_CONCURRENCY, async (id) => {
     try {
-      const agent = await readRegistryAgent(pointCall, rpcUrl, id);
+      const agent = await retrying(() => readRegistryAgent(pointCall, rpcUrl, id));
       return agent ? describeRegistryAgent(id, agent) : null;
     } catch {
       return null;

@@ -123,6 +123,8 @@ class FakeChain {
   nodeLag = 0;
   /** The registry's current state, for eth_call reads (ownerOf, getAgentWallet, tokenURI). */
   agents = new Map<number, { owner: string; uri: string }>();
+  /** Agent ids whose next registry read is refused with a 429 (a public RPC under load). */
+  throttled = new Set<number>();
   calls: Array<{ method: string; params: unknown[] }> = [];
   private li = 0;
   add(address: string, topics: string[], data: string, block: number) {
@@ -154,6 +156,7 @@ class FakeChain {
       const { data } = params[0] as { to: string; data: string };
       const a = this.agents.get(Number(BigInt('0x' + data.slice(10))));
       if (data.startsWith('0x6352211e')) {
+        if (this.throttled.delete(Number(BigInt('0x' + data.slice(10))))) throw new Error('eth_call: 429');
         if (!a) throw new Error('eth_call: execution reverted');
         return topic(a.owner);
       }
@@ -483,6 +486,15 @@ describe('runSetAndEarnBoard', () => {
     agentsOwnedBy.mockClear();
     await run(chain, fakeGraph(FUNDERS).graph, { agentsOwnedBy });
     expect(agentsOwnedBy.mock.calls.map((c) => c[0])).not.toContain(P);
+  });
+
+  it('retries a registry read the public RPC refused, after a pause', async () => {
+    const chain = campaignChain();
+    chain.throttled.add(OLD);
+    const sleep = vi.fn(async () => undefined);
+    await run(chain, fakeGraph(FUNDERS).graph, { sleep });
+    expect(stored().rows.find((r) => r.agent_id === OLD)).toMatchObject({ owner: addr(0xc0), marketplace: 'termix' });
+    expect(sleep).toHaveBeenCalledWith(1_000);
   });
 
   it('dates an older agent from its mint, once', async () => {
