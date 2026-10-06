@@ -12,9 +12,11 @@ export type VerdictStatus = 'checked' | 'fewer_than_3_hirers' | 'error' | 'pendi
 export interface SetAndEarnRow {
   agent_id: number;
   name: string | null;
-  owner: string;
-  marketplace: string;
+  /** null when the registry could not be read for this agent. */
+  owner: string | null;
+  marketplace: string | null;
   registered_at: string | null;
+  registered_during_campaign: boolean;
   hires_total: number;
   completed: number | null;
   distinct_hirers: number;
@@ -35,6 +37,7 @@ export interface SetAndEarnBoard {
     agents_registered: number;
     agents_on_campaign_marketplaces: number;
     agents_with_hires: number;
+    agents_hired: number;
     hires: { total: number; by_source: { termix_escrow: number; erc8183_shared: number } };
     agents_with_3_distinct_hirers: number;
     agents_passing: number;
@@ -57,8 +60,18 @@ const MARKETPLACES: Record<string, string> = {
   none: 'no card',
 };
 
-export function marketplaceLabel(marketplace: string): string {
+export function marketplaceLabel(marketplace: string | null): string {
+  if (marketplace === null) return '—';
   return MARKETPLACES[marketplace] ?? marketplace;
+}
+
+/** "Oct 3": a date in UTC, short. */
+export const utcDay = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+/** "new · Oct 3" for an agent registered during the campaign, "registered Sep 12" for an older one, null when unknown. */
+export function registeredLabel(row: SetAndEarnRow): string | null {
+  if (!row.registered_at) return null;
+  return row.registered_during_campaign ? `new · ${utcDay(row.registered_at)}` : `registered ${utcDay(row.registered_at)}`;
 }
 
 export function verdictLabel(row: SetAndEarnRow): { text: string; tone: 'pass' | 'fail' | 'none' } {

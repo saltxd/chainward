@@ -4,6 +4,7 @@ import {
   campaignClosed,
   hireCheckCurl,
   marketplaceLabel,
+  registeredLabel,
   verdictLabel,
   type SetAndEarnRow,
 } from '../setAndEarn';
@@ -14,6 +15,7 @@ const row = (over: Partial<SetAndEarnRow>): SetAndEarnRow => ({
   owner: '0x' + 'a'.repeat(40),
   marketplace: 'termix',
   registered_at: null,
+  registered_during_campaign: false,
   hires_total: 3,
   completed: 3,
   distinct_hirers: 3,
@@ -47,6 +49,15 @@ describe('marketplaceLabel', () => {
     expect(marketplaceLabel('other')).toBe('other');
     expect(marketplaceLabel('none')).toBe('no card');
     expect(marketplaceLabel('something-new')).toBe('something-new');
+    expect(marketplaceLabel(null)).toBe('—');
+  });
+});
+
+describe('registeredLabel', () => {
+  it('tags an agent registered during the campaign as new, and dates an older one when its date is known', () => {
+    expect(registeredLabel(row({ registered_during_campaign: true, registered_at: '2026-10-03T16:46:17.000Z' }))).toBe('new · Oct 3');
+    expect(registeredLabel(row({ registered_at: '2026-09-12T08:00:00.000Z' }))).toBe('registered Sep 12');
+    expect(registeredLabel(row({}))).toBeNull();
   });
 });
 

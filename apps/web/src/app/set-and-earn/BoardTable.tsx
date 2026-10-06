@@ -1,6 +1,4 @@
-import { agentUrl, marketplaceLabel, verdictLabel, type SetAndEarnRow } from '@/lib/setAndEarn';
-
-const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+import { agentUrl, marketplaceLabel, registeredLabel, utcDay, verdictLabel, type SetAndEarnRow } from '@/lib/setAndEarn';
 
 /** The board's table; styles (se-*) live on the page. A verdict from an earlier run carries its date. */
 export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; generatedAt: string }) {
@@ -20,6 +18,7 @@ export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; gener
         <tbody>
           {rows.map((row) => {
             const verdict = verdictLabel(row);
+            const registered = registeredLabel(row);
             return (
               <tr key={row.agent_id}>
                 <td>
@@ -27,6 +26,7 @@ export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; gener
                     #{row.agent_id}
                   </a>
                   {row.name && <div className="se-sub">{row.name}</div>}
+                  {registered && <div className="se-sub">{registered}</div>}
                 </td>
                 <td>{marketplaceLabel(row.marketplace)}</td>
                 <td>
@@ -37,8 +37,8 @@ export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; gener
                 <td>{row.independent_within_limits ?? '—'}</td>
                 <td className={`se-verdict se-verdict--${verdict.tone}`}>
                   {verdict.text}
-                  {row.checked_at && day(row.checked_at) !== day(generatedAt) && (
-                    <div className="se-sub">as of {day(row.checked_at)}</div>
+                  {row.checked_at && utcDay(row.checked_at) !== utcDay(generatedAt) && (
+                    <div className="se-sub">as of {utcDay(row.checked_at)}</div>
                   )}
                 </td>
               </tr>

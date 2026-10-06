@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Set and Earn Board — who hired the agents built for BNB Chain’s Set and Earn',
   description:
-    'Every ERC-8004 agent registered on BNB Chain since Set and Earn opened that has been hired, and whether 3 of its hirers are wallets its owner neither is nor funded. Updated daily from on-chain data. Never a safety verdict.',
+    'Every ERC-8004 agent hired on BNB Chain since Set and Earn opened, and whether 3 of its hirers are wallets its owner neither is nor funded. Updated daily from on-chain data. Never a safety verdict.',
   alternates: { canonical: 'https://chainward.ai/set-and-earn' },
   openGraph: {
     title: 'Set and Earn Board',
@@ -59,7 +59,7 @@ export default async function SetAndEarnPage() {
           <p className="se-lede">
             BNB Chain’s Set and Earn rule for the agent you build: “At least 3 completed hires from 3
             distinct wallets that are not yours and not funded by yours”. Every day, this board lists each
-            ERC-8004 agent registered on BSC since Oct 1 that has been hired, and runs ChainWard’s hire
+            ERC-8004 agent hired on BSC since Oct 1, whenever it was registered, and runs ChainWard’s hire
             check on those with 3 or more distinct hirers.
           </p>
           {board && (
@@ -81,22 +81,22 @@ export default async function SetAndEarnPage() {
           <>
             <section className="se-section">
               <div className="se-totals">
-                <Stat value={t.agents_registered} label="agents registered since Oct 1" />
-                <Stat value={t.agents_on_campaign_marketplaces} label="on a campaign marketplace" />
-                <Stat value={t.agents_with_hires} label="hired at least once" />
-                <Stat value={t.hires.total} label="hires of these agents" />
+                <Stat value={t.agents_hired} label="agents hired since Oct 1" />
+                <Stat value={t.hires.total} label="hires" />
                 <Stat value={t.agents_with_3_distinct_hirers} label="with 3+ distinct hirers" />
                 <Stat value={t.agents_passing} label="with 3+ independent hirers" />
+                <Stat value={t.agents_registered} label="new agents registered since Oct 1" />
+                <Stat value={t.agents_on_campaign_marketplaces} label="of them on a campaign marketplace" />
               </div>
             </section>
 
             <section className="se-section">
               {board.rows.length === 0 ? (
-                <p className="se-p">No agent registered since Oct 1 has been hired yet.</p>
+                <p className="se-p">No agent has been hired since Oct 1 yet.</p>
               ) : (
                 <BoardTable rows={board.rows} generatedAt={board.generated_at} />
               )}
-              {t.agents_with_hires > board.rows.length && (
+              {t.agents_hired > board.rows.length && (
                 <p className="se-note">Showing the first {n(board.rows.length)} by hires; the totals count all of them.</p>
               )}
             </section>

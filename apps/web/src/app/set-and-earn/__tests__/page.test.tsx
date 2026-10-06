@@ -24,10 +24,11 @@ const board: SetAndEarnBoard = {
   totals: {
     agents_registered: 2930,
     agents_on_campaign_marketplaces: 746,
-    agents_with_hires: 41,
-    hires: { total: 97, by_source: { termix_escrow: 90, erc8183_shared: 7 } },
-    agents_with_3_distinct_hirers: 6,
-    agents_passing: 2,
+    agents_with_hires: 13,
+    agents_hired: 8261,
+    hires: { total: 8611, by_source: { termix_escrow: 8564, erc8183_shared: 47 } },
+    agents_with_3_distinct_hirers: 41,
+    agents_passing: 14,
   },
   rows: [
     {
@@ -36,6 +37,7 @@ const board: SetAndEarnBoard = {
       owner: '0x' + 'a'.repeat(40),
       marketplace: 'termix',
       registered_at: '2026-10-03T10:00:00.000Z',
+      registered_during_campaign: true,
       hires_total: 4,
       completed: 3,
       distinct_hirers: 3,
@@ -62,7 +64,8 @@ describe('/set-and-earn', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: board }))));
     const html = renderToStaticMarkup(await SetAndEarnPage());
 
-    for (const n of ['2,930', '746', '41', '97', '6']) expect(html).toContain(`>${n}<`);
+    for (const n of ['8,261', '8,611', '41', '14', '2,930', '746']) expect(html).toContain(`>${n}<`);
+    expect(html).toMatch(/whenever it was registered/);
     expect(html).toContain(escape('“At least 3 completed hires from 3 distinct wallets that are not yours and not funded by yours”'));
     expect(html).toContain('href="https://bscscan.com/nft/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432/361259"');
     expect(html).toContain(escape('curl -i "https://api.chainward.ai/api/risk/hires?agent=<id>&chain=bsc"'));

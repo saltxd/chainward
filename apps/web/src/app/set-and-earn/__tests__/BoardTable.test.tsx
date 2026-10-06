@@ -9,6 +9,7 @@ const base: SetAndEarnRow = {
   owner: '0x' + 'a'.repeat(40),
   marketplace: 'termix',
   registered_at: '2026-10-03T10:00:00.000Z',
+  registered_during_campaign: true,
   hires_total: 4,
   completed: 3,
   distinct_hirers: 3,
@@ -41,6 +42,22 @@ describe('BoardTable', () => {
     expect(html).toContain('not enough hires');
     expect(html).not.toMatch(/fake|scam|dirty|fraud/i);
     expect(html).not.toContain('as of');
+    expect(html).toContain('new · Oct 3');
+  });
+
+  it('shows an older agent, and one the registry could not be read for', () => {
+    const html = renderToStaticMarkup(
+      <BoardTable
+        generatedAt="2026-10-06T06:30:00.000Z"
+        rows={[
+          { ...base, agent_id: 352475, name: null, registered_during_campaign: false, registered_at: '2026-09-12T08:00:00.000Z' },
+          { ...base, agent_id: 332962, name: null, owner: null, marketplace: null, registered_during_campaign: false, registered_at: null },
+        ]}
+      />,
+    );
+    expect(html).toContain('registered Sep 12');
+    expect(html).not.toContain('new ·');
+    expect(html).toContain('<td>—</td>');
   });
 
   it('dates a verdict carried over from an earlier day', () => {
