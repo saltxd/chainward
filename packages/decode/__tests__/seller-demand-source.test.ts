@@ -31,6 +31,42 @@ describe('alchemyTransferSource', () => {
     expect(rows).toEqual([{ from: '0xabc', to: '0xdef', usd: 12.5 }]);
   });
 
+  it('with minUsd, pages past dust until it has atLeast inflows of that size', async () => {
+    const calls: Array<Record<string, unknown>> = [];
+    const page = (dust: number, real: number, pageKey?: string) => ({
+      transfers: [
+        ...Array.from({ length: dust }, (_, i) => ({ from: `0xd${i}`, to: '0xhub', value: 0.001 })),
+        ...Array.from({ length: real }, (_, i) => ({ from: `0xr${i}`, to: '0xhub', value: 2 })),
+      ],
+      ...(pageKey ? { pageKey } : {}),
+    });
+    const pages: Record<string, ReturnType<typeof page>> = {
+      first: page(600, 400, 'p2'),
+      p2: page(300, 700, 'p3'),
+      p3: page(0, 1000),
+    };
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: { body: string }) => {
+      const params = JSON.parse(init.body).params[0];
+      calls.push(params);
+      return { status: 200, json: async () => ({ result: pages[params.pageKey ?? 'first'] }) };
+    }));
+    const rows = await alchemyTransferSource('https://x.test', 1n)('in', '0xhub', { minUsd: 0.01, atLeast: 1000 });
+    expect(calls.map((c) => c.pageKey)).toEqual([undefined, 'p2']);
+    expect(rows).toHaveLength(1100);
+    expect(rows.every((r) => r.usd >= 0.01)).toBe(true);
+  });
+
+  it('with minUsd, stops when the window has no more pages', async () => {
+    let n = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      n++;
+      return { status: 200, json: async () => ({ result: { transfers: [{ from: '0xa', to: '0xhub', value: 0.001 }, { from: '0xb', to: '0xhub', value: 3 }] } }) };
+    }));
+    const rows = await alchemyTransferSource('https://x.test', 1n)('in', '0xhub', { minUsd: 0.01, atLeast: 1000 });
+    expect(n).toBe(1);
+    expect(rows).toEqual([{ from: '0xb', to: '0xhub', usd: 3 }]);
+  });
+
   it('defaults to Base USDC', async () => {
     const calls: Array<Record<string, unknown>> = [];
     vi.stubGlobal('fetch', vi.fn(async (_url: string, init: { body: string }) => {

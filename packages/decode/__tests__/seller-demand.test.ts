@@ -12,6 +12,51 @@ function graph(edges: Array<[string, string, number]>, hubs: string[] = []): Tra
 
 const buyers = (n: number) => Array.from({ length: n }, (_, i) => `0xbuyer${i}`);
 
+describe('hub test ignores dust', () => {
+  // seller → 0xdist → buyers → seller. 0xdist also collects lots of sub-cent spam.
+  function loopVia(dist: string): Array<[string, string, number]> {
+    const edges: Array<[string, string, number]> = [['0xseller', dist, 500]];
+    for (const b of buyers(10)) edges.push([dist, b, 10], [b, '0xseller', 5]);
+    return edges;
+  }
+
+  it('walks past a wallet with 1,200 dust inflows and 50 real ones', async () => {
+    const edges = loopVia('0xdist');
+    for (let i = 0; i < 1200; i++) edges.push([`0xdust${i}`, '0xdist', 0.001]);
+    for (let i = 0; i < 50; i++) edges.push([`0xreal${i}`, '0xdist', 5]);
+    const r = await analyzeSellerDemand('0xseller', graph(edges));
+    expect(r.walk_stops).toEqual({});
+    expect(r.seller_funded.buyers).toBe(10);
+    expect(r.seller_funded.hops).toEqual({ '2': 10 });
+  });
+
+  it('still stops at a wallet with 1,000 inflows of at least $0.01, dust or not', async () => {
+    const edges = loopVia('0xdist');
+    for (let i = 0; i < 300; i++) edges.push([`0xdust${i}`, '0xdist', 0.001]);
+    for (let i = 0; i < 1000; i++) edges.push([`0xreal${i}`, '0xdist', 0.01]);
+    const r = await analyzeSellerDemand('0xseller', graph(edges));
+    expect(r.walk_stops).toEqual({ hub: 10 });
+  });
+
+  it('reads further back when a full page of inflows is part dust', async () => {
+    // The source returns 1,000 transfers a page. 0xdist's newest page is 300 dust
+    // + 700 real; 300 more real ones sit further back, so it is a hub after all.
+    const edges = loopVia('0xdist');
+    const dist: UsdcTransfer[] = [
+      ...Array.from({ length: 300 }, (_, i) => ({ from: `0xdust${i}`, to: '0xdist', usd: 0.001 })),
+      ...Array.from({ length: 1000 }, (_, i) => ({ from: `0xreal${i}`, to: '0xdist', usd: 1 })),
+    ];
+    const base = graph(edges);
+    const paged: TransferSource = async (dir, addr, opts) => {
+      if (dir !== 'in' || addr !== '0xdist') return base(dir, addr);
+      if (!opts) return dist.slice(0, 1000);
+      return dist.filter((t) => t.usd >= opts.minUsd).slice(0, Math.max(opts.atLeast, 1000));
+    };
+    const r = await analyzeSellerDemand('0xseller', paged);
+    expect(r.walk_stops).toEqual({ hub: 10 });
+  });
+});
+
 describe('analyzeSellerDemand', () => {
   it('traces a seller → hub → distributor → buyer loop (3 hops)', async () => {
     const edges: Array<[string, string, number]> = [

@@ -38,9 +38,21 @@ export function sellerDemandRpcUrl(chain: SellerChain, env: Record<string, strin
 }
 const MAX_HOPS = 4;
 const TOP_BUYERS = 30;
-/** An address with this many USDC inflows in the window is a hub (exchange, router,
- * custodian); walking past it says nothing about the seller. */
+/** An address with this many stablecoin inflows in the window is a hub (exchange,
+ * router, custodian); walking past it says nothing about the seller. The seller
+ * check counts only inflows of at least HUB_MIN_USD. */
 export const HUB_INFLOWS = 1000;
+/**
+ * Inflows under a cent (sub-cent spam, address-poisoning dust) don't count toward
+ * HUB_INFLOWS: one distributor collected 663 of them and stopped a trace. Alchemy
+ * reports `value` in token units for 6- and 18-decimal stablecoins alike, so this is
+ * 10,000 atomic units of USDC on Base and 1e16 of BSC's 18-decimal USDT/USDC.
+ */
+export const HUB_MIN_USD = 0.01;
+/** Transfers per alchemy_getAssetTransfers page (maxCount). Equal to HUB_INFLOWS. */
+const TRANSFER_PAGE = 1000;
+/** Pages the hub test reads past dust before it stops looking. */
+const HUB_MAX_PAGES = 5;
 export const DEMAND_WINDOW_DAYS = 30;
 
 export interface UsdcTransfer {
@@ -49,8 +61,19 @@ export interface UsdcTransfer {
   usd: number;
 }
 
-/** Newest-first USDC transfers into (`in`) or out of (`out`) an address, within the window. */
-export type TransferSource = (direction: 'in' | 'out', address: string) => Promise<UsdcTransfer[]>;
+/** Only transfers of at least `minUsd`, read back past one page until `atLeast` are found. */
+export interface TransferFilter {
+  minUsd: number;
+  atLeast: number;
+}
+
+/**
+ * Newest-first stablecoin transfers into (`in`) or out of (`out`) an address, within
+ * the window: one page (up to 1,000). With `filter`, only transfers of at least
+ * `filter.minUsd`, reading further pages until `filter.atLeast` are found or the
+ * window runs out.
+ */
+export type TransferSource = (direction: 'in' | 'out', address: string, filter?: TransferFilter) => Promise<UsdcTransfer[]>;
 
 export interface DemandSignal {
   id: 'buyers_funded_by_seller' | 'money_flows_back' | 'common_funder' | 'concentrated_buyers';
@@ -124,6 +147,21 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
     return memo.get(key)!;
   };
 
+  const realInflows = (addr: string) => {
+    const key = `real:${addr}`;
+    if (!memo.has(key)) memo.set(key, source('in', addr, { minUsd: HUB_MIN_USD, atLeast: HUB_INFLOWS }));
+    return memo.get(key)!;
+  };
+  const countReal = (ts: UsdcTransfer[]) => ts.filter((t) => t.usd >= HUB_MIN_USD).length;
+  const isHub = async (addr: string): Promise<boolean> => {
+    const page = await get('in', addr);
+    if (countReal(page) >= HUB_INFLOWS) return true;
+    // Less than a full page is the whole window, and it falls short.
+    if (page.length < TRANSFER_PAGE) return false;
+    // A full page that is part dust: read further back for inflows that count.
+    return countReal(await realInflows(addr)) >= HUB_INFLOWS;
+  };
+
   const [inflows, outflows] = await Promise.all([get('in', seller), get('out', seller)]);
   const bySender = sumBy(inflows.filter((t) => t.from !== seller), 'from');
   const totalIn = [...bySender.values()].reduce((a, b) => a + b, 0);
@@ -135,7 +173,7 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
   const top: string[] = [];
   for (const [sender] of [...bySender.entries()].sort((a, b) => b[1] - a[1])) {
     if (top.length >= TOP_BUYERS || top.length + intermediaries.size >= TOP_BUYERS * 2) break;
-    if ((await get('in', sender)).length >= HUB_INFLOWS) intermediaries.add(sender);
+    if (await isHub(sender)) intermediaries.add(sender);
     else top.push(sender);
   }
   const byBuyer = new Map([...bySender].filter(([a]) => !intermediaries.has(a)));
@@ -151,7 +189,7 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
       if (funders.has(seller)) return { buyer, reached: true, hops: hop };
       const [largest] = [...funders.entries()].sort((a, b) => b[1] - a[1])[0]!;
       if (seen.has(largest)) return { buyer, reached: false, stop: 'no_funding' };
-      if ((await get('in', largest)).length >= HUB_INFLOWS) return { buyer, reached: false, stop: 'hub' };
+      if (await isHub(largest)) return { buyer, reached: false, stop: 'hub' };
       seen.add(largest);
       node = largest;
     }
@@ -334,20 +372,32 @@ export function alchemyTransferSource(
   tokens: string[] = SELLER_STABLECOINS.base,
 ): TransferSource {
   const call = (params: Record<string, unknown>) => alchemyAssetTransfers(rpcUrl, params, log);
+  const rows = (transfers: AlchemyTransfer[]): UsdcTransfer[] =>
+    transfers
+      .filter((t) => t.to)
+      .map((t) => ({ from: t.from.toLowerCase(), to: t.to!.toLowerCase(), usd: Number(t.value ?? 0) }));
 
-  return async (direction, address) => {
-    const result = await call({
+  return async (direction, address, filter) => {
+    const params = {
       category: ['erc20'],
       contractAddresses: tokens,
       order: 'desc',
-      maxCount: '0x3e8',
+      maxCount: `0x${TRANSFER_PAGE.toString(16)}`,
       excludeZeroValue: true,
       withMetadata: false,
       fromBlock: `0x${fromBlock.toString(16)}`,
       [direction === 'in' ? 'toAddress' : 'fromAddress']: address,
-    });
-    return result.transfers
-      .filter((t) => t.to)
-      .map((t) => ({ from: t.from.toLowerCase(), to: t.to!.toLowerCase(), usd: Number(t.value ?? 0) }));
+    };
+    if (!filter) return rows((await call(params)).transfers);
+
+    const kept: UsdcTransfer[] = [];
+    let pageKey: string | undefined;
+    for (let page = 0; page < HUB_MAX_PAGES; page++) {
+      const result = await call(pageKey ? { ...params, pageKey } : params);
+      kept.push(...rows(result.transfers).filter((t) => t.usd >= filter.minUsd));
+      pageKey = result.pageKey;
+      if (kept.length >= filter.atLeast || !pageKey) break;
+    }
+    return kept;
   };
 }
