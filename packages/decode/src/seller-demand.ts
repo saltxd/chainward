@@ -230,20 +230,22 @@ export function demandSignals(r: SellerDemandReport): DemandSignal[] {
 
 // ─── Alchemy transfer source ──────────────────────────────────────────────────
 
-interface AlchemyTransfer {
+export interface AlchemyTransfer {
   from: string;
   to: string | null;
   value: number | null;
   hash?: string;
   blockNum?: string;
+  /** ERC-721 transfers only. */
+  erc721TokenId?: string | null;
 }
 
 /** One alchemy_getAssetTransfers call, with backoff for the free tier's compute-units-per-second limit. */
-async function alchemyAssetTransfers(
+export async function alchemyAssetTransfers(
   rpcUrl: string,
   params: Record<string, unknown>,
   log?: { warn: (msg: string) => void },
-): Promise<{ transfers: AlchemyTransfer[] }> {
+): Promise<{ transfers: AlchemyTransfer[]; pageKey?: string }> {
   for (let attempt = 0; attempt < 6; attempt++) {
     const res = await fetch(rpcUrl, {
       method: 'POST',

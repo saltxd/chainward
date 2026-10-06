@@ -1,8 +1,8 @@
 // ─── Hire check: BNB Chain sources ────────────────────────────────────────────
 //
 // Where the hire check's facts come from on BNB Smart Chain (56):
-//   - the ERC-8004 Identity registry: ownerOf, getAgentWallet, and Transfer
-//     events (an owner address's agents);
+//   - the ERC-8004 Identity registry: ownerOf, getAgentWallet, and its Transfer
+//     events to an owner address (its agents, via Alchemy's transfer index);
 //   - hire events: TermiX escrow OrderCreated (provider = ERC-8004 agent id,
 //     indexed) and the ERC-8183 kernel's JobCreated that six Set and Earn
 //     marketplaces share (provider = address, indexed);
@@ -13,12 +13,13 @@
 // layouts: deliverables/set-and-earn-week-one (scripts/marketplace_contracts.json).
 
 import { riskChainRpcs, type RiskChainRpc } from '@chainward/common';
-import { TRANSFER_TOPIC, addressTopic, jsonRpcResult, type RpcLog } from './data-fetch.js';
+import { addressTopic, jsonRpcResult, type RpcLog } from './data-fetch.js';
 import { planLogChunks, isRangeLimitError, type RpcCall } from './rpc-fixtures.js';
 import {
   HUB_INFLOWS,
   SELLER_BLOCKS_PER_DAY,
   SELLER_STABLECOINS,
+  alchemyAssetTransfers,
   alchemyFirstFunderSource,
   alchemyTransferSource,
   mapLimit,
@@ -43,6 +44,8 @@ export const ERC8183_BSC_KERNEL = '0xEa4DAa3100A767e86FDed867729ae7446476EBA6';
 export const SET_AND_EARN_START_BLOCK = 125_000_755;
 /** An owner address's agents are the registry tokens transferred to it within this many days. */
 export const AGENT_LOOKBACK_DAYS = 60;
+/** Pages of 1,000 registry transfers read for an owner address. */
+const AGENT_LOOKUP_PAGES = 3;
 /** More agents than this under one owner: ask for one agent id at a time. */
 export const MAX_AGENTS_PER_OWNER = 50;
 
@@ -174,20 +177,45 @@ async function agentWallet(rpcCall: RpcCall, rpcUrl: string, id: number): Promis
   return wallet === ZERO ? null : wallet;
 }
 
-/** Agents an owner holds now, from registry Transfer events to it in the lookback window. */
-async function agentsOwnedBy(rpcCall: RpcCall, rpcs: RiskChainRpc[], owner: string, head: number): Promise<number[]> {
-  const balance = await registryCall(rpcCall, rpcs[0]!.url, BALANCE_OF + addressTopic(owner).slice(2));
+/**
+ * Agents an owner holds now: the registry's ERC-721 Transfer events to it in the
+ * lookback window, read from Alchemy's transfer index (one call; the same window
+ * as chunked eth_getLogs would be ~1,150 calls), kept only if it still owns them.
+ */
+async function agentsOwnedBy(
+  rpcCall: RpcCall,
+  rpcUrl: string,
+  alchemyUrl: string,
+  owner: string,
+  head: number,
+  log?: { warn: (msg: string) => void },
+): Promise<number[]> {
+  const balance = await registryCall(rpcCall, rpcUrl, BALANCE_OF + addressTopic(owner).slice(2));
   if (!balance || BigInt(balance) === 0n) return [];
-  const logs = await scanHireLogs({
-    rpcs,
-    rpcCall,
-    address: [BSC_IDENTITY_REGISTRY],
-    topics: [TRANSFER_TOPIC, null, addressTopic(owner)],
-    fromBlock: Math.max(0, head - AGENT_LOOKBACK_DAYS * BLOCKS_PER_DAY),
-    toBlock: head,
-  });
-  const candidates = [...new Set(logs.filter((l) => l.topics[3]).map((l) => Number(BigInt(l.topics[3]!))))].sort((a, b) => a - b);
-  const owners = await mapLimit(candidates, 8, (id) => ownerOf(rpcCall, rpcs[0]!.url, id));
+  const ids = new Set<number>();
+  let pageKey: string | undefined;
+  for (let page = 0; page < AGENT_LOOKUP_PAGES; page++) {
+    const res = await alchemyAssetTransfers(
+      alchemyUrl,
+      {
+        category: ['erc721'],
+        contractAddresses: [BSC_IDENTITY_REGISTRY],
+        toAddress: owner,
+        fromBlock: hex(Math.max(0, head - AGENT_LOOKBACK_DAYS * BLOCKS_PER_DAY)),
+        order: 'asc',
+        maxCount: '0x3e8',
+        withMetadata: false,
+        excludeZeroValue: false,
+        ...(pageKey ? { pageKey } : {}),
+      },
+      log,
+    );
+    for (const t of res.transfers) if (t.erc721TokenId) ids.add(Number(BigInt(t.erc721TokenId)));
+    pageKey = res.pageKey;
+    if (!pageKey) break;
+  }
+  const candidates = [...ids].sort((a, b) => a - b);
+  const owners = await mapLimit(candidates, 8, (id) => ownerOf(rpcCall, rpcUrl, id));
   return candidates.filter((_, i) => owners[i] === owner);
 }
 
@@ -261,7 +289,7 @@ export async function runHireCheck(input: RunHireCheckInput): Promise<HireReport
     agentIds = [input.agent.id];
   } else {
     owner = input.agent.address.toLowerCase();
-    agentIds = await agentsOwnedBy(rpcCall, rpcs, owner, asOfBlock);
+    agentIds = await agentsOwnedBy(rpcCall, rpcUrl, input.alchemyUrl, owner, asOfBlock, input.log);
     if (agentIds.length > MAX_AGENTS_PER_OWNER) {
       throw new HireCheckError(
         'TOO_MANY_AGENTS',

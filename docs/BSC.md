@@ -138,8 +138,8 @@ limits) and `hire-sources.ts` (BSC reads); route `hiresCheck` in
 
 - **Agent.** An id resolves through the Identity registry `0x8004A169…a432`
   (`ownerOf`, `getAgentWallet`). An owner address uses the registry's `Transfer`
-  events to it in the last 60 days, keeping tokens it still owns (more than 50 → 400,
-  ask per id).
+  events to it in the last 60 days (Alchemy's ERC-721 transfer index, one call),
+  keeping tokens it still owns (more than 50 → 400, ask per id).
 - **Hires.** TermiX escrow `OrderCreated` on `0x6A52…913C` (USDC) and `0xCE02…544c`
   (USDT), filtered on the indexed provider agent id; the shared ERC-8183 kernel
   `0xEa4D…EBA6` `JobCreated`, filtered on the indexed provider (owner or agent

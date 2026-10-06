@@ -277,33 +277,64 @@ describe('runHireCheck', () => {
     await expect(runHireCheck({ ...base, agent: { kind: 'id', id: 5 }, rpcCall, graph: emptyGraph })).rejects.toBeInstanceOf(HireCheckError);
   });
 
-  it('finds an owner address\'s agents from registry transfers, keeping only those it still owns', async () => {
-    const { rpcCall } = fakeChain({
+  it('finds an owner address\'s agents from registry transfers to it in 60 days, keeping only those it still owns', async () => {
+    const alchemy: Array<Record<string, unknown>> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: { body: string }) => {
+        expect(url).toBe('https://alchemy.test');
+        alchemy.push(JSON.parse(init.body).params[0]);
+        return {
+          status: 200,
+          json: async () => ({
+            result: {
+              transfers: [7, 8, 7].map((id) => ({ from: addr(0), to: OWNER, value: null, erc721TokenId: topic(id) })),
+            },
+          }),
+        };
+      }),
+    );
+    const { rpcCall, calls } = fakeChain({
       owners: { '7': OWNER, '8': addr(0xbb) },
       wallets: { '7': addr(0xcc) },
       registryBalance: { [OWNER]: 1 },
-      transfersIn: { [OWNER]: [7, 8] },
       termix: [{ agent: 7, client: HIRER_A, block: 125_100_000 }],
       kernel: [{ provider: addr(0xcc), client: HIRER_B, block: 125_100_001 }],
     });
     const report = await runHireCheck({ ...base, agent: { kind: 'owner', address: OWNER.toUpperCase().replace('0X', '0x') }, rpcCall, graph: emptyGraph });
+    vi.unstubAllGlobals();
+
     expect(report.agent_ids).toEqual([7]);
     expect(report.agent_id).toBe(7);
     expect(report.agent_wallet).toBe(addr(0xcc));
     expect(report.hires.total).toBe(2);
+    // One indexed lookup instead of a 60-day chunked log scan.
+    expect(alchemy).toHaveLength(1);
+    expect(alchemy[0]).toMatchObject({
+      category: ['erc721'],
+      contractAddresses: [BSC_IDENTITY_REGISTRY],
+      toAddress: OWNER,
+      fromBlock: '0x' + (report.as_of.block - 60 * 192_000).toString(16),
+    });
+    const logFilters = calls.filter((c) => c.method === 'eth_getLogs').map((c) => (c.params[0] as { topics: string[] }).topics[0]);
+    expect(logFilters).not.toContain(TRANSFER);
   });
 
-  it('skips the registry transfer scan for an owner that holds no agents, but still reads its ERC-8183 hires', async () => {
+  it('skips the agent lookup for an owner that holds no agents, but still reads its ERC-8183 hires', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
     const { rpcCall, calls } = fakeChain({
       owners: {},
       kernel: [{ provider: OWNER, client: HIRER_A, block: 125_100_000 }],
     });
     const report = await runHireCheck({ ...base, agent: { kind: 'owner', address: OWNER }, rpcCall, graph: emptyGraph });
+    vi.unstubAllGlobals();
+
     expect(report.agent_ids).toEqual([]);
     expect(report.agent_id).toBeNull();
     expect(report.hires.by_source).toEqual({ termix_escrow: 0, erc8183_shared: 1 });
+    expect(fetchSpy).not.toHaveBeenCalled();
     const logFilters = calls.filter((c) => c.method === 'eth_getLogs').map((c) => (c.params[0] as { topics: string[] }).topics[0]);
-    expect(logFilters).not.toContain(TRANSFER);
     expect(logFilters).not.toContain(ORDER_CREATED_TOPIC);
   });
 });
