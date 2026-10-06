@@ -103,7 +103,8 @@ ConfigMap (api + indexer). A BscScan key, if ever added, belongs in the secret.
   1-day transfer window. A wallet whose only footprint is an old inbound
   transfer of some other token reads as `no_history`.
 - No attestation on BSC (EAS is not there; BAS is the candidate).
-- `x402` paid check and the seller-demand check remain Base-only.
+- All three paid checks (`/api/risk/x402`, `/api/risk/seller-demand`,
+  `/api/risk/hires`) take `chain=bsc`; payment itself is always USDC on Base.
 - Spam-sender filtering (`spam-tokens.ts`) is Base-tuned; BSC airdrop spam is
   not filtered yet.
 
