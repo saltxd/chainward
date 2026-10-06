@@ -84,7 +84,8 @@ function sumBy(transfers: UsdcTransfer[], key: 'from' | 'to'): Map<string, numbe
   return out;
 }
 
-async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+/** Promise.all over `items` with at most `limit` in flight; results keep input order. */
+export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out = new Array<R>(items.length);
   let next = 0;
   await Promise.all(

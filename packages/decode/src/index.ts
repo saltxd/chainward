@@ -16,3 +16,4 @@ export * from './attestation.js';
 export * from './data-fetch.js';
 export * from './rpc-fixtures.js';
 export * from './seller-demand.js';
+export * from './hire-check.js';
