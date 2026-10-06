@@ -112,6 +112,7 @@ describe('paid routes: input checked before the 402 challenge', () => {
     `/api/risk/x402?address=${ADDR}&chain=eth`,
     `/api/risk/x402?address=${ADDR}&chain=BSC`,
     `/api/risk/x402/${ADDR}?chain=eth`,
+    '/api/risk/x402?address=0x0000000000000000000000000000000000000001',
     '/api/risk/seller-demand?address=nope',
     '/api/risk/seller-demand',
     `/api/risk/seller-demand?address=${ADDR}&chain=eth`,

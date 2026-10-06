@@ -29,3 +29,15 @@ export function validateAddress(
   const valid = validateSolanaAddress(address);
   return { valid, normalized: valid ? address : null };
 }
+
+/**
+ * Near-zero addresses: precompiles, 0x…0001 test checks. Real reports exist for
+ * them, but nobody pays or hires one, so they are refused as check targets and
+ * kept out of public listings. One pattern for JS and SQL (Postgres `~*`).
+ */
+export const PLACEHOLDER_ADDRESS_PATTERN = '^0x0{30,}[0-9a-f]{0,10}$';
+const PLACEHOLDER_ADDRESS_RE = new RegExp(PLACEHOLDER_ADDRESS_PATTERN, 'i');
+
+export function isPlaceholderAddress(value: string): boolean {
+  return PLACEHOLDER_ADDRESS_RE.test(value);
+}

@@ -1,5 +1,5 @@
 import type { Context, MiddlewareHandler } from 'hono';
-import { RISK_CHAIN_IDS, type RiskChainId } from '@chainward/common';
+import { RISK_CHAIN_IDS, isPlaceholderAddress, type RiskChainId } from '@chainward/common';
 import type { HireAgentInput } from '@chainward/decode';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -23,6 +23,9 @@ export function parseCounterpartyInput(
   rawChain: string | undefined,
 ): { address: string; chain: RiskChainId } {
   const address = parseAddress(rawAddress);
+  if (isPlaceholderAddress(address)) {
+    throw new AppError(400, 'INVALID_TARGET', 'That is a placeholder address (0x000…), not a wallet to check');
+  }
   const chain = rawChain ?? 'base';
   if (!(RISK_CHAIN_IDS as readonly string[]).includes(chain)) {
     throw new AppError(400, 'INVALID_CHAIN', `chain must be one of: ${RISK_CHAIN_IDS.join(', ')}`);

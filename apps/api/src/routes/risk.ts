@@ -20,7 +20,14 @@ import {
   runHireCheck,
   type RiskAssessment,
 } from '@chainward/decode';
-import { KNOWN_CONTRACTS, RISK_CHAINS, RISK_CHAIN_IDS, type RiskChainId } from '@chainward/common';
+import {
+  KNOWN_CONTRACTS,
+  PLACEHOLDER_ADDRESS_PATTERN,
+  RISK_CHAINS,
+  RISK_CHAIN_IDS,
+  isPlaceholderAddress,
+  type RiskChainId,
+} from '@chainward/common';
 import { rpcFixturesHaveHistory, type RpcFixtures } from '@chainward/decode';
 import { fetchChainFixtures, teaserStatsFromFixtures } from '../lib/riskChainFixtures.js';
 import { budget, rateLimit } from '../middleware/rateLimit.js';
@@ -59,6 +66,7 @@ const DISCLAIMER =
   'off-chain agreements, or intent. Absence of flags is not a guarantee of safety.';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const PLACEHOLDER_MESSAGE = 'That is a placeholder address (0x000…), not a wallet to check';
 const HANDLE_RE = /^@?[A-Za-z0-9_]{1,15}$/;
 
 // ---------------------------------------------------------------------------
@@ -466,6 +474,7 @@ risk.post(
 
     const resolved = await resolveTarget(rawTarget, chain);
     const address = resolved.address.toLowerCase();
+    if (isPlaceholderAddress(address)) throw new AppError(400, 'INVALID_TARGET', PLACEHOLDER_MESSAGE);
     const redis = getRedis();
 
     // One forced re-check per address per 10 minutes, whoever asks: each one is
@@ -625,6 +634,7 @@ risk.get(
       throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
     }
     const address = parsed.data.toLowerCase();
+    if (isPlaceholderAddress(address)) throw new AppError(400, 'INVALID_TARGET', PLACEHOLDER_MESSAGE);
     const chainParam = chainSchema.optional().safeParse(c.req.query('chain') || undefined);
     if (!chainParam.success) {
       throw new AppError(400, 'INVALID_QUERY', `Unknown chain; expected one of ${RISK_CHAIN_IDS.join(', ')}`);
@@ -934,9 +944,13 @@ risk.get(
     }
     const { limit, offset, distinct, chain } = parsed.data;
     const db = getDb();
-    const publicFilter = chain
-      ? and(eq(riskReports.isPublic, true), eq(riskReports.chain, chain))
-      : eq(riskReports.isPublic, true);
+    // Public filings, minus placeholder addresses (0x…0001 test checks): this
+    // listing feeds the sitemap, /reports and the recently-checked list.
+    const publicFilter = and(
+      eq(riskReports.isPublic, true),
+      sql`${riskReports.walletAddress} !~* ${PLACEHOLDER_ADDRESS_PATTERN}`,
+      chain ? eq(riskReports.chain, chain) : undefined,
+    );
 
     if (distinct === 'address') {
       // One card per (address, chain) — its latest filing. DISTINCT ON requires
