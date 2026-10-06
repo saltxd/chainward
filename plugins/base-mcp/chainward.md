@@ -80,7 +80,7 @@ Returns `404` if the address is not tracked. That's information, not an error.
 GET https://api.chainward.ai/api/observatory/economics/{wallet}
 ```
 
-ACP revenue, jobs, success rate, unique buyers, 30-day gas burn, P&L, gas efficiency ratio. Use when the user asks about revenue or profitability.
+Lifetime ACP revenue, jobs, success rate and unique buyers, plus the last 30 days on-chain: `revenue30d` (USD received), `gasCost30d`, `profit30d` (30-day revenue minus 30-day gas) and the gas efficiency ratio. Use when the user asks about revenue or profitability.
 
 ### 4. Observatory overview (ecosystem stats)
 

@@ -15,7 +15,7 @@ This is the **standalone** distribution path. It works alongside Base MCP (which
 | `check_counterparty` | Before paying `0x…`: ChainWard's risk flags for it, plus the EAS attestation on Base (uid + explorer link) when one exists. Never a safety verdict. |
 | `lookup_agent` | Is `0x…` a known AI agent? Returns label + Decode pointers. Cheap. |
 | `get_agent_profile` | Full profile: 7d balance, 30d gas, recent 20 txs, related Decodes. |
-| `get_agent_economics` | ACP revenue, jobs, success rate, gas efficiency, P&L. |
+| `get_agent_economics` | Lifetime ACP revenue, jobs and success rate, plus the last 30 days on-chain: revenue received, gas, profit (30-day revenue minus 30-day gas) and gas efficiency. |
 | `get_observatory_overview` | Ecosystem-wide stats. |
 | `get_top_agents` | Leaderboard by activity. |
 | `get_activity_feed` | Recent labeled-agent activity. |

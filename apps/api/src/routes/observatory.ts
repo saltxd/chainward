@@ -84,10 +84,12 @@ observatory.get('/economics/:wallet', async (c) => {
 
   const r = (rows as unknown as Array<Record<string, unknown>>)[0]!;
 
-  // Get on-chain gas costs
+  // On-chain, last 30 days: gas paid, and value received (ACP's own revenue
+  // figure is lifetime, so it can't be netted against 30 days of gas).
   const gasRows = await db.execute(sql`
     SELECT
       COALESCE(SUM(CAST(gas_cost_usd AS numeric)), 0) AS gas_30d,
+      COALESCE(SUM(CAST(amount_usd AS numeric)) FILTER (WHERE direction = 'in' AND status <> 'failed'), 0) AS revenue_30d,
       COUNT(*) AS tx_count_30d,
       COUNT(*) FILTER (WHERE status = 'failed') AS failed_tx_30d
     FROM transactions
@@ -97,6 +99,7 @@ observatory.get('/economics/:wallet', async (c) => {
   const gas = (gasRows as unknown as Array<Record<string, unknown>>)[0] ?? {};
 
   const revenue = parseFloat(String(r.revenue ?? '0'));
+  const revenue30d = parseFloat(String(gas.revenue_30d ?? '0'));
   const gasCost = parseFloat(String(gas.gas_30d ?? '0'));
 
   return c.json({
@@ -118,13 +121,14 @@ observatory.get('/economics/:wallet', async (c) => {
       uniqueBuyers: Number(r.unique_buyers ?? 0),
       offerings: r.offerings,
       lastActiveAt: r.last_active_at != null ? String(r.last_active_at) : null,
-      // On-chain data
+      // On-chain data, last 30 days
+      revenue30d,
       gasCost30d: gasCost,
       txCount30d: Number(gas.tx_count_30d ?? 0),
       failedTx30d: Number(gas.failed_tx_30d ?? 0),
-      // Combined P&L
-      profit30d: revenue - gasCost,
-      gasEfficiency: gasCost > 0 ? revenue / gasCost : null,
+      // 30-day P&L: on-chain revenue minus gas over the same window
+      profit30d: revenue30d - gasCost,
+      gasEfficiency: gasCost > 0 ? revenue30d / gasCost : null,
     },
   });
 });

@@ -93,7 +93,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
   // ── Tool 3: get_agent_economics ─────────────────────────────────────────────
   server.tool(
     'get_agent_economics',
-    'Fetch ACP-derived economics for an agent: lifetime revenue, agentic gross dollar product (aGDP), job count, success rate, unique buyer count, 30-day on-chain gas cost, profit, and gas efficiency. Use when the user asks about agent revenue, profitability, or whether on-chain activity justifies a market cap.',
+    'Fetch economics for an ACP agent. From ACP (lifetime): revenue, agentic gross dollar product (aGDP), job count, success rate, unique buyer count. From the chain (last 30 days): revenue30d (USD value the wallet received), gasCost30d, txCount30d, profit30d (revenue30d minus gasCost30d) and gasEfficiency (revenue30d / gasCost30d). Do not compare lifetime revenue with 30-day gas. Use when the user asks about agent revenue, profitability, or whether on-chain activity justifies a market cap.',
     { wallet: walletSchema },
     async ({ wallet }) => {
       try {

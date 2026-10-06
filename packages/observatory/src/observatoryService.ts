@@ -556,12 +556,15 @@ export class ObservatoryService {
             WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
               AND t.timestamp >= NOW() - INTERVAL '30 days'
           ), 0) AS gas_cost_30d,
-          COALESCE(acp.revenue, 0) - COALESCE((
-            SELECT SUM(CAST(t.gas_cost_usd AS numeric))
+          -- acp.revenue is lifetime; 30-day revenue is on-chain value received
+          COALESCE((
+            SELECT SUM(CAST(t.amount_usd AS numeric))
             FROM transactions t
             WHERE LOWER(t.wallet_address) = LOWER(ar.wallet_address)
               AND t.timestamp >= NOW() - INTERVAL '30 days'
-          ), 0) AS profit_30d
+              AND t.direction = 'in'
+              AND t.status <> 'failed'
+          ), 0) AS revenue_30d
         FROM acp_agent_data acp
         LEFT JOIN agent_registry ar ON ar.registry_id = acp.virtual_agent_id::text
           AND ar.is_observatory = true
@@ -578,23 +581,28 @@ export class ObservatoryService {
           totalUniqueWallets: Number(eco.total_unique_wallets ?? 0),
           capturedAt: String(eco.captured_at),
         } : null,
-        topAgents: (agentRows as unknown as Array<Record<string, unknown>>).map((r) => ({
-          name: String(r.name ?? ''),
-          walletAddress: String(r.acp_wallet ?? ''),
-          obsWalletAddress: r.obs_wallet != null ? String(r.obs_wallet) : null,
-          symbol: r.symbol != null ? String(r.symbol) : null,
-          hasGraduated: Boolean(r.has_graduated),
-          role: r.role != null ? String(r.role) : null,
-          profilePic: r.profile_pic != null ? String(r.profile_pic) : null,
-          revenue: parseFloat(String(r.revenue ?? '0')),
-          agdp: parseFloat(String(r.agdp ?? '0')),
-          jobs: Number(r.jobs ?? 0),
-          successRate: parseFloat(String(r.success_rate ?? '0')),
-          uniqueBuyers: Number(r.unique_buyers ?? 0),
-          isOnline: Boolean(r.is_online),
-          gasCost30d: parseFloat(String(r.gas_cost_30d ?? '0')),
-          profit30d: parseFloat(String(r.profit_30d ?? '0')),
-        })),
+        topAgents: (agentRows as unknown as Array<Record<string, unknown>>).map((r) => {
+          const revenue30d = parseFloat(String(r.revenue_30d ?? '0'));
+          const gasCost30d = parseFloat(String(r.gas_cost_30d ?? '0'));
+          return {
+            name: String(r.name ?? ''),
+            walletAddress: String(r.acp_wallet ?? ''),
+            obsWalletAddress: r.obs_wallet != null ? String(r.obs_wallet) : null,
+            symbol: r.symbol != null ? String(r.symbol) : null,
+            hasGraduated: Boolean(r.has_graduated),
+            role: r.role != null ? String(r.role) : null,
+            profilePic: r.profile_pic != null ? String(r.profile_pic) : null,
+            revenue: parseFloat(String(r.revenue ?? '0')),
+            agdp: parseFloat(String(r.agdp ?? '0')),
+            jobs: Number(r.jobs ?? 0),
+            successRate: parseFloat(String(r.success_rate ?? '0')),
+            uniqueBuyers: Number(r.unique_buyers ?? 0),
+            isOnline: Boolean(r.is_online),
+            revenue30d,
+            gasCost30d,
+            profit30d: revenue30d - gasCost30d,
+          };
+        }),
       };
     }, opts.force);
   }

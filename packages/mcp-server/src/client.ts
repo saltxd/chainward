@@ -97,6 +97,7 @@ export interface AgentEconomics {
   hasGraduated: boolean;
   isOnline: boolean;
   twitterHandle: string | null;
+  /** Lifetime revenue as reported by ACP. */
   revenue: number;
   agdp: number;
   jobs: number;
@@ -104,9 +105,13 @@ export interface AgentEconomics {
   uniqueBuyers: number;
   offerings: unknown;
   lastActiveAt: string | null;
+  /** USD value the wallet received on-chain in the last 30 days. */
+  revenue30d: number;
   gasCost30d: number;
   txCount30d: number;
   failedTx30d: number;
+  /** revenue30d minus gasCost30d. */
   profit30d: number;
+  /** revenue30d / gasCost30d, or null with no gas spent. */
   gasEfficiency: number | null;
 }
