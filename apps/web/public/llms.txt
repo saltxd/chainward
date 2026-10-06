@@ -1,20 +1,37 @@
 # ChainWard
 
-> On-chain forensics for AI agents on Base. ChainWard reads the chain and files a public risk report for any Base address: a neutral signal band (low-signal, mixed, elevated, high-signal) and every flag it can prove on-chain, each tied to the transactions behind it. Reports describe on-chain behavior only. Absence of flags is not a clearance, and nothing here is a safety verdict.
+> On-chain forensics for AI agents on Base and BNB Chain. ChainWard reads the chain and files a public risk report for any Base or BNB Chain address: a neutral signal band (low-signal, mixed, elevated, high-signal) and every flag it can prove on-chain, each tied to the transactions behind it. Reports describe on-chain behavior only. Absence of flags is not a clearance, and nothing here is a safety verdict.
 
-## Check a counterparty
+## Check an address (free)
 
-- Free web check: https://chainward.ai (paste any Base address; the report lives at https://chainward.ai/report/<address>)
-- Latest on-chain attestation for an address (free, JSON, includes the canonical report JSON to verify the hash): GET https://api.chainward.ai/api/risk/attestation/<address>
-- Fresh report on demand, paid per call over x402 (0.05 USDC on Base, no account; not charged if the check fails): GET https://api.chainward.ai/api/risk/x402?address=<address>
-- Where a seller's buyers get their stablecoins (seller-funded buyers, money sent back, common funders), on Base or BNB Chain, paid per call over x402 (0.10 USDC): GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo> (add &chain=bsc for BNB Chain)
-- Who hired a BNB Chain ERC-8004 agent, and whether each hirer is the owner, funded by it or shares a funder with it (BNB Chain's Set and Earn rule), paid per call over x402 (0.10 USDC): GET https://api.chainward.ai/api/risk/hires?agent=<id>&chain=bsc
-- Set and Earn board, free and daily: every ERC-8004 agent on BNB Chain hired since Oct 1 2026, whenever it was registered, with the hire check's verdict: https://chainward.ai/set-and-earn (JSON: GET https://api.chainward.ai/api/set-and-earn/board)
-- x402 discovery document: https://api.chainward.ai/.well-known/x402
+- Web check: https://chainward.ai (Base) or https://chainward.ai/?chain=bsc (BNB Chain). Reports live at https://chainward.ai/report/<address> (add ?chain=bsc for BNB Chain); every report on file: https://chainward.ai/reports
+- API: POST https://api.chainward.ai/api/risk/check with JSON {"target":"<address>","chain":"base"} (or "bsc"). Limits: 30 checks a minute and 8 new decodes an hour per IP.
+- Latest report as JSON: GET https://api.chainward.ai/api/risk/report/<address> (add ?chain=bsc)
+- Latest on-chain attestation for an address (Base only; includes the canonical report JSON to verify the hash): GET https://api.chainward.ai/api/risk/attestation/<address>
+
+## Paid checks (x402, USDC on Base, no account; not charged if the check fails)
+
+Send paid requests to https://api.chainward.ai directly. The first request answers 402 with the payment requirements; any x402 client pays and retries.
+
+- Counterparty check, 0.05 USDC: a risk report no older than 24 hours, run fresh if needed. GET https://api.chainward.ai/api/risk/x402?address=<address> (add &chain=bsc for BNB Chain)
+- x402 seller check, 0.10 USDC: where a seller's buyers get their stablecoins (seller-funded buyers, money sent back, common funders), on Base or BNB Chain. GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo> (add &chain=bsc)
+- Hire check, 0.10 USDC: who hired a BNB Chain ERC-8004 agent in the last 30 days, and whether each hirer is the owner, funded by it or shares a funder with it (BNB Chain's Set and Earn rule). GET https://api.chainward.ai/api/risk/hires?agent=<id or owner address>&chain=bsc
+- Discovery: https://api.chainward.ai/.well-known/x402 and https://api.chainward.ai/openapi.json
+
+## Datasets
+
+- The full data behind a decode, as CSV, 10 USDC each. What's for sale: GET https://api.chainward.ai/api/paid
+- Free single-wallet lookup in a dataset: GET https://api.chainward.ai/api/paid/termix-wallets/lookup/<address>
+- Buy from any wallet on the web: https://chainward.ai/paid/termix-wallets, or over x402: GET https://api.chainward.ai/api/paid/termix-wallets/file
+
+## Boards (free)
+
+- x402 Seller Board, weekly: where the buyers of Base's top x402 sellers get their USDC: https://chainward.ai/x402 (JSON: GET https://api.chainward.ai/api/x402/board)
+- Set and Earn board, daily: every ERC-8004 agent on BNB Chain hired since Oct 1 2026, with the hire check's verdict: https://chainward.ai/set-and-earn (JSON: GET https://api.chainward.ai/api/set-and-earn/board)
 
 ## ChainWard Attest (EAS on Base)
 
-- Every report that flags observed behavior is attested on Base with the Ethereum Attestation Service. Recipient = the checked address.
+- Every Base report that flags observed behavior is attested on Base with the Ethereum Attestation Service. Recipient = the checked address. BNB Chain reports are not attested yet.
 - Schema UID: 0x09573690adba41164227b57600aa02061b0ce79dc0655e4c8b36bfe95bb41552
 - Attester (only trust this one): 0x5edc6276B89CC185aC8D6A7eCfdE076e1ACf50DF
 - Overview: https://chainward.ai/attest
@@ -23,9 +40,15 @@
 
 ## Investigations
 
-- Published on-chain investigations ("decodes") of Base agents and tokens: https://chainward.ai/decodes
+- Published on-chain investigations ("decodes") of agents, tokens and payment rails: https://chainward.ai/decodes (JSON: GET https://api.chainward.ai/api/public/decodes)
 - Custom investigation of any agent or wallet (paid brief): https://chainward.ai/request-brief
 
-## Source
+## MCP server
 
+- For Claude, Cursor and any MCP client: npx -y chainward-mcp-server (npm: https://www.npmjs.com/package/chainward-mcp-server; MCP Registry: io.github.saltxd/chainward). Tools include check_counterparty, lookup_agent, get_agent_economics, list_decodes and find_decodes_for_address. https://chainward.ai/mcp
+
+## Docs and contact
+
+- API reference: https://chainward.ai/docs
 - Open source (MIT): https://github.com/saltxd/chainward
+- Contact: hello@chainward.ai
