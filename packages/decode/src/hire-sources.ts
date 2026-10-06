@@ -151,6 +151,26 @@ export async function scanHireLogs(input: ScanHireLogsInput): Promise<RpcLog[]> 
   return results.flat();
 }
 
+/**
+ * A point read (eth_call, header, code, nonce) that moves down the endpoint list
+ * when one fails. A revert is an answer, not a failure, and is not retried.
+ */
+export function withRpcFallback(rpcCall: RpcCall, rpcs: RiskChainRpc[]): RpcCall {
+  return async (url, method, params, timeoutMs) => {
+    const urls = url === rpcs[0]?.url ? rpcs.map((r) => r.url) : [url];
+    let lastErr: unknown;
+    for (const u of urls) {
+      try {
+        return await rpcCall(u, method, params, timeoutMs);
+      } catch (err) {
+        if (err instanceof Error && /revert/i.test(err.message)) throw err;
+        lastErr = err;
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+  };
+}
+
 // ─── Registry reads ───────────────────────────────────────────────────────────
 
 async function registryCall(rpcCall: RpcCall, rpcUrl: string, data: string): Promise<string | null> {
@@ -275,9 +295,11 @@ async function blockTime(rpcCall: RpcCall, rpcUrl: string, block: number): Promi
 }
 
 export async function runHireCheck(input: RunHireCheckInput): Promise<HireReport> {
-  const rpcCall = input.rpcCall ?? defaultRpcCall;
   const rpcs = input.rpcs ?? riskChainRpcs('bsc');
   const rpcUrl = rpcs[0]!.url;
+  // Log scans fall back chunk by chunk on their own; point reads use this.
+  const logCall = input.rpcCall ?? defaultRpcCall;
+  const rpcCall = withRpcFallback(logCall, rpcs);
   const asOfBlock = input.head - LOG_HEAD_LAG;
 
   let owner: string;
@@ -307,7 +329,7 @@ export async function runHireCheck(input: RunHireCheckInput): Promise<HireReport
       ? Promise.resolve([] as RpcLog[])
       : scanHireLogs({
           rpcs,
-          rpcCall,
+          rpcCall: logCall,
           address: TERMIX_BSC_ESCROWS,
           topics: [ORDER_CREATED_TOPIC, null, null, agentIds.map(idTopic)],
           fromBlock: window.from,
@@ -315,7 +337,7 @@ export async function runHireCheck(input: RunHireCheckInput): Promise<HireReport
         }),
     scanHireLogs({
       rpcs,
-      rpcCall,
+      rpcCall: logCall,
       address: [ERC8183_BSC_KERNEL],
       topics: [JOB_CREATED_TOPIC, null, null, providers],
       fromBlock: window.from,

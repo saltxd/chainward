@@ -269,6 +269,29 @@ describe('runHireCheck', () => {
     expect(report.as_of.block).toBeLessThanOrEqual(HEAD);
   });
 
+  it('falls back to the next public RPC for registry reads and headers when the first is down', async () => {
+    const { rpcCall: chain } = fakeChain({
+      owners: { '332962': OWNER },
+      termix: [{ agent: 332962, client: HIRER_A, block: 125_100_000 }],
+    });
+    const rpcCall: RpcCall = async (url, method, params, t) => {
+      if (url === 'https://down.test') throw new Error('fetch failed');
+      return chain(url, method, params, t);
+    };
+    const report = await runHireCheck({
+      ...base,
+      rpcs: [
+        { url: 'https://down.test', logChunkBlocks: 1_000_000 },
+        { url: 'https://rpc.test', logChunkBlocks: 1_000_000 },
+      ],
+      agent: { kind: 'id', id: 332962 },
+      rpcCall,
+      graph: emptyGraph,
+    });
+    expect(report.owner).toBe(OWNER);
+    expect(report.hires.total).toBe(1);
+  });
+
   it('throws AGENT_NOT_FOUND for an id the registry does not know', async () => {
     const { rpcCall } = fakeChain({ owners: {} });
     await expect(runHireCheck({ ...base, agent: { kind: 'id', id: 5 }, rpcCall, graph: emptyGraph })).rejects.toMatchObject({
