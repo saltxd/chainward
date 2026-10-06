@@ -18,7 +18,6 @@ import {
   sellerDemandRpcUrl,
   HireCheckError,
   runHireCheck,
-  type HireAgentInput,
   type RiskAssessment,
 } from '@chainward/decode';
 import { KNOWN_CONTRACTS, RISK_CHAINS, RISK_CHAIN_IDS, type RiskChainId } from '@chainward/common';
@@ -33,6 +32,7 @@ import { logger } from '../lib/logger.js';
 import { WalletLookupService } from '../services/walletLookupService.js';
 import { extractProvenance, type ReportProvenance } from '../lib/reportProvenance.js';
 import { buildCoverage, type ReportCoverage } from '../lib/reportCoverage.js';
+import { parseCounterpartyInput, parseHireInput, parseSellerInput } from '../lib/paidInput.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -746,17 +746,8 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   // The budget covers the whole request, prechecks included: the web proxy waits
   // 65 s on paid paths, and a 2xx after the caller gave up would still settle.
   const started = Date.now();
-  const parsed = addressSchema.safeParse(rawAddress);
-  if (!parsed.success) {
-    throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
-  }
-  const address = parsed.data.toLowerCase();
   // ?chain=bsc checks a BNB Chain address; payment is still USDC on Base.
-  const chainParsed = chainSchema.safeParse(c.req.query('chain') ?? CHAIN);
-  if (!chainParsed.success) {
-    throw new AppError(400, 'INVALID_CHAIN', `chain must be one of: ${RISK_CHAIN_IDS.join(', ')}`);
-  }
-  const chain: RiskChainId = chainParsed.data;
+  const { address, chain } = parseCounterpartyInput(rawAddress, c.req.query('chain'));
 
   const cached = await latestReport(address, chain);
   if (cached && computeTtlState(cached) === 'fresh') {
@@ -824,8 +815,6 @@ export async function rpcHead(rpcUrl: string): Promise<bigint> {
   return BigInt(body.result);
 }
 
-const sellerChainSchema = z.enum(['base', 'bsc']).default('base');
-
 // The Alchemy RPC for a chain's seller check; shared with the indexer's boards.
 export { sellerDemandRpcUrl };
 
@@ -835,16 +824,7 @@ export function isAlchemyNetworkDisabled(err: unknown): boolean {
 }
 
 async function sellerDemandCheck(c: Context) {
-  const parsed = addressSchema.safeParse(c.req.query('address'));
-  if (!parsed.success) {
-    throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
-  }
-  const chainParsed = sellerChainSchema.safeParse(c.req.query('chain') ?? undefined);
-  if (!chainParsed.success) {
-    throw new AppError(400, 'INVALID_TARGET', 'chain must be base or bsc');
-  }
-  const chain = chainParsed.data;
-  const address = parsed.data.toLowerCase();
+  const { address, chain } = parseSellerInput(c.req.query('address'), c.req.query('chain'));
   const redis = getRedis();
   const cacheKey = chain === 'base' ? `seller-demand:${address}` : `seller-demand:${chain}:${address}`;
   const cached = await redis.get(cacheKey);
@@ -887,20 +867,9 @@ risk.get('/seller-demand', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:risk-
 // failure" rules as the seller check.
 const HIRES_CACHE_SEC = 3600;
 const HIRES_BUDGET_MS = 50_000;
-const AGENT_ID_RE = /^\d{1,12}$/;
-
-function parseHireAgent(raw: string | undefined): HireAgentInput {
-  const agent = (raw ?? '').trim();
-  if (AGENT_ID_RE.test(agent)) return { kind: 'id', id: Number(agent) };
-  if (ADDRESS_RE.test(agent)) return { kind: 'owner', address: agent.toLowerCase() };
-  throw new AppError(400, 'INVALID_TARGET', 'agent must be an ERC-8004 agent id or a 0x owner address');
-}
 
 async function hiresCheck(c: Context) {
-  const chain = c.req.query('chain') || 'bsc';
-  if (chain === 'base') throw new AppError(400, 'INVALID_CHAIN', 'hire check is BNB Chain only for now');
-  if (chain !== 'bsc') throw new AppError(400, 'INVALID_CHAIN', 'chain must be bsc');
-  const agent = parseHireAgent(c.req.query('agent'));
+  const agent = parseHireInput(c.req.query('agent'), c.req.query('chain'));
   const redis = getRedis();
   const cacheKey = `hires:bsc:${agent.kind === 'id' ? agent.id : agent.address}`;
   const cached = await redis.get(cacheKey);

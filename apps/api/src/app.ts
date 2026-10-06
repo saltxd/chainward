@@ -22,11 +22,12 @@ import { brief } from './routes/brief.js';
 import { telemetry } from './routes/telemetry.js';
 import { x402Board } from './routes/x402Board.js';
 import { setAndEarnBoard } from './routes/setAndEarnBoard.js';
-import { paid } from './routes/paid.js';
+import { paid, requireKnownSlug } from './routes/paid.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
 import { apiHomePage, x402DiscoveryDocument, x402OpenApiDocument, x402PublicUrl } from './lib/x402.js';
+import { checkPaidInput, parseCounterpartyInput, parseHireInput, parseSellerInput } from './lib/paidInput.js';
 
 export interface AppOptions {
   /** Origins allowed to make credentialed cross-origin requests. */
@@ -115,9 +116,22 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
     }
     await next();
   };
+  // Each path is mounted once, with the route's own input check ahead of the
+  // payment middleware, so bad input gets a 400 rather than a 402 to sign.
+  // ('/x402/*' also matched the bare '/x402', so a paid GET /api/risk/x402?address=
+  // ran the payment middleware twice: the inner run settled, the outer one tried
+  // to settle the same payment again.)
   if (x402Check) {
-    for (const path of ['/api/risk/x402', '/api/risk/x402/*', '/api/risk/seller-demand', '/api/risk/hires', '/api/paid/:slug/file']) {
+    const paidPaths: Array<[string, MiddlewareHandler]> = [
+      ['/api/risk/x402', checkPaidInput((c) => parseCounterpartyInput(c.req.query('address'), c.req.query('chain')))],
+      ['/api/risk/x402/:address', checkPaidInput((c) => parseCounterpartyInput(c.req.param('address'), c.req.query('chain')))],
+      ['/api/risk/seller-demand', checkPaidInput((c) => parseSellerInput(c.req.query('address'), c.req.query('chain')))],
+      ['/api/risk/hires', checkPaidInput((c) => parseHireInput(c.req.query('agent'), c.req.query('chain')))],
+      ['/api/paid/:slug/file', checkPaidInput((c) => requireKnownSlug(c.req.param('slug')))],
+    ];
+    for (const [path, checkInput] of paidPaths) {
       app.use(path, paidGetOnly);
+      app.use(path, checkInput);
       app.use(path, x402PublicUrl);
       app.use(path, x402Check);
     }

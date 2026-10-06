@@ -37,10 +37,14 @@ const META_COLUMNS = {
   createdAt: paidFiles.createdAt,
 };
 
-function slugParam(c: Context): string {
-  const slug = c.req.param('slug') ?? '';
+function parseSlug(raw: string | undefined): string {
+  const slug = raw ?? '';
   if (!SLUG_RE.test(slug)) throw new AppError(400, 'INVALID_SLUG', 'Invalid file slug');
   return slug;
+}
+
+function slugParam(c: Context): string {
+  return parseSlug(c.req.param('slug'));
 }
 
 function treasury(): string {
@@ -57,6 +61,16 @@ async function fileMeta(slug: string) {
   const [row] = await getDb().select(META_COLUMNS).from(paidFiles).where(eq(paidFiles.slug, slug)).limit(1);
   if (!row) throw new AppError(404, 'NOT_FOUND', 'No such file');
   return row;
+}
+
+/**
+ * A slug this route can serve: 400 if malformed, 404 if no such file. app.ts runs
+ * it before the x402 middleware so nobody is asked to pay for a file that isn't there.
+ */
+export async function requireKnownSlug(raw: string | undefined): Promise<string> {
+  const slug = parseSlug(raw);
+  await fileMeta(slug);
+  return slug;
 }
 
 function publicMeta(row: Awaited<ReturnType<typeof fileMeta>>) {
