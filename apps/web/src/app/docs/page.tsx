@@ -7,7 +7,7 @@ export const metadata = {
     title: 'ChainWard API',
     description:
       'Free risk checks for Base and BNB Chain addresses, public reports, attestations, x402 pay-per-check and datasets. No account needed.',
-    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
 };
 

@@ -13,13 +13,13 @@ export const metadata: Metadata = {
     description: 'Deep dives into AI agent on-chain activity on Base.',
     url: 'https://chainward.ai/decodes',
     type: 'website',
-    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'On-Chain Decodes | ChainWard',
     description: 'Deep dives into AI agent on-chain activity on Base.',
-    images: ['/chainward-og-press.png'],
+    images: ['/chainward-og-card.png'],
   },
 };
 

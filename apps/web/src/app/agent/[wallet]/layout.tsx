@@ -54,14 +54,14 @@ export async function generateMetadata({
         siteName: 'ChainWard',
         url: `https://chainward.ai/agent/${wallet}`,
         type: 'website',
-        images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
+        images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
       },
       twitter: {
         card: 'summary_large_image',
         site: '@chainwardai',
         title,
         description,
-        images: ['/chainward-og-press.png'],
+        images: ['/chainward-og-card.png'],
       },
     };
   } catch {
@@ -82,14 +82,14 @@ function fallbackMetadata(truncated: string, wallet?: string): Metadata {
       description,
       siteName: 'ChainWard',
       type: 'website',
-      images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
+      images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
     },
     twitter: {
       card: 'summary_large_image',
       site: '@chainwardai',
       title,
       description,
-      images: ['/chainward-og-press.png'],
+      images: ['/chainward-og-card.png'],
     },
   };
 }

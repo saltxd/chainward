@@ -84,7 +84,7 @@ export const metadata: Metadata = {
     siteName: 'ChainWard',
     url: 'https://chainward.ai',
     type: 'website',
-    images: [{ url: '/chainward-og-press.png', width: 1200, height: 630 }],
+    images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -92,7 +92,7 @@ export const metadata: Metadata = {
     title: 'ChainWard — on-chain risk checks for any Base or BNB Chain address',
     description:
       'Paste any Base or BNB Chain address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
-    images: ['/chainward-og-press.png'],
+    images: ['/chainward-og-card.png'],
   },
 };
 
