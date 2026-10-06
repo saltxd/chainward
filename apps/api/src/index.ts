@@ -24,6 +24,7 @@ import { payments } from './routes/payments.js';
 import { brief } from './routes/brief.js';
 import { telemetry } from './routes/telemetry.js';
 import { x402Board } from './routes/x402Board.js';
+import { setAndEarnBoard } from './routes/setAndEarnBoard.js';
 import { paid } from './routes/paid.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
@@ -158,6 +159,7 @@ app.route('/api/payments', payments);
 app.route('/api/brief', brief);
 app.route('/api/telemetry', telemetry);
 app.route('/api/x402', x402Board);
+app.route('/api/set-and-earn', setAndEarnBoard);
 app.route('/api/paid', paid);
 
 // 404 handler
