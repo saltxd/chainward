@@ -38,7 +38,7 @@ const READ_PATHS = [
   },
   {
     name: 'MCP',
-    body: 'check_counterparty in chainward-mcp-server (next npm release) — for assistants and agents that speak MCP.',
+    body: 'check_counterparty in chainward-mcp-server (npx -y chainward-mcp-server) — for assistants and agents that speak MCP.',
   },
   {
     name: 'Example agent',

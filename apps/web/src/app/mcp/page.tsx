@@ -128,14 +128,15 @@ export default function McpPage() {
     "chainward": {
       "command": "npx",
       "args": ["-y", "chainward-mcp-server"]
-    },
-    "base": {
-      "command": "npx",
-      "args": ["-y", "@base/mcp"]
     }
   }
 }`}</code>
           </pre>
+          <p className="mcp-p">
+            Base MCP is not an npm package: it is a hosted server at{' '}
+            <code className="mcp-inline mono">mcp.base.org</code>. Add it to your
+            client as a remote MCP server next to ChainWard.
+          </p>
         </section>
 
         <hr className="press-rule" />
