@@ -113,6 +113,19 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
           </tr>
           <tr>
             <td>
+              <code>GET /api/risk/hires?agent=&amp;chain=bsc</code>
+            </td>
+            <td>0.10 USDC</td>
+            <td>
+              For BNB Chain&apos;s Set and Earn: every wallet that hired an ERC-8004
+              agent (an id, or an owner address) in the last 30 days, and whether each
+              is the owner, funded by it or shares a funder with it.{' '}
+              <code>independent_within_limits</code> means no link was found within 4
+              hops, not proven independence. BNB Chain only.
+            </td>
+          </tr>
+          <tr>
+            <td>
               <code>GET /api/paid/:slug/file</code>
             </td>
             <td>10 USDC</td>

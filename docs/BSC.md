@@ -126,3 +126,46 @@ Base; the network must be enabled for the app in the Alchemy dashboard, or set
 `SELLER_DEMAND_BSC_RPC_URL`). 30 days = 5.76M blocks at ~0.45 s. Built for BNB Chain's
 Set and Earn verification ("3 hires from wallets you neither own nor fund") and the nine
 shortlisted marketplaces; a marketplace escrow or an agent's payout wallet is a valid target.
+
+## Hire check (Set and Earn)
+
+`GET /api/risk/hires?agent=<ERC-8004 id | 0x owner>&chain=bsc` (0.10 USDC on Base,
+`X402_HIRES_PRICE`) answers Set and Earn's "3 completed hires from 3 distinct wallets
+that are not yours and not funded by yours" for one agent. BNB Chain only:
+`chain=base` is a 400. Code: `packages/decode/src/hire-check.ts` (verdicts, method,
+limits) and `hire-sources.ts` (BSC reads); route `hiresCheck` in
+`apps/api/src/routes/risk.ts`.
+
+- **Agent.** An id resolves through the Identity registry `0x8004A169…a432`
+  (`ownerOf`, `getAgentWallet`). An owner address uses the registry's `Transfer`
+  events to it in the last 60 days, keeping tokens it still owns (more than 50 → 400,
+  ask per id).
+- **Hires.** TermiX escrow `OrderCreated` on `0x6A52…913C` (USDC) and `0xCE02…544c`
+  (USDT), filtered on the indexed provider agent id; the shared ERC-8183 kernel
+  `0xEa4D…EBA6` `JobCreated`, filtered on the indexed provider (owner or agent
+  wallet). Window: 30 days back from the head, never before block 125,000,755
+  (Set and Earn's first block). The hirer is the indexed client in both events.
+- **Funding.** For each hirer (first 20 by first hire), its first incoming BNB
+  (`external` only: Alchemy has no internal transfers on BNB) and first incoming
+  USDT/USDC, back up to 4 hops; the same for the owner and agent wallet. A hub
+  (100,000+ sent transactions, or 1,000+ stablecoin inflows in 30 days, the seller
+  check's rule) or a contract stops a trail; an EIP-7702 delegated wallet counts as
+  a wallet.
+- **Verdicts.** `owner` (hirer is the owner or agent wallet) → `owner_funded` (owner
+  or agent wallet in the hirer's trail) → `shared_funder` (trails meet at a non-hub,
+  non-contract wallet, or the hirer is in the owner's trail) → `inconclusive` (a hirer
+  trail ends at a hub or contract, nothing visible, or not traced) →
+  `independent_within_limits`. `summary.passes_three_independent` needs 3 of the last.
+  `independent_within_limits` is no link found within these limits, not proven
+  independence; the response's `method` and `limits` say so.
+- **RPCs.** Logs, `eth_call`, code, nonce and block headers go to the public BSC list
+  (`BSC_RPC_URL`, sentio by default): Alchemy's free tier caps `eth_getLogs` at a
+  **10-block** range on BNB (measured 2026-10-05). `alchemy_getAssetTransfers` and the
+  head go to the Alchemy BNB URL, as for the seller check. A log chunk no endpoint
+  can read fails the check (never a partial hire count).
+- **Same rules as the seller check.** Cached in Redis for an hour
+  (`hires:bsc:<id|owner>`), 50 s budget → 504 `CHECK_TIMEOUT`, no Alchemy URL or BNB
+  not enabled → 503 `UNAVAILABLE`, unknown agent id → 404. Any non-2xx is not settled.
+- **Pairwise only.** A closed group of wallets hiring each other can look unlinked
+  pair by pair (see the Set and Earn week-one decode); the check does not group
+  hirers across agents.
