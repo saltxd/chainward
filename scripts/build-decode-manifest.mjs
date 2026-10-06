@@ -80,8 +80,9 @@ function buildManifest() {
     }
   }
 
+  // No timestamp: the api build runs this every time, and the output must only
+  // change when deliverables/ does.
   const manifest = {
-    generatedAt: new Date().toISOString(),
     decodes: entries,
     byAddress,
   };

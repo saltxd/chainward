@@ -5,6 +5,11 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
+    "@chainward/api#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/deliverables/*/*.md", "$TURBO_ROOT$/scripts/build-decode-manifest.mjs"],
+      "outputs": ["dist/**", "src/data/decode-manifest.json"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

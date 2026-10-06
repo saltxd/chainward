@@ -76,6 +76,7 @@ The full pipeline spec lives in the internal wiki (BookStack page 199), not this
 | Research | manual + `decode-agent` | Spawn `decode-agent` subagent with the wallet/agent target |
 | Markdown writing | manual | Write to `deliverables/<dir>/decode.md` with frontmatter |
 | Page render | automatic | Next.js auto-discovers via `apps/web/src/lib/decodes.ts` |
+| API decode manifest | manual commit (build regenerates) | `node scripts/build-decode-manifest.mjs`, commit `apps/api/src/data/decode-manifest.json` (feeds `/api/public/decodes` + MCP; CI fails if stale) |
 | OG image | manual (static pre-render) | `apps/web/public/decodes/<slug>/og.png` (1200×675) |
 | Inline charts | manual | Python matplotlib → `apps/web/public/decodes/<slug>/<chart>.png` |
 | Deploy | manual | `./deploy/deploy.sh --skip-migrate` |
@@ -169,6 +170,7 @@ The candidate-finder uses ACP API's `walletBalance` field, which reports "0" for
 | `apps/web/src/lib/decodes.ts` | Frontmatter loader |
 | `apps/web/src/app/api/decodes/[slug]/og/route.tsx` | Dynamic OG fallback (works for non-X scrapers) |
 | `apps/web/next.config.ts` | Slug-rename redirects |
+| `scripts/build-decode-manifest.mjs` | Regenerates the API's decode manifest (run by the api's `build`/`dev`) |
 | `scripts/decode-candidates.ts` | Candidate ranking CLI |
 | `chainward-bot` (separate private repo) | Tweet-posting workflow |
 

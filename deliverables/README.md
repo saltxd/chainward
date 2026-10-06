@@ -59,13 +59,23 @@ For each new decode, in order:
    query whenever you re-render the chart — Cloudflare keys cache on full URL
    (see Cloudflare gotcha section below).
 
-5. **Deploy + verify** before tweeting:
+5. **Regenerate the API's decode manifest and commit it:**
+   `node scripts/build-decode-manifest.mjs` (writes
+   `apps/api/src/data/decode-manifest.json`). It feeds `GET /api/public/decodes`
+   and the MCP `list_decodes` / `find_decodes_for_address` tools. The api's
+   `build` and `dev` scripts also run it, so the image is always fresh, but CI
+   fails if the committed file is stale, and so does the api test
+   `decodeManifest.test.ts`.
+
+6. **Deploy + verify** before tweeting (deploy the api as well as the web):
    - `chainward.ai/decodes/<slug>` returns 200
    - `chainward.ai/decodes/<slug>/og.png` returns 200 image/png
    - View source: `<meta property="og:image">` points at the static URL, not
      `/api/...`
+   - `curl -s https://api.chainward.ai/api/public/decodes | jq '.data[0].slug'`
+     is the new slug
 
-6. **Then** post the launch tweet (manually or via `chainward-bot`'s
+7. **Then** post the launch tweet (manually or via `chainward-bot`'s
    `text` workflow input).
 
 ---

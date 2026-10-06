@@ -10,7 +10,6 @@ export interface DecodeManifestEntry {
 }
 
 interface DecodeManifest {
-  generatedAt: string;
   decodes: DecodeManifestEntry[];
   byAddress: Record<string, string[]>;
 }

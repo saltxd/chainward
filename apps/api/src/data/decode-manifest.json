@@ -1,6 +1,119 @@
 {
-  "generatedAt": "2026-09-30T12:58:42.820Z",
   "decodes": [
+    {
+      "slug": "set-and-earn-week-one",
+      "title": "Set and Earn, Week One: Who Is Hiring Whom on BNB Chain",
+      "subtitle": "Set and Earn's first four days on BSC: 2,930 new ERC-8004 agents, 8,611 hires, a closed 48-wallet ring and 5 cross-marketplace hirers.",
+      "date": "2026-10-05",
+      "url": "https://chainward.ai/decodes/set-and-earn-week-one",
+      "addresses": [
+        "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432",
+        "0x9708738b65a866def24973f5d916dd8a8816208b",
+        "0x498b22f28c93fa1ef28bb704c3e03b6ed9e7b4c4",
+        "0x5da8354fbfc06a92609b9a8387c59be5c21e2e38",
+        "0xfb9ed2b853f154cfc84021c632adef0992fc28ab",
+        "0x5759cda1e0fd71f954b1011d3f00eee22d4e79ab",
+        "0xefc91b64d00addd5586093ae628dfc3dee343ea2",
+        "0x6a52ba4c84b348faeae13ddc7a97b4f6af23913c",
+        "0xce02f987d8b8af694e13c8a843db9c77cabf544c",
+        "0xea4daa3100a767e86fded867729ae7446476eba6",
+        "0xa206c0517b6371c6638cd9e4a42cc9f02a33b0de",
+        "0xfdb083371f44cf53181350389d3217e51b431776",
+        "0x9332b1aa9b3d5826f0b9b9e1659d962d2da13a53",
+        "0xd6d11aa5046dc5c7be8d63b9223b60d7ad94cbe9",
+        "0x1cc9c47969df5703952ec5048dc71f69adf89a4a",
+        "0xe5655abbefbb9e1427174f8dc826880e9d1d4bc4",
+        "0x84fedabd1b83443ad86796c15619494878b64180",
+        "0x9c01845705b3078aa2e8cff7520a6376fd766de5",
+        "0xd6a4217588f6b1f5657a92a3e94e6422ad771cea",
+        "0x15d08640aeefbdce11930d9c9a30884011f654f6",
+        "0x4e276b4db12447254134b45e5add170993df5ad2",
+        "0xbd31cf49e41e7b6b337399d26458238245676aa7",
+        "0x0257c9ccd00d016c1a6efbca3c8820fa0806d680",
+        "0x99f88c4cae19f858052236f808b75967eece5bd0",
+        "0xca129aba49138f7136ad0ab3117eaf19aa5e632f",
+        "0x61816ae7d49619934d17074b498b7d1fcc350e5a",
+        "0x260ebe8efff64f273feea425842fe1dd3c4a3d7d",
+        "0x236d70b9beb20230c3a341754681e8129ab11c2f",
+        "0xc5e62c8a854d2df11a17a59429d3bd4a9c5414d9",
+        "0x329fddb153de52e956992f037cae246bac6358dc",
+        "0x8bb0d158b15b93952d71ca14d0526b8d648819b1",
+        "0xe7ee2a3fcd936fd148ed563144beeeb3e46bd80b",
+        "0x7fd59f0ded5380212989abbb3e12994c15641639",
+        "0x592b9b9be02bd5a5d97a7db770b4c4dca1b98af5",
+        "0xf8a14ce6d8c1d09397f7f10b22a73e94e8c61a7a",
+        "0xe47ccc6801812f65c731c6dde004801770df82ca",
+        "0x60ef148485c2a5119fa52ca13c52e9fd98f28e87",
+        "0xaa25aa7a19f9c426e07dee59b12f944f4d9f1dd3",
+        "0x651445d54e00075cf91d3f52bf937af239efef91",
+        "0x27fcfcd74f7379733123ffd862c4596e85eaad8b",
+        "0x494ae5cf2729e662cc05dbd63d2107d707fd00de",
+        "0xdf1074a272c53a1a10b96fa0201eb58bbbaafe00",
+        "0x86502596665183ef82047a8c9772eb25dbb01b14",
+        "0xca5a60e133c9650ea391be41983879a0ba2e68d2",
+        "0xb12a1e4e0e22a97e266ed7a6bfc4133f699b1a1b",
+        "0x1bc8751cee3cca2f65cd624e7925558aa6f9af34",
+        "0x004c7ae8077560c75fe5687da39e7be0697ddbfd",
+        "0x003911a1dd39d21de18a4a54a8af8692cb62a301",
+        "0x5ec5093a75a857912932a0531fe64f68ff7194d0",
+        "0x73809f69916fcf7ddc5bb1315fbdf96a569a5963",
+        "0xbfaa69233741924ed5b9d5daa9b4bf7b84567f0a",
+        "0xeec49d097c1306da51ca42d8ac8762a53fc0feb4",
+        "0x581d903814f4f2479177e7664d92043922149f0f",
+        "0x0d8c9ad8eebb6879fefa218f0799219bcaabe999",
+        "0x99186e9a933fd83c0813d7ee694464ca55aeb7f9",
+        "0x795009bb38a32348344a36a4cfcb36e4e84cb8d8",
+        "0x161ba15a5f335c9f06bb5bbb0a9ce14076fbb645",
+        "0x0b306a358aef8c391779bcc62a8253aabf524993",
+        "0x37fc1f942085c2ef2be4f6c0b6b9aba426d7bd68"
+      ]
+    },
+    {
+      "slug": "bankr-on-chain",
+      "title": "Bankr Earned $1.74M in September. The Chain Agrees With Its Dashboard",
+      "subtitle": "Fee receipts on Base and Robinhood Chain match 99.3% of Bankr's own Sep 1–28 figure. The number that's off is DefiLlama's $1.03M.",
+      "date": "2026-10-03",
+      "url": "https://chainward.ai/decodes/bankr-on-chain",
+      "addresses": [
+        "0x9eb7814904de8a594779d1c57b836036941ed45e",
+        "0xf99c984255bd1ffa6f38bac7ae362dbea9bb3755",
+        "0x284c3fc5040aab8ba64658a4fa51b90b4cd1fa26",
+        "0x74eb26b55b751a1c2411d10f53443a33ddd72f6d",
+        "0xc3bc151b8a548b0584c18da1aa3c16528e28f597",
+        "0xc4bb37ac3e1bb17907d4f1fc8734f7b1a9dd28c3",
+        "0xf240cad9fdfc2aceeb4d9e87208f72025bc1f8eb",
+        "0x12eb364a5ad1ad6c29b56ba7ac26773994dfe143",
+        "0xe65c028634f1adf0e423fac67d63166624a8f24b",
+        "0xf60633d02690e2a15a54ab919925f3d038df163e",
+        "0x042455f9990098e11592be1fbd72e6dc68419b13",
+        "0x5f8da8f88ec81e27f2e22fcb9ca5d926c595e508"
+      ]
+    },
+    {
+      "slug": "termix-on-chain",
+      "title": "TermiX Collected $507K in Job Fees. 99% Came From Wallets Hiring Each Other",
+      "subtitle": "483,738 agent jobs on Base and BNB Chain, $25.4M settled. 99.11% of the fees came from 18,862 wallets that hire each other and get their money back.",
+      "date": "2026-10-02",
+      "url": "https://chainward.ai/decodes/termix-on-chain",
+      "addresses": [
+        "0xc3d963e0856a2c2d6f75c83c1355f680fd8f9f10",
+        "0x6a52ba4c84b348faeae13ddc7a97b4f6af23913c",
+        "0x1095ded95cb6e81c01204f7a94950dd559195e42",
+        "0x5df551f8cd4531218be2c55689d01d0b79f485c2",
+        "0x9a60d9d2848df94553c15fc887610bdfb6b61822",
+        "0x5dbc4ad83441f592cdf4c6ce62138e9296e1a301",
+        "0xe6e20a7e009f3c62e58063b6603e8510141e2981",
+        "0x314867a07e1318dd506d2ec57b34adce6acb7f95",
+        "0x411fd453700e925e4a919565fb34d0c21e2b48bd",
+        "0x70573b7c858255396ef4a0b439c7176036287647",
+        "0x2423e10d17626dff30b9ad93bac4c8b8e62fff09",
+        "0xf150c3678d05c4f68323549a42379ad775ac13c4",
+        "0x54fa5dbb850ec43bc49010bb1f358af3486a49d2",
+        "0xdc05666cfd6f1af5a1a28002aaa8d7be37ce1946",
+        "0x4b85caedde5c964fcbc69dcd15498687156670ef",
+        "0x9007c373423c9db4cad7896eb69c73a4aff20506"
+      ]
+    },
     {
       "slug": "virtuals-top-dog",
       "title": "Virtuals' Agent Commerce Earned $345,197 in March. In September: $5.48",
@@ -279,6 +392,266 @@
     }
   ],
   "byAddress": {
+    "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432": [
+      "set-and-earn-week-one"
+    ],
+    "0x9708738b65a866def24973f5d916dd8a8816208b": [
+      "set-and-earn-week-one"
+    ],
+    "0x498b22f28c93fa1ef28bb704c3e03b6ed9e7b4c4": [
+      "set-and-earn-week-one"
+    ],
+    "0x5da8354fbfc06a92609b9a8387c59be5c21e2e38": [
+      "set-and-earn-week-one"
+    ],
+    "0xfb9ed2b853f154cfc84021c632adef0992fc28ab": [
+      "set-and-earn-week-one"
+    ],
+    "0x5759cda1e0fd71f954b1011d3f00eee22d4e79ab": [
+      "set-and-earn-week-one"
+    ],
+    "0xefc91b64d00addd5586093ae628dfc3dee343ea2": [
+      "set-and-earn-week-one"
+    ],
+    "0x6a52ba4c84b348faeae13ddc7a97b4f6af23913c": [
+      "set-and-earn-week-one",
+      "termix-on-chain"
+    ],
+    "0xce02f987d8b8af694e13c8a843db9c77cabf544c": [
+      "set-and-earn-week-one"
+    ],
+    "0xea4daa3100a767e86fded867729ae7446476eba6": [
+      "set-and-earn-week-one"
+    ],
+    "0xa206c0517b6371c6638cd9e4a42cc9f02a33b0de": [
+      "set-and-earn-week-one"
+    ],
+    "0xfdb083371f44cf53181350389d3217e51b431776": [
+      "set-and-earn-week-one"
+    ],
+    "0x9332b1aa9b3d5826f0b9b9e1659d962d2da13a53": [
+      "set-and-earn-week-one"
+    ],
+    "0xd6d11aa5046dc5c7be8d63b9223b60d7ad94cbe9": [
+      "set-and-earn-week-one"
+    ],
+    "0x1cc9c47969df5703952ec5048dc71f69adf89a4a": [
+      "set-and-earn-week-one"
+    ],
+    "0xe5655abbefbb9e1427174f8dc826880e9d1d4bc4": [
+      "set-and-earn-week-one"
+    ],
+    "0x84fedabd1b83443ad86796c15619494878b64180": [
+      "set-and-earn-week-one"
+    ],
+    "0x9c01845705b3078aa2e8cff7520a6376fd766de5": [
+      "set-and-earn-week-one"
+    ],
+    "0xd6a4217588f6b1f5657a92a3e94e6422ad771cea": [
+      "set-and-earn-week-one"
+    ],
+    "0x15d08640aeefbdce11930d9c9a30884011f654f6": [
+      "set-and-earn-week-one"
+    ],
+    "0x4e276b4db12447254134b45e5add170993df5ad2": [
+      "set-and-earn-week-one"
+    ],
+    "0xbd31cf49e41e7b6b337399d26458238245676aa7": [
+      "set-and-earn-week-one"
+    ],
+    "0x0257c9ccd00d016c1a6efbca3c8820fa0806d680": [
+      "set-and-earn-week-one"
+    ],
+    "0x99f88c4cae19f858052236f808b75967eece5bd0": [
+      "set-and-earn-week-one"
+    ],
+    "0xca129aba49138f7136ad0ab3117eaf19aa5e632f": [
+      "set-and-earn-week-one"
+    ],
+    "0x61816ae7d49619934d17074b498b7d1fcc350e5a": [
+      "set-and-earn-week-one"
+    ],
+    "0x260ebe8efff64f273feea425842fe1dd3c4a3d7d": [
+      "set-and-earn-week-one"
+    ],
+    "0x236d70b9beb20230c3a341754681e8129ab11c2f": [
+      "set-and-earn-week-one"
+    ],
+    "0xc5e62c8a854d2df11a17a59429d3bd4a9c5414d9": [
+      "set-and-earn-week-one"
+    ],
+    "0x329fddb153de52e956992f037cae246bac6358dc": [
+      "set-and-earn-week-one"
+    ],
+    "0x8bb0d158b15b93952d71ca14d0526b8d648819b1": [
+      "set-and-earn-week-one"
+    ],
+    "0xe7ee2a3fcd936fd148ed563144beeeb3e46bd80b": [
+      "set-and-earn-week-one"
+    ],
+    "0x7fd59f0ded5380212989abbb3e12994c15641639": [
+      "set-and-earn-week-one"
+    ],
+    "0x592b9b9be02bd5a5d97a7db770b4c4dca1b98af5": [
+      "set-and-earn-week-one"
+    ],
+    "0xf8a14ce6d8c1d09397f7f10b22a73e94e8c61a7a": [
+      "set-and-earn-week-one"
+    ],
+    "0xe47ccc6801812f65c731c6dde004801770df82ca": [
+      "set-and-earn-week-one"
+    ],
+    "0x60ef148485c2a5119fa52ca13c52e9fd98f28e87": [
+      "set-and-earn-week-one"
+    ],
+    "0xaa25aa7a19f9c426e07dee59b12f944f4d9f1dd3": [
+      "set-and-earn-week-one"
+    ],
+    "0x651445d54e00075cf91d3f52bf937af239efef91": [
+      "set-and-earn-week-one"
+    ],
+    "0x27fcfcd74f7379733123ffd862c4596e85eaad8b": [
+      "set-and-earn-week-one"
+    ],
+    "0x494ae5cf2729e662cc05dbd63d2107d707fd00de": [
+      "set-and-earn-week-one"
+    ],
+    "0xdf1074a272c53a1a10b96fa0201eb58bbbaafe00": [
+      "set-and-earn-week-one"
+    ],
+    "0x86502596665183ef82047a8c9772eb25dbb01b14": [
+      "set-and-earn-week-one"
+    ],
+    "0xca5a60e133c9650ea391be41983879a0ba2e68d2": [
+      "set-and-earn-week-one"
+    ],
+    "0xb12a1e4e0e22a97e266ed7a6bfc4133f699b1a1b": [
+      "set-and-earn-week-one"
+    ],
+    "0x1bc8751cee3cca2f65cd624e7925558aa6f9af34": [
+      "set-and-earn-week-one"
+    ],
+    "0x004c7ae8077560c75fe5687da39e7be0697ddbfd": [
+      "set-and-earn-week-one"
+    ],
+    "0x003911a1dd39d21de18a4a54a8af8692cb62a301": [
+      "set-and-earn-week-one"
+    ],
+    "0x5ec5093a75a857912932a0531fe64f68ff7194d0": [
+      "set-and-earn-week-one"
+    ],
+    "0x73809f69916fcf7ddc5bb1315fbdf96a569a5963": [
+      "set-and-earn-week-one"
+    ],
+    "0xbfaa69233741924ed5b9d5daa9b4bf7b84567f0a": [
+      "set-and-earn-week-one"
+    ],
+    "0xeec49d097c1306da51ca42d8ac8762a53fc0feb4": [
+      "set-and-earn-week-one"
+    ],
+    "0x581d903814f4f2479177e7664d92043922149f0f": [
+      "set-and-earn-week-one"
+    ],
+    "0x0d8c9ad8eebb6879fefa218f0799219bcaabe999": [
+      "set-and-earn-week-one"
+    ],
+    "0x99186e9a933fd83c0813d7ee694464ca55aeb7f9": [
+      "set-and-earn-week-one"
+    ],
+    "0x795009bb38a32348344a36a4cfcb36e4e84cb8d8": [
+      "set-and-earn-week-one"
+    ],
+    "0x161ba15a5f335c9f06bb5bbb0a9ce14076fbb645": [
+      "set-and-earn-week-one"
+    ],
+    "0x0b306a358aef8c391779bcc62a8253aabf524993": [
+      "set-and-earn-week-one"
+    ],
+    "0x37fc1f942085c2ef2be4f6c0b6b9aba426d7bd68": [
+      "set-and-earn-week-one"
+    ],
+    "0x9eb7814904de8a594779d1c57b836036941ed45e": [
+      "bankr-on-chain"
+    ],
+    "0xf99c984255bd1ffa6f38bac7ae362dbea9bb3755": [
+      "bankr-on-chain"
+    ],
+    "0x284c3fc5040aab8ba64658a4fa51b90b4cd1fa26": [
+      "bankr-on-chain"
+    ],
+    "0x74eb26b55b751a1c2411d10f53443a33ddd72f6d": [
+      "bankr-on-chain"
+    ],
+    "0xc3bc151b8a548b0584c18da1aa3c16528e28f597": [
+      "bankr-on-chain"
+    ],
+    "0xc4bb37ac3e1bb17907d4f1fc8734f7b1a9dd28c3": [
+      "bankr-on-chain"
+    ],
+    "0xf240cad9fdfc2aceeb4d9e87208f72025bc1f8eb": [
+      "bankr-on-chain"
+    ],
+    "0x12eb364a5ad1ad6c29b56ba7ac26773994dfe143": [
+      "bankr-on-chain"
+    ],
+    "0xe65c028634f1adf0e423fac67d63166624a8f24b": [
+      "bankr-on-chain"
+    ],
+    "0xf60633d02690e2a15a54ab919925f3d038df163e": [
+      "bankr-on-chain",
+      "bankr-hack-trace"
+    ],
+    "0x042455f9990098e11592be1fbd72e6dc68419b13": [
+      "bankr-on-chain"
+    ],
+    "0x5f8da8f88ec81e27f2e22fcb9ca5d926c595e508": [
+      "bankr-on-chain"
+    ],
+    "0xc3d963e0856a2c2d6f75c83c1355f680fd8f9f10": [
+      "termix-on-chain"
+    ],
+    "0x1095ded95cb6e81c01204f7a94950dd559195e42": [
+      "termix-on-chain"
+    ],
+    "0x5df551f8cd4531218be2c55689d01d0b79f485c2": [
+      "termix-on-chain"
+    ],
+    "0x9a60d9d2848df94553c15fc887610bdfb6b61822": [
+      "termix-on-chain"
+    ],
+    "0x5dbc4ad83441f592cdf4c6ce62138e9296e1a301": [
+      "termix-on-chain"
+    ],
+    "0xe6e20a7e009f3c62e58063b6603e8510141e2981": [
+      "termix-on-chain"
+    ],
+    "0x314867a07e1318dd506d2ec57b34adce6acb7f95": [
+      "termix-on-chain"
+    ],
+    "0x411fd453700e925e4a919565fb34d0c21e2b48bd": [
+      "termix-on-chain"
+    ],
+    "0x70573b7c858255396ef4a0b439c7176036287647": [
+      "termix-on-chain"
+    ],
+    "0x2423e10d17626dff30b9ad93bac4c8b8e62fff09": [
+      "termix-on-chain"
+    ],
+    "0xf150c3678d05c4f68323549a42379ad775ac13c4": [
+      "termix-on-chain"
+    ],
+    "0x54fa5dbb850ec43bc49010bb1f358af3486a49d2": [
+      "termix-on-chain"
+    ],
+    "0xdc05666cfd6f1af5a1a28002aaa8d7be37ce1946": [
+      "termix-on-chain"
+    ],
+    "0x4b85caedde5c964fcbc69dcd15498687156670ef": [
+      "termix-on-chain"
+    ],
+    "0x9007c373423c9db4cad7896eb69c73a4aff20506": [
+      "termix-on-chain"
+    ],
     "0x8ee4a1c32335be59778aba32b878abc0ca58dc7c": [
       "virtuals-top-dog"
     ],
@@ -514,9 +887,6 @@
       "degen-claw-on-chain"
     ],
     "0x019d8eaa00e0dc19d78a917940ea3e0172e5949d": [
-      "bankr-hack-trace"
-    ],
-    "0xf60633d02690e2a15a54ab919925f3d038df163e": [
       "bankr-hack-trace"
     ],
     "0x9fab8c51f911f0ba6dab64fd6e979bcf6424ce82": [

@@ -54,6 +54,11 @@ jobs:
 
       - run: pnpm build
 
+      # The api build regenerates the decode manifest from deliverables/. A diff
+      # here means a decode was published without committing the manifest.
+      - name: Decode manifest is committed
+        run: git diff --exit-code -- apps/api/src/data/decode-manifest.json
+
       # Eval gate: decode unit + Layer A golden tests block the PR on regression.
       # The persist DB-integration suite runs against the postgres service via TEST_DB_URL
       # (self-contained migration 0014 applied in the test's beforeAll).
