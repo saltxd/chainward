@@ -19,7 +19,7 @@ export const HUB_NONCE = 100_000;
 /** Hirer and owner first funded by the same hub this close together (24h of BSC blocks) is a burst, not two customers. */
 export const SAME_HUB_BLOCKS = SELLER_BLOCKS_PER_DAY.bsc;
 
-export type HirerVerdict = 'owner' | 'owner_funded' | 'shared_funder' | 'independent_within_limits' | 'inconclusive';
+export type HirerVerdict = 'owner' | 'owner_funded' | 'direct_transfer' | 'shared_funder' | 'independent_within_limits' | 'inconclusive';
 export type HireSource = 'termix_escrow' | 'erc8183_shared';
 
 export interface HireEvent {
@@ -71,6 +71,8 @@ export type FirstFunder = Pick<FirstFunding, 'from' | 'block'>;
 export interface FundingGraph {
   /** Sender and block of the address's first incoming transfer of this kind, or null when there is none. */
   firstFunder(kind: FundingKind, address: string): Promise<FirstFunder | null>;
+  /** Whether `from` ever sent `to` BNB or a stablecoin (any amount, any time). */
+  hasTransfer(from: string, to: string): Promise<boolean>;
   /** Exchange-style hot wallet, router or custodian: what's behind it isn't visible. */
   isHub(address: string): Promise<boolean>;
   isContract(address: string): Promise<boolean>;
@@ -82,6 +84,7 @@ export const HIRE_METHOD =
   `Hires are TermiX escrow OrderCreated events naming the agent as provider and shared ERC-8183 JobCreated events naming the owner or agent wallet as provider, on BNB Chain, in a ${HIRE_WINDOW_DAYS}-day hire window that starts no earlier than Set and Earn's first block. ` +
   `For each distinct hirer the check follows its first incoming BNB and first incoming stablecoin (USDT, USDC) back to their senders, up to ${HIRE_MAX_HOPS} hops, and does the same for the owner and the agent wallet. ` +
   'owner: the hirer is the owner or the agent wallet. owner_funded: the owner or agent wallet is in the hirer\'s trail. ' +
+  'direct_transfer: the hirer and the owner or agent wallet sent each other BNB or a stablecoin at any time, in either direction. ' +
   'shared_funder: the hirer\'s trail and the owner\'s (or agent wallet\'s) trail meet at a wallet that is not a hub or a contract, or the hirer is in the owner\'s trail. ' +
   `Trails stop at hubs (${fmt(HUB_INFLOWS)}+ incoming stablecoin transfers in ${HIRE_WINDOW_DAYS} days, or ${fmt(HUB_NONCE)}+ sent transactions) and at contracts. ` +
   'inconclusive: the hirer\'s and the owner\'s (or agent wallet\'s) same-kind trails end at the same hub with first funding under 24 hours apart, or no incoming BNB or stablecoin is visible. ' +
@@ -161,6 +164,7 @@ function memoGraph(graph: FundingGraph): FundingGraph {
   };
   return {
     firstFunder: (kind, a) => once(`f:${kind}:${a}`, () => graph.firstFunder(kind, a)),
+    hasTransfer: (a, b) => once(`t:${a}>${b}`, () => graph.hasTransfer(a, b)),
     isHub: (a) => once(`h:${a}`, () => graph.isHub(a)),
     isContract: (a) => once(`c:${a}`, () => graph.isContract(a)),
   };
@@ -172,7 +176,28 @@ interface OwnerSide {
   trails: Trail[];
 }
 
-function assessOne(hirer: HirerInput, ids: Map<string, string>, hirerTrails: Trail[], sides: OwnerSide[]): Omit<HirerAssessment, keyof HirerInput> {
+interface DirectLink {
+  address: string;
+  label: string;
+  direction: 'hirer_to_side' | 'side_to_hirer';
+}
+
+/** The decode's "direct transfer": hirer and owner/agent wallet moved BNB or a stablecoin between them, ever. */
+async function directLink(h: string, ids: Map<string, string>, graph: FundingGraph): Promise<DirectLink | null> {
+  for (const [address, label] of ids) {
+    if (await graph.hasTransfer(h, address)) return { address, label, direction: 'hirer_to_side' };
+    if (await graph.hasTransfer(address, h)) return { address, label, direction: 'side_to_hirer' };
+  }
+  return null;
+}
+
+function assessOne(
+  hirer: HirerInput,
+  ids: Map<string, string>,
+  hirerTrails: Trail[],
+  sides: OwnerSide[],
+  direct: DirectLink | null,
+): Omit<HirerAssessment, keyof HirerInput> {
   const h = hirer.address;
   const self = ids.get(h);
   if (self) return { verdict: 'owner', evidence: `The hirer is the ${self}.`, path: [h] };
@@ -184,6 +209,15 @@ function assessOne(hirer: HirerInput, ids: Map<string, string>, hirerTrails: Tra
       verdict: 'owner_funded',
       evidence: `The ${ids.get(reached)} is ${hops(t.path.length)} up the hirer's first-incoming-${KIND_LABEL[t.kind]} trail.`,
       path: [h, ...t.path],
+    };
+  }
+
+  if (direct) {
+    const who = direct.direction === 'hirer_to_side' ? `The hirer sent the ${direct.label}` : `The ${direct.label} sent the hirer`;
+    return {
+      verdict: 'direct_transfer',
+      evidence: `${who} BNB or a stablecoin directly (any amount, any time).`,
+      path: [h, direct.address],
     };
   }
 
@@ -297,8 +331,12 @@ export async function assessHirers(input: {
         path: [h.address],
       };
     }
-    const trails = ids.has(h.address) ? [] : await Promise.all(kinds.map((k) => walk(h.address, k, graph, targets)));
-    return { ...h, ...assessOne(h, ids, trails, sides) };
+    const self = ids.has(h.address);
+    const [trails, direct] = await Promise.all([
+      self ? Promise.resolve([]) : Promise.all(kinds.map((k) => walk(h.address, k, graph, targets))),
+      self ? Promise.resolve(null) : directLink(h.address, ids, graph),
+    ]);
+    return { ...h, ...assessOne(h, ids, trails, sides, direct) };
   });
 }
 
@@ -306,7 +344,7 @@ export function summarizeHirers(assessments: HirerAssessment[]): HireSummary {
   const count = (...v: HirerVerdict[]) => assessments.filter((a) => v.includes(a.verdict)).length;
   const independent = count('independent_within_limits');
   return {
-    owner_linked: count('owner', 'owner_funded', 'shared_funder'),
+    owner_linked: count('owner', 'owner_funded', 'direct_transfer', 'shared_funder'),
     inconclusive: count('inconclusive'),
     independent_within_limits: independent,
     passes_three_independent: independent >= 3,

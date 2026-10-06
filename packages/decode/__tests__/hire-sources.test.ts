@@ -229,6 +229,7 @@ function fakeChain(opts: {
 
 const emptyGraph: FundingGraph = {
   firstFunder: async () => null,
+  hasTransfer: async () => false,
   isHub: async () => false,
   isContract: async () => false,
 };

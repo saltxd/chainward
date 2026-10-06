@@ -19,10 +19,16 @@ function graph(opts: {
   stable?: Record<string, string | FirstFunder>;
   hubs?: string[];
   contracts?: string[];
+  /** Directed pairs that moved BNB or a stablecoin at some point. */
+  transfers?: Array<[string, string]>;
 }): FundingGraph & { calls: string[] } {
   const calls: string[] = [];
   return {
     calls,
+    async hasTransfer(from, to) {
+      calls.push(`t:${from}>${to}`);
+      return (opts.transfers ?? []).some(([f, t]) => f === from && t === to);
+    },
     async firstFunder(kind, address) {
       calls.push(`${kind}:${address}`);
       const v = (kind === 'native' ? opts.native : opts.stable)?.[address];
@@ -104,6 +110,25 @@ describe('assessHirers', () => {
     expect(a.verdict).toBe('shared_funder');
     expect(a.path).toEqual([H1.address, OWNER]);
     expect(a.evidence).toMatch(/hirer .*funding trail|owner's funding trail/);
+  });
+
+  it('direct_transfer: the hirer sent the owner BNB or a stablecoin at some point', async () => {
+    const a = await one(H1, graph({ native: { [H1.address]: '0xbinance' }, hubs: ['0xbinance'], transfers: [[H1.address, OWNER]] }));
+    expect(a.verdict).toBe('direct_transfer');
+    expect(a.path).toEqual([H1.address, OWNER]);
+    expect(a.evidence).toMatch(/hirer sent the owner wallet/);
+  });
+
+  it('direct_transfer: the agent wallet paid the hirer', async () => {
+    const a = await one(H1, graph({ transfers: [[AGENT_WALLET, H1.address]] }));
+    expect(a.verdict).toBe('direct_transfer');
+    expect(a.path).toEqual([H1.address, AGENT_WALLET]);
+    expect(a.evidence).toMatch(/agent wallet sent the hirer/);
+  });
+
+  it('owner_funded beats direct_transfer', async () => {
+    const a = await one(H1, graph({ native: { [H1.address]: OWNER }, transfers: [[H1.address, OWNER]] }));
+    expect(a.verdict).toBe('owner_funded');
   });
 
   it('independent_within_limits: a trail that stops at a hub is no link found (funding behind an exchange is not visible)', async () => {
@@ -212,6 +237,7 @@ describe('summarizeHirers', () => {
     expect(
       summarizeHirers([at('independent_within_limits'), at('independent_within_limits'), at('inconclusive'), at('owner')]),
     ).toEqual({ owner_linked: 1, inconclusive: 1, independent_within_limits: 2, passes_three_independent: false });
+    expect(summarizeHirers([at('direct_transfer')]).owner_linked).toBe(1);
     expect(
       summarizeHirers([
         at('independent_within_limits'),

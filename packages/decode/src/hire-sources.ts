@@ -264,6 +264,25 @@ export function bscFundingGraph(opts: {
       const f = await first(kind, address);
       return f ? { from: f.from, block: f.block } : null;
     },
+    hasTransfer: async (from, to) => {
+      // One call covers top-level BNB and the stablecoins: contractAddresses only filters the token categories.
+      const result = await alchemyAssetTransfers(
+        opts.alchemyUrl,
+        {
+          category: ['external', 'erc20'],
+          contractAddresses: SELLER_STABLECOINS.bsc,
+          fromAddress: from.toLowerCase(),
+          toAddress: to.toLowerCase(),
+          order: 'asc',
+          maxCount: '0x1',
+          excludeZeroValue: true,
+          withMetadata: false,
+          fromBlock: '0x0',
+        },
+        opts.log,
+      );
+      return result.transfers.length > 0;
+    },
     isContract: async (address) => {
       const code = String((await rpcCall(opts.rpcUrl, 'eth_getCode', [address, 'latest'], RPC_TIMEOUT_MS)) ?? '0x');
       return code !== '0x' && !isDelegation(code);
