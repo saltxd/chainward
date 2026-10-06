@@ -1,0 +1,6 @@
+# ChainWard security contact (RFC 9116)
+Contact: mailto:hello@chainward.ai
+Expires: 2027-10-06T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://chainward.ai/.well-known/security.txt
+Policy: https://github.com/saltxd/chainward/blob/main/SECURITY.md
