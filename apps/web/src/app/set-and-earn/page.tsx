@@ -108,8 +108,9 @@ export default async function SetAndEarnPage() {
         <section className="se-section">
           <span className="press-label">How to read it</span>
           <p className="se-p">
-            <strong>Independent</strong>: hirers whose first BNB and first stablecoin, followed back up to
-            four hops, reach neither the owner nor a wallet that also funded the owner.{' '}
+            <strong>Independent</strong>: hirers that never moved BNB or stablecoins to or from the owner
+              directly, and whose first BNB and first stablecoin, followed back up to four hops, reach
+              neither the owner nor a wallet that also funded the owner.{' '}
             <strong>Pass</strong>: 3 or more of them, whether or not their hires have completed yet. Hires are
             TermiX escrow orders and jobs on the shared ERC-8183 contract; completed means the order settled or
             the job completed. The method and worked
