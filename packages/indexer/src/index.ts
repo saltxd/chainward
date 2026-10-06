@@ -17,6 +17,7 @@ import { createWebhookHealthWorker, setupWebhookHealthSchedule } from './workers
 import { createRiskCheckWorker } from './workers/riskCheck.js';
 import { createRiskAttestWorker, setupRiskAttestSchedule } from './workers/riskAttest.js';
 import { createX402BoardWorker, setupX402BoardSchedule } from './workers/x402Board.js';
+import { createSetAndEarnBoardWorker, setupSetAndEarnBoardSchedule } from './workers/setAndEarnBoard.js';
 
 // Validate env on startup
 getEnv();
@@ -38,6 +39,7 @@ const webhookHealth = createWebhookHealthWorker();
 const riskCheck = createRiskCheckWorker();
 const riskAttest = createRiskAttestWorker();
 const x402Board = createX402BoardWorker();
+const setAndEarnBoard = createSetAndEarnBoardWorker();
 
 // Set up repeatable jobs
 const redis = getRedis();
@@ -52,6 +54,7 @@ await setupHealthScoreSchedule(redis);
 await setupWebhookHealthSchedule(redis);
 await setupRiskAttestSchedule(redis);
 await setupX402BoardSchedule(redis);
+await setupSetAndEarnBoardSchedule(redis);
 
 // Observatory cache warmer — was previously in the api process but moved here
 // to keep the api event loop request-only. Runs every 5min and force-refreshes
@@ -97,6 +100,7 @@ async function shutdown(signal: string) {
     riskCheck.close(),
     riskAttest.close(),
     x402Board.close(),
+    setAndEarnBoard.close(),
   ]);
   process.exit(0);
 }
