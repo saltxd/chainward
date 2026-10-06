@@ -48,7 +48,8 @@ export default function DocsPage() {
         </li>
         <li>
           A first decode takes about a minute. Limits: 30 checks a minute and 8
-          decodes an hour per IP.
+          new decodes an hour per IP. Answers from an existing report, and
+          rejected requests, don&apos;t count toward the 8.
         </li>
         <li>
           BNB Chain reads public RPC logs over the last 14 days; the report says

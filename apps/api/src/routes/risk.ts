@@ -23,7 +23,7 @@ import {
 import { KNOWN_CONTRACTS, RISK_CHAINS, RISK_CHAIN_IDS, type RiskChainId } from '@chainward/common';
 import { rpcFixturesHaveHistory, type RpcFixtures } from '@chainward/decode';
 import { fetchChainFixtures, teaserStatsFromFixtures } from '../lib/riskChainFixtures.js';
-import { rateLimit } from '../middleware/rateLimit.js';
+import { budget, rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
@@ -445,13 +445,15 @@ async function resolveTarget(rawTarget: string, chain: RiskChainId): Promise<Res
 
 const risk = new Hono();
 
+// A full decode costs node + Blockscout calls, so fresh decodes get a tight per-IP
+// budget. Only a request that enqueues one spends it: cached reports, decodes
+// already queued, no_history answers and rejected input are free.
+const decodeBudget = budget({ max: 8, windowSec: 3600, prefix: 'rl:risk-decode' });
+
 // POST /api/risk/check — submit a target for a (free) risk check.
-// Teaser is cheap (~public_stats); a full decode costs node + Blockscout calls,
-// so it gets a tighter per-IP budget.
 risk.post(
   '/check',
   rateLimit({ max: 30, windowSec: 60, prefix: 'rl:risk-check' }),
-  rateLimit({ max: 8, windowSec: 3600, prefix: 'rl:risk-decode' }),
   async (c) => {
     const json = await c.req.json().catch(() => ({}));
     const parsed = checkBodySchema.safeParse(json);
@@ -496,7 +498,11 @@ risk.post(
       }
     }
 
-    // 2. No usable cached report (or a forced re-check). Gate on history BEFORE enqueue.
+    // 2. No usable cached report (or a forced re-check): this one needs a decode.
+    // Refuse early if the budget is gone, before spending calls on the history gate.
+    await decodeBudget.ensureAvailable(c);
+
+    // Gate on history BEFORE enqueue.
     // Chains without Blockscout / a lookup provider (BSC) gate on one cached RPC
     // fixture fetch — nonce, balances, code, and the bounded transfer window.
     let rpcFixtures: RpcFixtures | undefined;
@@ -528,6 +534,7 @@ risk.post(
     }
 
     // 3. Enqueue the full (free) decode. The worker caches a public report.
+    await decodeBudget.spend(c);
     const { riskCheck } = getQueues();
     const job = await riskCheck.add(
       'risk-check',

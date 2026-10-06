@@ -76,3 +76,56 @@ export function rateLimit(options: RateLimitOptions) {
     await next();
   };
 }
+
+/**
+ * A per-client allowance the handler spends explicitly, for a cost only some
+ * requests incur (e.g. enqueuing a fresh decode). Same sliding window, identity
+ * and internal multiplier as rateLimit(); nothing is counted until spend().
+ */
+export function budget(options: RateLimitOptions) {
+  const { windowSec, prefix = 'rl' } = options;
+
+  function bucket(c: Context): { key: string; max: number } {
+    const identity = clientIdentity(c);
+    return {
+      key: `${prefix}:${identity.id}`,
+      max: identity.internal ? options.max * INTERNAL_MULTIPLIER : options.max,
+    };
+  }
+
+  function exhausted(): AppError {
+    return new AppError(429, 'RATE_LIMITED', 'Too many requests. Please try again later.');
+  }
+
+  return {
+    /** 429 if this client has nothing left in the window. Spends nothing. */
+    async ensureAvailable(c: Context): Promise<void> {
+      const { key, max } = bucket(c);
+      const results = await getRedis()
+        .pipeline()
+        .zremrangebyscore(key, 0, Date.now() - windowSec * 1000)
+        .zcard(key)
+        .exec();
+      if (((results?.[1]?.[1] as number) ?? 0) >= max) throw exhausted();
+    },
+
+    /** Spends one unit, or answers 429 (spending nothing) if none is left. */
+    async spend(c: Context): Promise<void> {
+      const { key, max } = bucket(c);
+      const redis = getRedis();
+      const now = Date.now();
+      const member = `${now}:${Math.random()}`;
+      const results = await redis
+        .pipeline()
+        .zremrangebyscore(key, 0, now - windowSec * 1000)
+        .zcard(key)
+        .zadd(key, now, member)
+        .expire(key, windowSec)
+        .exec();
+      if (((results?.[1]?.[1] as number) ?? 0) >= max) {
+        await redis.zrem(key, member);
+        throw exhausted();
+      }
+    },
+  };
+}
