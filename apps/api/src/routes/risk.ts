@@ -15,6 +15,9 @@ import {
   DEMAND_WINDOW_DAYS,
   SELLER_BLOCKS_PER_DAY,
   SELLER_STABLECOINS,
+  HireCheckError,
+  runHireCheck,
+  type HireAgentInput,
   type RiskAssessment,
   type SellerChain,
 } from '@chainward/decode';
@@ -882,6 +885,63 @@ async function sellerDemandCheck(c: Context) {
 }
 
 risk.get('/seller-demand', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:risk-seller-demand' }), sellerDemandCheck);
+
+// GET /api/risk/hires?agent=<ERC-8004 id | 0x owner>&chain=bsc — the paid Set and Earn
+// hire check (packages/decode/src/hire-sources.ts): who hired the agent in the last
+// 30 days, and whether each hirer is the owner, funded by it, shares a funder with it,
+// or none of those within the check's limits. Same cache, budget and "not charged on
+// failure" rules as the seller check.
+const HIRES_CACHE_SEC = 3600;
+const HIRES_BUDGET_MS = 50_000;
+const AGENT_ID_RE = /^\d{1,12}$/;
+
+function parseHireAgent(raw: string | undefined): HireAgentInput {
+  const agent = (raw ?? '').trim();
+  if (AGENT_ID_RE.test(agent)) return { kind: 'id', id: Number(agent) };
+  if (ADDRESS_RE.test(agent)) return { kind: 'owner', address: agent.toLowerCase() };
+  throw new AppError(400, 'INVALID_TARGET', 'agent must be an ERC-8004 agent id or a 0x owner address');
+}
+
+async function hiresCheck(c: Context) {
+  const chain = c.req.query('chain') || 'bsc';
+  if (chain === 'base') throw new AppError(400, 'INVALID_CHAIN', 'hire check is BNB Chain only for now');
+  if (chain !== 'bsc') throw new AppError(400, 'INVALID_CHAIN', 'chain must be bsc');
+  const agent = parseHireAgent(c.req.query('agent'));
+  const redis = getRedis();
+  const cacheKey = `hires:bsc:${agent.kind === 'id' ? agent.id : agent.address}`;
+  const cached = await redis.get(cacheKey);
+  if (cached) return c.json({ success: true, data: JSON.parse(cached) });
+
+  const rpcUrl = sellerDemandRpcUrl('bsc', process.env);
+  if (!rpcUrl) {
+    throw new AppError(503, 'UNAVAILABLE', 'Hire check needs an Alchemy RPC');
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; retry shortly.')), HIRES_BUDGET_MS);
+  });
+  try {
+    const head = await rpcHead(rpcUrl);
+    const data = await Promise.race([runHireCheck({ agent, head: Number(head), alchemyUrl: rpcUrl, log: logger }), timeout]);
+    await redis.set(cacheKey, JSON.stringify(data), 'EX', HIRES_CACHE_SEC);
+    return c.json({ success: true, data });
+  } catch (err) {
+    if (err instanceof HireCheckError) {
+      throw err.code === 'AGENT_NOT_FOUND'
+        ? new AppError(404, 'NOT_FOUND', err.message)
+        : new AppError(400, 'INVALID_TARGET', err.message);
+    }
+    if (isAlchemyNetworkDisabled(err)) {
+      logger.warn({ err }, 'hire check: Alchemy BNB network not enabled for this app');
+      throw new AppError(503, 'UNAVAILABLE', 'Hire check is not available on bsc yet');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+risk.get('/hires', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:risk-hires' }), hiresCheck);
 
 const paidRateLimit = rateLimit({ max: 60, windowSec: 60, prefix: 'rl:risk-x402' });
 risk.get('/x402', paidRateLimit, (c) => paidCheck(c, c.req.query('address')));
