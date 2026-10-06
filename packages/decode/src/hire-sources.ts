@@ -197,12 +197,35 @@ async function agentWallet(rpcCall: RpcCall, rpcUrl: string, id: number): Promis
   return wallet === ZERO ? null : wallet;
 }
 
+const TOKEN_URI = '0xc87b56dd';
+
+async function agentUri(rpcCall: RpcCall, rpcUrl: string, id: number): Promise<string> {
+  const res = await registryCall(rpcCall, rpcUrl, TOKEN_URI + idTopic(id).slice(2));
+  if (!res || res.length < 130) return '';
+  const buf = Buffer.from(res.slice(2), 'hex');
+  const offset = Number(BigInt('0x' + buf.subarray(0, 32).toString('hex')));
+  const length = Number(BigInt('0x' + buf.subarray(offset, offset + 32).toString('hex')));
+  return buf.subarray(offset + 32, offset + 32 + length).toString('utf8');
+}
+
+/** An agent's current owner, agent wallet and agentURI (tokenURI), or null for an id that was never minted. */
+export async function readRegistryAgent(
+  rpcCall: RpcCall,
+  rpcUrl: string,
+  id: number,
+): Promise<{ owner: string; agent_wallet: string | null; agent_uri: string } | null> {
+  const owner = await ownerOf(rpcCall, rpcUrl, id);
+  if (!owner) return null;
+  const [wallet, uri] = await Promise.all([agentWallet(rpcCall, rpcUrl, id), agentUri(rpcCall, rpcUrl, id)]);
+  return { owner, agent_wallet: wallet, agent_uri: uri };
+}
+
 /**
  * Agents an owner holds now: the registry's ERC-721 Transfer events to it in the
  * lookback window, read from Alchemy's transfer index (one call; the same window
  * as chunked eth_getLogs would be ~1,150 calls), kept only if it still owns them.
  */
-async function agentsOwnedBy(
+export async function agentsOwnedBy(
   rpcCall: RpcCall,
   rpcUrl: string,
   alchemyUrl: string,

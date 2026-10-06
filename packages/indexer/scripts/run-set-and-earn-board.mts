@@ -52,8 +52,12 @@ console.log(
       as_of: board.as_of,
       totals: board.totals,
       rows: board.rows.length,
+      passing: board.rows.filter((r) => r.passes_three_independent).map((r) => r.agent_id),
+      verdict_statuses: board.rows.reduce<Record<string, number>>((acc, r) => ({ ...acc, [r.verdict_status]: (acc[r.verdict_status] ?? 0) + 1 }), {}),
       top: board.rows.slice(0, 15).map((r) => ({
         id: r.agent_id,
+        campaign: r.registered_during_campaign,
+        registered_at: r.registered_at,
         marketplace: r.marketplace,
         hires: r.hires_total,
         completed: r.completed,

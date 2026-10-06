@@ -15,6 +15,7 @@ import {
   applyRegistryLogs,
   assembleSetAndEarnBoard,
   classifyMarketplace,
+  describeRegistryAgent,
   hiresByAgent,
   inlineCardName,
   jobKey,
@@ -137,6 +138,7 @@ describe('applyRegistryLogs', () => {
       marketplace: 'other',
       registered_block: B,
       registered_at: null,
+      registered_during_campaign: true,
     });
     expect(regs.get(361190)?.marketplace).toBe('termix');
     expect(regs.has(361000)).toBe(false);
@@ -196,22 +198,42 @@ describe('applyRegistryLogs', () => {
   });
 });
 
-describe('applyHireLogs', () => {
-  const campaign = new Set([361189, 361190]);
-  const isCampaignAgent = (id: number) => campaign.has(id);
+describe('describeRegistryAgent', () => {
+  it('records an agent read from the registry as registered before the campaign, with its marketplace and card name', () => {
+    expect(
+      describeRegistryAgent(332962, { owner: addr(1), agent_wallet: null, agent_uri: JSON.stringify({ name: 'Ring', url: 'https://termix.ai/a' }) }),
+    ).toEqual({
+      agent_id: 332962,
+      owner: addr(1),
+      agent_wallet: null,
+      agent_uri: JSON.stringify({ name: 'Ring', url: 'https://termix.ai/a' }),
+      name: 'Ring',
+      marketplace: 'termix',
+      registered_block: null,
+      registered_at: null,
+      registered_during_campaign: false,
+    });
+  });
 
-  it('keeps TermiX orders for campaign agents and every ERC-8183 job, as hire events', () => {
+  it('keeps registry updates applying to it once it is known', () => {
+    const regs = new Map([[332962, describeRegistryAgent(332962, { owner: addr(1), agent_wallet: addr(1), agent_uri: '' })]]);
+    applyRegistryLogs(regs, [log(REGISTRY, [ERC721_TRANSFER_TOPIC, topic(addr(1)), topic(addr(2)), topic(332962)], '0x', B + 5)]);
+    expect(regs.get(332962)).toMatchObject({ owner: addr(2), registered_during_campaign: false });
+  });
+});
+
+describe('applyHireLogs', () => {
+  it('keeps every TermiX order and ERC-8183 job from Set and Earn\'s first block, whenever the agent was registered', () => {
     const { hires } = applyHireLogs({
       logs: [
         orderCreated(1, addr(0x11), 361189, B + 20),
-        orderCreated(2, addr(0x12), 1234, B + 21),
+        orderCreated(2, addr(0x12), 332962, B + 21),
         jobCreated(56900, addr(0x13), addr(0xaa), B + 22),
         orderCreated(3, addr(0x14), 361190, B - 5),
       ],
-      isCampaignAgent,
       knownJobs: new Set(),
     });
-    expect(hires).toHaveLength(2);
+    expect(hires).toHaveLength(3);
     expect(hires[0]).toMatchObject({
       source: 'termix_escrow',
       hirer: addr(0x11),
@@ -221,7 +243,8 @@ describe('applyHireLogs', () => {
       agent_id: 361189,
       provider: null,
     });
-    expect(hires[1]).toMatchObject({ source: 'erc8183_shared', hirer: addr(0x13), contract: KERNEL, job: topic(56900), agent_id: null, provider: addr(0xaa) });
+    expect(hires[1]).toMatchObject({ agent_id: 332962, hirer: addr(0x12) });
+    expect(hires[2]).toMatchObject({ source: 'erc8183_shared', hirer: addr(0x13), contract: KERNEL, job: topic(56900), agent_id: null, provider: addr(0xaa) });
   });
 
   it('records a completion for a tracked hire, including one created in an earlier run, and ignores the rest', () => {
@@ -233,7 +256,6 @@ describe('applyHireLogs', () => {
         jobCompleted(56900, B + 42),
         jobCompleted(56000, B + 43),
       ],
-      isCampaignAgent,
       knownJobs: new Set([jobKey(KERNEL, topic(56900))]),
     });
     expect(completions.sort()).toEqual([jobKey(ESCROW, topic(1)), jobKey(KERNEL, topic(56900))].sort());
@@ -251,6 +273,7 @@ const reg = (id: number, over: Partial<AgentRegistration> = {}): AgentRegistrati
   marketplace: 'termix',
   registered_block: B + id,
   registered_at: '2026-10-02T00:00:00.000Z',
+  registered_during_campaign: true,
   ...over,
 });
 let txn = 0;
@@ -278,7 +301,7 @@ const kernelHire = (provider: string, hirer: string, job = ++txn): BoardHire => 
 });
 
 describe('hiresByAgent', () => {
-  it('counts TermiX hires by agent id and ERC-8183 hires for every listed agent the provider owns or uses as its agent wallet', () => {
+  it('counts TermiX hires by agent id, known or not, and ERC-8183 hires for every agent the provider owns or uses as its agent wallet', () => {
     const regs = new Map([
       [1, reg(1, { owner: addr(0xa0), agent_wallet: addr(0xa0) })],
       [2, reg(2, { owner: addr(0xa0), agent_wallet: addr(0xa0) })],
@@ -286,11 +309,21 @@ describe('hiresByAgent', () => {
     ]);
     const settled = termixHire(1, addr(0x11));
     const hires = [settled, termixHire(1, addr(0x11)), termixHire(9, addr(0x12)), kernelHire(addr(0xa0), addr(0x13)), kernelHire(addr(0xb1), addr(0x14))];
-    const stats = hiresByAgent(regs, hires, new Set([jobKey(settled.contract, settled.job)]));
+    const stats = hiresByAgent({ registrations: regs, hires, completions: new Set([jobKey(settled.contract, settled.job)]) });
     expect(stats.get(1)).toMatchObject({ hires_total: 3, completed: 1, distinct_hirers: 2, by_source: { termix_escrow: 2, erc8183_shared: 1 } });
     expect(stats.get(2)).toMatchObject({ hires_total: 1, completed: 0, distinct_hirers: 1 });
     expect(stats.get(3)).toMatchObject({ hires_total: 1, distinct_hirers: 1, by_source: { termix_escrow: 0, erc8183_shared: 1 } });
-    expect(stats.has(9)).toBe(false);
+    expect(stats.get(9)).toMatchObject({ hires_total: 1, distinct_hirers: 1 });
+  });
+
+  it('also matches an ERC-8183 provider to the agents it was looked up as owning', () => {
+    const stats = hiresByAgent({
+      registrations: new Map(),
+      hires: [kernelHire(addr(0xc0), addr(0x15))],
+      completions: new Set(),
+      providerAgents: new Map([[addr(0xc0), [332970, 332971]]]),
+    });
+    expect([...stats.keys()].sort()).toEqual([332970, 332971]);
   });
 });
 
@@ -310,9 +343,12 @@ describe('assembleSetAndEarnBoard', () => {
       [12, reg(12, { marketplace: 'other' })],
       [13, reg(13, { marketplace: 'none' })],
       [14, reg(14)],
+      [20, describeRegistryAgent(20, { owner: addr(20), agent_wallet: null, agent_uri: 'https://termix.ai/old.json' })],
     ]);
     const hires = [
       ...[0x21, 0x22, 0x23].map((h) => termixHire(10, addr(h))),
+      ...[0x71, 0x72, 0x73].map((h) => termixHire(20, addr(h))),
+      termixHire(30, addr(0x81)),
       ...[0x31, 0x32, 0x33].map((h) => termixHire(11, addr(h))),
       termixHire(12, addr(0x41)),
       termixHire(12, addr(0x41)),
@@ -324,18 +360,20 @@ describe('assembleSetAndEarnBoard', () => {
       [10, { status: 'checked', summary: summary(3), checked_at: '2026-10-05T21:05:00.000Z' }],
       [11, { status: 'checked', summary: summary(1, 2), checked_at: '2026-10-05T21:06:00.000Z' }],
       [14, { status: 'error', summary: null, checked_at: null }],
+      [20, { status: 'checked', summary: summary(3), checked_at: '2026-10-05T21:07:00.000Z' }],
     ]);
     const board = assembleSetAndEarnBoard({ registrations: regs, hires, completions: new Set(), verdicts, asOf, generatedAt: '2026-10-05T21:10:00.000Z' });
 
     expect(board.window).toEqual({ from_block: B, start: '2026-10-01T00:00:00Z', end: '2026-11-05T23:59:59Z' });
     expect(board.as_of).toEqual(asOf);
-    expect(board.rows.map((r) => r.agent_id)).toEqual([10, 11, 14, 12]);
+    expect(board.rows.map((r) => r.agent_id)).toEqual([10, 11, 14, 20, 12, 30]);
     expect(board.rows[0]).toEqual({
       agent_id: 10,
       name: 'Ten',
       owner: addr(10),
       marketplace: 'termix',
       registered_at: '2026-10-02T00:00:00.000Z',
+      registered_during_campaign: true,
       hires_total: 3,
       completed: 0,
       distinct_hirers: 3,
@@ -349,7 +387,16 @@ describe('assembleSetAndEarnBoard', () => {
     });
     expect(board.rows[1]).toMatchObject({ verdict_status: 'checked', owner_linked: 2, passes_three_independent: false });
     expect(board.rows[2]).toMatchObject({ verdict_status: 'error', owner_linked: null, independent_within_limits: null, passes_three_independent: null, checked_at: null });
-    expect(board.rows[3]).toMatchObject({
+    expect(board.rows[3]).toMatchObject({ agent_id: 20, owner: addr(20), registered_during_campaign: false, registered_at: null, passes_three_independent: true });
+    expect(board.rows[5]).toMatchObject({
+      agent_id: 30,
+      name: null,
+      owner: null,
+      marketplace: null,
+      registered_during_campaign: false,
+      verdict_status: 'fewer_than_3_hirers',
+    });
+    expect(board.rows[4]).toMatchObject({
       agent_id: 12,
       hires_total: 2,
       distinct_hirers: 1,
@@ -361,9 +408,10 @@ describe('assembleSetAndEarnBoard', () => {
       agents_registered: 5,
       agents_on_campaign_marketplaces: 3,
       agents_with_hires: 4,
-      hires: { total: 11, by_source: { termix_escrow: 11, erc8183_shared: 0 } },
-      agents_with_3_distinct_hirers: 3,
-      agents_passing: 1,
+      agents_hired: 6,
+      hires: { total: 15, by_source: { termix_escrow: 15, erc8183_shared: 0 } },
+      agents_with_3_distinct_hirers: 4,
+      agents_passing: 2,
     });
   });
 
@@ -389,7 +437,7 @@ describe('assembleSetAndEarnBoard', () => {
     });
     expect(board.rows.map((r) => r.hires_total)).toEqual([1, 1]);
     expect(board.totals.hires).toEqual({ total: 1, by_source: { termix_escrow: 0, erc8183_shared: 1 } });
-    expect(board.totals.agents_with_hires).toBe(2);
+    expect(board.totals.agents_hired).toBe(2);
   });
 
   it(`caps the rows at ${BOARD_MAX_ROWS} while the totals cover every agent`, () => {
@@ -401,7 +449,7 @@ describe('assembleSetAndEarnBoard', () => {
     }
     const board = assembleSetAndEarnBoard({ registrations: regs, hires, completions: new Set(), verdicts: new Map(), asOf, generatedAt: 'g', maxRows: 2 });
     expect(board.rows.map((r) => r.agent_id)).toEqual([1, 2]);
-    expect(board.totals.agents_with_hires).toBe(4);
+    expect(board.totals.agents_hired).toBe(4);
   });
 
   it('carries the hire check\'s limits plus the board\'s own, and a method', () => {

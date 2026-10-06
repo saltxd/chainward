@@ -121,12 +121,15 @@ class FakeChain {
   head = 0;
   /** A pool node this many blocks behind: getLogs silently stops at its own head. */
   nodeLag = 0;
+  /** The registry's current state, for eth_call reads (ownerOf, getAgentWallet, tokenURI). */
+  agents = new Map<number, { owner: string; uri: string }>();
   calls: Array<{ method: string; params: unknown[] }> = [];
   private li = 0;
   add(address: string, topics: string[], data: string, block: number) {
     this.logs.push({ address, topics, data, blockNumber: toHex(block), transactionHash: `0x${(this.li + 1).toString(16).padStart(64, 'a')}`, logIndex: toHex(this.li++) });
   }
   register(id: number, owner: string, uri: string, block: number) {
+    this.agents.set(id, { owner, uri });
     this.add(REGISTRY, [REGISTERED_TOPIC, topic(id), topic(owner)], encodeAbiParameters([{ type: 'string' }], [uri]), block);
     this.add(
       REGISTRY,
@@ -147,6 +150,17 @@ class FakeChain {
   rpcCall: RpcCall = async (_url, method, params) => {
     this.calls.push({ method, params });
     if (method === 'eth_blockNumber') return toHex(this.head);
+    if (method === 'eth_call') {
+      const { data } = params[0] as { to: string; data: string };
+      const a = this.agents.get(Number(BigInt('0x' + data.slice(10))));
+      if (data.startsWith('0x6352211e')) {
+        if (!a) throw new Error('eth_call: execution reverted');
+        return topic(a.owner);
+      }
+      if (data.startsWith('0x00339509')) return topic(a?.owner ?? '0x0');
+      if (data.startsWith('0xc87b56dd')) return encodeAbiParameters([{ type: 'string' }], [a?.uri ?? '']);
+      throw new Error(`unexpected eth_call ${data.slice(0, 10)}`);
+    }
     if (method === 'eth_getBlockByNumber') {
       const block = Number(BigInt(params[0] as string));
       return { number: params[0], timestamp: toHex(T0 + Math.floor((block - B) * 0.45)) };
@@ -238,6 +252,8 @@ describe('runSetAndEarnBoard', () => {
       graph,
       now: () => NOW,
       sleep: async () => undefined,
+      agentsOwnedBy: async () => [],
+      mintsTo: async () => [],
       ...over,
     });
   const stored = () => JSON.parse(redis.strings.get(SET_AND_EARN_KEYS.latest)!) as SetAndEarnBoard;
@@ -255,11 +271,12 @@ describe('runSetAndEarnBoard', () => {
       agents_registered: 3,
       agents_on_campaign_marketplaces: 2,
       agents_with_hires: 2,
-      hires: { total: 5, by_source: { termix_escrow: 4, erc8183_shared: 1 } },
+      agents_hired: 3,
+      hires: { total: 6, by_source: { termix_escrow: 5, erc8183_shared: 1 } },
       agents_with_3_distinct_hirers: 1,
       agents_passing: 1,
     });
-    expect(board.rows.map((r) => r.agent_id)).toEqual([A, BEE]);
+    expect(board.rows.map((r) => r.agent_id)).toEqual([A, BEE, OLD]);
     expect(board.rows[0]).toMatchObject({
       agent_id: A,
       name: 'Alpha',
@@ -276,6 +293,16 @@ describe('runSetAndEarnBoard', () => {
     });
     expect(board.rows[0]!.registered_at).toBe(new Date((T0 + Math.floor(10 * 0.45)) * 1000).toISOString());
     expect(board.rows[1]).toMatchObject({ agent_id: BEE, marketplace: 'dolphin', hires_total: 2, distinct_hirers: 2, verdict_status: 'fewer_than_3_hirers' });
+    // Registered before the campaign: read from the registry, still on the board.
+    expect(board.rows[2]).toMatchObject({
+      agent_id: OLD,
+      owner: addr(0xc0),
+      marketplace: 'termix',
+      registered_during_campaign: false,
+      registered_at: null,
+      hires_total: 1,
+    });
+    expect(board.rows[0]).toMatchObject({ registered_during_campaign: true });
 
     expect(redis.strings.get('set-and-earn:board:2026-10-06')).toBe(redis.strings.get(SET_AND_EARN_KEYS.latest));
     expect(redis.ttls.get('set-and-earn:board:2026-10-06')).toBe(90 * 86_400);
@@ -375,7 +402,7 @@ describe('runSetAndEarnBoard', () => {
     await run(chain, fakeGraph(FUNDERS).graph);
     expect(stored().rows.find((r) => r.agent_id === BEE)).toMatchObject({ hires_total: 3, distinct_hirers: 3 });
     // Re-reading is idempotent: nothing is counted twice.
-    expect(stored().totals.hires.total).toBe(6);
+    expect(stored().totals.hires.total).toBe(7);
   });
 
   it('lists agents registered by the campaign\'s end only, while their hires keep counting', async () => {
@@ -390,9 +417,11 @@ describe('runSetAndEarnBoard', () => {
     const board = stored();
     expect(redis.strings.get('set-and-earn:end-block')).toBe(String(END_BLOCK));
     expect(board.totals.agents_registered).toBe(3);
-    expect(board.rows.map((r) => r.agent_id)).toEqual([A, BEE]);
+    expect(board.rows.map((r) => r.agent_id)).toEqual([A, BEE, OLD, 361400]);
     expect(board.rows[0]?.hires_total).toBe(4);
-    expect(redis.hashes.get(SET_AND_EARN_KEYS.registrations)?.has('361400')).toBe(false);
+    // Registered after the campaign: listed for its hire, not counted as a campaign registration.
+    expect(board.rows[3]).toMatchObject({ registered_during_campaign: false });
+    expect(JSON.parse(redis.hashes.get(SET_AND_EARN_KEYS.registrations)!.get('361400')!)).toMatchObject({ registered_during_campaign: false });
   });
 
   it('does not extend a cached address\'s 30-day expiry when it adds to it', async () => {
@@ -408,6 +437,62 @@ describe('runSetAndEarnBoard', () => {
     await redis.set(SET_AND_EARN_KEYS.latest, 'not a board');
     await run(campaignChain(), fakeGraph(FUNDERS).graph);
     expect(stored().rows[0]).toMatchObject({ agent_id: A, verdict_status: 'checked' });
+  });
+
+  it('traces an older agent with 3 distinct hirers, reading its owner from the registry once', async () => {
+    const chain = campaignChain();
+    const RING = 332962;
+    chain.agents.set(RING, { owner: addr(0xf0), uri: JSON.stringify({ name: 'Ring agent', url: 'https://termix.ai/r' }) });
+    [21, 22, 23].forEach((n, i) => chain.order(100 + i, H(n), RING, B + 200 + i));
+    const funders = { ...FUNDERS, [H(21)]: F(21), [H(22)]: F(22), [H(23)]: addr(0xf0) };
+    // Mint lookups failing leaves the registry read as the only thing that stores the agent.
+    const mintsTo = async (): Promise<Array<{ agent_id: number; block: number }>> => {
+      throw new Error('transfer source throttled');
+    };
+    await run(chain, fakeGraph(funders).graph, { mintsTo });
+    const ring = stored().rows.find((r) => r.agent_id === RING)!;
+    expect(ring).toMatchObject({
+      name: 'Ring agent',
+      owner: addr(0xf0),
+      registered_during_campaign: false,
+      distinct_hirers: 3,
+      verdict_status: 'checked',
+      owner_linked: 1,
+      independent_within_limits: 2,
+      passes_three_independent: false,
+    });
+    expect(stored().totals.agents_with_3_distinct_hirers).toBe(2);
+
+    chain.calls = [];
+    await run(chain, fakeGraph(funders).graph, { mintsTo });
+    const ownerReads = chain.calls.filter((c) => c.method === 'eth_call' && (c.params[0] as { data: string }).data.startsWith('0x6352211e'));
+    expect(ownerReads).toEqual([]);
+  });
+
+  it('matches an ERC-8183 provider to the older agents it owns, looking each provider up once a week', async () => {
+    const chain = campaignChain();
+    const P = addr(0xd1);
+    chain.agents.set(340001, { owner: P, uri: 'https://mandatemarkets.com/a/1' });
+    chain.job(56901, H(31), P, B + 300);
+    const agentsOwnedBy = vi.fn(async (owner: string) => (owner === P ? [340001] : []));
+    await run(chain, fakeGraph(FUNDERS).graph, { agentsOwnedBy });
+    expect(stored().rows.find((r) => r.agent_id === 340001)).toMatchObject({ marketplace: 'mandate', hires_total: 1, by_source: { termix_escrow: 0, erc8183_shared: 1 } });
+    expect(JSON.parse(redis.strings.get(`set-and-earn:provider:${P}`)!)).toEqual([340001]);
+    expect(redis.ttls.get(`set-and-earn:provider:${P}`)).toBe(7 * 86_400);
+
+    agentsOwnedBy.mockClear();
+    await run(chain, fakeGraph(FUNDERS).graph, { agentsOwnedBy });
+    expect(agentsOwnedBy.mock.calls.map((c) => c[0])).not.toContain(P);
+  });
+
+  it('dates an older agent from its mint, once', async () => {
+    const chain = campaignChain();
+    const mintsTo = vi.fn(async (owner: string) => (owner === addr(0xc0) ? [{ agent_id: OLD, block: B - 50 }] : []));
+    await run(chain, fakeGraph(FUNDERS).graph, { mintsTo });
+    expect(stored().rows.find((r) => r.agent_id === OLD)?.registered_at).toBe(new Date((T0 + Math.floor(-50 * 0.45)) * 1000).toISOString());
+    mintsTo.mockClear();
+    await run(chain, fakeGraph(FUNDERS).graph, { mintsTo });
+    expect(mintsTo).not.toHaveBeenCalled();
   });
 
   it('counts only agents registered by the as_of block when the hire scan stops short of the registry scan', async () => {

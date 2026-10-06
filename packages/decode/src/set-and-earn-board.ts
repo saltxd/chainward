@@ -2,9 +2,10 @@
 //
 // BNB Chain's Set and Earn (Oct 1 – Nov 5 2026) asks each builder's agent for
 // "at least 3 completed hires from 3 distinct wallets that are not yours and not
-// funded by yours". The board lists every ERC-8004 agent registered on BSC
-// mainnet since the campaign opened that has at least one hire, and the hire
-// check's verdict (hire-check.ts) for those with 3+ distinct hirers. This file
+// funded by yours". The rule doesn't ask when the agent was registered, so the
+// board lists every ERC-8004 agent on BSC mainnet hired since the campaign
+// opened, marking those registered during it, with the hire check's verdict
+// (hire-check.ts) for those with 3+ distinct hirers. This file
 // is the pure part: decoding registry and marketplace logs into registrations,
 // hires and completions, and assembling the board. The indexer worker
 // (packages/indexer/src/workers/setAndEarnBoard.ts) scans, caches and traces.
@@ -128,9 +129,14 @@ export interface AgentRegistration {
   agent_uri: string;
   name: string | null;
   marketplace: SetAndEarnMarketplace;
-  registered_block: number;
+  /** Block of its Registered event; null for an older agent until its mint is looked up. */
+  registered_block: number | null;
   /** Block time of registered_block; filled in when the agent first makes the board. */
   registered_at: string | null;
+  /** Registered on BSC from Set and Earn's first block to its last, as read from the registry's events. */
+  registered_during_campaign: boolean;
+  /** An older agent's mint lookup has run (found or not); not retried. */
+  mint_checked?: boolean;
 }
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -157,6 +163,22 @@ function abiString(data: string, index: number): string {
 
 function describeUri(uri: string): Pick<AgentRegistration, 'agent_uri' | 'name' | 'marketplace'> {
   return { agent_uri: uri.slice(0, STORED_URI_CHARS), name: inlineCardName(uri), marketplace: classifyMarketplace(uri) };
+}
+
+/** An agent that was not seen registering in the campaign window, as read from the registry (readRegistryAgent). */
+export function describeRegistryAgent(
+  agentId: number,
+  read: { owner: string; agent_wallet: string | null; agent_uri: string },
+): AgentRegistration {
+  return {
+    agent_id: agentId,
+    owner: read.owner.toLowerCase(),
+    agent_wallet: read.agent_wallet?.toLowerCase() ?? null,
+    ...describeUri(read.agent_uri),
+    registered_block: null,
+    registered_at: null,
+    registered_during_campaign: false,
+  };
 }
 
 /**
@@ -188,6 +210,7 @@ export function applyRegistryLogs(
         ...describeUri(abiString(log.data, 0)),
         registered_block: block,
         registered_at: prev?.registered_block === block ? prev.registered_at : null,
+        registered_during_campaign: true,
       });
       changed.add(id);
       continue;
@@ -240,14 +263,13 @@ export const jobKey = (contract: string, job: string) => `${contract.toLowerCase
 
 /**
  * Hire events and completions from TermiX escrow and ERC-8183 kernel logs, in
- * block order. TermiX orders are kept only for campaign agents (the registry is
- * scanned to the same block first); every ERC-8183 job is kept, since its
- * provider is an address that is matched to agents when the board is built.
- * A completion (OrderSettled, JobCompleted) is kept only for a known hire.
+ * block order: every OrderCreated and JobCreated from Set and Earn's first
+ * block, whenever the hired agent was registered (an ERC-8183 provider is an
+ * address, matched to agents when the board is built). A completion
+ * (OrderSettled, JobCompleted) is kept only for a known hire.
  */
 export function applyHireLogs(input: {
   logs: LogWithData[];
-  isCampaignAgent: (agentId: number) => boolean;
   /** jobKey of every hire already stored. */
   knownJobs: Set<string>;
 }): { hires: BoardHire[]; completions: string[] } {
@@ -270,7 +292,6 @@ export function applyHireLogs(input: {
     const event = decodeHireLog(log);
     if (!event || event.block < SET_AND_EARN_START_BLOCK) continue;
     const agentId = isEscrow ? topicToNumber(log.topics[3]) : null;
-    if (agentId !== null && !input.isCampaignAgent(agentId)) continue;
     hires.push({
       ...event,
       log_index: Number(BigInt(log.logIndex)),
@@ -296,15 +317,19 @@ export interface AgentHireStats {
 }
 
 /**
- * Each campaign agent's hires: TermiX by agent id; ERC-8183 by provider, for
- * every agent whose current owner or agent wallet is that provider (as the
- * paid check counts them). Agents with no hire are absent.
+ * Each hired agent's hires: TermiX by agent id (known to the board or not);
+ * ERC-8183 by provider, for every agent whose current owner or agent wallet is
+ * that provider (as the paid check counts them), from the known agents and from
+ * `providerAgents` (agents a provider was looked up as owning). Agents with no
+ * hire are absent.
  */
-export function hiresByAgent(
-  regs: Map<number, AgentRegistration>,
-  hires: BoardHire[],
-  completions: Set<string>,
-): Map<number, AgentHireStats> {
+export function hiresByAgent(input: {
+  registrations: Map<number, AgentRegistration>;
+  hires: BoardHire[];
+  completions: Set<string>;
+  providerAgents?: Map<string, number[]>;
+}): Map<number, AgentHireStats> {
+  const { registrations: regs, hires, completions } = input;
   const byProvider = new Map<string, number[]>();
   const link = (address: string, id: number) => {
     const ids = byProvider.get(address) ?? [];
@@ -315,10 +340,11 @@ export function hiresByAgent(
     link(r.owner, r.agent_id);
     if (r.agent_wallet) link(r.agent_wallet, r.agent_id);
   }
+  for (const [provider, ids] of input.providerAgents ?? []) for (const id of ids) link(provider.toLowerCase(), id);
 
   const stats = new Map<number, AgentHireStats>();
   for (const h of hires) {
-    const ids = h.agent_id !== null ? (regs.has(h.agent_id) ? [h.agent_id] : []) : (byProvider.get(h.provider ?? '') ?? []);
+    const ids = h.agent_id !== null ? [h.agent_id] : (byProvider.get(h.provider ?? '') ?? []);
     for (const id of ids) {
       const s = stats.get(id) ?? {
         agent_id: id,
@@ -358,9 +384,11 @@ export interface AgentVerdict {
 export interface SetAndEarnBoardRow {
   agent_id: number;
   name: string | null;
-  owner: string;
-  marketplace: SetAndEarnMarketplace;
+  /** null (with marketplace) when the agent could not be read from the registry this run. */
+  owner: string | null;
+  marketplace: SetAndEarnMarketplace | null;
   registered_at: string | null;
+  registered_during_campaign: boolean;
   hires_total: number;
   completed: number | null;
   distinct_hirers: number;
@@ -379,9 +407,14 @@ export interface SetAndEarnBoard {
   as_of: { block: number; time: string };
   window: { from_block: number; start: string; end: string };
   totals: {
+    /** Agents registered during the campaign (to as_of). */
     agents_registered: number;
+    /** ...of which on a campaign marketplace. */
     agents_on_campaign_marketplaces: number;
+    /** ...of which hired since Oct 1. */
     agents_with_hires: number;
+    /** Every agent hired since Oct 1, whenever it was registered. */
+    agents_hired: number;
     hires: { total: number; by_source: Record<HireSource, number> };
     agents_with_3_distinct_hirers: number;
     agents_passing: number;
@@ -392,7 +425,8 @@ export interface SetAndEarnBoard {
 }
 
 export const SET_AND_EARN_BOARD_METHOD =
-  `Agents: ERC-8004 Registered events on BNB Chain's identity registry from Set and Earn's first block (125,000,755, ${SET_AND_EARN_START}) to its last (${SET_AND_EARN_END}) or as_of, whichever is earlier; their hires are counted to as_of. ` +
+  `Rows: every ERC-8004 agent on BNB Chain hired from Set and Earn's first block (125,000,755, ${SET_AND_EARN_START}) to as_of, whenever it was registered. ` +
+  `registered_during_campaign: a Registered event on the identity registry from that block to the campaign's last (${SET_AND_EARN_END}); other agents' owner, agent wallet and agentURI are read from the registry. ` +
   'Marketplace: the agentURI matched against the nine campaign marketplaces\' hosts, as in the week-one decode. ' +
   'Hires: TermiX escrow OrderCreated naming the agent id, and shared ERC-8183 JobCreated naming the agent\'s owner or agent wallet as provider. ' +
   'Completed: TermiX OrderSettled and ERC-8183 JobCompleted for those hires. ' +
@@ -401,8 +435,8 @@ export const SET_AND_EARN_BOARD_METHOD =
 
 export const SET_AND_EARN_BOARD_LIMITS: string[] = [
   ...HIRE_LIMITS,
-  'BSC mainnet only: agents registered Oct 1 – Nov 5 (from block 125,000,755), and their hires since Oct 1. The paid check looks back 30 days, so after Oct 31 the two can differ.',
-  'An ERC-8183 hire names an address, not an agent: it counts for every listed agent that address owns or uses as its agent wallet.',
+  'BSC mainnet only: every agent hired since Oct 1 (block 125,000,755), whenever it was registered. The paid check looks back 30 days, so after Oct 31 the two can differ.',
+  'An ERC-8183 hire names an address, not an agent: it counts for every agent that address owns (registry transfers to it in the last 60 days) or is the agent wallet of a known agent.',
   'Completed counts TermiX OrderSettled and ERC-8183 JobCompleted. The verdict counts every hirer, completed or not; ERC-8183 payments wait out a 7-day dispute window.',
   'Counts are addresses, not people.',
   'Never a safety verdict on an agent or its builder.',
@@ -440,23 +474,28 @@ function verdictColumns(stats: AgentHireStats, verdict: AgentVerdict | undefined
 }
 
 export function assembleSetAndEarnBoard(input: {
+  /** Every known agent: campaign registrations (to as_of) and older agents read from the registry. */
   registrations: Map<number, AgentRegistration>;
   hires: BoardHire[];
   completions: Set<string>;
   verdicts: Map<number, AgentVerdict>;
   asOf: { block: number; time: string };
   generatedAt: string;
+  providerAgents?: Map<string, number[]>;
   maxRows?: number;
 }): SetAndEarnBoard {
-  const stats = boardOrder(hiresByAgent(input.registrations, input.hires, input.completions));
+  const stats = boardOrder(
+    hiresByAgent({ registrations: input.registrations, hires: input.hires, completions: input.completions, providerAgents: input.providerAgents }),
+  );
   const rows: SetAndEarnBoardRow[] = stats.map((s) => {
-    const reg = input.registrations.get(s.agent_id)!;
+    const reg = input.registrations.get(s.agent_id);
     return {
       agent_id: s.agent_id,
-      name: reg.name,
-      owner: reg.owner,
-      marketplace: reg.marketplace,
-      registered_at: reg.registered_at,
+      name: reg?.name ?? null,
+      owner: reg?.owner ?? null,
+      marketplace: reg?.marketplace ?? null,
+      registered_at: reg?.registered_at ?? null,
+      registered_during_campaign: reg?.registered_during_campaign ?? false,
       hires_total: s.hires_total,
       completed: s.completed,
       distinct_hirers: s.distinct_hirers,
@@ -469,16 +508,17 @@ export function assembleSetAndEarnBoard(input: {
   for (const s of stats) for (const h of s.hires) counted.set(hireKey(h), h);
   const bySource: Record<HireSource, number> = { termix_escrow: 0, erc8183_shared: 0 };
   for (const h of counted.values()) bySource[h.source] += 1;
-  const regs = [...input.registrations.values()];
+  const campaign = [...input.registrations.values()].filter((r) => r.registered_during_campaign);
 
   return {
     generated_at: input.generatedAt,
     as_of: input.asOf,
     window: { from_block: SET_AND_EARN_START_BLOCK, start: SET_AND_EARN_START, end: SET_AND_EARN_END },
     totals: {
-      agents_registered: regs.length,
-      agents_on_campaign_marketplaces: regs.filter((r) => CAMPAIGN_MARKETPLACES.includes(r.marketplace)).length,
-      agents_with_hires: rows.length,
+      agents_registered: campaign.length,
+      agents_on_campaign_marketplaces: campaign.filter((r) => CAMPAIGN_MARKETPLACES.includes(r.marketplace)).length,
+      agents_with_hires: rows.filter((r) => r.registered_during_campaign).length,
+      agents_hired: rows.length,
       hires: { total: counted.size, by_source: bySource },
       agents_with_3_distinct_hirers: rows.filter((r) => r.distinct_hirers >= MIN_DISTINCT_HIRERS).length,
       agents_passing: rows.filter((r) => r.passes_three_independent === true).length,

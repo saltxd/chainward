@@ -12,18 +12,22 @@ import {
   SELLER_BLOCKS_PER_DAY,
   SET_AND_EARN_END,
   SET_AND_EARN_START_BLOCK,
+  agentsOwnedBy,
+  alchemyAssetTransfers,
   applyHireLogs,
   applyRegistryLogs,
   assembleSetAndEarnBoard,
   assessHirers,
   boardOrder,
   bscFundingGraph,
+  describeRegistryAgent,
   groupHirers,
   hireKey,
   hiresByAgent,
   jobKey,
   jsonRpcResult,
   mapLimit,
+  readRegistryAgent,
   scanHireLogs,
   sellerDemandRpcUrl,
   summarizeHirers,
@@ -45,18 +49,25 @@ import { logger } from '../lib/logger.js';
 
 // ─── Set and Earn board ───────────────────────────────────────────────────────
 //
-// Daily: every ERC-8004 agent registered on BSC mainnet since Set and Earn
-// opened (Oct 1 2026) that has been hired, with the paid hire check's verdict
-// for those with 3+ distinct hirers. Stored in Redis for GET
-// /api/set-and-earn/board and chainward.ai/set-and-earn. Needs the Alchemy BNB
-// URL the hire check uses (sellerDemandRpcUrl); off without it.
+// Daily: every ERC-8004 agent on BSC mainnet hired since Set and Earn opened
+// (Oct 1 2026), whenever it was registered, marking those registered during
+// the campaign, with the paid hire check's verdict for those with 3+ distinct
+// hirers. Stored in Redis for GET /api/set-and-earn/board and
+// chainward.ai/set-and-earn. Needs the Alchemy BNB URL the hire check uses
+// (sellerDemandRpcUrl); off without it.
 //
 // Incremental: registry and marketplace logs are scanned from Redis cursors on
 // the public BSC RPCs (10,000-block getLogs chunks, 200,000-block segments
 // persisted as they finish), and registrations, hires and completions are kept
 // in Redis, so a daily run reads ~192,000 new blocks: ~20 getLogs per filter,
 // 2 filters, ~40 public calls. A first run over the whole campaign (36 days,
-// ~6.9M blocks) is ~1,400 getLogs, a few minutes at concurrency 4.
+// ~6.9M blocks) is ~1,400 getLogs, a few minutes at concurrency 4. Every
+// TermiX hire is kept (~2,000 a day in week one: ~75,000, tens of MB of Redis,
+// by Nov 5). Agents the board shows or traces that weren't seen registering
+// are read from the registry once (3 eth_calls each, ~1,500 on a first run);
+// ERC-8183 providers are matched to the agents they own through Alchemy's
+// transfer index, once a week each; an older agent's registration date comes
+// from its mint (one Alchemy call per owner, at most 100 owners a run).
 //
 // Traces: per agent, up to 20 hirers plus the owner and agent wallet, 2 kinds
 // x up to 4 hops, each hop one alchemy_getAssetTransfers (first funder) and at
@@ -97,6 +108,11 @@ const TRACE_CONCURRENCY = 3;
 const AGENT_PAUSE_MS = 1_000;
 const RETRY_PAUSE_MS = 20_000;
 const HSET_BATCH = 500;
+const REGISTRY_CONCURRENCY = 8;
+const PROVIDER_TTL_SEC = 7 * 86_400;
+const providerKey = (address: string) => `set-and-earn:provider:${address}`;
+const MINT_LOOKUPS_PER_RUN = 100;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const RPC_TIMEOUT_MS = 15_000;
 const BSC_BLOCK_MS = RISK_CHAINS.bsc.blockSecondsEstimate * 1000;
 /** Each run re-reads this many blocks below its cursors (~15 min): a pool node behind the head can return a range short without an error. */
@@ -127,7 +143,11 @@ export interface SetAndEarnBoardDeps {
   graph?: FundingGraph;
   now?: () => Date;
   sleep?: (ms: number) => Promise<void>;
-  /** Uncached Alchemy lookups (first funder, hub check) per run before tracing stops. */
+  /** Agents an ERC-8183 provider owns (tests); defaults to the hire check's agentsOwnedBy. */
+  agentsOwnedBy?: (owner: string, atBlock: number) => Promise<number[]>;
+  /** Registry mints to an owner (tests); defaults to Alchemy's ERC-721 transfer index. */
+  mintsTo?: (owner: string) => Promise<Array<{ agent_id: number; block: number }>>;
+  /** Uncached Alchemy lookups (first funder, hub check, provider, mint) per run before tracing stops. */
   traceBudget?: number;
   alchemyCallsPerSec?: number;
   log?: BoardLog;
@@ -141,6 +161,32 @@ export interface SetAndEarnRunStats {
   funding_cache_hits: number;
   agents_traced: number;
   ms: number;
+}
+
+/** Identity registry tokens minted to an owner, with their blocks (first 1,000). */
+async function alchemyMintsTo(
+  alchemyUrl: string,
+  owner: string,
+  log: { warn: (msg: string) => void },
+): Promise<Array<{ agent_id: number; block: number }>> {
+  const res = await alchemyAssetTransfers(
+    alchemyUrl,
+    {
+      category: ['erc721'],
+      contractAddresses: [BSC_IDENTITY_REGISTRY],
+      fromAddress: ZERO_ADDRESS,
+      toAddress: owner,
+      fromBlock: '0x0',
+      order: 'asc',
+      maxCount: '0x3e8',
+      withMetadata: false,
+      excludeZeroValue: false,
+    },
+    log,
+  );
+  return res.transfers.flatMap((t) =>
+    t.erc721TokenId && t.blockNum ? [{ agent_id: Number(BigInt(t.erc721TokenId)), block: Number(BigInt(t.blockNum)) }] : [],
+  );
 }
 
 const defaultRpcCall: RpcCall = (url, method, params, timeoutMs) => jsonRpcResult(url, method, params, timeoutMs);
@@ -297,6 +343,23 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
     return p;
   };
 
+  /** Fills registered_at from registered_block for these agents (header reads) and stores them. */
+  const dateRegistrations = async (agents: AgentRegistration[]): Promise<void> => {
+    const dated = await mapLimit(agents, HEADER_CONCURRENCY, async (r) => {
+      try {
+        r.registered_at = await blockTime(r.registered_block!);
+        return r;
+      } catch {
+        return null;
+      }
+    });
+    await hsetMany(
+      redis,
+      SET_AND_EARN_KEYS.registrations,
+      dated.filter((r): r is AgentRegistration => r !== null).map((r) => [String(r.agent_id), JSON.stringify(r)]),
+    );
+  };
+
   const head = Number(BigInt(String(await pointCall(rpcUrl, 'eth_blockNumber', [], RPC_TIMEOUT_MS)))) - HEAD_LAG;
 
   /** The campaign's last block, once the head is past it (binary search over headers, ~23 reads, then cached); else null. */
@@ -355,7 +418,7 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
   );
   const registryCursor = await readCursor(redis, SET_AND_EARN_KEYS.registryCursor);
 
-  // Hires and completions, never past the registry: a TermiX order is kept only for an agent already seen registering.
+  // Hires and completions of every agent, never past the registry scan.
   const hires = new Map<string, BoardHire>(
     Object.entries(await redis.hgetall(SET_AND_EARN_KEYS.hires)).map(([k, json]) => [k, JSON.parse(json) as BoardHire]),
   );
@@ -366,7 +429,7 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
     registryCursor,
     { address: HIRE_CONTRACTS, topics: [HIRE_TOPICS] },
     async (logs) => {
-      const found = applyHireLogs({ logs, isCampaignAgent: (id) => regs.has(id), knownJobs });
+      const found = applyHireLogs({ logs, knownJobs });
       for (const h of found.hires) {
         hires.set(hireKey(h), h);
         knownJobs.add(jobKey(h.contract, h.job));
@@ -379,33 +442,67 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
   const asOfBlock = await readCursor(redis, SET_AND_EARN_KEYS.hiresCursor);
   if (asOfBlock < SET_AND_EARN_START_BLOCK) throw new Error('setAndEarnBoard: no blocks scanned yet');
   const asOf = { block: asOfBlock, time: await blockTime(asOfBlock) };
+  const hireList = [...hires.values()];
 
-  // The registry can be read further than the hires (a failed segment); the board stops at as_of, and at the campaign's end.
-  const lastListed = Math.min(asOfBlock, endBlock ?? Infinity);
-  const listed = new Map([...regs].filter(([, r]) => r.registered_block <= lastListed));
-  const ordered = boardOrder(hiresByAgent(listed, [...hires.values()], completions));
+  // Alchemy lookups (funding traces, ERC-8183 providers, older agents' mints) share one pace and one per-run cap.
+  const counters: TraceCounters = { alchemy_lookups: 0, funding_cache_hits: 0 };
+  const pace = pacer(deps.alchemyCallsPerSec ?? envNumber(process.env.SET_AND_EARN_ALCHEMY_RPS, 2), sleep);
+  const budget = deps.traceBudget ?? envNumber(process.env.SET_AND_EARN_TRACE_BUDGET, 3000);
+  const warnLog = { warn: (msg: string) => log.warn({}, msg) };
+  const ownedBy = deps.agentsOwnedBy ?? ((owner: string, atBlock: number) => agentsOwnedBy(pointCall, rpcUrl, deps.alchemyUrl, owner, atBlock, warnLog));
+  const mintsTo = deps.mintsTo ?? ((owner: string) => alchemyMintsTo(deps.alchemyUrl, owner, warnLog));
 
-  // Registration times for agents that make the board, once each.
-  const undated = ordered
-    .slice(0, BOARD_MAX_ROWS)
-    .map((s) => regs.get(s.agent_id)!)
-    .filter((r) => !r.registered_at);
-  const dated = await mapLimit(undated, HEADER_CONCURRENCY, async (r) => {
+  // ERC-8183 providers: the agents each one owns (registry transfers to it in the last 60 days), looked up once a week.
+  const providerAgents = new Map<string, number[]>();
+  for (const provider of new Set(hireList.flatMap((h) => (h.provider ? [h.provider] : [])))) {
+    const cached = await redis.get(providerKey(provider));
+    if (cached !== null) {
+      providerAgents.set(provider, JSON.parse(cached) as number[]);
+      continue;
+    }
+    counters.alchemy_lookups += 1;
     try {
-      r.registered_at = await blockTime(r.registered_block);
-      return r;
+      const ids = await pace(() => ownedBy(provider, asOfBlock));
+      providerAgents.set(provider, ids);
+      await redis.set(providerKey(provider), JSON.stringify(ids), 'EX', PROVIDER_TTL_SEC);
+    } catch (err) {
+      log.warn({ provider, err: errMessage(err) }, 'setAndEarnBoard: provider lookup failed');
+    }
+  }
+
+  // The board's agents: campaign registrations (to as_of and the campaign's end) and older agents read from the registry.
+  const lastListed = Math.min(asOfBlock, endBlock ?? Infinity);
+  const known = () => new Map([...regs].filter(([, r]) => !r.registered_during_campaign || (r.registered_block ?? Infinity) <= lastListed));
+  const rank = () => boardOrder(hiresByAgent({ registrations: known(), hires: hireList, completions, providerAgents }));
+  let ordered = rank();
+
+  // Agents the board shows or traces that weren't seen registering: read from the registry once each.
+  const needed = [...ordered.slice(0, BOARD_MAX_ROWS), ...ordered.filter((s) => s.distinct_hirers >= MIN_DISTINCT_HIRERS)];
+  const unread = [...new Set(needed.map((s) => s.agent_id))].filter((id) => !regs.has(id));
+  const read = await mapLimit(unread, REGISTRY_CONCURRENCY, async (id) => {
+    try {
+      const agent = await readRegistryAgent(pointCall, rpcUrl, id);
+      return agent ? describeRegistryAgent(id, agent) : null;
     } catch {
       return null;
     }
   });
-  await hsetMany(
-    redis,
-    SET_AND_EARN_KEYS.registrations,
-    dated.filter((r): r is AgentRegistration => r !== null).map((r) => [String(r.agent_id), JSON.stringify(r)]),
-  );
+  const readOk = read.filter((r): r is AgentRegistration => r !== null);
+  for (const r of readOk) regs.set(r.agent_id, r);
+  await hsetMany(redis, SET_AND_EARN_KEYS.registrations, readOk.map((r) => [String(r.agent_id), JSON.stringify(r)]));
+  if (readOk.length < unread.length) log.warn({ unread: unread.length - readOk.length }, 'setAndEarnBoard: agents not readable from the registry');
+  if (readOk.length) ordered = rank(); // a newly read agent wallet can match an ERC-8183 provider
+
+  // Registration times for campaign agents that make the board, once each.
+  const undated = ordered
+    .slice(0, BOARD_MAX_ROWS)
+    .flatMap((s) => {
+      const r = regs.get(s.agent_id);
+      return r && !r.registered_at && r.registered_block !== null ? [r] : [];
+    });
+  await dateRegistrations(undated);
 
   // Verdicts, in board order, within the lookup budget.
-  const counters: TraceCounters = { alchemy_lookups: 0, funding_cache_hits: 0 };
   const baseGraph =
     deps.graph ??
     bscFundingGraph({
@@ -413,15 +510,12 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
       rpcUrl,
       rpcCall: pointCall,
       windowFromBlock: asOfBlock - HIRE_WINDOW_DAYS * SELLER_BLOCKS_PER_DAY.bsc,
-      log: { warn: (msg) => log.warn({}, msg) },
+      log: warnLog,
     });
-  const rps = deps.alchemyCallsPerSec ?? envNumber(process.env.SET_AND_EARN_ALCHEMY_RPS, 2);
-  const graph = cachedGraph(baseGraph, redis, pacer(rps, sleep), counters);
-  const budget = deps.traceBudget ?? envNumber(process.env.SET_AND_EARN_TRACE_BUDGET, 3000);
+  const graph = cachedGraph(baseGraph, redis, pace, counters);
   const previous = previousRows(await redis.get(SET_AND_EARN_KEYS.latest));
 
-  const check = async (s: AgentHireStats): Promise<HireSummary> => {
-    const reg = regs.get(s.agent_id)!;
+  const check = async (s: AgentHireStats, reg: AgentRegistration): Promise<HireSummary> => {
     const hirers = groupHirers(s.hires).map((h) => ({
       address: h.address,
       hires: h.hires,
@@ -436,6 +530,11 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
   let traced = 0;
   const toTrace = ordered.filter((s) => s.distinct_hirers >= MIN_DISTINCT_HIRERS);
   await mapLimit(toTrace, TRACE_CONCURRENCY, async (s) => {
+    const reg = regs.get(s.agent_id);
+    if (!reg) {
+      verdicts.set(s.agent_id, previousVerdict(previous.get(s.agent_id), 'error'));
+      return;
+    }
     if (counters.alchemy_lookups >= budget) {
       verdicts.set(s.agent_id, previousVerdict(previous.get(s.agent_id), 'pending'));
       return;
@@ -443,7 +542,7 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
     traced += 1;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        verdicts.set(s.agent_id, { status: 'checked', summary: await check(s), checked_at: now().toISOString() });
+        verdicts.set(s.agent_id, { status: 'checked', summary: await check(s, reg), checked_at: now().toISOString() });
         break;
       } catch (err) {
         log.warn({ agent: s.agent_id, attempt, err: errMessage(err) }, 'setAndEarnBoard: hire check failed');
@@ -454,13 +553,41 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
     await sleep(AGENT_PAUSE_MS);
   });
 
+  // Older agents on the board: registration block from their mint to the current owner, with what's left of the budget.
+  const unminted = ordered
+    .slice(0, BOARD_MAX_ROWS)
+    .flatMap((s) => {
+      const r = regs.get(s.agent_id);
+      return r && !r.registered_during_campaign && r.registered_block === null && !r.mint_checked ? [r] : [];
+    });
+  const byOwner = new Map<string, AgentRegistration[]>();
+  for (const r of unminted) byOwner.set(r.owner, [...(byOwner.get(r.owner) ?? []), r]);
+  const minted: AgentRegistration[] = [];
+  for (const [owner, group] of [...byOwner].slice(0, MINT_LOOKUPS_PER_RUN)) {
+    if (counters.alchemy_lookups >= budget) break;
+    counters.alchemy_lookups += 1;
+    try {
+      const blocks = new Map((await pace(() => mintsTo(owner))).map((m) => [m.agent_id, m.block]));
+      for (const r of group) {
+        r.registered_block = blocks.get(r.agent_id) ?? null;
+        r.mint_checked = true;
+        minted.push(r);
+      }
+    } catch (err) {
+      log.warn({ owner, err: errMessage(err) }, 'setAndEarnBoard: mint lookup failed');
+    }
+  }
+  await hsetMany(redis, SET_AND_EARN_KEYS.registrations, minted.map((r) => [String(r.agent_id), JSON.stringify(r)]));
+  await dateRegistrations(minted.filter((r) => r.registered_block !== null));
+
   const board = assembleSetAndEarnBoard({
-    registrations: listed,
-    hires: [...hires.values()],
+    registrations: known(),
+    hires: hireList,
     completions,
     verdicts,
     asOf,
     generatedAt: now().toISOString(),
+    providerAgents,
   });
   const json = JSON.stringify(board);
   await redis.set(SET_AND_EARN_KEYS.latest, json);

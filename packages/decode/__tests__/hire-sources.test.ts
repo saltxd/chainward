@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { encodeAbiParameters } from 'viem';
 import {
   BSC_IDENTITY_REGISTRY,
   ERC8183_BSC_KERNEL,
@@ -10,6 +11,7 @@ import {
   bscFundingGraph,
   decodeHireLog,
   hireWindow,
+  readRegistryAgent,
   runHireCheck,
   scanHireLogs,
 } from '../src/hire-sources.js';
@@ -360,5 +362,38 @@ describe('runHireCheck', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     const logFilters = calls.filter((c) => c.method === 'eth_getLogs').map((c) => (c.params[0] as { topics: string[] }).topics[0]);
     expect(logFilters).not.toContain(ORDER_CREATED_TOPIC);
+  });
+});
+
+describe('readRegistryAgent', () => {
+  const registry =
+    (agents: Record<number, { owner: string; wallet?: string; uri?: string }>): RpcCall =>
+    async (_url, method, params) => {
+      expect(method).toBe('eth_call');
+      const { to, data } = params[0] as { to: string; data: string };
+      expect(to).toBe(BSC_IDENTITY_REGISTRY);
+      const a = agents[Number(BigInt('0x' + data.slice(10)))];
+      if (data.startsWith('0x6352211e')) {
+        if (!a) throw new Error('eth_call: execution reverted: ERC721NonexistentToken');
+        return topic(a.owner);
+      }
+      if (data.startsWith('0x00339509')) return topic(a?.wallet ?? '0x0');
+      if (data.startsWith('0xc87b56dd')) return encodeAbiParameters([{ type: 'string' }], [a?.uri ?? '']);
+      throw new Error('unexpected eth_call ' + data.slice(0, 10));
+    };
+
+  it('reads an agent\'s owner, agent wallet and agentURI from the Identity registry', async () => {
+    const rpcCall = registry({ 352475: { owner: OWNER, wallet: addr(0xbb), uri: 'https://termix.ai/agents/352475.json' } });
+    await expect(readRegistryAgent(rpcCall, 'https://bsc.test', 352475)).resolves.toEqual({
+      owner: OWNER,
+      agent_wallet: addr(0xbb),
+      agent_uri: 'https://termix.ai/agents/352475.json',
+    });
+  });
+
+  it('reports no agent wallet when it is unset, and null for an id that was never minted', async () => {
+    const rpcCall = registry({ 1: { owner: OWNER } });
+    await expect(readRegistryAgent(rpcCall, 'https://bsc.test', 1)).resolves.toEqual({ owner: OWNER, agent_wallet: null, agent_uri: '' });
+    await expect(readRegistryAgent(rpcCall, 'https://bsc.test', 2)).resolves.toBeNull();
   });
 });

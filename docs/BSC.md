@@ -174,10 +174,13 @@ limits) and `hire-sources.ts` (BSC reads); route `hiresCheck` in
 ## Set and Earn board
 
 `chainward.ai/set-and-earn` and `GET /api/set-and-earn/board` (free, `Cache-Control:
-public, max-age=300`, 503 until the first build): every ERC-8004 agent registered on
-BSC mainnet during the campaign (block 125,000,755 to the last block of Nov 5 UTC)
-that has at least one hire, with the hire check's summary for those with 3+ distinct
-hirers. Hires and completions keep counting after the campaign closes. Built daily at 06:00 UTC by the indexer
+public, max-age=300`, 503 until the first build): every ERC-8004 agent on BSC
+mainnet hired since block 125,000,755 (Oct 1 00:00 UTC), whenever it was registered
+(the campaign rule asks for hires, not a new agent), with the hire check's summary for
+those with 3+ distinct hirers. `registered_during_campaign` marks agents registered
+from that block to the last block of Nov 5 UTC; `agents_registered` counts those,
+`agents_hired` every row. Hires and completions keep counting after the campaign
+closes. Built daily at 06:00 UTC by the indexer
 (`packages/indexer/src/workers/setAndEarnBoard.ts`; pure part in
 `packages/decode/src/set-and-earn-board.ts`), and at startup when
 `set-and-earn:board:latest` is missing.
@@ -191,6 +194,15 @@ hirers. Hires and completions keep counting after the campaign closes. Built dai
   below each cursor, since a pool node behind the head can return a range short
   without an error. Once the head passes the campaign's end, its last block is found
   by binary search over headers and kept in `set-and-earn:end-block`.
+- **Older agents.** Every TermiX hire is kept, for any agent id. An agent the board
+  shows (top 500 by hires) or traces that wasn't seen registering is read once from
+  the registry (`ownerOf`, `getAgentWallet`, `tokenURI`) and cached in
+  `set-and-earn:registrations`; registry events keep it current afterwards. Its
+  `registered_at` comes from its mint to the current owner (Alchemy's ERC-721
+  transfer index, one call per owner, at most 100 owners a run; null if it was
+  transferred). ERC-8183 providers are matched to the agents they own with the hire
+  check's `agentsOwnedBy` (registry transfers to them in the last 60 days), cached a
+  week in `set-and-earn:provider:<address>`.
 - **Marketplace** is the week-one decode's rule: a campaign host (termix, agentsouk,
   dolphinamp, hellofugu, kattegat, marque, pokter, agent-atlas, mandatemarkets)
   anywhere in the agentURI, else `other`, or `none` for an empty URI.
