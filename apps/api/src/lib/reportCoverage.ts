@@ -71,7 +71,7 @@ export function buildCoverage(
   return {
     // Only the checks that ran on this chain — Base-only ones are not listed as
     // "not raised" off Base, because they were never evaluated.
-    checks: riskChecksFor(chain).map((c) => ({
+    checks: riskChecksFor(chain, windowDays).map((c) => ({
       id: c.id,
       title: c.title,
       looks_for: c.looks_for,

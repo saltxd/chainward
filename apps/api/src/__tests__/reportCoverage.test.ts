@@ -45,3 +45,25 @@ describe('buildCoverage', () => {
     expect(buildCoverage({ activity: {} }, [])).toBeUndefined();
   });
 });
+
+describe('buildCoverage on BNB Chain', () => {
+  const bscData = {
+    ...reportData,
+    chain: 'bsc',
+    fetch_meta: { transfers_fetched: 40, transfers_truncated: false, window_days: 14 },
+  };
+
+  it('describes each check against the 14-day window it scanned, never 30 days', () => {
+    const cov = buildCoverage(bscData, [])!;
+    expect(cov.window.days).toBe(14);
+    const text = cov.checks.map((c) => c.looks_for).join('\n');
+    expect(text).not.toMatch(/30|roughly/);
+    expect(cov.checks.find((c) => c.id === 'counterparty_concentration')!.looks_for).toContain('14 days scanned');
+    expect(cov.checks.find((c) => c.id === 'inactive_no_history')!.looks_for).toContain('14-day window');
+  });
+
+  it('leaves the Base report wording alone', () => {
+    const cov = buildCoverage(reportData, [])!;
+    expect(cov.checks.find((c) => c.id === 'counterparty_concentration')!.looks_for).toContain('30 days');
+  });
+});

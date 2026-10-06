@@ -166,10 +166,30 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
   },
 ];
 
-/** The checks that actually run on a chain — Base-only ones drop off elsewhere. */
-export function riskChecksFor(chain: DecodeChain | undefined): readonly RiskCheck[] {
+/**
+ * The checks that actually run on a chain — Base-only ones drop off elsewhere —
+ * described against what that chain's scan read. Off Base the transfer scan is a
+ * bounded public-RPC window (`windowDays`, 14 days on BNB Chain when it completes),
+ * so its copy states that window instead of Base's 30 days.
+ */
+export function riskChecksFor(chain: DecodeChain | undefined, windowDays?: number): readonly RiskCheck[] {
   if (!chain || chain === 'base') return RISK_CHECKS;
-  return RISK_CHECKS.filter((c) => !c.base_only);
+  const name = RISK_CHAINS[chain].name;
+  const span = windowDays !== undefined ? `the ${formatWindowSpan(windowDays)} scanned` : 'the window scanned';
+  const windowPhrase = windowDays !== undefined ? `the ${formatWindowDays(windowDays)} window` : 'the bounded window';
+  return RISK_CHECKS.filter((c) => !c.base_only).map((c) => {
+    switch (c.id) {
+      case 'counterparty_concentration':
+        return { ...c, looks_for: `Ten or more transfers in ${span} across two or fewer counterparties` };
+      case 'inactive_no_history':
+        return { ...c, looks_for: `No ERC-20 transfers in ${windowPhrase} read from public ${name} RPC logs` };
+      case 'stranded_value':
+        // The classifier reads the USDC balance only (balances.usdc), on every chain.
+        return { ...c, looks_for: `${c.looks_for} (USDT balances are not counted on ${name} yet)` };
+      default:
+        return c;
+    }
+  });
 }
 
 const CHECK_TITLE = Object.fromEntries(RISK_CHECKS.map((c) => [c.id, c.title])) as Record<
@@ -324,7 +344,9 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
       id: 'counterparty_concentration',
       severity: 'medium',
       title: CHECK_TITLE.counterparty_concentration,
-      evidence: `${data.activity.transfers_30d} transfers in 30 days across only ${data.activity.unique_counterparties_30d} unique counterparties.`,
+      evidence: `${data.activity.transfers_30d} transfers in ${
+        data.fetch_meta.window_days !== undefined ? formatWindowSpan(data.fetch_meta.window_days) : '30 days'
+      } across only ${data.activity.unique_counterparties_30d} unique counterparties.`,
       source,
     });
   }
