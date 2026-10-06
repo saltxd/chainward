@@ -24,7 +24,7 @@ const MAX_HOPS = 4;
 const TOP_BUYERS = 30;
 /** An address with this many USDC inflows in the window is a hub (exchange, router,
  * custodian); walking past it says nothing about the seller. */
-const HUB_INFLOWS = 1000;
+export const HUB_INFLOWS = 1000;
 export const DEMAND_WINDOW_DAYS = 30;
 
 export interface UsdcTransfer {
@@ -229,6 +229,81 @@ export function demandSignals(r: SellerDemandReport): DemandSignal[] {
 
 // ─── Alchemy transfer source ──────────────────────────────────────────────────
 
+interface AlchemyTransfer {
+  from: string;
+  to: string | null;
+  value: number | null;
+  hash?: string;
+  blockNum?: string;
+}
+
+/** One alchemy_getAssetTransfers call, with backoff for the free tier's compute-units-per-second limit. */
+async function alchemyAssetTransfers(
+  rpcUrl: string,
+  params: Record<string, unknown>,
+  log?: { warn: (msg: string) => void },
+): Promise<{ transfers: AlchemyTransfer[] }> {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const res = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'alchemy_getAssetTransfers', params: [params] }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const body = (await res.json().catch(() => null)) as { result?: never; error?: { code?: number; message?: string } } | null;
+    const throttled = res.status === 429 || !body || body.error?.code === 429 || /rate|capacity|limit/i.test(body.error?.message ?? '');
+    if (throttled) {
+      await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+      continue;
+    }
+    if (body.error) throw new Error(`alchemy_getAssetTransfers: ${body.error.message}`);
+    return body.result!;
+  }
+  log?.warn('sellerDemand: Alchemy still throttling after retries');
+  throw new Error('transfer source throttled');
+}
+
+export type FundingKind = 'native' | 'stable';
+
+export interface FirstFunding {
+  from: string;
+  hash: string;
+  block: number;
+}
+
+/** The earliest incoming transfer of a kind into an address, over its whole history; null if none. */
+export type FirstFunderSource = (kind: FundingKind, address: string) => Promise<FirstFunding | null>;
+
+/**
+ * First incoming native coin (top-level `external` transfers; Alchemy does not
+ * report contract-internal BNB on BNB Chain) or first incoming stablecoin (the
+ * given tokens), via alchemy_getAssetTransfers oldest-first.
+ */
+export function alchemyFirstFunderSource(
+  rpcUrl: string,
+  tokens: string[],
+  log?: { warn: (msg: string) => void },
+): FirstFunderSource {
+  return async (kind, address) => {
+    const result = await alchemyAssetTransfers(
+      rpcUrl,
+      {
+        ...(kind === 'native' ? { category: ['external'] } : { category: ['erc20'], contractAddresses: tokens }),
+        order: 'asc',
+        maxCount: '0x1',
+        excludeZeroValue: true,
+        withMetadata: false,
+        fromBlock: '0x0',
+        toAddress: address.toLowerCase(),
+      },
+      log,
+    );
+    const t = result.transfers[0];
+    if (!t) return null;
+    return { from: t.from.toLowerCase(), hash: t.hash ?? '', block: t.blockNum ? Number(BigInt(t.blockNum)) : 0 };
+  };
+}
+
 /**
  * USDC/USDT transfers via alchemy_getAssetTransfers on an Alchemy RPC (Base or
  * BNB), with backoff for the free tier's compute-units-per-second limit.
@@ -239,26 +314,7 @@ export function alchemyTransferSource(
   log?: { warn: (msg: string) => void },
   tokens: string[] = SELLER_STABLECOINS.base,
 ): TransferSource {
-  async function call(params: Record<string, unknown>): Promise<{ transfers: Array<{ from: string; to: string | null; value: number | null }> }> {
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const res = await fetch(rpcUrl, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'alchemy_getAssetTransfers', params: [params] }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      const body = (await res.json().catch(() => null)) as { result?: never; error?: { code?: number; message?: string } } | null;
-      const throttled = res.status === 429 || !body || body.error?.code === 429 || /rate|capacity|limit/i.test(body.error?.message ?? '');
-      if (throttled) {
-        await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
-        continue;
-      }
-      if (body.error) throw new Error(`alchemy_getAssetTransfers: ${body.error.message}`);
-      return body.result!;
-    }
-    log?.warn('sellerDemand: Alchemy still throttling after retries');
-    throw new Error('transfer source throttled');
-  }
+  const call = (params: Record<string, unknown>) => alchemyAssetTransfers(rpcUrl, params, log);
 
   return async (direction, address) => {
     const result = await call({
