@@ -1,8 +1,8 @@
 {
   "name": "chainward-mcp-server",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "mcpName": "io.github.saltxd/chainward",
-  "description": "ChainWard MCP server: check a counterparty on Base before you pay it (EAS attestations + risk reports), plus read-side intelligence on AI agents",
+  "description": "ChainWard MCP server: check a counterparty on Base or BNB Chain before you pay it (risk reports + EAS attestations on Base), plus read-side intelligence on AI agents",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -29,7 +29,8 @@
     "build": "tsup src/index.ts --format esm --dts --shims",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "tsx --test src/__tests__/*.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

@@ -15,10 +15,10 @@ export const metadata = {
 };
 
 const TOOLS = [
-  { name: 'check_counterparty', desc: 'Before paying 0x…: its risk flags, plus the EAS attestation on Base when ChainWard has published one. Never a safety verdict.' },
+  { name: 'check_counterparty', desc: "Before paying 0x…: its risk flags, plus the EAS attestation on Base when ChainWard has published one. Since 0.2.2, chain: 'bsc' checks a BNB Chain address. Never a safety verdict." },
   { name: 'lookup_agent', desc: 'Is 0x… a known AI agent? Returns label, framework, ACP profile, related Decodes. Cheap.' },
   { name: 'get_agent_profile', desc: '24h/7d stats, hourly balance history, daily gas, 20 most recent transactions, matching Decodes.' },
-  { name: 'get_agent_economics', desc: 'ACP revenue, aGDP, jobs, success rate, gas efficiency, 30-day P&L.' },
+  { name: 'get_agent_economics', desc: 'Lifetime ACP revenue, aGDP, jobs and success rate; 30-day on-chain revenue, gas, P&L and gas efficiency.' },
   { name: 'get_observatory_overview', desc: 'Ecosystem-wide stats: agents tracked, gas burned, portfolio value, recent volume.' },
   { name: 'get_top_agents', desc: 'Leaderboard by activity. Who is doing what on Base, ranked.' },
   { name: 'get_activity_feed', desc: 'Live feed of labeled-agent transactions across the ecosystem.' },

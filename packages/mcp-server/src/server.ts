@@ -13,6 +13,11 @@ const walletSchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{40}$/, 'Wallet must be a 0x-prefixed 40-hex-character address');
 
+const chainSchema = z
+  .enum(['base', 'bsc'])
+  .default('base')
+  .describe("Chain the address is on: 'base' (default) or 'bsc' (BNB Chain)");
+
 function asTextContent(payload: unknown) {
   return {
     content: [
@@ -57,7 +62,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
 
   const server = new McpServer({
     name: 'chainward',
-    version: '0.2.1',
+    version: '0.2.2',
   });
 
   // ── Tool 1: lookup_agent ────────────────────────────────────────────────────
@@ -183,23 +188,29 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
   // ── Tool: check_counterparty ────────────────────────────────────────────────
   server.tool(
     'check_counterparty',
-    "Before paying or trusting an address on Base, check what ChainWard's on-chain risk check says about it. Returns the neutral signal band and flag ids, plus the EAS attestation on Base (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain. Never a safety verdict: absence of flags is not a clearance. If the address has no report yet, say so and point to https://chainward.ai to run a free check.",
-    { wallet: walletSchema },
-    async ({ wallet }) => {
-      try {
-        const data = await client.get<unknown>(`/api/risk/attestation/${wallet}`);
-        return asTextContent(data);
-      } catch (err) {
-        if (!(err instanceof ChainWardApiError) || err.status !== 404) return asError(err);
+    "Before paying or trusting an address on Base or BNB Chain, check what ChainWard's on-chain risk check says about it. Pass chain: 'bsc' for a BNB Chain address (default 'base'). Returns the neutral signal band and flags; on Base, also the EAS attestation (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain (BNB Chain reports are not attested yet). Never a safety verdict: absence of flags is not a clearance. If the address has no report yet, say so and point to the free check at https://chainward.ai (https://chainward.ai/?chain=bsc for BNB Chain).",
+    { wallet: walletSchema, chain: chainSchema },
+    async ({ wallet, chain }) => {
+      // Attestations are Base-only (EAS on Base); other chains go straight to the report.
+      if (chain === 'base') {
+        try {
+          const data = await client.get<unknown>(`/api/risk/attestation/${wallet}`);
+          return asTextContent(data);
+        } catch (err) {
+          if (!(err instanceof ChainWardApiError) || err.status !== 404) return asError(err);
+        }
       }
-      // Not attested yet — fall back to the off-chain report if one exists.
+      // Not attested — fall back to the off-chain report if one exists.
+      const query = chain === 'base' ? '' : `?chain=${chain}`;
       try {
-        const data = await client.get<{ report: unknown }>(`/api/risk/report/${wallet}`);
+        const data = await client.get<{ report: unknown }>(`/api/risk/report/${wallet}${query}`);
         return asTextContent({ attested_on_chain: false, ...data });
       } catch (err) {
         if (err instanceof ChainWardApiError && err.status === 404) {
           return asTextContent(
-            `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public, and one that flags observed behavior is attested on Base shortly after.`,
+            chain === 'base'
+              ? `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public, and one that flags observed behavior is attested on Base shortly after.`
+              : `ChainWard has no BNB Chain report for ${wallet} yet. Run a free check at https://chainward.ai/?chain=bsc (paste the address); the report is public.`,
           );
         }
         return asError(err);

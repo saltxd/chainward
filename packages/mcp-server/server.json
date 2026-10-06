@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.saltxd/chainward",
-  "description": "Check a Base counterparty before you pay it: EAS attestations and on-chain risk reports.",
+  "description": "Check a Base or BNB Chain address before you pay it: on-chain risk reports, EAS attestations.",
   "repository": {
     "url": "https://github.com/saltxd/chainward",
     "source": "github",
     "subfolder": "packages/mcp-server"
   },
-  "version": "0.2.1",
+  "version": "0.2.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "chainward-mcp-server",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "transport": {
         "type": "stdio"
       }

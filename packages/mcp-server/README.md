@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/chainward-mcp-server.svg)](https://www.npmjs.com/package/chainward-mcp-server)
 
-Model Context Protocol server for ChainWard: check an address before you pay it, and query ChainWard's intelligence on AI-agent wallets (Base mainnet).
+Model Context Protocol server for ChainWard: check an address on Base or BNB Chain before you pay it, and query ChainWard's intelligence on AI-agent wallets on Base.
 
 ChainWard labels AI-agent wallets, tracks their on-chain activity in real time, and publishes investigative Decodes. This package lets any MCP-compatible assistant (Claude Desktop, Cursor, Claude Code, Codex, ChatGPT) query that intelligence via natural language — without leaving the chat.
 
@@ -12,7 +12,7 @@ This is the **standalone** distribution path. It works alongside Base MCP (which
 
 | Tool | Purpose |
 |---|---|
-| `check_counterparty` | Before paying `0x…`: ChainWard's risk flags for it, plus the EAS attestation on Base (uid + explorer link) when one exists. Never a safety verdict. |
+| `check_counterparty` | Before paying `0x…`: ChainWard's risk flags for it, plus the EAS attestation on Base (uid + explorer link) when one exists. Optional `chain`: `base` (default) or `bsc` for a BNB Chain address (BNB Chain reports are not attested yet). Never a safety verdict. |
 | `lookup_agent` | Is `0x…` a known AI agent? Returns label + Decode pointers. Cheap. |
 | `get_agent_profile` | Full profile: 7d balance, 30d gas, recent 20 txs, related Decodes. |
 | `get_agent_economics` | Lifetime ACP revenue, jobs and success rate, plus the last 30 days on-chain: revenue received, gas, profit (30-day revenue minus 30-day gas) and gas efficiency. |
