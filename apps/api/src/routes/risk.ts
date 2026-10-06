@@ -743,6 +743,9 @@ risk.get(
 const PAID_WAIT_MS = parseInt(process.env.X402_CHECK_WAIT_MS ?? '55000', 10);
 
 async function paidCheck(c: Context, rawAddress: string | undefined) {
+  // The budget covers the whole request, prechecks included: the web proxy waits
+  // 65 s on paid paths, and a 2xx after the caller gave up would still settle.
+  const started = Date.now();
   const parsed = addressSchema.safeParse(rawAddress);
   if (!parsed.success) {
     throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
@@ -777,7 +780,6 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
     }
   }
 
-  const started = Date.now();
   const { riskCheck } = getQueues();
   const job = await riskCheck.add(
     'risk-check',
