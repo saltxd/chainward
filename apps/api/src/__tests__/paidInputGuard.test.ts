@@ -46,6 +46,7 @@ vi.mock('../lib/db.js', async () => {
   };
 });
 
+import { CLASSIFIER_VERSION } from '@chainward/decode';
 import { createApp } from '../app.js';
 import { x402CheckMiddleware } from '../lib/x402.js';
 
@@ -152,6 +153,29 @@ describe('paid routes: input checked before the 402 challenge', () => {
   });
 });
 
+const freshReportRow = {
+  id: '00000000-0000-0000-0000-000000000001',
+  walletAddress: ADDR,
+  chain: 'base',
+  asOfBlock: 52_000_000,
+  classifierVersion: CLASSIFIER_VERSION,
+  band: 'low-signal',
+  flagCount: 0,
+  topFlags: [],
+  agentName: null,
+  survivalClass: null,
+  viewCount: 0,
+  reportData: {},
+  riskAssessment: { band: 'low-signal', flags: [], not_assessed: [] },
+  sources: null,
+  reportMarkdown: null,
+  isPublic: true,
+  generatedAt: new Date(),
+  attestationUid: null,
+  attestationTx: null,
+  attestedAt: null,
+};
+
 describe('paid routes: payment middleware runs once per request', () => {
   it.each([`/api/risk/x402?address=${ADDR}`, `/api/risk/x402/${ADDR}`])('GET %s', async (path) => {
     let calls = 0;
@@ -159,11 +183,11 @@ describe('paid routes: payment middleware runs once per request', () => {
       calls++;
       await next();
     };
-    db.rows = () => {
-      throw new Error('stop after the payment layer');
-    };
+    // A fresh report on file, so the handler answers at once.
+    db.rows = () => [freshReportRow];
     const app = createApp({ corsOrigins: ['https://chainward.ai'], x402Check: counting });
-    await app.request(path);
+    const res = await app.request(path);
+    expect(res.status).toBe(200);
     // Twice would verify and settle the same payment twice: the inner run settles,
     // the outer one then fails to settle and replaces the report with an error.
     expect(calls).toBe(1);
