@@ -249,7 +249,7 @@ describe('runHireCheck', () => {
       ],
       kernel: [{ provider: OWNER, client: HIRER_B, block: 125_300_000 }],
     });
-    const graph: FundingGraph = { ...emptyGraph, firstFunder: async (_k, a) => (a === HIRER_B ? OWNER : null) };
+    const graph: FundingGraph = { ...emptyGraph, firstFunder: async (_k, a) => (a === HIRER_B ? { from: OWNER, block: 0 } : null) };
     const report = await runHireCheck({ ...base, agent: { kind: 'id', id: 332962 }, rpcCall, graph });
 
     expect(report).toMatchObject({

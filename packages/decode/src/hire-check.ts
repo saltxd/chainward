@@ -8,7 +8,7 @@
 // cases: chainward.ai/decodes/set-and-earn-week-one. Describes where money moved,
 // never who controls a wallet or why.
 
-import { HUB_INFLOWS, mapLimit, type FundingKind } from './seller-demand.js';
+import { HUB_INFLOWS, SELLER_BLOCKS_PER_DAY, mapLimit, type FirstFunding, type FundingKind } from './seller-demand.js';
 
 export const HIRE_WINDOW_DAYS = 30;
 export const HIRE_MAX_HOPS = 4;
@@ -16,6 +16,8 @@ export const HIRE_MAX_HOPS = 4;
 export const MAX_TRACED_HIRERS = 20;
 /** A wallet that has sent this many transactions is an exchange-style hot wallet (the decode's rule). */
 export const HUB_NONCE = 100_000;
+/** Hirer and owner first funded by the same hub this close together (24h of BSC blocks) is a burst, not two customers. */
+export const SAME_HUB_BLOCKS = SELLER_BLOCKS_PER_DAY.bsc;
 
 export type HirerVerdict = 'owner' | 'owner_funded' | 'shared_funder' | 'independent_within_limits' | 'inconclusive';
 export type HireSource = 'termix_escrow' | 'erc8183_shared';
@@ -63,9 +65,12 @@ export interface HireReport {
 }
 
 /** Who funded whom, as far as the check can see. Implementations should memoize. */
+/** Sender and block of a first incoming transfer; the same-hub rule compares the blocks. */
+export type FirstFunder = Pick<FirstFunding, 'from' | 'block'>;
+
 export interface FundingGraph {
-  /** Sender of the address's first incoming transfer of this kind, or null when there is none. */
-  firstFunder(kind: FundingKind, address: string): Promise<string | null>;
+  /** Sender and block of the address's first incoming transfer of this kind, or null when there is none. */
+  firstFunder(kind: FundingKind, address: string): Promise<FirstFunder | null>;
   /** Exchange-style hot wallet, router or custodian: what's behind it isn't visible. */
   isHub(address: string): Promise<boolean>;
   isContract(address: string): Promise<boolean>;
@@ -78,14 +83,15 @@ export const HIRE_METHOD =
   `For each distinct hirer the check follows its first incoming BNB and first incoming stablecoin (USDT, USDC) back to their senders, up to ${HIRE_MAX_HOPS} hops, and does the same for the owner and the agent wallet. ` +
   'owner: the hirer is the owner or the agent wallet. owner_funded: the owner or agent wallet is in the hirer\'s trail. ' +
   'shared_funder: the hirer\'s trail and the owner\'s (or agent wallet\'s) trail meet at a wallet that is not a hub or a contract, or the hirer is in the owner\'s trail. ' +
-  `inconclusive: a hirer trail stops at a hub (${fmt(HUB_INFLOWS)}+ incoming stablecoin transfers in ${HIRE_WINDOW_DAYS} days, or ${fmt(HUB_NONCE)}+ sent transactions) or at a contract, or no incoming BNB or stablecoin is visible. ` +
-  'independent_within_limits: none of these.';
+  `Trails stop at hubs (${fmt(HUB_INFLOWS)}+ incoming stablecoin transfers in ${HIRE_WINDOW_DAYS} days, or ${fmt(HUB_NONCE)}+ sent transactions) and at contracts. ` +
+  'inconclusive: the hirer\'s and the owner\'s (or agent wallet\'s) same-kind trails end at the same hub with first funding under 24 hours apart, or no incoming BNB or stablecoin is visible. ' +
+  'independent_within_limits: none of these, including trails that end at a hub or a contract (the decode\'s "no link found").';
 
 export const HIRE_LIMITS: string[] = [
   'independent_within_limits means no link was found within these limits; it is not proven independence.',
   `Only each wallet's first incoming BNB and first incoming stablecoin are followed, up to ${HIRE_MAX_HOPS} hops. Later funding, and transfers between hirer and owner after that, are not checked.`,
   'BNB moved by contract-internal calls is not visible to the trail (top-level transfers only).',
-  'Trails stop at hubs and contracts: who funded a wallet through an exchange is not visible.',
+  'Trails stop at hubs and contracts and count as no link found: who funded a wallet through an exchange is not visible, so an owner who withdrew from their own exchange account to a hirer is not detected.',
   'Pairwise only: wallets that hire each other inside a closed group can each look unlinked pair by pair (chainward.ai/decodes/set-and-earn-week-one).',
   'Counts hire events (OrderCreated, JobCreated), not completed hires, and does not check which marketplace a hire came from. Hires on other contracts or on BSC testnet are not counted.',
   'Owner and agent wallet are read at the as_of block. For an owner address, its agents are the registry tokens transferred to it in the last 60 days that it still owns.',
@@ -101,25 +107,45 @@ interface Trail {
   kind: FundingKind;
   /** Funders, nearest first (path[0] sent the start address its first transfer of `kind`). */
   path: string[];
+  /** Block of each transfer in `path` (blocks[i] is when path[i] funded the node below it). */
+  blocks: number[];
   stop: TrailStop;
 }
 
 async function walk(start: string, kind: FundingKind, graph: FundingGraph, targets?: Set<string>): Promise<Trail> {
   const path: string[] = [];
+  const blocks: number[] = [];
   const seen = new Set([start]);
   let node = start;
   for (let hop = 1; hop <= HIRE_MAX_HOPS; hop++) {
-    const funder = await graph.firstFunder(kind, node);
-    if (!funder) return { kind, path, stop: 'no_funding' };
+    const funding = await graph.firstFunder(kind, node);
+    if (!funding) return { kind, path, blocks, stop: 'no_funding' };
+    const funder = funding.from;
     path.push(funder);
-    if (targets?.has(funder)) return { kind, path, stop: 'linked' };
-    if (seen.has(funder)) return { kind, path, stop: 'cycle' };
-    if (await graph.isContract(funder)) return { kind, path, stop: 'contract' };
-    if (await graph.isHub(funder)) return { kind, path, stop: 'hub' };
+    blocks.push(funding.block);
+    if (targets?.has(funder)) return { kind, path, blocks, stop: 'linked' };
+    if (seen.has(funder)) return { kind, path, blocks, stop: 'cycle' };
+    if (await graph.isContract(funder)) return { kind, path, blocks, stop: 'contract' };
+    if (await graph.isHub(funder)) return { kind, path, blocks, stop: 'hub' };
     seen.add(funder);
     node = funder;
   }
-  return { kind, path, stop: 'max_hops' };
+  return { kind, path, blocks, stop: 'max_hops' };
+}
+
+/** The decode's "same hub, <24h": both same-kind trails end at one hub that funded each side within a day. */
+function sameHubBurst(ht: Trail, sides: OwnerSide[]): { side: OwnerSide; hub: string; apart: number } | null {
+  if (ht.stop !== 'hub') return null;
+  const hub = ht.path[ht.path.length - 1]!;
+  const hb = ht.blocks[ht.blocks.length - 1]!;
+  for (const side of sides) {
+    for (const ot of side.trails) {
+      if (ot.kind !== ht.kind || ot.stop !== 'hub' || ot.path[ot.path.length - 1] !== hub) continue;
+      const apart = Math.abs(hb - ot.blocks[ot.blocks.length - 1]!);
+      if (apart < SAME_HUB_BLOCKS) return { side, hub, apart };
+    }
+  }
+  return null;
 }
 
 /** Trail nodes that say something about who funded it: everything but a hub or contract it stopped at. */
@@ -193,12 +219,26 @@ function assessOne(hirer: HirerInput, ids: Map<string, string>, hirerTrails: Tra
   }
 
   for (const t of hirerTrails) {
+    const burst = sameHubBurst(t, sides);
+    if (!burst) continue;
+    return {
+      verdict: 'inconclusive',
+      evidence:
+        `The hirer's and the ${burst.side.label}'s first-incoming-${KIND_LABEL[t.kind]} trails both end at the same hub, ${burst.hub}, ` +
+        `which funded each side ${burst.apart.toLocaleString('en-US')} blocks apart (under 24 hours); funding behind a hub is not visible.`,
+      path: [h, ...t.path, burst.side.address],
+    };
+  }
+
+  for (const t of hirerTrails) {
     if (t.stop !== 'hub' && t.stop !== 'contract') continue;
     const end = t.path[t.path.length - 1]!;
     const what = t.stop === 'hub' ? 'a hub (exchange-style wallet, router or custodian)' : 'a contract';
     return {
-      verdict: 'inconclusive',
-      evidence: `The hirer's first-incoming-${KIND_LABEL[t.kind]} trail stops at ${end}, ${what}, after ${hops(t.path.length)}; funding behind it is not visible.`,
+      verdict: 'independent_within_limits',
+      evidence:
+        `No owner wallet, agent wallet or shared funder within ${hops(HIRE_MAX_HOPS)}. ` +
+        `The hirer's first-incoming-${KIND_LABEL[t.kind]} trail stops at ${end}, ${what}, after ${hops(t.path.length)}; funding behind it is not visible.`,
       path: [h, ...t.path],
     };
   }

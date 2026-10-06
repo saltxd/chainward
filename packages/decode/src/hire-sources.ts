@@ -260,7 +260,10 @@ export function bscFundingGraph(opts: {
   const first = alchemyFirstFunderSource(opts.alchemyUrl, SELLER_STABLECOINS.bsc, opts.log);
   const inflows = alchemyTransferSource(opts.alchemyUrl, BigInt(opts.windowFromBlock), opts.log, SELLER_STABLECOINS.bsc);
   return {
-    firstFunder: async (kind, address) => (await first(kind, address))?.from ?? null,
+    firstFunder: async (kind, address) => {
+      const f = await first(kind, address);
+      return f ? { from: f.from, block: f.block } : null;
+    },
     isContract: async (address) => {
       const code = String((await rpcCall(opts.rpcUrl, 'eth_getCode', [address, 'latest'], RPC_TIMEOUT_MS)) ?? '0x');
       return code !== '0x' && !isDelegation(code);

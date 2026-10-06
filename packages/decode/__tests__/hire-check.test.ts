@@ -6,6 +6,8 @@ import {
   buildHireReport,
   groupHirers,
   summarizeHirers,
+  SAME_HUB_BLOCKS,
+  type FirstFunder,
   type FundingGraph,
   type HirerAssessment,
   type HirerInput,
@@ -13,8 +15,8 @@ import {
 
 // A tiny in-memory funding graph: each map is "address -> its first funder" for one kind.
 function graph(opts: {
-  native?: Record<string, string>;
-  stable?: Record<string, string>;
+  native?: Record<string, string | FirstFunder>;
+  stable?: Record<string, string | FirstFunder>;
   hubs?: string[];
   contracts?: string[];
 }): FundingGraph & { calls: string[] } {
@@ -23,7 +25,8 @@ function graph(opts: {
     calls,
     async firstFunder(kind, address) {
       calls.push(`${kind}:${address}`);
-      return (kind === 'native' ? opts.native : opts.stable)?.[address] ?? null;
+      const v = (kind === 'native' ? opts.native : opts.stable)?.[address];
+      return v == null ? null : typeof v === 'string' ? { from: v, block: 0 } : v;
     },
     async isHub(address) {
       return (opts.hubs ?? []).includes(address);
@@ -103,19 +106,56 @@ describe('assessHirers', () => {
     expect(a.evidence).toMatch(/hirer .*funding trail|owner's funding trail/);
   });
 
-  it('inconclusive: a shared first funder that is a hub is not a link, and the trail stops there', async () => {
+  it('independent_within_limits: a trail that stops at a hub is no link found (funding behind an exchange is not visible)', async () => {
     const a = await one(
       H1,
-      graph({ native: { [H1.address]: '0xbinance', [OWNER]: '0xbinance' }, hubs: ['0xbinance'] }),
+      graph({ native: { [H1.address]: '0xbinance', [OWNER]: '0xokx' }, hubs: ['0xbinance', '0xokx'] }),
     );
-    expect(a.verdict).toBe('inconclusive');
+    expect(a.verdict).toBe('independent_within_limits');
     expect(a.path).toEqual([H1.address, '0xbinance']);
     expect(a.evidence).toMatch(/hub/);
+    expect(a.evidence).toMatch(/not visible/);
   });
 
-  it('inconclusive: the trail ends at an unidentified contract', async () => {
-    const a = await one(H1, graph({ stable: { [H1.address]: '0xrouter' }, contracts: ['0xrouter'] }));
+  it('inconclusive: the hirer and the owner were first funded by the same hub less than 24h apart', async () => {
+    const a = await one(
+      H1,
+      graph({
+        native: { [H1.address]: { from: '0xbinance', block: 1_000 }, [OWNER]: { from: '0xbinance', block: 1_000 + SAME_HUB_BLOCKS - 1 } },
+        hubs: ['0xbinance'],
+      }),
+    );
     expect(a.verdict).toBe('inconclusive');
+    expect(a.path).toEqual([H1.address, '0xbinance', OWNER]);
+    expect(a.evidence).toMatch(/same hub/);
+  });
+
+  it('independent_within_limits: the same hub more than 24h apart is just an exchange', async () => {
+    const a = await one(
+      H1,
+      graph({
+        native: { [H1.address]: { from: '0xbinance', block: 1_000 }, [OWNER]: { from: '0xbinance', block: 1_000 + SAME_HUB_BLOCKS } },
+        hubs: ['0xbinance'],
+      }),
+    );
+    expect(a.verdict).toBe('independent_within_limits');
+  });
+
+  it('same hub rule compares the same kind of trail only', async () => {
+    const a = await one(
+      H1,
+      graph({
+        native: { [H1.address]: { from: '0xbinance', block: 1_000 } },
+        stable: { [OWNER]: { from: '0xbinance', block: 1_000 } },
+        hubs: ['0xbinance'],
+      }),
+    );
+    expect(a.verdict).toBe('independent_within_limits');
+  });
+
+  it('independent_within_limits: the trail ends at an unidentified contract', async () => {
+    const a = await one(H1, graph({ stable: { [H1.address]: '0xrouter' }, contracts: ['0xrouter'] }));
+    expect(a.verdict).toBe('independent_within_limits');
     expect(a.evidence).toMatch(/contract/);
   });
 
