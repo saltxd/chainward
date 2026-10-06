@@ -173,6 +173,21 @@ describe('applyRegistryLogs', () => {
     expect(regs.get(6)?.marketplace).toBe('none');
   });
 
+  it('ignores registrations after the campaign\'s last block, but keeps updating the agents it has', () => {
+    const regs = new Map<number, AgentRegistration>();
+    applyRegistryLogs(
+      regs,
+      [
+        registered(8, addr(1), '', B + 100),
+        registered(9, addr(2), '', B + 200),
+        log(REGISTRY, [ERC721_TRANSFER_TOPIC, topic(addr(1)), topic(addr(3)), topic(8)], '0x', B + 300),
+      ],
+      { lastBlock: B + 150 },
+    );
+    expect([...regs.keys()]).toEqual([8]);
+    expect(regs.get(8)?.owner).toBe(addr(3));
+  });
+
   it('stores at most 256 characters of a long agentURI but classifies the whole of it', () => {
     const regs = new Map<number, AgentRegistration>();
     applyRegistryLogs(regs, [registered(7, addr(1), 'https://x.example/' + 'a'.repeat(400) + 'termix')]);

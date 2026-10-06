@@ -41,6 +41,7 @@ import type Redis from 'ioredis';
 import {
   SET_AND_EARN_KEYS,
   buildSetAndEarnBoard,
+  envNumber,
   runSetAndEarnBoard,
   setupSetAndEarnBoardSchedule,
 } from '../setAndEarnBoard.js';
@@ -89,6 +90,10 @@ class FakeRedis {
     this.ttls.set(k, ttl);
     return 1;
   }
+  async ttl(k: string) {
+    if (!(await this.exists(k))) return -2;
+    return this.ttls.get(k) ?? -1;
+  }
 }
 
 // ─── A fake BNB Chain ─────────────────────────────────────────────────────────
@@ -114,6 +119,8 @@ interface ChainLog {
 class FakeChain {
   logs: ChainLog[] = [];
   head = 0;
+  /** A pool node this many blocks behind: getLogs silently stops at its own head. */
+  nodeLag = 0;
   calls: Array<{ method: string; params: unknown[] }> = [];
   private li = 0;
   add(address: string, topics: string[], data: string, block: number) {
@@ -147,8 +154,8 @@ class FakeChain {
     if (method === 'eth_getLogs') {
       const f = params[0] as { address: string[]; topics: [string[]]; fromBlock: string; toBlock: string };
       const from = Number(BigInt(f.fromBlock));
-      const to = Number(BigInt(f.toBlock));
-      if (to > this.head) throw new Error('block range beyond head');
+      if (Number(BigInt(f.toBlock)) > this.head) throw new Error('block range beyond head');
+      const to = Math.min(Number(BigInt(f.toBlock)), this.head - this.nodeLag);
       const addresses = f.address.map((a) => a.toLowerCase());
       return this.logs.filter((l) => {
         const b = Number(BigInt(l.blockNumber));
@@ -298,7 +305,8 @@ describe('runSetAndEarnBoard', () => {
 
     const second = fakeGraph(FUNDERS);
     await run(chain, second.graph);
-    expect(Math.min(...chain.logRanges().map((r) => r[0]))).toBe(firstHead + 1);
+    // From the cursor, less a 2,000-block overlap.
+    expect(Math.min(...chain.logRanges().map((r) => r[0]))).toBe(firstHead + 1 - 2_000);
     // Their first BNB funders come from the cache; "no stablecoin funder yet" is asked again.
     const lookups = second.calls.filter((c) => [H(1), H(2), H(3), OA].some((a) => c.endsWith(a)));
     expect(lookups.filter((c) => c.startsWith('native:'))).toEqual([]);
@@ -355,6 +363,53 @@ describe('runSetAndEarnBoard', () => {
     expect(board.totals.agents_with_hires).toBe(2);
   });
 
+  it('re-reads the last blocks each run, so logs a lagging RPC node left out are picked up', async () => {
+    const chain = campaignChain();
+    chain.nodeLag = 100;
+    chain.order(8, H(8), BEE, chain.head - 50);
+    await run(chain, fakeGraph(FUNDERS).graph);
+    expect(stored().rows.find((r) => r.agent_id === BEE)?.hires_total).toBe(2);
+
+    chain.nodeLag = 0;
+    chain.head += 10;
+    await run(chain, fakeGraph(FUNDERS).graph);
+    expect(stored().rows.find((r) => r.agent_id === BEE)).toMatchObject({ hires_total: 3, distinct_hirers: 3 });
+    // Re-reading is idempotent: nothing is counted twice.
+    expect(stored().totals.hires.total).toBe(6);
+  });
+
+  it('lists agents registered by the campaign\'s end only, while their hires keep counting', async () => {
+    const chain = campaignChain();
+    const END_BLOCK = B + 6_911_999; // last fake block at or before 2026-11-05T23:59:59Z
+    chain.register(361400, addr(0xe0), 'https://termix.ai/a/late.json', END_BLOCK + 1);
+    chain.order(9, H(9), 361400, END_BLOCK + 10);
+    chain.order(10, H(10), A, END_BLOCK + 20);
+    chain.head = B + 7_000_000;
+    await run(chain, fakeGraph(FUNDERS).graph);
+
+    const board = stored();
+    expect(redis.strings.get('set-and-earn:end-block')).toBe(String(END_BLOCK));
+    expect(board.totals.agents_registered).toBe(3);
+    expect(board.rows.map((r) => r.agent_id)).toEqual([A, BEE]);
+    expect(board.rows[0]?.hires_total).toBe(4);
+    expect(redis.hashes.get(SET_AND_EARN_KEYS.registrations)?.has('361400')).toBe(false);
+  });
+
+  it('does not extend a cached address\'s 30-day expiry when it adds to it', async () => {
+    const chain = campaignChain();
+    await run(chain, fakeGraph(FUNDERS).graph);
+    redis.ttls.set(`set-and-earn:funder:${F(1)}`, 100);
+    await run(chain, fakeGraph({ ...FUNDERS, [F(1)]: F(11) }).graph);
+    expect(JSON.parse(redis.hashes.get(`set-and-earn:funder:${F(1)}`)!.get('native')!)).toMatchObject({ from: F(11) });
+    expect(redis.ttls.get(`set-and-earn:funder:${F(1)}`)).toBe(100);
+  });
+
+  it('builds the board when the previous one in Redis is unreadable', async () => {
+    await redis.set(SET_AND_EARN_KEYS.latest, 'not a board');
+    await run(campaignChain(), fakeGraph(FUNDERS).graph);
+    expect(stored().rows[0]).toMatchObject({ agent_id: A, verdict_status: 'checked' });
+  });
+
   it('counts only agents registered by the as_of block when the hire scan stops short of the registry scan', async () => {
     const chain = campaignChain();
     chain.register(361300, addr(0xd0), 'https://termix.ai/a/late.json', B + 420_000);
@@ -370,6 +425,17 @@ describe('runSetAndEarnBoard', () => {
     expect(board.totals.agents_registered).toBe(3);
     // The registry itself was read to the head, so the next run does not re-read it.
     expect(redis.strings.get(SET_AND_EARN_KEYS.registryCursor)).toBe(String(chain.head - 5));
+  });
+});
+
+describe('envNumber', () => {
+  it('reads a non-negative number and falls back on anything else', () => {
+    expect(envNumber(undefined, 3)).toBe(3);
+    expect(envNumber('', 3)).toBe(3);
+    expect(envNumber('abc', 3)).toBe(3);
+    expect(envNumber('-1', 3)).toBe(3);
+    expect(envNumber('0', 3)).toBe(0);
+    expect(envNumber('2.5', 3)).toBe(2.5);
   });
 });
 

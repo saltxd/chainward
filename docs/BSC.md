@@ -175,8 +175,9 @@ limits) and `hire-sources.ts` (BSC reads); route `hiresCheck` in
 
 `chainward.ai/set-and-earn` and `GET /api/set-and-earn/board` (free, `Cache-Control:
 public, max-age=300`, 503 until the first build): every ERC-8004 agent registered on
-BSC mainnet since block 125,000,755 that has at least one hire, with the hire check's
-summary for those with 3+ distinct hirers. Built daily at 06:00 UTC by the indexer
+BSC mainnet during the campaign (block 125,000,755 to the last block of Nov 5 UTC)
+that has at least one hire, with the hire check's summary for those with 3+ distinct
+hirers. Hires and completions keep counting after the campaign closes. Built daily at 06:00 UTC by the indexer
 (`packages/indexer/src/workers/setAndEarnBoard.ts`; pure part in
 `packages/decode/src/set-and-earn-board.ts`), and at startup when
 `set-and-earn:board:latest` is missing.
@@ -186,18 +187,24 @@ summary for those with 3+ distinct hirers. Built daily at 06:00 UTC by the index
   `JobCreated`/`JobCompleted`) logs are read from cursors
   `set-and-earn:cursor:{registry,hires}` on the public BSC RPCs; registrations,
   hires and completions live in `set-and-earn:{registrations,hires,completions}`. A
-  daily run reads ~192,000 new blocks (~40 `eth_getLogs`).
+  daily run reads ~192,000 new blocks (~40 `eth_getLogs`), plus a 2,000-block overlap
+  below each cursor, since a pool node behind the head can return a range short
+  without an error. Once the head passes the campaign's end, its last block is found
+  by binary search over headers and kept in `set-and-earn:end-block`.
 - **Marketplace** is the week-one decode's rule: a campaign host (termix, agentsouk,
   dolphinamp, hellofugu, kattegat, marque, pokter, agent-atlas, mandatemarkets)
   anywhere in the agentURI, else `other`, or `none` for an empty URI.
 - **Verdicts** come from `assessHirers`/`summarizeHirers` on the production funding
   graph (Alchemy BNB URL from `sellerDemandRpcUrl`, so the indexer needs
   `SELLER_DEMAND_BSC_RPC_URL` or a Base Alchemy URL to derive it; off without one).
-  Funder lookups are cached 30 days in `set-and-earn:funder:<address>`; Alchemy
-  lookups are paced (`SET_AND_EARN_ALCHEMY_RPS`, default 3/s) and capped per run
-  (`SET_AND_EARN_TRACE_BUDGET`, default 3,000). An agent past the cap, or whose
+  Funder lookups (first funder as `{from, block}`, hub and contract flags) are cached
+  in `set-and-earn:funder:<address>` for 30 days from the address's first lookup;
+  Alchemy lookups are paced (`SET_AND_EARN_ALCHEMY_RPS`, default 2/s, leaving room
+  for paid checks) and capped per run (`SET_AND_EARN_TRACE_BUDGET`, default 3,000,
+  checked before each agent starts). An agent past the cap, or whose
   check fails twice, keeps its previous verdict (`checked_at` says when), else shows
   `pending` / `error`.
-- **Differs from the paid check** in two places: hires count from Oct 1 rather than
-  the last 30 days, and owner and agent wallet come from the registry's events up to
-  `as_of` rather than `ownerOf`/`getAgentWallet` calls (the same values).
+- **Differs from the paid check** in three places: hires count from Oct 1 rather than
+  the last 30 days; owner and agent wallet come from the registry's events up to
+  `as_of` rather than `ownerOf`/`getAgentWallet` calls (the same values); and hub and
+  contract flags can be up to 30 days old.

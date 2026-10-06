@@ -161,11 +161,16 @@ function describeUri(uri: string): Pick<AgentRegistration, 'agent_uri' | 'name' 
 
 /**
  * Applies Identity registry logs, in block order, to the registrations map:
- * Registered (from Set and Earn's first block) adds an agent; URIUpdated,
- * Transfer and MetadataSet("agentWallet") update one already in the map.
- * Returns the ids it changed.
+ * Registered (from Set and Earn's first block, through `lastBlock` once the
+ * campaign has closed) adds an agent; URIUpdated, Transfer and
+ * MetadataSet("agentWallet") update one already in the map. Returns the ids it changed.
  */
-export function applyRegistryLogs(regs: Map<number, AgentRegistration>, logs: LogWithData[]): Set<number> {
+export function applyRegistryLogs(
+  regs: Map<number, AgentRegistration>,
+  logs: LogWithData[],
+  opts: { lastBlock?: number } = {},
+): Set<number> {
+  const lastBlock = opts.lastBlock ?? Infinity;
   const registry = BSC_IDENTITY_REGISTRY.toLowerCase();
   const changed = new Set<number>();
   for (const log of [...logs].sort(logOrder)) {
@@ -173,7 +178,7 @@ export function applyRegistryLogs(regs: Map<number, AgentRegistration>, logs: Lo
     const block = Number(BigInt(log.blockNumber));
     const t0 = log.topics[0];
     if (t0 === REGISTERED_TOPIC && log.topics[2]) {
-      if (block < SET_AND_EARN_START_BLOCK) continue;
+      if (block < SET_AND_EARN_START_BLOCK || block > lastBlock) continue;
       const id = topicToNumber(log.topics[1]);
       const prev = regs.get(id);
       regs.set(id, {
@@ -387,7 +392,7 @@ export interface SetAndEarnBoard {
 }
 
 export const SET_AND_EARN_BOARD_METHOD =
-  `Agents: ERC-8004 Registered events on BNB Chain's identity registry from Set and Earn's first block (125,000,755, ${SET_AND_EARN_START}) to as_of. ` +
+  `Agents: ERC-8004 Registered events on BNB Chain's identity registry from Set and Earn's first block (125,000,755, ${SET_AND_EARN_START}) to its last (${SET_AND_EARN_END}) or as_of, whichever is earlier; their hires are counted to as_of. ` +
   'Marketplace: the agentURI matched against the nine campaign marketplaces\' hosts, as in the week-one decode. ' +
   'Hires: TermiX escrow OrderCreated naming the agent id, and shared ERC-8183 JobCreated naming the agent\'s owner or agent wallet as provider. ' +
   'Completed: TermiX OrderSettled and ERC-8183 JobCompleted for those hires. ' +
@@ -396,7 +401,7 @@ export const SET_AND_EARN_BOARD_METHOD =
 
 export const SET_AND_EARN_BOARD_LIMITS: string[] = [
   ...HIRE_LIMITS,
-  'BSC mainnet only: agents registered, and hires made, from Oct 1 (block 125,000,755). The paid check looks back 30 days, so after Oct 31 the two can differ.',
+  'BSC mainnet only: agents registered Oct 1 – Nov 5 (from block 125,000,755), and their hires since Oct 1. The paid check looks back 30 days, so after Oct 31 the two can differ.',
   'An ERC-8183 hire names an address, not an agent: it counts for every listed agent that address owns or uses as its agent wallet.',
   'Completed counts TermiX OrderSettled and ERC-8183 JobCompleted. The verdict counts every hirer, completed or not; ERC-8183 payments wait out a 7-day dispute window.',
   'Counts are addresses, not people.',

@@ -10,6 +10,7 @@ import {
   MIN_DISTINCT_HIRERS,
   REGISTRY_TOPICS,
   SELLER_BLOCKS_PER_DAY,
+  SET_AND_EARN_END,
   SET_AND_EARN_START_BLOCK,
   applyHireLogs,
   applyRegistryLogs,
@@ -62,9 +63,13 @@ import { logger } from '../lib/logger.js';
 // most one more (hub inflow count). Results are cached in Redis for 30 days
 // (set-and-earn:funder:<address>), so an unchanged agent re-checks for ~0
 // Alchemy calls and a new hirer costs at most ~16. Alchemy lookups are paced
-// (SET_AND_EARN_ALCHEMY_RPS, default 3/s, the free tier's ~3 calls/s) and
-// capped per run (SET_AND_EARN_TRACE_BUDGET, default 3,000, ~17 minutes);
-// agents past the cap keep their previous verdict or show as pending.
+// (SET_AND_EARN_ALCHEMY_RPS, default 2/s, leaving room under the free tier's
+// ~3 calls/s for paid checks) and capped per run (SET_AND_EARN_TRACE_BUDGET,
+// default 3,000, ~25 minutes, checked before each agent starts); agents past
+// the cap keep their previous verdict or show as pending.
+//
+// After the campaign closes (Nov 5 23:59:59 UTC) new registrations are no
+// longer added; hires and completions of campaign agents keep counting.
 
 const QUEUE = 'set-and-earn-board';
 export const SET_AND_EARN_KEYS = {
@@ -94,6 +99,17 @@ const RETRY_PAUSE_MS = 20_000;
 const HSET_BATCH = 500;
 const RPC_TIMEOUT_MS = 15_000;
 const BSC_BLOCK_MS = RISK_CHAINS.bsc.blockSecondsEstimate * 1000;
+/** Each run re-reads this many blocks below its cursors (~15 min): a pool node behind the head can return a range short without an error. */
+const RESCAN_BLOCKS = 2_000;
+/** Last block at or before the campaign's end, found once the head passes it. */
+const END_BLOCK_KEY = 'set-and-earn:end-block';
+const END_MS = Date.parse(SET_AND_EARN_END);
+
+/** A non-negative number from an env value, or the fallback. */
+export function envNumber(raw: string | undefined, fallback: number): number {
+  const n = raw === undefined || raw.trim() === '' ? NaN : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
 
 interface BoardLog {
   info(obj: object, msg: string): void;
@@ -191,7 +207,8 @@ function cachedGraph(
     const stored = codec.write(value);
     if (stored !== null) {
       await redis.hset(key, field, stored);
-      await redis.expire(key, FUNDER_TTL_SEC);
+      // 30 days from the address's first lookup; later fields don't extend it, so hub and contract flags age out too.
+      if ((await redis.ttl(key)) < 0) await redis.expire(key, FUNDER_TTL_SEC);
     }
     return value;
   };
@@ -225,6 +242,16 @@ async function hsetMany(redis: Redis, key: string, entries: Array<[string, strin
 async function readCursor(redis: Redis, key: string): Promise<number> {
   const raw = await redis.get(key);
   return raw === null ? SET_AND_EARN_START_BLOCK - 1 : Number(raw);
+}
+
+/** The previous board's rows by agent id; empty when there is none or it doesn't parse. */
+function previousRows(raw: string | null): Map<number, SetAndEarnBoardRow> {
+  try {
+    const rows = raw ? (JSON.parse(raw) as Partial<SetAndEarnBoard>).rows : undefined;
+    return new Map(Array.isArray(rows) ? rows.map((r) => [r.agent_id, r]) : []);
+  } catch {
+    return new Map();
+  }
 }
 
 /** A carried-over verdict from the previous board, or the given status when there is none. */
@@ -272,12 +299,32 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
 
   const head = Number(BigInt(String(await pointCall(rpcUrl, 'eth_blockNumber', [], RPC_TIMEOUT_MS)))) - HEAD_LAG;
 
+  /** The campaign's last block, once the head is past it (binary search over headers, ~23 reads, then cached); else null. */
+  const campaignEndBlock = async (): Promise<number | null> => {
+    const cached = await redis.get(END_BLOCK_KEY);
+    if (cached !== null) return Number(cached);
+    if (Date.parse(await blockTime(head)) <= END_MS) return null;
+    let lo = SET_AND_EARN_START_BLOCK; // at or before the end
+    let hi = head; // after it
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (Date.parse(await blockTime(mid)) <= END_MS) lo = mid;
+      else hi = mid;
+    }
+    await redis.set(END_BLOCK_KEY, String(lo));
+    return lo;
+  };
+  const endBlock = await campaignEndBlock();
+
+  /** Scans [cursor + 1 - RESCAN_BLOCKS, to] in segments, advancing the cursor (never backwards) after each. */
   const scanForward = async (
-    from: number,
+    cursorKey: string,
     to: number,
     filter: { address: string[]; topics: Array<string | string[] | null> },
-    onSegment: (logs: LogWithData[], end: number) => Promise<void>,
+    onSegment: (logs: LogWithData[]) => Promise<void>,
   ): Promise<void> => {
+    const cursor = await readCursor(redis, cursorKey);
+    const from = Math.max(SET_AND_EARN_START_BLOCK, cursor + 1 - RESCAN_BLOCKS);
     for (let start = from; start <= to; start += SEGMENT_BLOCKS) {
       const end = Math.min(to, start + SEGMENT_BLOCKS - 1);
       let logs: LogWithData[];
@@ -288,22 +335,22 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
         log.warn({ err: errMessage(err), start, end }, 'setAndEarnBoard: log scan stopped');
         return;
       }
-      await onSegment(logs, end);
+      await onSegment(logs);
+      if (end > cursor) await redis.set(cursorKey, String(end));
     }
   };
 
-  // Registrations, to the head.
+  // Registrations (none added after the campaign's end), and owner / URI / wallet changes, to the head.
   const regs = new Map<number, AgentRegistration>(
     Object.entries(await redis.hgetall(SET_AND_EARN_KEYS.registrations)).map(([id, json]) => [Number(id), JSON.parse(json) as AgentRegistration]),
   );
   await scanForward(
-    (await readCursor(redis, SET_AND_EARN_KEYS.registryCursor)) + 1,
+    SET_AND_EARN_KEYS.registryCursor,
     head,
     { address: [BSC_IDENTITY_REGISTRY], topics: [REGISTRY_TOPICS] },
-    async (logs, end) => {
-      const changed = applyRegistryLogs(regs, logs);
+    async (logs) => {
+      const changed = applyRegistryLogs(regs, logs, { lastBlock: endBlock ?? undefined });
       await hsetMany(redis, SET_AND_EARN_KEYS.registrations, [...changed].map((id) => [String(id), JSON.stringify(regs.get(id))]));
-      await redis.set(SET_AND_EARN_KEYS.registryCursor, String(end));
     },
   );
   const registryCursor = await readCursor(redis, SET_AND_EARN_KEYS.registryCursor);
@@ -315,10 +362,10 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
   const completions = new Set(await redis.smembers(SET_AND_EARN_KEYS.completions));
   const knownJobs = new Set([...hires.values()].map((h) => jobKey(h.contract, h.job)));
   await scanForward(
-    (await readCursor(redis, SET_AND_EARN_KEYS.hiresCursor)) + 1,
+    SET_AND_EARN_KEYS.hiresCursor,
     registryCursor,
     { address: HIRE_CONTRACTS, topics: [HIRE_TOPICS] },
-    async (logs, end) => {
+    async (logs) => {
       const found = applyHireLogs({ logs, isCampaignAgent: (id) => regs.has(id), knownJobs });
       for (const h of found.hires) {
         hires.set(hireKey(h), h);
@@ -327,15 +374,15 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
       for (const c of found.completions) completions.add(c);
       await hsetMany(redis, SET_AND_EARN_KEYS.hires, found.hires.map((h) => [hireKey(h), JSON.stringify(h)]));
       if (found.completions.length) await redis.sadd(SET_AND_EARN_KEYS.completions, ...found.completions);
-      await redis.set(SET_AND_EARN_KEYS.hiresCursor, String(end));
     },
   );
   const asOfBlock = await readCursor(redis, SET_AND_EARN_KEYS.hiresCursor);
   if (asOfBlock < SET_AND_EARN_START_BLOCK) throw new Error('setAndEarnBoard: no blocks scanned yet');
   const asOf = { block: asOfBlock, time: await blockTime(asOfBlock) };
 
-  // The registry can be read further than the hires (a failed segment); the board stops at as_of.
-  const listed = new Map([...regs].filter(([, r]) => r.registered_block <= asOfBlock));
+  // The registry can be read further than the hires (a failed segment); the board stops at as_of, and at the campaign's end.
+  const lastListed = Math.min(asOfBlock, endBlock ?? Infinity);
+  const listed = new Map([...regs].filter(([, r]) => r.registered_block <= lastListed));
   const ordered = boardOrder(hiresByAgent(listed, [...hires.values()], completions));
 
   // Registration times for agents that make the board, once each.
@@ -368,12 +415,10 @@ export async function runSetAndEarnBoard(deps: SetAndEarnBoardDeps): Promise<{ b
       windowFromBlock: asOfBlock - HIRE_WINDOW_DAYS * SELLER_BLOCKS_PER_DAY.bsc,
       log: { warn: (msg) => log.warn({}, msg) },
     });
-  const graph = cachedGraph(baseGraph, redis, pacer(deps.alchemyCallsPerSec ?? Number(process.env.SET_AND_EARN_ALCHEMY_RPS ?? 3), sleep), counters);
-  const budget = deps.traceBudget ?? parseInt(process.env.SET_AND_EARN_TRACE_BUDGET ?? '3000', 10);
-  const previousRaw = await redis.get(SET_AND_EARN_KEYS.latest);
-  const previous = new Map<number, SetAndEarnBoardRow>(
-    previousRaw ? (JSON.parse(previousRaw) as SetAndEarnBoard).rows.map((r) => [r.agent_id, r]) : [],
-  );
+  const rps = deps.alchemyCallsPerSec ?? envNumber(process.env.SET_AND_EARN_ALCHEMY_RPS, 2);
+  const graph = cachedGraph(baseGraph, redis, pacer(rps, sleep), counters);
+  const budget = deps.traceBudget ?? envNumber(process.env.SET_AND_EARN_TRACE_BUDGET, 3000);
+  const previous = previousRows(await redis.get(SET_AND_EARN_KEYS.latest));
 
   const check = async (s: AgentHireStats): Promise<HireSummary> => {
     const reg = regs.get(s.agent_id)!;
