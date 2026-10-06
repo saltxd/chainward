@@ -5,6 +5,7 @@ import { useApi } from '@/hooks/use-api';
 import { publicApi, type RiskLibraryResult, type RiskSeverity } from '@/lib/api';
 import { BAND_LABEL, reportPath } from '@/lib/risk';
 import { chainMeta } from '@/lib/chains';
+import { isPlaceholderAddress } from '@/lib/params';
 
 function truncate(addr: string): string {
   if (!addr || addr.length < 12) return addr;
@@ -39,11 +40,12 @@ const SEV_VAR: Record<RiskSeverity, string> = {
  */
 export function RecentlyChecked() {
   const { data, loading, error } = useApi<RiskLibraryResult>(
-    () => publicApi.listReports({ sort: 'recent', limit: 5, distinct: 'address' }),
+    () => publicApi.listReports({ sort: 'recent', limit: 8, distinct: 'address' }),
     [],
   );
 
-  if (loading || error || !data || data.reports.length === 0) {
+  const reports = data?.reports.filter((card) => !isPlaceholderAddress(card.address)).slice(0, 5) ?? [];
+  if (loading || error || reports.length === 0) {
     return null;
   }
 
@@ -56,7 +58,7 @@ export function RecentlyChecked() {
         </Link>
       </div>
       <ul className="recent-list">
-        {data.reports.map((card) => {
+        {reports.map((card) => {
           const topFlag = card.top_flags?.[0] ?? null;
           const sevColor = card.top_severity
             ? SEV_VAR[card.top_severity]

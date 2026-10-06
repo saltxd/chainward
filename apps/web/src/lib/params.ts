@@ -14,3 +14,8 @@ export function isAddress(value: string): boolean {
 export function isAgentSlug(value: string): boolean {
   return AGENT_SLUG_RE.test(value);
 }
+
+/** Near-zero addresses (precompiles, 0x…0001 test checks): real reports, but noise on the front page. */
+export function isPlaceholderAddress(value: string): boolean {
+  return /^0x0{30,}[0-9a-f]{0,10}$/i.test(value);
+}
