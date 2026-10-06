@@ -25,6 +25,7 @@ describe('BoardTable', () => {
   it('links each agent to BscScan and shows hires, hirers, independent hirers and the verdict', () => {
     const html = renderToStaticMarkup(
       <BoardTable
+        generatedAt="2026-10-06T06:30:00.000Z"
         rows={[
           base,
           { ...base, agent_id: 362889, name: null, marketplace: 'dolphin', hires_total: 1, completed: 0, distinct_hirers: 1, verdict_status: 'fewer_than_3_hirers', owner_linked: null, independent_within_limits: null, inconclusive: null, passes_three_independent: false, checked_at: null },
@@ -39,5 +40,13 @@ describe('BoardTable', () => {
     expect(html).toContain('Dolphin');
     expect(html).toContain('not enough hires');
     expect(html).not.toMatch(/fake|scam|dirty|fraud/i);
+    expect(html).not.toContain('as of');
+  });
+
+  it('dates a verdict carried over from an earlier day', () => {
+    const html = renderToStaticMarkup(
+      <BoardTable generatedAt="2026-10-09T06:30:00.000Z" rows={[{ ...base, checked_at: '2026-10-07T06:10:00.000Z' }]} />,
+    );
+    expect(html).toContain('as of Oct 7');
   });
 });

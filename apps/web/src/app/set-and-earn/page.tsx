@@ -94,7 +94,7 @@ export default async function SetAndEarnPage() {
               {board.rows.length === 0 ? (
                 <p className="se-p">No agent registered since Oct 1 has been hired yet.</p>
               ) : (
-                <BoardTable rows={board.rows} />
+                <BoardTable rows={board.rows} generatedAt={board.generated_at} />
               )}
               {t.agents_with_hires > board.rows.length && (
                 <p className="se-note">Showing the first {n(board.rows.length)} by hires; the totals count all of them.</p>
@@ -110,8 +110,9 @@ export default async function SetAndEarnPage() {
           <p className="se-p">
             <strong>Independent</strong>: hirers whose first BNB and first stablecoin, followed back up to
             four hops, reach neither the owner nor a wallet that also funded the owner.{' '}
-            <strong>Pass</strong>: 3 or more of them. Hires are TermiX escrow orders and jobs on the shared
-            ERC-8183 contract; completed means the order settled or the job completed. The method and worked
+            <strong>Pass</strong>: 3 or more of them, whether or not their hires have completed yet. Hires are
+            TermiX escrow orders and jobs on the shared ERC-8183 contract; completed means the order settled or
+            the job completed. The method and worked
             cases are in{' '}
             <Link className="press-link" href="/decodes/set-and-earn-week-one">
               Set and Earn, week one

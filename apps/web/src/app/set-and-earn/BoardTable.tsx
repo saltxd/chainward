@@ -1,7 +1,9 @@
 import { agentUrl, marketplaceLabel, verdictLabel, type SetAndEarnRow } from '@/lib/setAndEarn';
 
-/** The board's table; styles (se-*) live on the page. */
-export function BoardTable({ rows }: { rows: SetAndEarnRow[] }) {
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+/** The board's table; styles (se-*) live on the page. A verdict from an earlier run carries its date. */
+export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; generatedAt: string }) {
   return (
     <div className="se-scroll">
       <table className="se-table">
@@ -33,7 +35,12 @@ export function BoardTable({ rows }: { rows: SetAndEarnRow[] }) {
                 </td>
                 <td>{row.distinct_hirers.toLocaleString('en-US')}</td>
                 <td>{row.independent_within_limits ?? '—'}</td>
-                <td className={`se-verdict se-verdict--${verdict.tone}`}>{verdict.text}</td>
+                <td className={`se-verdict se-verdict--${verdict.tone}`}>
+                  {verdict.text}
+                  {row.checked_at && day(row.checked_at) !== day(generatedAt) && (
+                    <div className="se-sub">as of {day(row.checked_at)}</div>
+                  )}
+                </td>
               </tr>
             );
           })}
