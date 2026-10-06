@@ -1,6 +1,82 @@
 {
   "decodes": [
     {
+      "slug": "bsc-erc8004-registry",
+      "title": "BNB Chain's ERC-8004 Registry Count Says Little About Set and Earn",
+      "subtitle": "3,496 new BSC agents since Oct 1: 69% from EvoEvo, Quack Q402 and an Ave.ai-branded card, at late-September pace; none of those hired.",
+      "date": "2026-10-06",
+      "url": "https://chainward.ai/decodes/bsc-erc8004-registry",
+      "addresses": [
+        "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432",
+        "0xfb0ce70ad5bcce56567ee66bd11955ec10ba9741",
+        "0x9708738b65a866def24973f5d916dd8a8816208b",
+        "0xf1062dce05a93b08b776a549c89fafb0d47eb3ac",
+        "0xe768e8649a134d3e63f2c9870a84e1a1444d32c2",
+        "0x63371a6517d1fef17770763419101198009113ca",
+        "0xeeacff03ebb0d54dc9d69b992d6c48e6a2cc0e22",
+        "0x498b22f28c93fa1ef28bb704c3e03b6ed9e7b4c4",
+        "0xe0a522c0523f30a0068b5fae93be6f4f655013ce",
+        "0x7924f2d668dd7ab7d34329d8df3e9041b1898650"
+      ]
+    },
+    {
+      "slug": "x402-on-base-two-weeks-later",
+      "title": "x402 on Base, Two Weeks Later: The Loops Kept Running",
+      "subtitle": "Sep 29–Oct 5: $109,151 of x402 settled on Base; 40.6% looped back to its source. Measured the same way, Sep 15–21 was 46.8%.",
+      "date": "2026-10-06",
+      "url": "https://chainward.ai/decodes/x402-on-base-two-weeks-later",
+      "addresses": [
+        "0x68396bd35874695ad86cd29410bd80a550991a2b",
+        "0x0a4135f9b7af754033bb7af6dc581ec0dc6e15d5",
+        "0x69eb9479983fc9fb5496334384ad19308b198278",
+        "0xdab0581c75f069a13f2cfc1378018c9710fadf92",
+        "0x73880567ba50b6fc6977913e0a6c6eae547449d7",
+        "0xa390b343115cb1aedf14d502e26b88528c280159",
+        "0x211eb3af5e3ad4c66b7cd16c2250eae7b5ce689e",
+        "0xe7cde08395b6b27ca04279bacfb0b12792777820",
+        "0x1d5bf7baa9d48e5da170d7f7c134a25e8e26d9af",
+        "0x13db4caf175f23f1429c2df6b333350c24705192",
+        "0xa6a90366a307080bccb859642d3378121fe8809d",
+        "0xc2204317799b521cd1ff1f7c6cab84d3ac5f774e",
+        "0x1cfffac9aa5590338f2650f1461b70feddad0fcb",
+        "0x0085d9a8d555b23d522a31f97a47ae4291c79586",
+        "0x0beade8a82de601ba91a39330cd163fd9aa7514a",
+        "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055",
+        "0xacc7aebf890612432522c7971cf3882272cdb406",
+        "0x1f9fd037b19a20e4f36790c4e4d992c54fccd61a",
+        "0x604c844d22e8fb6b6354813b26738520226db30a",
+        "0xbe733c53f9f2fdb5301175232baa2a6d093163e9",
+        "0x15eae0792636b3dca7b5002f673b66d27c9d7aff",
+        "0xfa02300b1a598daba1b27b2bf79f9775355dac82",
+        "0x98de74eafb3627e3c6b352ba767a122d794dce9e",
+        "0x0522f70d8374bc7fc176f10c9b29d766e394bb81",
+        "0xce2646d8b6ab269987f3c8823022ed4a0ce31318",
+        "0xb4586a6e772cd57aace8929352de77229e8da2d9",
+        "0x6f7f6cbb9ef2449c48a46bc04b0b6108d70b21ad",
+        "0x6d3d6df3f5394d588e4a4ce798fe59820b901ace",
+        "0xb93483f279f75117049554f2384cd42fe6a1ddae",
+        "0x1a199cd404b4eea21678fe6713c8bc807f9dacf4",
+        "0x9925516e616f0ef3e3018418646f575a22738df2",
+        "0x63f103304ed9f0f1b47b90b10b30e47b639c46c9",
+        "0x03a7080f8c3ba05a14bfce42f3d2789bae397d58",
+        "0xe0f54e20ecd4829a8a80526173531132c1e48873",
+        "0x81c6ed2e014d18ecdb00fce69cdca5b293d771ba",
+        "0xcd85ef923861cdfa45d843ca88a101d985aa827f",
+        "0xba6018c96b41761a3a48b6d371445ddf912bce48",
+        "0x636f43f658dda752068830832285c1f1ff08278f",
+        "0xe2768dfdb47fb0237c6079b967fbbbd10cb16723",
+        "0x1a1a3aa4ab3a4d215f8e4cc674207e2de7faa623",
+        "0x3284879861b6e275602a3a57821a92a09a24b072",
+        "0xc5320eae2a6f3cb56d5fd80ac63c85711b29cb4e",
+        "0x17cd53c04d707ef0dd615ef56c633f02915a7905",
+        "0xfcb9025017611600dce7fce699a820c86938ea65",
+        "0xdecada676485bd8a23808335aec0ff0ed290c045",
+        "0x589a2314a2e05f45e40c4823da3ba58d421db3d8",
+        "0x2588c78ddb0015f033fba8485beeae8e9a05db63",
+        "0x8a12157b27c22fb239e558dc3cb43c7d1a8c0881"
+      ]
+    },
+    {
       "slug": "set-and-earn-week-one",
       "title": "Set and Earn, Week One: Who Is Hiring Whom on BNB Chain",
       "subtitle": "Set and Earn's first four days on BSC: 2,930 new ERC-8004 agents, 8,611 hires, a closed 48-wallet ring and 5 cross-marketplace hirers.",
@@ -393,13 +469,187 @@
   ],
   "byAddress": {
     "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432": [
+      "bsc-erc8004-registry",
       "set-and-earn-week-one"
+    ],
+    "0xfb0ce70ad5bcce56567ee66bd11955ec10ba9741": [
+      "bsc-erc8004-registry"
     ],
     "0x9708738b65a866def24973f5d916dd8a8816208b": [
+      "bsc-erc8004-registry",
       "set-and-earn-week-one"
     ],
+    "0xf1062dce05a93b08b776a549c89fafb0d47eb3ac": [
+      "bsc-erc8004-registry"
+    ],
+    "0xe768e8649a134d3e63f2c9870a84e1a1444d32c2": [
+      "bsc-erc8004-registry"
+    ],
+    "0x63371a6517d1fef17770763419101198009113ca": [
+      "bsc-erc8004-registry"
+    ],
+    "0xeeacff03ebb0d54dc9d69b992d6c48e6a2cc0e22": [
+      "bsc-erc8004-registry"
+    ],
     "0x498b22f28c93fa1ef28bb704c3e03b6ed9e7b4c4": [
+      "bsc-erc8004-registry",
       "set-and-earn-week-one"
+    ],
+    "0xe0a522c0523f30a0068b5fae93be6f4f655013ce": [
+      "bsc-erc8004-registry"
+    ],
+    "0x7924f2d668dd7ab7d34329d8df3e9041b1898650": [
+      "bsc-erc8004-registry"
+    ],
+    "0x68396bd35874695ad86cd29410bd80a550991a2b": [
+      "x402-on-base-two-weeks-later",
+      "x402-on-base"
+    ],
+    "0x0a4135f9b7af754033bb7af6dc581ec0dc6e15d5": [
+      "x402-on-base-two-weeks-later",
+      "x402-on-base"
+    ],
+    "0x69eb9479983fc9fb5496334384ad19308b198278": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xdab0581c75f069a13f2cfc1378018c9710fadf92": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x73880567ba50b6fc6977913e0a6c6eae547449d7": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xa390b343115cb1aedf14d502e26b88528c280159": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x211eb3af5e3ad4c66b7cd16c2250eae7b5ce689e": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xe7cde08395b6b27ca04279bacfb0b12792777820": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x1d5bf7baa9d48e5da170d7f7c134a25e8e26d9af": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x13db4caf175f23f1429c2df6b333350c24705192": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xa6a90366a307080bccb859642d3378121fe8809d": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xc2204317799b521cd1ff1f7c6cab84d3ac5f774e": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x1cfffac9aa5590338f2650f1461b70feddad0fcb": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x0085d9a8d555b23d522a31f97a47ae4291c79586": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x0beade8a82de601ba91a39330cd163fd9aa7514a": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055": [
+      "x402-on-base-two-weeks-later",
+      "x402-on-base"
+    ],
+    "0xacc7aebf890612432522c7971cf3882272cdb406": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x1f9fd037b19a20e4f36790c4e4d992c54fccd61a": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x604c844d22e8fb6b6354813b26738520226db30a": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xbe733c53f9f2fdb5301175232baa2a6d093163e9": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x15eae0792636b3dca7b5002f673b66d27c9d7aff": [
+      "x402-on-base-two-weeks-later",
+      "x402-on-base"
+    ],
+    "0xfa02300b1a598daba1b27b2bf79f9775355dac82": [
+      "x402-on-base-two-weeks-later",
+      "x402-on-base"
+    ],
+    "0x98de74eafb3627e3c6b352ba767a122d794dce9e": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x0522f70d8374bc7fc176f10c9b29d766e394bb81": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xce2646d8b6ab269987f3c8823022ed4a0ce31318": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xb4586a6e772cd57aace8929352de77229e8da2d9": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x6f7f6cbb9ef2449c48a46bc04b0b6108d70b21ad": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x6d3d6df3f5394d588e4a4ce798fe59820b901ace": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xb93483f279f75117049554f2384cd42fe6a1ddae": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x1a199cd404b4eea21678fe6713c8bc807f9dacf4": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x9925516e616f0ef3e3018418646f575a22738df2": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x63f103304ed9f0f1b47b90b10b30e47b639c46c9": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x03a7080f8c3ba05a14bfce42f3d2789bae397d58": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xe0f54e20ecd4829a8a80526173531132c1e48873": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x81c6ed2e014d18ecdb00fce69cdca5b293d771ba": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xcd85ef923861cdfa45d843ca88a101d985aa827f": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xba6018c96b41761a3a48b6d371445ddf912bce48": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x636f43f658dda752068830832285c1f1ff08278f": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xe2768dfdb47fb0237c6079b967fbbbd10cb16723": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x1a1a3aa4ab3a4d215f8e4cc674207e2de7faa623": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x3284879861b6e275602a3a57821a92a09a24b072": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xc5320eae2a6f3cb56d5fd80ac63c85711b29cb4e": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x17cd53c04d707ef0dd615ef56c633f02915a7905": [
+      "x402-on-base-two-weeks-later",
+      "x402-on-base"
+    ],
+    "0xfcb9025017611600dce7fce699a820c86938ea65": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xdecada676485bd8a23808335aec0ff0ed290c045": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x589a2314a2e05f45e40c4823da3ba58d421db3d8": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x2588c78ddb0015f033fba8485beeae8e9a05db63": [
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x8a12157b27c22fb239e558dc3cb43c7d1a8c0881": [
+      "x402-on-base-two-weeks-later"
     ],
     "0x5da8354fbfc06a92609b9a8387c59be5c21e2e38": [
       "set-and-earn-week-one"
@@ -688,12 +938,6 @@
     "0x000000bc7e6457e610fe52dcc0ca5b3ce59c8e80": [
       "base-mcp-find-the-tag"
     ],
-    "0x68396bd35874695ad86cd29410bd80a550991a2b": [
-      "x402-on-base"
-    ],
-    "0x0a4135f9b7af754033bb7af6dc581ec0dc6e15d5": [
-      "x402-on-base"
-    ],
     "0x9a7c172a908c0f6bb89cfa89c6dbd7a8f83de416": [
       "x402-on-base"
     ],
@@ -727,15 +971,6 @@
     "0xe289d41efb500ef2cc8b51aa0378a07e454a7000": [
       "x402-on-base"
     ],
-    "0x15eae0792636b3dca7b5002f673b66d27c9d7aff": [
-      "x402-on-base"
-    ],
-    "0xfa02300b1a598daba1b27b2bf79f9775355dac82": [
-      "x402-on-base"
-    ],
-    "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055": [
-      "x402-on-base"
-    ],
     "0x2a77866b6faa77545fb409ab1c94b3772b421f3d": [
       "x402-on-base"
     ],
@@ -746,9 +981,6 @@
       "x402-on-base"
     ],
     "0xcc1984e79726e7a0ae2b9df2ac9e79fb4983930e": [
-      "x402-on-base"
-    ],
-    "0x17cd53c04d707ef0dd615ef56c633f02915a7905": [
       "x402-on-base"
     ],
     "0x8d1e2ce4af9cc0fd872c1f4de2cc0a393e63545a": [

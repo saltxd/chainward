@@ -1,0 +1,8 @@
+[
+  "BNB Chain's ERC-8004 registry took 3,496 new agents from Oct 1 to Oct 6 04:15 UTC.\n\n2,406 of them (69%) came from three programs outside Set and Earn: EvoEvo, an \"Ave.ai Trading Agent\" card template and Quack Q402.\n\nHired on TermiX or ERC-8183 so far: 0 of the 2,406.",
+  "No campaign bump from the three.\n\nThe registry took 675 agents a day in campaign week and 635 a day in the last week of September.\n\nAll of September: 36,739 new agents, 65% from the same three programs. Each ran within 8% of its late-September pace.",
+  "EvoEvo: 864 of 1,284 owner wallets (67%) sit in funding chains of 20+.\n\nEach registers an agent at gas price 0, binds it to EvoEvo, then passes its leftover BNB on.\n\nThe 4 biggest chains (707 wallets) were seeded by exchange-style withdrawals; all 4 were refilled.",
+  "Ave.ai Trading Agent card: 853 copies, all identical, no service listed.\n\nThe 832 owners look like separate traders: 543 different first funders, and 750 of them moved tokens in the window.\n\nWe found no Ave.ai page about these registrations.",
+  "Quack Q402: 168 new agent wallets, each first registered gaslessly as its very first transaction. No USDT or USDC moved in or out of them on BSC or Base in the window.\n\nOct 5: bitagent added 139 agents in a day, every owner funded with 0.0015 BNB by the same wallet.",
+  "For Set and Earn reviewers: registry counts track these programs, not the campaign, and the week-one hire numbers stand.\n\nchainward.ai/decodes/bsc-erc8004-registry\n\nEvery BSC agent hired since Oct 1, free: chainward.ai/set-and-earn\nPer-agent hire check: $0.10"
+]

@@ -1,0 +1,8 @@
+[
+  "Two weeks after we showed x402 money looping on Base, it kept looping.\n\nSep 29–Oct 5: $109,151 settled. $44,344 (40.6%) went back to its source. Sep 15–21, same method: 46.8%.\n\nThe #2 seller was #1 for the week, then stopped taking payments on Oct 2.",
+  "clusterprotocol's payTo: $21.9K, $21.9K, then $10.9K before it stopped. Same hub, same 3 distributors.\n\nLast week 645 of its 715 buyers, 99.9% of its volume, were funded by those distributors. One example per hop, seller → hub → distributor → buyer → seller: an hour.",
+  "Six wallets paying each other through Meridian didn't miss a week: $28.5K, $32.7K, $26.0K. All 30 payer→payee pairs, no x402 coming in from outside, still earning MRDN cashback.\n\nA seventh seller does the same with one payer whose USDC is 74–80% from the seller.",
+  "Payers funded by the account at both ends of September's $30K round trip made $138,700 of x402 payments.\n\nSep 30: it sent a second payer $34,700. Five minutes later, one block, six x402 payments: $34,700. Two came back within 10 min. It may be a service both sides use.",
+  "Wound down: one seller that paid its buyers back. clashofcoins moved to a new payTo as its weekly x402 volume fell from $8,055 to $435.\n\nDisclosure: ChainWard sells an x402 seller check and has pitched paid work to Meridian and to x402scan's operator.",
+  "Our $0.10 seller check (GET /api/risk/seller-demand on api.chainward.ai) flags seller-funded buyers but can't see past proxies or x402 trees: no flag on 69.6% of last week's loop dollars. Free board: chainward.ai/x402\n\nchainward.ai/decodes/x402-on-base-two-weeks-later"
+]
