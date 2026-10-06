@@ -123,7 +123,7 @@ const paidGetOnly: MiddlewareHandler = async (c, next) => {
 };
 const x402Check = x402CheckMiddleware();
 if (x402Check) {
-  for (const path of ['/api/risk/x402', '/api/risk/x402/*', '/api/risk/seller-demand', '/api/paid/:slug/file']) {
+  for (const path of ['/api/risk/x402', '/api/risk/x402/*', '/api/risk/seller-demand', '/api/risk/hires', '/api/paid/:slug/file']) {
     app.use(path, paidGetOnly);
     app.use(path, x402PublicUrl);
     app.use(path, x402Check);

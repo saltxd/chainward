@@ -11,6 +11,7 @@ import {
 import { createFacilitatorConfig } from '@coinbase/x402';
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { x402Settlements } from '@chainward/db';
+import { HIRE_LIMITS, HIRE_MAX_HOPS, HIRE_METHOD, HIRE_WINDOW_DAYS } from '@chainward/decode';
 import { getDb } from './db.js';
 import { logger } from './logger.js';
 
@@ -25,6 +26,8 @@ import { logger } from './logger.js';
 export const X402_CHECK_ROUTES = ['GET /api/risk/x402', 'GET /api/risk/x402/:address'] as const;
 // Seller demand: where a seller's buyers get their USDC (services/sellerDemandService.ts).
 export const SELLER_DEMAND_ROUTE = 'GET /api/risk/seller-demand' as const;
+// Set and Earn hire check: who hired an ERC-8004 agent on BNB Chain, and how each hirer links to its owner.
+export const HIRES_ROUTE = 'GET /api/risk/hires' as const;
 const BASE_MAINNET = 'eip155:8453';
 // PayAI settles Base-mainnet `exact` payments without an API key (free tier).
 const DEFAULT_FACILITATOR = 'https://facilitator.payai.network';
@@ -68,6 +71,10 @@ export function x402SellerPrice(): string {
   return process.env.X402_SELLER_PRICE ?? '$0.10';
 }
 
+export function x402HiresPrice(): string {
+  return process.env.X402_HIRES_PRICE ?? '$0.10';
+}
+
 // Paid datasets (routes/paid.ts). One price for every file; must match paid_files.price_usdc.
 export const PAID_FILE_ROUTE = 'GET /api/paid/:slug/file' as const;
 export function x402FilePrice(): string {
@@ -105,6 +112,52 @@ const SELLER_OUTPUT_EXAMPLE = {
   },
 };
 
+// A ring agent from chainward.ai/decodes/set-and-earn-week-one, as the check reported it on 2026-10-06.
+const HIRES_OUTPUT_EXAMPLE = {
+  success: true,
+  data: {
+    chain: 'bsc',
+    agent_id: 332962,
+    agent_ids: [332962],
+    owner: '0x15d08640aeefbdce11930d9c9a30884011f654f6',
+    agent_wallet: '0x15d08640aeefbdce11930d9c9a30884011f654f6',
+    window_days: HIRE_WINDOW_DAYS,
+    hires: { total: 3, distinct_hirers: 2, by_source: { termix_escrow: 3, erc8183_shared: 0 } },
+    hirers: [
+      {
+        address: '0x4e276b4db12447254134b45e5add170993df5ad2',
+        hires: 1,
+        first_hire_at: '2026-10-01T07:42:05.000Z',
+        verdict: 'inconclusive',
+        evidence:
+          "The hirer's first-incoming-BNB trail stops at 0x8894e0a0c962cb723c1976a4421c95949be2d4e3, a hub (exchange-style wallet, router or custodian), after 2 hops; funding behind it is not visible.",
+        path: [
+          '0x4e276b4db12447254134b45e5add170993df5ad2',
+          '0x1d21aa41a77737e593b8ca92d6bf6437fa81697f',
+          '0x8894e0a0c962cb723c1976a4421c95949be2d4e3',
+        ],
+      },
+      {
+        address: '0x99f88c4cae19f858052236f808b75967eece5bd0',
+        hires: 2,
+        first_hire_at: '2026-10-03T07:19:06.000Z',
+        verdict: 'shared_funder',
+        evidence:
+          "The hirer's and the owner wallet's funding trails meet at 0x0fe05614b2d344fb0ef9797431890d4c13c0f0f1, which is not a hub or a contract (hirer: 1 hop up its first-incoming-stablecoin trail; owner wallet: 1 hop up its first-incoming-stablecoin trail).",
+        path: [
+          '0x99f88c4cae19f858052236f808b75967eece5bd0',
+          '0x0fe05614b2d344fb0ef9797431890d4c13c0f0f1',
+          '0x15d08640aeefbdce11930d9c9a30884011f654f6',
+        ],
+      },
+    ],
+    summary: { owner_linked: 1, inconclusive: 1, independent_within_limits: 0, passes_three_independent: false },
+    method: HIRE_METHOD,
+    limits: HIRE_LIMITS,
+    as_of: { block: 125969567, time: '2026-10-06T01:09:22.000Z' },
+  },
+};
+
 /**
  * /.well-known/x402 discovery document. `version` is what indexers such as
  * x402scan read today; `x402Version` is the draft discovery spec's field. Each
@@ -122,6 +175,7 @@ export function x402DiscoveryDocument() {
     resources: [
       'https://api.chainward.ai/api/risk/x402',
       'https://api.chainward.ai/api/risk/seller-demand',
+      'https://api.chainward.ai/api/risk/hires',
       // One concrete dataset URL so crawlers can probe the route; GET /api/paid lists them all.
       'https://api.chainward.ai/api/paid/termix-wallets/file',
     ],
@@ -161,6 +215,7 @@ export function apiHomePage(): string {
 <ul>
 <li><code>GET /api/risk/x402?address=0x…</code> (add <code>&amp;chain=bsc</code> for BNB Chain): a risk report no older than 24h, every flag tied to its transactions.</li>
 <li><code>GET /api/risk/seller-demand?address=0x…</code> (add <code>&amp;chain=bsc</code>): how much of a seller's revenue traces back to the seller itself.</li>
+<li><code>GET /api/risk/hires?agent=&lt;ERC-8004 id or owner 0x…&gt;&amp;chain=bsc</code> (${x402HiresPrice()}): who hired a BNB Chain agent in the last ${HIRE_WINDOW_DAYS} days, and whether each hirer is the owner, funded by it, or shares a funder with it (Set and Earn).</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
 <p>A report is a list of flags, never a safety verdict. Discovery: <a href="/.well-known/x402">/.well-known/x402</a> and <a href="/openapi.json">/openapi.json</a>. Docs: <a href="https://chainward.ai/docs">chainward.ai/docs</a>. Free reports: <a href="https://chainward.ai">chainward.ai</a>.</p>
@@ -176,6 +231,7 @@ export function apiHomePage(): string {
 export function x402OpenApiDocument() {
   const usd = (x402CheckPrice().match(/[\d.]+/) ?? ['0.05'])[0];
   const sellerUsd = (x402SellerPrice().match(/[\d.]+/) ?? ['0.10'])[0];
+  const hiresUsd = (x402HiresPrice().match(/[\d.]+/) ?? ['0.10'])[0];
   const fileUsd = (x402FilePrice().match(/[\d.]+/) ?? ['10'])[0];
   return {
     openapi: '3.1.0',
@@ -253,6 +309,41 @@ export function x402OpenApiDocument() {
           responses: {
             '200': { description: 'Seller demand report', content: { 'application/json': { example: SELLER_OUTPUT_EXAMPLE } } },
             '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+            '504': { description: 'Check did not finish in time; not charged' },
+          },
+        },
+      },
+      '/api/risk/hires': {
+        get: {
+          operationId: 'hireCheck',
+          summary: "Set and Earn hire check: are an ERC-8004 agent's hirers wallets its owner neither owns nor funds? BNB Chain, paid per call over x402",
+          description:
+            `For an ERC-8004 agent on BNB Chain (an agent id, or an owner address for all its agents): every wallet that hired it in the last ${HIRE_WINDOW_DAYS} days through the TermiX escrow or the shared ERC-8183 contract, each with a verdict (owner, owner_funded, shared_funder, inconclusive, independent_within_limits), the evidence and the funding path. Follows each wallet's first incoming BNB and first incoming stablecoin up to ${HIRE_MAX_HOPS} hops. independent_within_limits means no link found within those limits, not proven independence. Not charged if the check fails.`,
+          parameters: [
+            {
+              name: 'agent',
+              in: 'query',
+              required: true,
+              schema: { type: 'string', pattern: '^(\\d{1,12}|0x[a-fA-F0-9]{40})$', example: '332962' },
+              description: 'ERC-8004 agent id on BNB Chain, or the 0x address that owns the agent(s)',
+            },
+            {
+              name: 'chain',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['bsc'], default: 'bsc' },
+              description: 'BNB Chain only for now. Payment is USDC on Base.',
+            },
+          ],
+          'x-payment-info': {
+            price: { mode: 'fixed', currency: 'USD', amount: hiresUsd },
+            protocols: [{ x402: {} }],
+          },
+          responses: {
+            '200': { description: 'Hire check report', content: { 'application/json': { example: HIRES_OUTPUT_EXAMPLE } } },
+            '400': { description: 'Bad agent or chain (chain=base is not supported yet); not charged' },
+            '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+            '404': { description: 'No ERC-8004 agent with that id on BNB Chain; not charged' },
             '504': { description: 'Check did not finish in time; not charged' },
           },
         },
@@ -432,6 +523,11 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     .registerExtension(bazaarResourceServerExtension)
     .onAfterSettle(recordSettlement);
 
+  return paymentMiddleware(x402PaidRoutes(payTo), server);
+}
+
+/** Every paid route's x402 config (price, description, Bazaar discovery), paying out to `payTo`. */
+export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
   const example = '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2';
   const addressSchema = {
     type: 'object',
@@ -486,7 +582,28 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     tags: ['base', 'dataset', 'sybil', 'airdrop', 'points', 'agents'],
     whatYouGet: 'The CSV named by the slug (see GET /api/paid for what is available). Not charged if the file does not exist.',
   };
-  const route = (product: Product, discovery: ReturnType<typeof declareDiscoveryExtension>): RouteConfig => ({
+  const hireCheck: Product = {
+    price: x402HiresPrice(),
+    serviceName: 'ChainWard hire check',
+    description:
+      `For BNB Chain's Set and Earn rule of 3 hires from wallets you neither own nor fund: every wallet that hired an ERC-8004 agent in the last ${HIRE_WINDOW_DAYS} days (TermiX escrow and the shared ERC-8183 contract), and whether each is the owner, funded by it, or shares a funder with it. Describes money flows, never intent.`,
+    tags: ['bsc', 'bnb', 'erc8004', 'erc8183', 'agents', 'hires', 'sybil', 'set-and-earn'],
+    whatYouGet:
+      `Every hirer of the agent in the last ${HIRE_WINDOW_DAYS} days with a verdict, the evidence and the funding path (first incoming BNB and stablecoin, up to ${HIRE_MAX_HOPS} hops), JSON. Not charged if the check fails.`,
+  };
+  const hireSchema = {
+    type: 'object',
+    properties: {
+      agent: {
+        type: 'string',
+        pattern: '^(\\d{1,12}|0x[a-fA-F0-9]{40})$',
+        description: 'ERC-8004 agent id on BNB Chain, or the 0x address that owns the agent(s)',
+      },
+      chain: { type: 'string', enum: ['bsc'], default: 'bsc', description: 'BNB Chain only for now. Payment is USDC on Base.' },
+    },
+    required: ['agent'],
+  };
+  const route =(product: Product, discovery: ReturnType<typeof declareDiscoveryExtension>): RouteConfig => ({
     accepts: {
       scheme: 'exact',
       price: product.price,
@@ -517,52 +634,60 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
     }),
   });
 
-  return paymentMiddleware(
-    {
-      [X402_CHECK_ROUTES[0]]: {
-        ...route(
-          counterparty,
-          declareDiscoveryExtension({
-            input: { address: example },
-            inputSchema: checkSchema,
-            output: { example: OUTPUT_EXAMPLE },
-          }),
-        ),
-        // TLS ends at the proxy, so the request URL reads http://; catalogs key on this.
-        resource: 'https://api.chainward.ai/api/risk/x402',
-      },
-      [X402_CHECK_ROUTES[1]]: route(
+  return {
+    [X402_CHECK_ROUTES[0]]: {
+      ...route(
         counterparty,
         declareDiscoveryExtension({
-          pathParams: { address: example },
-          pathParamsSchema: addressSchema,
+          input: { address: example },
+          inputSchema: checkSchema,
           output: { example: OUTPUT_EXAMPLE },
         }),
       ),
-      [PAID_FILE_ROUTE]: route(
-        paidFile,
+      // TLS ends at the proxy, so the request URL reads http://; catalogs key on this.
+      resource: 'https://api.chainward.ai/api/risk/x402',
+    },
+    [X402_CHECK_ROUTES[1]]: route(
+      counterparty,
+      declareDiscoveryExtension({
+        pathParams: { address: example },
+        pathParamsSchema: addressSchema,
+        output: { example: OUTPUT_EXAMPLE },
+      }),
+    ),
+    [PAID_FILE_ROUTE]: route(
+      paidFile,
+      declareDiscoveryExtension({
+        pathParams: { slug: 'termix-wallets' },
+        pathParamsSchema: {
+          type: 'object',
+          properties: { slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,59}$', description: 'File slug from GET /api/paid' } },
+          required: ['slug'],
+        },
+        output: { example: { contentType: 'text/csv' } },
+      }),
+    ),
+    [SELLER_DEMAND_ROUTE]: {
+      ...route(
+        sellerDemand,
         declareDiscoveryExtension({
-          pathParams: { slug: 'termix-wallets' },
-          pathParamsSchema: {
-            type: 'object',
-            properties: { slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,59}$', description: 'File slug from GET /api/paid' } },
-            required: ['slug'],
-          },
-          output: { example: { contentType: 'text/csv' } },
+          input: { address: '0x68396bd35874695ad86cd29410bd80a550991a2b' },
+          inputSchema: checkSchema,
+          output: { example: SELLER_OUTPUT_EXAMPLE },
         }),
       ),
-      [SELLER_DEMAND_ROUTE]: {
-        ...route(
-          sellerDemand,
-          declareDiscoveryExtension({
-            input: { address: '0x68396bd35874695ad86cd29410bd80a550991a2b' },
-            inputSchema: checkSchema,
-            output: { example: SELLER_OUTPUT_EXAMPLE },
-          }),
-        ),
-        resource: 'https://api.chainward.ai/api/risk/seller-demand',
-      },
+      resource: 'https://api.chainward.ai/api/risk/seller-demand',
     },
-    server,
-  );
+    [HIRES_ROUTE]: {
+      ...route(
+        hireCheck,
+        declareDiscoveryExtension({
+          input: { agent: '332962', chain: 'bsc' },
+          inputSchema: hireSchema,
+          output: { example: HIRES_OUTPUT_EXAMPLE },
+        }),
+      ),
+      resource: 'https://api.chainward.ai/api/risk/hires',
+    },
+  };
 }
