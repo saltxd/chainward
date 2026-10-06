@@ -224,6 +224,16 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
             </a>
             .
           </p>
+          <p className="att-p">
+            Building for BNB Chain’s Set and Earn?{' '}
+            <span className="mono">GET api.chainward.ai/api/risk/hires?agent=&lt;id&gt;&amp;chain=bsc</span>{' '}
+            (0.10 USDC) shows whether an agent’s hirers are wallets its owner neither is nor funded. It runs
+            daily on every new agent that has been hired, on{' '}
+            <a className="press-link" href="/set-and-earn">
+              the Set and Earn board
+            </a>
+            .
+          </p>
           <pre className="att-code mono">
             <code>{`$ cd chainward/examples/pay-per-check && npm install
 $ BUYER_PRIVATE_KEY=0x… npx tsx index.ts 0x…`}</code>

@@ -8,6 +8,8 @@
 - Latest on-chain attestation for an address (free, JSON, includes the canonical report JSON to verify the hash): GET https://api.chainward.ai/api/risk/attestation/<address>
 - Fresh report on demand, paid per call over x402 (0.05 USDC on Base, no account; not charged if the check fails): GET https://api.chainward.ai/api/risk/x402?address=<address>
 - Where a seller's buyers get their stablecoins (seller-funded buyers, money sent back, common funders), on Base or BNB Chain, paid per call over x402 (0.10 USDC): GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo> (add &chain=bsc for BNB Chain)
+- Who hired a BNB Chain ERC-8004 agent, and whether each hirer is the owner, funded by it or shares a funder with it (BNB Chain's Set and Earn rule), paid per call over x402 (0.10 USDC): GET https://api.chainward.ai/api/risk/hires?agent=<id>&chain=bsc
+- Set and Earn board, free and daily: every ERC-8004 agent registered on BNB Chain since Oct 1 2026 that has been hired, with the hire check's verdict: https://chainward.ai/set-and-earn (JSON: GET https://api.chainward.ai/api/set-and-earn/board)
 - x402 discovery document: https://api.chainward.ai/.well-known/x402
 
 ## ChainWard Attest (EAS on Base)

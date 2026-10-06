@@ -121,7 +121,8 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
               agent (an id, or an owner address) in the last 30 days, and whether each
               is the owner, funded by it or shares a funder with it.{' '}
               <code>independent_within_limits</code> means no link was found within 4
-              hops, not proven independence. BNB Chain only.
+              hops, not proven independence. BNB Chain only. Free daily results for every
+              hired new agent: <a href="/set-and-earn">/set-and-earn</a>.
             </td>
           </tr>
           <tr>
