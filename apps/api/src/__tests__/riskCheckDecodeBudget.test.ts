@@ -20,7 +20,12 @@ const redis = vi.hoisted(() => {
     zremrangebyscore: (key: string, min: number, max: number) => {
       const s = zset(key);
       let n = 0;
-      for (const [m, score] of s) if (score >= min && score <= max) (s.delete(m), n++);
+      for (const [m, score] of s) {
+        if (score >= min && score <= max) {
+          s.delete(m);
+          n++;
+        }
+      }
       return n;
     },
     zcard: (key: string) => zset(key).size,
