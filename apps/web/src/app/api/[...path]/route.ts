@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { upstreamTimeoutMs } from './upstreamTimeout';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
 // Matches the API's bodyLimit; anything larger is refused before it is buffered here.
 const MAX_BODY_BYTES = 1024 * 1024;
-const UPSTREAM_TIMEOUT_MS = 30_000;
 
 // Only these request headers reach the API. Forwarding everything let clients
 // set X-Forwarded-For / X-Real-IP / Expect and similar on the upstream request.
@@ -98,7 +98,7 @@ async function proxy(req: NextRequest) {
       headers,
       body,
       redirect: 'manual',
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      signal: AbortSignal.timeout(upstreamTimeoutMs(url.pathname)),
     });
   } catch (err) {
     console.error('API proxy fetch failed:', err);
