@@ -20,6 +20,22 @@ export const SELLER_STABLECOINS: Record<SellerChain, string[]> = {
 
 /** Base 2 s blocks; BSC ~0.45 s after Maxwell (measured 2026-10-03, docs/BSC.md). */
 export const SELLER_BLOCKS_PER_DAY: Record<SellerChain, number> = { base: 43_200, bsc: 192_000 };
+
+/**
+ * The Alchemy RPC the seller check, the hire check and the boards built from
+ * them use on a chain: SELLER_DEMAND_RPC_URL (else BASE_RPC_URL) for Base; for
+ * BNB Chain SELLER_DEMAND_BSC_RPC_URL, else the Base URL with its host rewritten
+ * (same key). alchemy_getAssetTransfers is Alchemy-only, so anything else is
+ * undefined rather than a URL that would run the check on the wrong chain.
+ */
+export function sellerDemandRpcUrl(chain: SellerChain, env: Record<string, string | undefined>): string | undefined {
+  const base = env.SELLER_DEMAND_RPC_URL ?? env.BASE_RPC_URL;
+  if (!base || !/alchemy\.com/.test(base)) return undefined;
+  if (chain === 'base') return base;
+  if (env.SELLER_DEMAND_BSC_RPC_URL) return env.SELLER_DEMAND_BSC_RPC_URL;
+  const derived = base.replace('base-mainnet', 'bnb-mainnet');
+  return derived === base ? undefined : derived;
+}
 const MAX_HOPS = 4;
 const TOP_BUYERS = 30;
 /** An address with this many USDC inflows in the window is a hub (exchange, router,

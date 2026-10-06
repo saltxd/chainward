@@ -15,11 +15,11 @@ import {
   DEMAND_WINDOW_DAYS,
   SELLER_BLOCKS_PER_DAY,
   SELLER_STABLECOINS,
+  sellerDemandRpcUrl,
   HireCheckError,
   runHireCheck,
   type HireAgentInput,
   type RiskAssessment,
-  type SellerChain,
 } from '@chainward/decode';
 import { KNOWN_CONTRACTS, RISK_CHAINS, RISK_CHAIN_IDS, type RiskChainId } from '@chainward/common';
 import { rpcFixturesHaveHistory, type RpcFixtures } from '@chainward/decode';
@@ -824,16 +824,8 @@ export async function rpcHead(rpcUrl: string): Promise<bigint> {
 
 const sellerChainSchema = z.enum(['base', 'bsc']).default('base');
 
-/** The Alchemy RPC for a chain's seller check; BNB is derived from the Base URL unless set explicitly. */
-export function sellerDemandRpcUrl(chain: SellerChain, env: NodeJS.ProcessEnv): string | undefined {
-  const base = env.SELLER_DEMAND_RPC_URL ?? env.BASE_RPC_URL;
-  if (!base || !/alchemy\.com/.test(base)) return undefined;
-  if (chain === 'base') return base;
-  if (env.SELLER_DEMAND_BSC_RPC_URL) return env.SELLER_DEMAND_BSC_RPC_URL;
-  // Only a Base Alchemy host can be rewritten; anything else would silently run the check on the wrong chain.
-  const derived = base.replace('base-mainnet', 'bnb-mainnet');
-  return derived === base ? undefined : derived;
-}
+// The Alchemy RPC for a chain's seller check; shared with the indexer's boards.
+export { sellerDemandRpcUrl };
 
 /** Alchemy answers this when the network isn't switched on for the app in its dashboard. */
 export function isAlchemyNetworkDisabled(err: unknown): boolean {
