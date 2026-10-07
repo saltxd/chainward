@@ -466,13 +466,16 @@ async function fetchFromRpc(
   const windowBlocks = Math.round((windowDays * 86_400) / head.blockSeconds);
   const fromBlock = Math.max(0, toBlock - windowBlocks + 1);
 
-  let transfers: { items: NodeTransfer[]; truncated: boolean };
+  let transfers: { items: NodeTransfer[]; truncated: boolean; source: 'explorer_api' | 'rpc_logs' };
   let window: ScanWindow;
   const apiKey = opts.explorerApiKey === undefined ? riskChainExplorerApiKey(chain) : opts.explorerApiKey ?? undefined;
   let explorerOk = false;
   if (apiKey) {
     try {
-      transfers = await fetchExplorerTransfers(chain, address, apiKey, t, opts.fetchImpl ?? fetch, nowMs);
+      transfers = {
+        ...(await fetchExplorerTransfers(chain, address, apiKey, t, opts.fetchImpl ?? fetch, nowMs)),
+        source: 'explorer_api',
+      };
       explorerOk = true;
       // Page cap hit → the oldest row we hold bounds the window we can vouch for.
       const oldest = transfers.items[transfers.items.length - 1]?.timestamp;
@@ -517,7 +520,7 @@ async function fetchFromRpc(
       opts.maxTransfers ?? DEFAULT_MAX_TRANSFERS,
       head.blockSeconds,
     );
-    transfers = { items: mapped.items, truncated: scan.truncated || mapped.truncated };
+    transfers = { items: mapped.items, truncated: scan.truncated || mapped.truncated, source: 'rpc_logs' };
     // What was actually covered: the scanned block span at the measured block rate.
     const scannedDays = ((toBlock - scan.scannedFromBlock + 1) * head.blockSeconds) / 86_400;
     window = {

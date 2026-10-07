@@ -399,6 +399,11 @@ export interface AlchemyTransfer {
   blockNum?: string;
   /** ERC-721 transfers only. */
   erc721TokenId?: string | null;
+  /** `<txHash>:log:<logIndex>` for token transfers: unique per transfer. */
+  uniqueId?: string;
+  rawContract?: { address?: string | null };
+  /** Present with `withMetadata: true`. */
+  metadata?: { blockTimestamp?: string };
 }
 
 /** One alchemy_getAssetTransfers call, with backoff for the free tier's compute-units-per-second limit. */

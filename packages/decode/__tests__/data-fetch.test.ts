@@ -108,7 +108,8 @@ describe('fetchFixtures', () => {
       transactions_count: '0',
       token_transfers_count: '0',
     });
-    expect(result.blockscout_transfers).toEqual({ items: [], truncated: false });
+    // The node's logs answered (empty), so Blockscout's 500 never mattered.
+    expect(result.blockscout_transfers).toEqual({ items: [], truncated: false, source: 'node_logs' });
     // sentinel sources should still succeed
     expect(result.sentinel_code).toEqual({ result: '0x0' });
     expect(result.sentinel_nonce).toEqual({ result: '0x0' });

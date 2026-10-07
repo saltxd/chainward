@@ -74,6 +74,14 @@ const NOT_ASSESSED: readonly string[] = [
  * actually read instead of implying 30 days.
  */
 export function notAssessedFor(chain: DecodeChain, fetchMeta: QuickDecodeResultData['fetch_meta']): string[] {
+  // Every transfer source failed: recent activity was not read, so say so first.
+  const unread = fetchMeta.transfers_unavailable
+    ? [`Recent transfer activity, dormancy and counterparties: ${fetchMeta.transfers_unavailable}`]
+    : [];
+  return [...unread, ...notAssessedForChain(chain, fetchMeta)];
+}
+
+function notAssessedForChain(chain: DecodeChain, fetchMeta: QuickDecodeResultData['fetch_meta']): string[] {
   if (chain === 'base') return [...NOT_ASSESSED];
   const cfg = RISK_CHAINS[chain];
   const days = fetchMeta.window_days;
@@ -113,6 +121,11 @@ export interface RiskCheck {
   looks_for: string;
   /** Depends on a Base-only source (ACP, Virtuals factory, observatory); skipped elsewhere. */
   base_only?: true;
+  /**
+   * Reads the transfer list. When every transfer source failed the check is not
+   * assessed: it never fires, and coverage says why instead of "not raised".
+   */
+  reads_transfers?: true;
 }
 
 /**
@@ -126,16 +139,19 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     title: 'ACP online claim not reflected on-chain',
     looks_for: "An ACP 'online' status that the wallet's recent on-chain activity does not reflect",
     base_only: true,
+    reads_transfers: true,
   },
   {
     id: 'dormant_wallet',
     title: 'Wallet is dormant',
     looks_for: 'No transfers in the 7-day window on a wallet that has history',
+    reads_transfers: true,
   },
   {
     id: 'stranded_value',
     title: 'USDC balance held in a dormant wallet',
     looks_for: 'A USDC balance sitting in a wallet classified dormant',
+    reads_transfers: true,
   },
   {
     id: 'factory_proxy_clone',
@@ -147,6 +163,7 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     id: 'counterparty_concentration',
     title: 'Transfers concentrated among very few counterparties',
     looks_for: 'Ten or more transfers in 30 days across two or fewer counterparties',
+    reads_transfers: true,
   },
   {
     id: 'cluster_collapsed',
@@ -158,11 +175,13 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     id: 'inactive_no_history',
     title: 'No recent on-chain transfer activity',
     looks_for: 'No ERC-20 transfers in the roughly 30-day window',
+    reads_transfers: true,
   },
   {
     id: 'activity_truncated',
     title: 'Transfer history truncated at fetch cap',
     looks_for: 'The transfer scan hit its page cap, so activity counts are a lower bound',
+    reads_transfers: true,
   },
 ];
 
@@ -250,6 +269,30 @@ function findDiscrepancy(discrepancies: Discrepancy[], field: string): Discrepan
   return discrepancies.find((d) => d.field === field);
 }
 
+/** Names the source that served the transfer list, for evidence sentences. */
+function transferSourcePhrase(meta: QuickDecodeResultData['fetch_meta'], chain: DecodeChain): string {
+  const cfg = RISK_CHAINS[chain];
+  switch (meta.transfers_source) {
+    case 'node_logs':
+      return 'our own Base node';
+    case 'rpc_logs':
+      return `public ${cfg.name} RPC logs`;
+    case 'alchemy':
+      return `Alchemy's ${cfg.name} transfer index`;
+    case 'blockscout':
+      return 'Blockscout';
+    case 'explorer_api':
+      return `the ${cfg.explorer.name} API`;
+    default:
+      // Reports filed before the transfer source was recorded.
+      return meta.data_source === 'sentinel'
+        ? 'our own Base node'
+        : meta.data_source === 'public'
+          ? `public ${cfg.name} RPC logs`
+          : cfg.name;
+  }
+}
+
 /**
  * Derive the v1 risk flags from a computed QuickDecodeResultData.
  *
@@ -259,7 +302,6 @@ function findDiscrepancy(discrepancies: Discrepancy[], field: string): Discrepan
 export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   const address = data.target.wallet_address;
   const chain: DecodeChain = data.chain ?? 'base';
-  const chainCfg = RISK_CHAINS[chain];
   const allowlist = loadAllowlist();
   // Base keeps its Blockscout citation; other chains cite their explorer.
   const source = chain === 'base' ? blockscoutAddressUrl(address) : riskChainAddressUrl(chain, address);
@@ -288,10 +330,14 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   // truncation, counterparty concentration, peer cluster) are head-age-independent and
   // still emit.
   const headStale = data.fetch_meta.head_stale === true;
+  // A failed transfer read is not an empty window. Every check that reads the
+  // transfer list (absence of activity, dormancy, concentration, truncation)
+  // needs a successful read before it may fire; coverage marks them not assessed.
+  const transfersRead = !data.fetch_meta.transfers_unavailable;
 
   // 1. claim_vs_chain_offline (medium) <- discrepancies[] entry field 'isOnline'
   const onlineDisc = findDiscrepancy(data.discrepancies, 'isOnline');
-  if (baseSources && onlineDisc && !headStale) {
+  if (baseSources && onlineDisc && !headStale && transfersRead) {
     flags.push({
       id: 'claim_vs_chain_offline',
       severity: 'medium',
@@ -302,7 +348,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   }
 
   // 2. dormant_wallet (medium) <- data.survival.classification === 'dormant'
-  if (data.survival.classification === 'dormant' && !headStale) {
+  if (data.survival.classification === 'dormant' && !headStale && transfersRead) {
     flags.push({
       id: 'dormant_wallet',
       severity: 'medium',
@@ -313,7 +359,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   }
 
   // 3. stranded_value (high) <- data.usdc_pattern === 'graveyard' (graveyard implies dormant)
-  if (data.usdc_pattern === 'graveyard' && !headStale) {
+  if (data.usdc_pattern === 'graveyard' && !headStale && transfersRead) {
     flags.push({
       id: 'stranded_value',
       severity: 'high',
@@ -337,6 +383,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   // 5. counterparty_concentration (medium)
   //    <- unique_counterparties_30d <= 2 AND transfers_30d >= 10
   if (
+    transfersRead &&
     data.activity.unique_counterparties_30d <= 2 &&
     data.activity.transfers_30d >= 10
   ) {
@@ -364,6 +411,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
 
   // 7. inactive_no_history (low) <- survival 'unknown' AND latest_transfer_at === null
   if (
+    transfersRead &&
     data.survival.classification === 'unknown' &&
     data.activity.latest_transfer_at === null &&
     !headStale
@@ -373,20 +421,17 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
       severity: 'low',
       title: CHECK_TITLE.inactive_no_history,
       evidence:
-        `No ERC-20 transfers in the checked window (the last ${formatWindowSpan(data.fetch_meta.window_days ?? 30)}), read from ${
-          data.fetch_meta.data_source === 'sentinel'
-            ? 'our own Base node'
-            : data.fetch_meta.data_source === 'public'
-              ? `public ${chainCfg.name} RPC logs`
-              : chainCfg.name
-        }. The wallet may be new, paused, or operating through a different address — this is a recent-activity signal, not a lifetime-history claim.`,
+        `No ERC-20 transfers in the checked window (the last ${formatWindowSpan(data.fetch_meta.window_days ?? 30)}), read from ${transferSourcePhrase(
+          data.fetch_meta,
+          chain,
+        )}. The wallet may be new, paused, or operating through a different address — this is a recent-activity signal, not a lifetime-history claim.`,
       source,
     });
   }
 
   // 8. activity_truncated (info) <- data.fetch_meta.transfers_truncated === true
   //    Transparency, not risk — the counts are a lower bound.
-  if (data.fetch_meta.transfers_truncated === true) {
+  if (transfersRead && data.fetch_meta.transfers_truncated === true) {
     flags.push({
       id: 'activity_truncated',
       severity: 'info',

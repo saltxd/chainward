@@ -1,6 +1,7 @@
 import { assessNodeFreshness, getMaxHeadLagSec, type NodeFreshness } from '@chainward/common';
 import { fetchCurrentBlock } from './sentinel-block.js';
-import type { DecodeDataSource } from './types.js';
+import { alchemyAssetTransfers, type AlchemyTransfer } from './seller-demand.js';
+import type { DecodeDataSource, TransferListSource } from './types.js';
 
 // USDC contract on Base mainnet (8453). balanceOf(address) selector + 32-byte address arg.
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -85,10 +86,23 @@ export class NodeStaleError extends Error {
   }
 }
 
+/**
+ * The transfer list behind a report, and where it came from. `unavailable` means
+ * every source failed: the list is UNKNOWN, not empty, and nothing downstream may
+ * read the empty `items` as "no transfers".
+ */
+export interface TransferRead {
+  items: any[];
+  truncated: boolean;
+  source?: TransferListSource;
+  /** Every source failed. Public-safe text naming each source and its error (never a URL). */
+  unavailable?: string;
+}
+
 export interface FetchedFixtures {
   acp_details: any;
   blockscout_counters: any;
-  blockscout_transfers: any;
+  blockscout_transfers: TransferRead;
   sentinel_code: { result: string };
   sentinel_nonce: { result: string };
   sentinel_eth_balance: { result: string };
@@ -116,6 +130,13 @@ export interface FetchOptions {
    * Omit it and a stale sentinel with no fresh alternative fails the decode loudly.
    */
   fallbackRpc?: string;
+  /**
+   * An Alchemy RPC for the transfer list (alchemy_getAssetTransfers), tried when
+   * the node's own logs can't be read and before Blockscout. Public fallback RPCs
+   * refuse a 30-day eth_getLogs scan, and Blockscout blocks the cluster, so
+   * without this a stale node leaves no transfer source at all.
+   */
+  alchemyRpc?: string;
   /** Head-lag threshold (seconds). Defaults to {@link getMaxHeadLagSec}. */
   maxHeadLagSec?: number;
   fetchTimeoutMs: number;
@@ -229,7 +250,6 @@ export async function fetchFixtures(
   // which keeps balances, head block, and as_of_block internally consistent.
   const maxLagSec = opts.maxHeadLagSec ?? getMaxHeadLagSec();
   const { rpc: effectiveRpc, source: data_source } = await selectFreshRpc(opts, maxLagSec);
-  const transferOpts: FetchOptions = { ...opts, sentinelRpc: effectiveRpc };
 
   const [
     acpResult,
@@ -243,7 +263,7 @@ export async function fetchFixtures(
   ] = await Promise.allSettled([
     fetchAcpDetails(walletAddress, t, opts.agentName),
     fetchBlockscoutCounters(walletAddress, t),
-    fetchTransfers(walletAddress, transferOpts),
+    fetchTransfers(walletAddress, opts, effectiveRpc, data_source),
     fetchSentinelCode(walletAddress, effectiveRpc, t),
     fetchSentinelNonce(walletAddress, effectiveRpc, t),
     fetchSentinelEthBalance(walletAddress, effectiveRpc, t),
@@ -259,7 +279,12 @@ export async function fetchFixtures(
     transactions_count: '0',
     token_transfers_count: '0',
   }, log);
-  const blockscout_transfers = settled(transfersResult, { items: [] as any[], truncated: false }, log);
+  // fetchTransfers reports its own failures; a throw here is a bug, and still not "no transfers".
+  const blockscout_transfers = settled<TransferRead>(
+    transfersResult,
+    { items: [], truncated: false, unavailable: 'The transfer list could not be read.' },
+    log,
+  );
   const sentinel_code = settled(codeResult, { result: '0x' }, log);
   const sentinel_nonce = settled(nonceResult, { result: '0x0' }, log);
   const sentinel_eth_balance = settled(ethBalanceResult, { result: '0x0' }, log);
@@ -572,25 +597,168 @@ async function fetchSentinelTransfers(
   return { items: mapped.items, truncated: truncated || mapped.truncated };
 }
 
+// ── Alchemy transfer index ───────────────────────────────────────────────────
+// Alchemy's free tier caps eth_getLogs at a 10-block range, so a 30-day log scan
+// on an Alchemy URL fails on its first chunk. alchemy_getAssetTransfers reads the
+// same ERC-20 transfers from Alchemy's index, with real block timestamps.
+
+/** True for an Alchemy RPC URL (by host; the URL itself is never logged). */
+export function isAlchemyRpc(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname;
+    return host === 'alchemy.com' || host.endsWith('.alchemy.com');
+  } catch {
+    return false;
+  }
+}
+
+/** `0x…:log:0x1f` → 31; -1 when the id carries no log index. */
+function alchemyLogIndex(uniqueId: string | undefined): number {
+  const m = uniqueId?.match(/:log:(0x[0-9a-f]+|\d+)$/i);
+  return m?.[1] ? Number(m[1]) : -1;
+}
+
 /**
- * Transfer list with the node as PRIMARY (reliable, our own infra) and Blockscout
- * as the fallback ONLY when the node query fails. A successful node response is
- * authoritative — including an empty one (genuinely no transfers in the window),
- * which is the honest "no recent activity" signal rather than a Blockscout flake.
+ * Maps alchemy_getAssetTransfers rows (both directions) to the transfer shape
+ * computeActivity consumes. PURE + exported for unit tests. Dedupes by uniqueId
+ * (a self-transfer comes back in both directions), sorts newest-first, and caps at
+ * `cap`, flagging truncation, exactly like {@link mapLogsToTransfers}. Rows without
+ * a block timestamp are dated from their block number against the head.
+ */
+export function mapAlchemyTransfers(
+  rows: AlchemyTransfer[],
+  headBlockNumber: number,
+  headTimestampSec: number,
+  cap: number = MAX_SENTINEL_TRANSFERS,
+): { items: NodeTransfer[]; truncated: boolean } {
+  const block = (r: AlchemyTransfer) => (r.blockNum ? parseInt(r.blockNum, 16) : 0);
+  const sorted = rows
+    .filter((r) => r.from && r.to)
+    .sort((a, b) => block(b) - block(a) || alchemyLogIndex(b.uniqueId) - alchemyLogIndex(a.uniqueId));
+
+  const seen = new Set<string>();
+  const items: NodeTransfer[] = [];
+  let truncated = false;
+  for (const r of sorted) {
+    const key = r.uniqueId ?? `${r.hash}:${r.from}:${r.to}:${r.value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (items.length >= cap) {
+      truncated = true;
+      break;
+    }
+    const approxSec = headTimestampSec - Math.max(0, headBlockNumber - block(r)) * BASE_BLOCK_SECONDS;
+    items.push({
+      from: { hash: r.from.toLowerCase() },
+      to: { hash: r.to!.toLowerCase() },
+      timestamp: r.metadata?.blockTimestamp ?? new Date(Math.round(approxSec) * 1000).toISOString(),
+      token: { address: (r.rawContract?.address ?? '').toLowerCase() },
+    });
+  }
+  return { items, truncated };
+}
+
+async function fetchAlchemyTransfers(
+  walletAddress: string,
+  rpcUrl: string,
+  head: NodeDataSource,
+  log?: FetchLogger,
+): Promise<{ items: NodeTransfer[]; truncated: boolean }> {
+  const params = {
+    category: ['erc20'],
+    fromBlock: '0x' + Math.max(0, head.head_number - SENTINEL_WINDOW_BLOCKS).toString(16),
+    toBlock: 'latest',
+    order: 'desc',
+    maxCount: '0x3e8',
+    withMetadata: true,
+    // Zero-value transfers are activity too, as they are in the log scan.
+    excludeZeroValue: false,
+  };
+  const warn = { warn: (msg: string) => log?.warn({}, msg) };
+  const read = async (direction: 'fromAddress' | 'toAddress') => {
+    const rows: AlchemyTransfer[] = [];
+    let pageKey: string | undefined;
+    do {
+      const page = await alchemyAssetTransfers(
+        rpcUrl,
+        { ...params, [direction]: walletAddress, ...(pageKey ? { pageKey } : {}) },
+        warn,
+      );
+      rows.push(...page.transfers);
+      pageKey = page.pageKey;
+    } while (pageKey && rows.length < MAX_SENTINEL_TRANSFERS);
+    return { rows, more: Boolean(pageKey) };
+  };
+  const [sent, received] = await Promise.all([read('fromAddress'), read('toAddress')]);
+  const headTs = Math.floor(Date.now() / 1000) - head.head_age_seconds;
+  const mapped = mapAlchemyTransfers([...sent.rows, ...received.rows], head.head_number, headTs);
+  return { items: mapped.items, truncated: mapped.truncated || sent.more || received.more };
+}
+
+/** How each transfer source is named in a public failure reason. */
+const TRANSFER_SOURCE_NAME: Record<TransferListSource, string> = {
+  node_logs: 'our own Base node',
+  rpc_logs: 'public Base RPC logs',
+  alchemy: 'Alchemy transfer index',
+  blockscout: 'Blockscout',
+  explorer_api: 'explorer API',
+};
+
+/** An error message safe to persist on a public report: URLs (RPC keys live in them) removed, length bounded. */
+function publicError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, '<url>').slice(0, 160);
+}
+
+/**
+ * The transfer list, from the first source that answers:
+ *   1. eth_getLogs on the RPC that passed the freshness gate (our own node when
+ *      fresh), or Alchemy's transfer index when that RPC is Alchemy;
+ *   2. Alchemy's transfer index on `opts.alchemyRpc`, when configured;
+ *   3. Blockscout.
+ * A successful answer is authoritative, including an empty one (genuinely no
+ * transfers in the window). When every source fails the result is marked
+ * `unavailable`: the list is unknown, and it must never read as "no transfers".
  */
 async function fetchTransfers(
   walletAddress: string,
   opts: FetchOptions,
-): Promise<{ items: any[]; truncated: boolean }> {
-  try {
-    return await fetchSentinelTransfers(walletAddress, opts.sentinelRpc, opts.fetchTimeoutMs);
-  } catch (err: any) {
-    opts.logger?.warn(
-      { err: err?.message ?? String(err) },
-      'data-fetch: sentinel transfers failed; falling back to Blockscout',
-    );
-    return await fetchBlockscoutTransfers(walletAddress, opts.fetchTimeoutMs);
+  rpcUrl: string,
+  head: NodeDataSource,
+): Promise<TransferRead> {
+  const alchemy = (url: string) => ({
+    source: 'alchemy' as const,
+    run: () => fetchAlchemyTransfers(walletAddress, url, head, opts.logger),
+  });
+  const attempts: Array<{ source: TransferListSource; run: () => Promise<{ items: any[]; truncated: boolean }> }> = [
+    isAlchemyRpc(rpcUrl)
+      ? alchemy(rpcUrl)
+      : {
+          source: head.rpc_role === 'sentinel' ? 'node_logs' : 'rpc_logs',
+          run: () => fetchSentinelTransfers(walletAddress, rpcUrl, opts.fetchTimeoutMs),
+        },
+  ];
+  if (opts.alchemyRpc && opts.alchemyRpc !== rpcUrl && isAlchemyRpc(opts.alchemyRpc)) {
+    attempts.push(alchemy(opts.alchemyRpc));
   }
+  attempts.push({ source: 'blockscout', run: () => fetchBlockscoutTransfers(walletAddress, opts.fetchTimeoutMs) });
+
+  const failures: string[] = [];
+  for (const { source, run } of attempts) {
+    try {
+      return { ...(await run()), source };
+    } catch (err) {
+      const reason = publicError(err);
+      failures.push(`${TRANSFER_SOURCE_NAME[source]} (${reason})`);
+      opts.logger?.warn({ err: reason, source }, 'data-fetch: transfer source failed');
+    }
+  }
+  return {
+    items: [],
+    truncated: false,
+    unavailable: `Every transfer source failed: ${failures.join('; ')}.`,
+  };
 }
 
 async function jsonRpcCall(

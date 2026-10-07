@@ -427,6 +427,8 @@ describe('fetchRpcFixtures (bsc)', () => {
       fetchImpl: okFetch,
     });
     expect(viaApi.window.source).toBe('explorer_api');
+    // The report names the source that served the transfer list (BscScan, not RPC logs).
+    expect(viaApi.blockscout_transfers.source).toBe('explorer_api');
     expect(viaApi.window.days).toBe(30);
     expect(viaApi.blockscout_transfers.items).toHaveLength(2);
     expect(viaApi.blockscout_transfers.items[0].timestamp).toBe(new Date((nowSec - 100) * 1000).toISOString());
@@ -443,6 +445,7 @@ describe('fetchRpcFixtures (bsc)', () => {
       fetchImpl: badFetch,
     });
     expect(viaRpc.window.source).toBe('rpc_logs');
+    expect(viaRpc.blockscout_transfers.source).toBe('rpc_logs');
     expect(node2.calls).toContain('eth_getLogs');
   });
 

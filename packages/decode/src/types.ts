@@ -41,6 +41,17 @@ export type DecodeChain = 'base' | 'bsc';
  */
 export type DecodeDataSource = 'sentinel' | 'fallback' | 'public';
 
+/**
+ * Which source served a report's ERC-20 transfer list (separate from the RPC
+ * that served the `latest` reads: on Base the two can differ).
+ *   node_logs    — eth_getLogs on our own Base node
+ *   rpc_logs     — eth_getLogs on a public RPC (the Base fallback, or BNB Chain)
+ *   alchemy      — Alchemy's transfer index (alchemy_getAssetTransfers)
+ *   blockscout   — Blockscout's token-transfers API
+ *   explorer_api — BscScan's token-transfer API (Etherscan v2)
+ */
+export type TransferListSource = 'node_logs' | 'rpc_logs' | 'alchemy' | 'blockscout' | 'explorer_api';
+
 export interface QuickDecodeResultData {
   /** Chain the decode ran on. Absent on reports filed before multi-chain (= base). */
   chain?: DecodeChain;
@@ -90,6 +101,14 @@ export interface QuickDecodeResultData {
     data_source?: DecodeDataSource;
     /** Head age (seconds) of that source at fetch time. */
     head_lag_seconds?: number;
+    /** Which source served the transfer list behind `activity`. */
+    transfers_source?: TransferListSource;
+    /**
+     * Set when EVERY transfer source failed: the transfer list is unknown, not
+     * empty, so activity, survival and every flag that claims an absence are not
+     * assessed. Public-safe text naming each source and how it failed (never a URL).
+     */
+    transfers_unavailable?: string;
     /**
      * How far back the transfer scan ACTUALLY looked, in days. Set when the
      * window is narrower than the 30-day activity horizon (public-RPC chains),

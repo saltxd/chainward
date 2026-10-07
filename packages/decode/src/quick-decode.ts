@@ -91,12 +91,17 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
 
   const transfers = input.fixtures.blockscout_transfers ?? { items: [] };
   const transferItems: any[] = Array.isArray(transfers.items) ? transfers.items : [];
+  // Every transfer source failed: the list is unknown, not empty.
+  const unavailable: string | undefined =
+    typeof transfers.unavailable === 'string' && transfers.unavailable.length > 0 ? transfers.unavailable : undefined;
   const activity = computeActivity(transferItems, now);
   const ds = input.fixtures.data_source;
   const win = input.fixtures.window;
   const fetch_meta: QuickDecodeResultData['fetch_meta'] = {
     transfers_fetched: transferItems.length,
     transfers_truncated: transfers.truncated === true,
+    ...(transfers.source ? { transfers_source: transfers.source } : {}),
+    ...(unavailable ? { transfers_unavailable: unavailable } : {}),
     // Record the RPC source only when the freshness-gated fetch provided it, so
     // legacy fixtures keep their exact two-key shape.
     ...(ds
@@ -119,10 +124,15 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
       : {}),
   };
 
-  const survival = classifySurvival({
-    transfers_7d: activity.transfers_7d,
-    latest_transfer_age_hours: activity.latest_transfer_age_hours,
-  });
+  const survival = unavailable
+    ? {
+        classification: 'unknown' as const,
+        rationale: `Not assessed: the transfer list could not be read. ${unavailable}`,
+      }
+    : classifySurvival({
+        transfers_7d: activity.transfers_7d,
+        latest_transfer_age_hours: activity.latest_transfer_age_hours,
+      });
 
   const usdc_pattern = classifyUsdcPattern({
     classification: survival.classification,
@@ -191,8 +201,13 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
     fetch_meta,
     claims,
     chain_reality,
-    discrepancies: discrepancyResult.discrepancies,
-    checks_performed: discrepancyResult.checks_performed,
+    // "ACP says online, chain shows no transfers" needs the transfer list it compares against.
+    discrepancies: unavailable
+      ? discrepancyResult.discrepancies.filter((d) => d.field !== 'isOnline')
+      : discrepancyResult.discrepancies,
+    checks_performed: unavailable
+      ? discrepancyResult.checks_performed.filter((c) => c !== 'isOnline')
+      : discrepancyResult.checks_performed,
     survival,
     usdc_pattern,
     peers: { ...peerResult, cluster, cluster_status },

@@ -418,6 +418,110 @@ describe('freshness belt-and-suspenders — head_stale suppression', () => {
   });
 });
 
+describe('a failed transfer read never fires a flag that reads the transfer list', () => {
+  const UNAVAILABLE = 'Every transfer source failed: public Base RPC logs (eth_getLogs: 400); Blockscout (blockscout transfers: 403).';
+  // Inputs that would trip every transfer-reading flag, plus the two structural ones.
+  const everything = (fetch_meta: QuickDecodeResultData['fetch_meta']) =>
+    baseData({
+      survival: { classification: 'dormant', rationale: 'no transfers in 7d' },
+      usdc_pattern: 'graveyard',
+      discrepancies: [onlineDiscrepancy],
+      wallet: { type: 'erc1967_proxy', nonce: 0, code_size: 45, is_virtuals_factory: true },
+      peers: { similar_active: [], similar_dormant: [], cluster: 'cabal', cluster_status: 'collapsed' },
+      activity: {
+        latest_transfer_at: null,
+        latest_transfer_age_hours: null,
+        transfers_24h: 0,
+        transfers_7d: 0,
+        transfers_30d: 12,
+        unique_counterparties_30d: 1,
+      },
+      fetch_meta,
+    });
+
+  it('raises only the structural flags when every transfer source failed', () => {
+    const r = deriveRiskFlags(
+      everything({ transfers_fetched: 0, transfers_truncated: true, transfers_unavailable: UNAVAILABLE }),
+    );
+    expect(r.flags.map((f) => f.id).sort()).toEqual(['cluster_collapsed', 'factory_proxy_clone']);
+  });
+
+  it('raises the same inputs normally once the read succeeds', () => {
+    const r = deriveRiskFlags(everything({ transfers_fetched: 12, transfers_truncated: true }));
+    expect(r.flags.map((f) => f.id).sort()).toEqual([
+      'activity_truncated',
+      'claim_vs_chain_offline',
+      'cluster_collapsed',
+      'counterparty_concentration',
+      'dormant_wallet',
+      'factory_proxy_clone',
+      'stranded_value',
+    ]);
+  });
+
+  it('never fires inactive_no_history on an unread window', () => {
+    const r = deriveRiskFlags(
+      baseData({
+        survival: { classification: 'unknown', rationale: 'Not assessed' },
+        activity: {
+          latest_transfer_at: null,
+          latest_transfer_age_hours: null,
+          transfers_24h: 0,
+          transfers_7d: 0,
+          transfers_30d: 0,
+          unique_counterparties_30d: 0,
+        },
+        fetch_meta: { transfers_fetched: 0, transfers_truncated: false, transfers_unavailable: UNAVAILABLE },
+      }),
+    );
+    expect(r.flags).toEqual([]);
+  });
+
+  it('leads not_assessed with the failed read, naming the sources', () => {
+    const r = deriveRiskFlags(
+      baseData({ fetch_meta: { transfers_fetched: 0, transfers_truncated: false, transfers_unavailable: UNAVAILABLE } }),
+    );
+    expect(r.not_assessed[0]).toContain('Recent transfer activity');
+    expect(r.not_assessed[0]).toContain('Blockscout (blockscout transfers: 403)');
+    expect(deriveRiskFlags(baseData()).not_assessed[0]).not.toContain('Recent transfer activity');
+  });
+});
+
+describe('inactive_no_history names the source that served the transfer list', () => {
+  const quiet = (fetch_meta: QuickDecodeResultData['fetch_meta']) =>
+    deriveRiskFlags(
+      baseData({
+        survival: { classification: 'unknown', rationale: 'no transfers' },
+        activity: {
+          latest_transfer_at: null,
+          latest_transfer_age_hours: null,
+          transfers_24h: 0,
+          transfers_7d: 0,
+          transfers_30d: 0,
+          unique_counterparties_30d: 0,
+        },
+        fetch_meta,
+      }),
+    ).flags.find((f) => f.id === 'inactive_no_history')!.evidence;
+
+  it.each([
+    ['node_logs', 'read from our own Base node.'],
+    ['rpc_logs', 'read from public Base RPC logs.'],
+    ['alchemy', "read from Alchemy's Base transfer index."],
+    ['blockscout', 'read from Blockscout.'],
+  ] as const)('%s', (transfers_source, phrase) => {
+    expect(quiet({ transfers_fetched: 0, transfers_truncated: false, data_source: 'fallback', transfers_source })).toContain(
+      phrase,
+    );
+  });
+
+  it('keeps the old wording for reports filed before the transfer source was recorded', () => {
+    expect(quiet({ transfers_fetched: 0, transfers_truncated: false, data_source: 'sentinel' })).toContain(
+      'read from our own Base node.',
+    );
+  });
+});
+
 describe('self-flag guard (allowlist)', () => {
   const ORIGINAL = process.env.RISK_SELF_FLAG_ALLOWLIST;
 
