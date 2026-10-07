@@ -86,7 +86,7 @@ export const HIRE_METHOD =
   'owner: the hirer is the owner or the agent wallet. owner_funded: the owner or agent wallet is in the hirer\'s trail. ' +
   'direct_transfer: the hirer and the owner or agent wallet sent each other BNB or a stablecoin at any time, in either direction. ' +
   'shared_funder: the hirer\'s trail and the owner\'s (or agent wallet\'s) trail meet at a wallet that is not a hub or a contract, or the hirer is in the owner\'s trail. ' +
-  `Trails stop at hubs (${fmt(HUB_INFLOWS)}+ incoming stablecoin transfers in ${HIRE_WINDOW_DAYS} days, or ${fmt(HUB_NONCE)}+ sent transactions) and at contracts. ` +
+  `Trails stop at hubs (${fmt(HUB_INFLOWS)}+ incoming stablecoin transfers of at least $0.01 in ${HIRE_WINDOW_DAYS} days, or ${fmt(HUB_NONCE)}+ sent transactions) and at contracts. ` +
   'inconclusive: the hirer\'s and the owner\'s (or agent wallet\'s) same-kind trails end at the same hub with first funding under 24 hours apart, or no incoming BNB or stablecoin is visible. ' +
   'independent_within_limits: none of these, including trails that end at a hub or a contract (the decode\'s "no link found").';
 

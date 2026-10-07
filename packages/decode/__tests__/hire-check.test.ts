@@ -307,6 +307,7 @@ describe('buildHireReport', () => {
     expect(HIRE_METHOD).toMatch(/first incoming stablecoin/);
     expect(HIRE_METHOD).toMatch(/4 hops/);
     expect(HIRE_METHOD).toMatch(/30-day/);
+    expect(HIRE_METHOD).toMatch(/stablecoin transfers of at least \$0\.01/);
     expect(report.limits).toBe(HIRE_LIMITS);
     expect(HIRE_LIMITS.join(' ')).toMatch(/independent_within_limits.*no link .*within these limits.*not .*proven independen/i);
   });

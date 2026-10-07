@@ -131,6 +131,21 @@ function sumBy(transfers: UsdcTransfer[], key: 'from' | 'to'): Map<string, numbe
   return out;
 }
 
+const countReal = (ts: UsdcTransfer[]) => ts.filter((t) => t.usd >= HUB_MIN_USD).length;
+
+/**
+ * The hub rule shared by the seller check and the hire check: HUB_INFLOWS+ stablecoin
+ * inflows of at least HUB_MIN_USD in the window. `page` is the newest page of inflows;
+ * when it is full but short on inflows that count, `readBack` reads further back for them.
+ */
+export async function isInflowHub(page: UsdcTransfer[], readBack: () => Promise<UsdcTransfer[]>): Promise<boolean> {
+  if (countReal(page) >= HUB_INFLOWS) return true;
+  // Less than a full page is the whole window, and it falls short.
+  if (page.length < TRANSFER_PAGE) return false;
+  // A full page that is part dust: read further back for inflows that count.
+  return countReal(await readBack()) >= HUB_INFLOWS;
+}
+
 /** Promise.all over `items` with at most `limit` in flight; results keep input order. */
 export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out = new Array<R>(items.length);
@@ -160,15 +175,7 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
     if (!memo.has(key)) memo.set(key, source('in', addr, { minUsd: HUB_MIN_USD, atLeast: HUB_INFLOWS }));
     return memo.get(key)!;
   };
-  const countReal = (ts: UsdcTransfer[]) => ts.filter((t) => t.usd >= HUB_MIN_USD).length;
-  const isHub = async (addr: string): Promise<boolean> => {
-    const page = await get('in', addr);
-    if (countReal(page) >= HUB_INFLOWS) return true;
-    // Less than a full page is the whole window, and it falls short.
-    if (page.length < TRANSFER_PAGE) return false;
-    // A full page that is part dust: read further back for inflows that count.
-    return countReal(await realInflows(addr)) >= HUB_INFLOWS;
-  };
+  const isHub = async (addr: string): Promise<boolean> => isInflowHub(await get('in', addr), () => realInflows(addr));
 
   const [inflows, outflows] = await Promise.all([get('in', seller), get('out', seller)]);
   const bySender = sumBy(inflows.filter((t) => t.from !== seller), 'from');

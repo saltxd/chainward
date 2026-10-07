@@ -17,11 +17,13 @@ import { addressTopic, jsonRpcResult, type RpcLog } from './data-fetch.js';
 import { planLogChunks, isRangeLimitError, type RpcCall } from './rpc-fixtures.js';
 import {
   HUB_INFLOWS,
+  HUB_MIN_USD,
   SELLER_BLOCKS_PER_DAY,
   SELLER_STABLECOINS,
   alchemyAssetTransfers,
   alchemyFirstFunderSource,
   alchemyTransferSource,
+  isInflowHub,
   mapLimit,
 } from './seller-demand.js';
 import {
@@ -270,7 +272,7 @@ const isDelegation = (code: string) => /^0xef0100[0-9a-f]{40}$/i.test(code);
 /**
  * The live funding graph: first funders from Alchemy, code and nonce from the
  * public RPC, hub = 100,000+ sent transactions (exchange-style hot wallet) or
- * the seller check's 1,000+ stablecoin inflows in the window.
+ * the seller check's 1,000+ stablecoin inflows of at least $0.01 in the window.
  */
 export function bscFundingGraph(opts: {
   alchemyUrl: string;
@@ -313,7 +315,9 @@ export function bscFundingGraph(opts: {
     isHub: async (address) => {
       const nonce = Number(BigInt(String(await rpcCall(opts.rpcUrl, 'eth_getTransactionCount', [address, 'latest'], RPC_TIMEOUT_MS))));
       if (nonce >= HUB_NONCE) return true;
-      return (await inflows('in', address)).length >= HUB_INFLOWS;
+      return isInflowHub(await inflows('in', address), () =>
+        inflows('in', address, { minUsd: HUB_MIN_USD, atLeast: HUB_INFLOWS }),
+      );
     },
   };
 }

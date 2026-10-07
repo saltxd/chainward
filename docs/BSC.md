@@ -151,8 +151,8 @@ limits) and `hire-sources.ts` (BSC reads); route `hiresCheck` in
 - **Funding.** For each hirer (first 20 by first hire), its first incoming BNB
   (`external` only: Alchemy has no internal transfers on BNB) and first incoming
   USDT/USDC, back up to 4 hops; the same for the owner and agent wallet. A hub
-  (100,000+ sent transactions, or 1,000+ stablecoin inflows in 30 days, the seller
-  check's rule) or a contract stops a trail; an EIP-7702 delegated wallet counts as
+  (100,000+ sent transactions, or 1,000+ stablecoin inflows of at least $0.01 in 30
+  days, the seller check's rule) or a contract stops a trail; an EIP-7702 delegated wallet counts as
   a wallet.
 - **Verdicts.** `owner` (hirer is the owner or agent wallet) → `owner_funded` (owner
   or agent wallet in the hirer's trail) → `shared_funder` (trails meet at a non-hub,

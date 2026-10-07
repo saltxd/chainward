@@ -163,6 +163,38 @@ describe('bscFundingGraph', () => {
     expect(await g.isHub('0xhub')).toBe(true);
     vi.unstubAllGlobals();
   });
+
+  it('does not count sub-cent stablecoin inflows toward the hub threshold (the seller check rule)', async () => {
+    // One page of 1,000: 400 address-poisoning dust transfers and 600 real ones, nothing further back.
+    const transfers = Array.from({ length: 1000 }, (_, i) => ({ from: addr(i), to: '0xdist', value: i < 400 ? 0.000001 : 2 }));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ status: 200, json: async () => ({ result: { transfers } }) })));
+    const rpcCall: RpcCall = async () => '0x5';
+    const g = bscFundingGraph({ alchemyUrl: 'https://alchemy.test', rpcUrl: 'https://rpc.test', rpcCall, windowFromBlock: 1 });
+    expect(await g.isHub('0xdist')).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it('reads further back when a full page is part dust, and still calls 1,000 real inflows a hub', async () => {
+    const page = (dust: number, real: number, pageKey?: string) => ({
+      transfers: [
+        ...Array.from({ length: dust }, (_, i) => ({ from: addr(i), to: '0xhot', value: 0.000001 })),
+        ...Array.from({ length: real }, (_, i) => ({ from: addr(5000 + i), to: '0xhot', value: 3 })),
+      ],
+      ...(pageKey ? { pageKey } : {}),
+    });
+    const pages: Record<string, ReturnType<typeof page>> = { first: page(300, 700, 'p2'), p2: page(0, 1000) };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: { body: string }) => {
+        const params = JSON.parse(init.body).params[0];
+        return { status: 200, json: async () => ({ result: pages[params.pageKey ?? 'first'] }) };
+      }),
+    );
+    const rpcCall: RpcCall = async () => '0x5';
+    const g = bscFundingGraph({ alchemyUrl: 'https://alchemy.test', rpcUrl: 'https://rpc.test', rpcCall, windowFromBlock: 1 });
+    expect(await g.isHub('0xhot')).toBe(true);
+    vi.unstubAllGlobals();
+  });
 });
 
 // A fake BSC: the registry, two hire contracts and block headers, all answered from memory.
