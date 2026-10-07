@@ -34,14 +34,36 @@
   ],
   "x402Support": true,
   "active": true,
-  "registrations": [],
-  "supportedTrust": ["reputation"],
-  "tags": ["Security", "Risk", "Verification", "On-chain forensics"],
+  "registrations": [
+    {
+      "agentId": 365669,
+      "agentRegistry": "eip155:56:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+    }
+  ],
+  "supportedTrust": [
+    "reputation"
+  ],
+  "tags": [
+    "Security",
+    "Risk",
+    "Verification",
+    "On-chain forensics"
+  ],
   "attributes": [
-    { "trait_type": "category", "value": "security" },
-    { "trait_type": "chains", "value": "Base, BNB Chain" },
-    { "trait_type": "payment", "value": "x402, USDC on Base" }
+    {
+      "trait_type": "category",
+      "value": "security"
+    },
+    {
+      "trait_type": "chains",
+      "value": "Base, BNB Chain"
+    },
+    {
+      "trait_type": "payment",
+      "value": "x402, USDC on Base"
+    }
   ],
   "contact": "hello@chainward.ai",
-  "homepage": "https://chainward.ai"
+  "homepage": "https://chainward.ai",
+  "owner": "0xf7Ee65130Fb2B3bb42Cc5cbFED085d7D482667cD"
 }
