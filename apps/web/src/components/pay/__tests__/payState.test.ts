@@ -70,6 +70,7 @@ describe('payReducer', () => {
     const other = '0x2222222222222222222222222222222222222222';
     expect(payReducer(ready, { type: 'connected', account: other })).toEqual({ step: 'ready', account: other });
     expect(payReducer(ready, { type: 'disconnected' })).toEqual({ step: 'connect' });
+    expect(payReducer(ready, { type: 'connected', account: ACCOUNT })).toBe(ready);
   });
 
   it('ignores wallet events while idle (a reconnect on page load opens nothing)', () => {

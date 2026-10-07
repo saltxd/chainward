@@ -63,7 +63,9 @@ export type PayOutcome =
   /** The check failed or was refused before payment; nothing settles. */
   | { kind: 'failed'; status: number; message: string }
   /** The wallet declined to sign; nothing was sent. */
-  | { kind: 'cancelled' };
+  | { kind: 'cancelled' }
+  /** The signed request broke off: the API may have run the check and settled. */
+  | { kind: 'interrupted' };
 
 export interface PayDeps {
   signer: PaySigner;
@@ -116,7 +118,7 @@ export function selectRequirement(required: PaymentRequired): PaymentRequirement
 export function refusalMessage(error: string | undefined): string {
   if (!error) return 'Payment refused.';
   if (/insufficient/i.test(error)) return 'Not enough USDC on Base in this wallet.';
-  const code = error.split(':')[0].trim();
+  const code = (error.split(':')[0] ?? '').trim();
   if (/valid_before|valid_after|expired/i.test(code)) return 'The signed payment expired before it was checked. Try again.';
   if (/nonce/i.test(code)) return 'That payment was already used. Try again.';
   if (/signature/i.test(code)) return 'The wallet signature did not verify.';
@@ -162,7 +164,7 @@ export async function payForCheck(resource: string, deps: PayDeps): Promise<PayO
 
   const challenge = await fetchImpl(resource, init);
   if (challenge.status !== 402) {
-    if (challenge.ok) return { kind: 'paid', data: ((await challenge.json()) as { data?: unknown }).data, transaction: null };
+    if (challenge.ok) return { kind: 'paid', data: await responseData(challenge), transaction: null };
     return { kind: 'failed', status: challenge.status, message: await apiError(challenge) };
   }
 
@@ -222,16 +224,30 @@ export async function payForCheck(resource: string, deps: PayDeps): Promise<PayO
     payload: { authorization, signature },
     extensions: required.extensions,
   });
-  const paid = await fetchImpl(resource, {
-    ...init,
-    headers: { Accept: 'application/json', 'PAYMENT-SIGNATURE': payment },
-  });
+  let paid: Response;
+  try {
+    paid = await fetchImpl(resource, {
+      ...init,
+      headers: { Accept: 'application/json', 'PAYMENT-SIGNATURE': payment },
+    });
+  } catch {
+    return { kind: 'interrupted' };
+  }
 
   if (paid.status === 402) {
     return { kind: 'refused', message: refusalMessage(parsePaymentRequired(paid.headers.get('payment-required'))?.error) };
   }
   if (!paid.ok) return { kind: 'failed', status: paid.status, message: await apiError(paid) };
-  const body = (await paid.json()) as { data?: unknown };
   const receipt = decodeBase64Json<{ transaction?: string }>(paid.headers.get('payment-response'));
-  return { kind: 'paid', data: body.data, transaction: receipt?.transaction ?? null };
+  return { kind: 'paid', data: await responseData(paid), transaction: receipt?.transaction ?? null };
+}
+
+/** The `data` of a JSON answer, or the body as text (a paid answer is shown, whatever its shape). */
+async function responseData(res: Response): Promise<unknown> {
+  const text = await res.text();
+  try {
+    return (JSON.parse(text) as { data?: unknown }).data;
+  } catch {
+    return text;
+  }
 }

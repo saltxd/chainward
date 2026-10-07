@@ -43,6 +43,6 @@ export function checkKind(resource: string): PaidCheckKind | null {
 /** "$0.10" as atomic USDC (6 decimals). */
 export function priceAtomic(price: string): bigint {
   const m = price.match(/^\$?(\d+)(?:\.(\d{1,6}))?$/);
-  if (!m) throw new Error(`Unreadable price: ${price}`);
+  if (!m?.[1]) throw new Error(`Unreadable price: ${price}`);
   return BigInt(m[1]) * 1_000_000n + BigInt((m[2] ?? '').padEnd(6, '0'));
 }

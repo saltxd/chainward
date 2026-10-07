@@ -622,6 +622,167 @@ body:has(.press) {
   border-color: var(--sev-low);
 }
 
+/* ── Pay with wallet (components/pay) ─────────────────────────────────────
+   One small button; the panel expands below it (in a table, in a full-width
+   row). Specific enough to win over .decode-prose on the docs page. */
+.press .pay {
+  margin: 14px 0 0;
+}
+.press .pay-open {
+  white-space: normal;
+  text-align: left;
+}
+.press .pay-open--compact {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.press .pay-open--compact:hover:not(:disabled) {
+  color: var(--oxblood);
+  border-color: var(--oxblood);
+}
+.press .pay-open--compact:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+}
+.press .pay-panel {
+  margin: 12px 0 0;
+  padding: 16px 18px;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-2);
+  max-width: 760px;
+  font-family: var(--font-text);
+  color: var(--ink-soft);
+}
+.press .pay-row > td,
+.press .pay-row:hover > td {
+  background: transparent;
+  padding-top: 0;
+}
+/* In a table wider than the screen, the panel stays in view while the table scrolls. */
+.press .pay-row .pay-panel {
+  position: sticky;
+  left: 0;
+  max-width: min(760px, calc(100vw - 40px));
+  margin-top: 0;
+}
+.press .pay-panel p,
+.press .pay-panel ul {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.press .pay-panel .pay-terms {
+  color: var(--ink);
+}
+.press .pay-panel .pay-sub,
+.press .pay-panel .pay-status {
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+.press .pay-panel .pay-error {
+  color: var(--oxblood);
+}
+.press .pay-panel .pay-disclaimer {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.press .pay-panel .pay-lede {
+  color: var(--ink);
+}
+.press .pay-panel strong {
+  color: var(--ink);
+  font-weight: 640;
+}
+.press .pay-panel .pay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 6px;
+}
+.press .pay-panel .pay-list {
+  list-style: none;
+  padding: 0;
+}
+.press .pay-panel .pay-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+  margin: 0;
+}
+.press .pay-panel .pay-list li span {
+  font-size: 13px;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+.press .pay-panel .pay-sev {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sev-info);
+}
+.press .pay-panel .pay-sev--high { color: var(--sev-high); }
+.press .pay-panel .pay-sev--medium { color: var(--sev-medium); }
+.press .pay-panel .pay-sev--low { color: var(--sev-low); }
+.press .pay-panel .pay-scroll {
+  overflow-x: auto;
+  margin: 0 0 10px;
+}
+.press .pay-panel .pay-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.press .pay-panel .pay-table th,
+.press .pay-panel .pay-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  background: transparent;
+}
+.press .pay-panel .pay-table th {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.press .pay-panel .pay-evidence {
+  font-family: var(--font-text);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.press .pay-panel .pay-json {
+  max-height: 320px;
+  overflow: auto;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+}
+@media (max-width: 720px) {
+  .press .pay-panel {
+    padding: 14px;
+  }
+}
+
 /* ── Reduced motion ────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .press *,

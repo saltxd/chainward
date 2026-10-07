@@ -43,7 +43,7 @@ describe('CheckResult: hire check', () => {
     expect(html).toContain('href="https://bscscan.com/address/0x4e276b4db12447254134b45e5add170993df5ad2"');
     expect(text(html)).toContain('inconclusive');
     expect(text(html)).toContain('shares a funder with the owner');
-    expect(text(html)).toContain(HIRES.hirers[1].evidence);
+    expect(text(html)).toContain(HIRES.hirers[1]!.evidence);
   });
 
   it('says whether three independent hirers were found', () => {

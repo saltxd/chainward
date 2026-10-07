@@ -4,6 +4,7 @@
  * the wallet does (connecting, reconnecting, switching account) can start a
  * payment, and `paying` ignores everything but its own outcome.
  */
+import type { PayOutcome } from '@/lib/x402Pay';
 
 export type PayState =
   | { step: 'idle' }
@@ -49,12 +50,27 @@ export function payReducer(state: PayState, event: PayEvent): PayState {
       return event.type === 'connected' ? { step: 'ready', account: event.account } : state;
     case 'ready':
       if (event.type === 'pay') return { step: 'paying', account: state.account };
-      if (event.type === 'connected') return { step: 'ready', account: event.account };
+      if (event.type === 'connected') return event.account === state.account ? state : { step: 'ready', account: event.account };
       if (event.type === 'disconnected') return { step: 'connect' };
       return state;
     case 'error':
       return event.type === 'retry' ? { step: 'ready', account: state.account } : state;
     default:
       return state;
+  }
+}
+
+/** The event a finished payment attempt sends. */
+export function outcomeEvent(outcome: PayOutcome): PayEvent {
+  switch (outcome.kind) {
+    case 'paid':
+      return { type: 'paid', data: outcome.data, transaction: outcome.transaction };
+    case 'refused':
+    case 'failed':
+      return { type: 'failed', message: outcome.message, charged: false };
+    case 'cancelled':
+      return { type: 'failed', message: 'Signature cancelled.', charged: false };
+    case 'interrupted':
+      return { type: 'failed', message: 'The connection dropped after the payment was sent.', charged: 'unknown' };
   }
 }

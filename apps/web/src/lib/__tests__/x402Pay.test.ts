@@ -6,6 +6,7 @@ import {
   refusalMessage,
   selectRequirement,
   type PaymentRequired,
+  type PaymentRequirements,
   type PaySigner,
 } from '../x402Pay';
 
@@ -13,6 +14,15 @@ import {
 // extension trimmed), so the client is tested against what the server really says.
 const PAY_TO = '0xf7Ee65130Fb2B3bb42Cc5cbFED085d7D482667cD';
 const RESOURCE = 'https://api.chainward.ai/api/risk/seller-demand?address=0x68396bd35874695ad86cd29410bd80a550991a2b';
+const REQ: PaymentRequirements = {
+  scheme: 'exact',
+  network: 'eip155:8453',
+  amount: '100000',
+  asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  payTo: PAY_TO,
+  maxTimeoutSeconds: 120,
+  extra: { name: 'USD Coin', version: '2' },
+};
 const CHALLENGE: PaymentRequired = {
   x402Version: 2,
   error: 'Payment required',
@@ -21,17 +31,7 @@ const CHALLENGE: PaymentRequired = {
     description: "Where a seller's buyers get their stablecoins.",
     mimeType: 'application/json',
   },
-  accepts: [
-    {
-      scheme: 'exact',
-      network: 'eip155:8453',
-      amount: '100000',
-      asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      payTo: PAY_TO,
-      maxTimeoutSeconds: 120,
-      extra: { name: 'USD Coin', version: '2' },
-    },
-  ],
+  accepts: [REQ],
   extensions: { bazaar: { info: { input: { type: 'http', method: 'GET' } } } },
 };
 
@@ -80,11 +80,11 @@ describe('parsePaymentRequired', () => {
 
 describe('selectRequirement', () => {
   it('picks the exact USDC on Base option', () => {
-    expect(selectRequirement(CHALLENGE)).toEqual(CHALLENGE.accepts[0]);
+    expect(selectRequirement(CHALLENGE)).toEqual(REQ);
   });
 
   it('ignores options it cannot sign: another network, another asset, Permit2', () => {
-    const [req] = CHALLENGE.accepts;
+    const req = REQ;
     expect(selectRequirement({ ...CHALLENGE, accepts: [{ ...req, network: 'eip155:1' }] })).toBeNull();
     expect(selectRequirement({ ...CHALLENGE, accepts: [{ ...req, asset: '0x0000000000000000000000000000000000000001' }] })).toBeNull();
     expect(
@@ -126,7 +126,7 @@ describe('payForCheck', () => {
 
     expect(outcome).toEqual({ kind: 'paid', data, transaction: receipt.transaction });
     expect(s.signTypedData).toHaveBeenCalledTimes(1);
-    expect(s.signTypedData.mock.calls[0][0]).toEqual({
+    expect(s.signTypedData.mock.calls[0]?.[0]).toEqual({
       domain: { name: 'USD Coin', version: '2', chainId: 8453, verifyingContract: BASE_USDC },
       types: {
         TransferWithAuthorization: [
@@ -143,16 +143,16 @@ describe('payForCheck', () => {
     });
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
-    const [firstUrl, firstInit] = fetchImpl.mock.calls[0];
+    const [firstUrl, firstInit] = fetchImpl.mock.calls[0]!;
     expect(firstUrl).toBe(RESOURCE);
     expect(firstInit?.credentials).toBe('omit');
-    const [secondUrl, secondInit] = fetchImpl.mock.calls[1];
+    const [secondUrl, secondInit] = fetchImpl.mock.calls[1]!;
     expect(secondUrl).toBe(RESOURCE);
     const header = new Headers(secondInit?.headers).get('payment-signature');
     expect(unb64(header!)).toEqual({
       x402Version: 2,
       resource: CHALLENGE.resource,
-      accepted: CHALLENGE.accepts[0],
+      accepted: REQ,
       payload: {
         authorization: {
           from: BUYER,
@@ -217,7 +217,7 @@ describe('payForCheck', () => {
   });
 
   it('does not sign for more than the price shown', async () => {
-    const pricier = { ...CHALLENGE, accepts: [{ ...CHALLENGE.accepts[0], amount: '200000' }] };
+    const pricier = { ...CHALLENGE, accepts: [{ ...REQ, amount: '200000' }] };
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(challengeResponse(pricier));
     const s = signer();
 
@@ -244,6 +244,36 @@ describe('payForCheck', () => {
       payForCheck('https://chainward.ai/api/risk/seller-demand?address=0x68396bd35874695ad86cd29410bd80a550991a2b', deps(fetchImpl, signer())),
     ).rejects.toThrow(/api\.chainward\.ai/);
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('still returns a paid answer that is not JSON, with its receipt', async () => {
+    const receipt = { success: true, transaction: `0x${'ef'.repeat(32)}` };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(challengeResponse())
+      .mockResolvedValueOnce(new Response('id,tier\n1,a\n', { headers: { 'payment-response': b64(receipt) } }));
+
+    const outcome = await payForCheck(RESOURCE, deps(fetchImpl, signer()));
+
+    expect(outcome).toEqual({ kind: 'paid', data: 'id,tier\n1,a\n', transaction: receipt.transaction });
+  });
+
+  it('reports a paid request that broke off as possibly charged', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(challengeResponse())
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    const outcome = await payForCheck(RESOURCE, deps(fetchImpl, signer()));
+
+    expect(outcome).toEqual({ kind: 'interrupted' });
+  });
+
+  it('lets a failed first request through as an error, before anything is signed', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const s = signer();
+    await expect(payForCheck(RESOURCE, deps(fetchImpl, s))).rejects.toThrow('Failed to fetch');
+    expect(s.signTypedData).not.toHaveBeenCalled();
   });
 
   it('treats a rejected signature as cancelled, with nothing sent', async () => {
