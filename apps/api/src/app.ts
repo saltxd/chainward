@@ -51,12 +51,15 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
   app.get('/livez', livezHandler);
   app.get('/api/livez', livezHandler);
 
-  // Global middleware
+  // Global middleware. No allowHeaders list: the preflight reflects what the
+  // browser asks for, which is how chainward.ai's pay-with-wallet sends
+  // PAYMENT-SIGNATURE. It can only read the x402 headers exposed here.
   app.use(
     '*',
     cors({
       origin: corsOrigins,
       credentials: true,
+      exposeHeaders: ['PAYMENT-REQUIRED', 'PAYMENT-RESPONSE', 'X-PAYMENT-RESPONSE'],
     }),
   );
 
