@@ -5,6 +5,8 @@ import {
   deriveRiskFlags,
   fetchFixtures,
   fetchRpcFixtures,
+  sellerDemandRpcUrl,
+  type FetchOptions,
   type QuickDecodeInput,
   type RiskFlag,
 } from '@chainward/decode';
@@ -15,14 +17,28 @@ import { logger } from '../lib/logger.js';
 
 const PIPELINE_VERSION = process.env.GIT_SHA ?? 'dev';
 
-// Mirrors the acp-decoder config defaults so the live-fetch path behaves
-// identically in both pods. Read from env at call time (no new required vars).
-const SENTINEL_RPC = process.env.SENTINEL_RPC ?? 'https://mainnet.base.org';
-// Fresh RPC to fall back to when the sentinel head is stale (the recurring EL-sync
-// wedge where the node answers but its head is frozen days behind tip). Same secret
-// the indexer viem client uses; optional — absent means a stale sentinel fails loud.
-const BASE_RPC_FALLBACK_URL = process.env.BASE_RPC_FALLBACK_URL;
 const FETCH_TIMEOUT_MS = parseInt(process.env.FETCH_TIMEOUT_MS ?? '15000', 10);
+
+/**
+ * fetchFixtures options for a Base check, from env. Mirrors the acp-decoder
+ * defaults so the live-fetch path behaves the same in both pods.
+ *   SENTINEL_RPC          our own node (primary)
+ *   BASE_RPC_FALLBACK_URL fresh RPC for `latest` reads when the node's head is
+ *                         stale; absent means a stale node fails the check loud
+ *   alchemyRpc            the Alchemy URL the x402 board uses (sellerDemandRpcUrl):
+ *                         the transfer list's source when the node's logs can't be
+ *                         read, since public fallbacks refuse a 30-day log scan
+ */
+export function baseFetchOptions(env: Record<string, string | undefined>, agentHandle: string | undefined): FetchOptions {
+  return {
+    sentinelRpc: env.SENTINEL_RPC ?? 'https://mainnet.base.org',
+    fallbackRpc: env.BASE_RPC_FALLBACK_URL,
+    alchemyRpc: sellerDemandRpcUrl('base', env),
+    fetchTimeoutMs: parseInt(env.FETCH_TIMEOUT_MS ?? '15000', 10),
+    agentName: agentHandle ? `@${agentHandle}` : undefined,
+    logger,
+  };
+}
 // Watchdog: the whole decode (fetch + classify + persist) must finish inside this
 // budget or the job fails — mirrors apps/acp-decoder/src/handler.ts decodeWatchdogMs.
 const RISK_WATCHDOG_MS = parseInt(process.env.RISK_DECODE_WATCHDOG_MS ?? '120000', 10);
@@ -111,13 +127,7 @@ async function fetchFixturesFor(
   agentHandle: string | undefined,
 ): Promise<QuickDecodeInput['fixtures']> {
   if (chain === 'base') {
-    return fetchFixtures(walletAddress, {
-      sentinelRpc: SENTINEL_RPC,
-      fallbackRpc: BASE_RPC_FALLBACK_URL,
-      fetchTimeoutMs: FETCH_TIMEOUT_MS,
-      agentName: agentHandle ? `@${agentHandle}` : undefined,
-      logger,
-    });
+    return fetchFixtures(walletAddress, baseFetchOptions(process.env, agentHandle));
   }
   const redis = getRedis();
   const fx = await fetchRpcFixtures(chain, walletAddress, {
