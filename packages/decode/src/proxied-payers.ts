@@ -8,7 +8,14 @@
 // proxy → seller). Verified on 12 receipts across Sep 15 - Oct 5 2026:
 // chainward.ai/decodes/x402-on-base-two-weeks-later.
 
-import { DEMAND_WINDOW_DAYS, USDC_BASE, type UsdcTransfer } from './seller-demand.js';
+import {
+  DEMAND_WINDOW_DAYS,
+  USDC_BASE,
+  mapLimit,
+  type ProxiedPayers,
+  type ProxyResolver,
+  type UsdcTransfer,
+} from './seller-demand.js';
 
 export interface FacilitatorProxy {
   address: string;
@@ -116,5 +123,266 @@ export function alchemyReceiptSource(rpcUrl: string, opts: { timeoutMs?: number 
         usd: Number(BigInt(l.data)) / 1e6,
         hash,
       }));
+  };
+}
+
+// ─── Resolution ───────────────────────────────────────────────────────────────
+
+/** Receipts one check may read (verification plus fallback), and how many at a time. */
+export const PROXY_RECEIPTS_MAX = 40;
+const RECEIPT_CONCURRENCY = 3;
+/** Receipts per proxy that check x402scan's payer against the chain. */
+const VERIFY_PER_PROXY = 3;
+
+export interface ProxyDeps {
+  /** Primary: the payer x402scan recorded for each settlement. */
+  settlements?: SettlementSource;
+  /** Verification, and the fallback when x402scan is unavailable or disagrees with the chain. */
+  receipts?: ReceiptSource;
+  registry?: readonly FacilitatorProxy[];
+}
+
+interface ProxyState {
+  name: string;
+  facilitator: string;
+  /** The seller's inflows this proxy delivered. */
+  legs: UsdcTransfer[];
+  read: number;
+  matched: number;
+  mismatched: number;
+}
+
+/** `count` items spread evenly over `list` (first, ..., last), or all of it. */
+function spread<T>(list: T[], count: number): T[] {
+  if (count <= 0) return [];
+  if (list.length <= count) return list;
+  if (count === 1) return [list[0]!];
+  return Array.from({ length: count }, (_, i) => list[Math.round((i * (list.length - 1)) / (count - 1))]!);
+}
+
+const pct = (n: number) => `${Math.round(n * 100)}%`;
+
+/**
+ * Builds a fresh ProxyResolver per check. Payers come from x402scan's record of each
+ * settlement, checked against up to 3 receipts per proxy; when x402scan is down, has no
+ * record, or disagrees with the chain, they come from an even sample of receipts instead
+ * (at most PROXY_RECEIPTS_MAX per check, 3 at a time). Receipts of the seller's own
+ * payments through a proxy name who it paid, which is what links a payer to the seller
+ * when x402scan can't.
+ */
+export function proxiedPayerResolver(deps: ProxyDeps): (seller: string) => ProxyResolver {
+  return (sellerAddress) => {
+    const seller = sellerAddress.toLowerCase();
+    const known = new Map((deps.registry ?? FACILITATOR_PROXIES).map((p) => [p.address.toLowerCase(), p]));
+    const proxies = new Map<string, ProxyState>();
+    const addProxy = (address: string, facilitator: string) => {
+      if (proxies.has(address)) return;
+      const listed = known.get(address);
+      proxies.set(address, {
+        name: listed?.name ?? PROXY_FACILITATORS[facilitator] ?? facilitator,
+        facilitator: listed?.facilitator ?? facilitator,
+        legs: [],
+        read: 0,
+        matched: 0,
+        mismatched: 0,
+      });
+    };
+    const isProxy = (a: string) => proxies.has(a) || known.has(a);
+    const facilitatorOf = (a: string) => (proxies.get(a) ?? known.get(a))!.facilitator;
+
+    // `${tx}|${payee}` → payer and `${tx}|${payer}` → payee, from x402scan and from receipts.
+    const indexPayer = new Map<string, Settlement>();
+    const indexPayee = new Map<string, string>();
+    const chainPayer = new Map<string, string>();
+    const chainPayee = new Map<string, string>();
+    const distrusted = new Set<string>();
+    let indexDown = !deps.settlements;
+    let sellerIndexFailed = !deps.settlements;
+    let indexFailedMidway = false;
+    const lookups = new Map<string, Promise<void>>();
+    let budget = deps.receipts ? PROXY_RECEIPTS_MAX : 0;
+    const take = (n: number) => {
+      const k = Math.max(0, Math.min(n, budget));
+      budget -= k;
+      return k;
+    };
+
+    const lookup = (direction: 'in' | 'out', address: string, facilitators: string[]): Promise<void> => {
+      const key = `${direction}:${address}:${[...facilitators].sort().join(',')}`;
+      if (!lookups.has(key)) {
+        lookups.set(
+          key,
+          (async () => {
+            if (indexDown) return;
+            try {
+              for (const s of await deps.settlements!(direction, address, facilitators)) {
+                indexPayer.set(`${s.tx}|${s.payee}`, s);
+                indexPayee.set(`${s.tx}|${s.payer}`, s.payee);
+              }
+            } catch {
+              indexDown = true;
+              if (address === seller) sellerIndexFailed = true;
+              else indexFailedMidway = true;
+            }
+          })(),
+        );
+      }
+      return lookups.get(key)!;
+    };
+
+    /** x402scan's payer for a delivery `t` to `payee`, when it names someone other than the proxy. */
+    const indexedPayer = (t: UsdcTransfer, payee: string): string | undefined => {
+      const s = indexPayer.get(`${t.hash}|${payee}`);
+      return s && s.payer !== t.from ? s.payer : undefined;
+    };
+    /** The payer behind a proxy delivery `t` to `payee`, if known. */
+    const payerOf = (t: UsdcTransfer, payee: string): string | undefined =>
+      chainPayer.get(`${t.hash}|${payee}`) ?? (distrusted.has(t.from) ? undefined : indexedPayer(t, payee));
+    /** Who `payer` paid with its payment `t` through a proxy, if known. */
+    const payeeOf = (t: UsdcTransfer, payer: string): string | undefined =>
+      chainPayee.get(`${t.hash}|${payer}`) ?? (distrusted.has(t.to) ? undefined : indexPayee.get(`${t.hash}|${payer}`));
+    const rewriteIn = (rows: UsdcTransfer[], payee: string) =>
+      rows.map((t) => {
+        if (!t.hash || !isProxy(t.from)) return t;
+        const payer = payerOf(t, payee);
+        return payer ? { ...t, from: payer } : t;
+      });
+
+    /** Reads a receipt and records who paid into the proxy (`in`) or whom the proxy paid (`out`). */
+    const readReceipt = async (t: UsdcTransfer, side: 'in' | 'out'): Promise<string | undefined> => {
+      const proxy = side === 'in' ? t.from : t.to;
+      let legs: UsdcTransfer[];
+      try {
+        legs = await deps.receipts!(t.hash!);
+      } catch {
+        return undefined;
+      }
+      if (side === 'in') {
+        proxies.get(proxy)!.read++;
+        // payer → proxy → payee; the payer sends the gross amount, so take the smallest leg that covers it.
+        const into = legs.filter((l) => l.to === proxy && l.from !== proxy && l.from !== t.to);
+        const covering = into.filter((l) => l.usd >= t.usd * 0.99).sort((a, b) => a.usd - b.usd);
+        const payer = (covering[0] ?? into.sort((a, b) => b.usd - a.usd)[0])?.from;
+        if (payer) {
+          chainPayer.set(`${t.hash}|${t.to}`, payer);
+          chainPayee.set(`${t.hash}|${payer}`, t.to);
+        }
+        return payer;
+      }
+      const payee = legs.filter((l) => l.from === proxy && l.to !== t.from && l.to !== proxy).sort((a, b) => b.usd - a.usd)[0]?.to;
+      if (payee) {
+        chainPayee.set(`${t.hash}|${t.from}`, payee);
+        chainPayer.set(`${t.hash}|${payee}`, t.from);
+      }
+      return payee;
+    };
+
+    return {
+      async seller(rawIn, rawOut) {
+        await lookup('in', seller, Object.keys(PROXY_FACILITATORS));
+        // A delivery x402scan attributes to someone else came through a proxy (Fluxa deploys one per seller).
+        for (const t of rawIn) {
+          const s = t.hash ? indexPayer.get(`${t.hash}|${seller}`) : undefined;
+          if (s && s.payer !== t.from) addProxy(t.from, s.facilitator);
+          else if (known.has(t.from)) addProxy(t.from, known.get(t.from)!.facilitator);
+        }
+        for (const t of rawIn) if (t.hash && proxies.has(t.from)) proxies.get(t.from)!.legs.push(t);
+        const outLegs = rawOut.filter((t) => t.hash && isProxy(t.to));
+        if (outLegs.length > 0) await lookup('out', seller, [...new Set(outLegs.map((t) => facilitatorOf(t.to)))]);
+
+        if (deps.receipts) {
+          // Check x402scan's payer on a few receipts per proxy; one disagreement and its record isn't used.
+          const checks = [...proxies.values()].flatMap((p) => {
+            const named = p.legs.filter((t) => indexedPayer(t, seller));
+            return spread(named, take(Math.min(VERIFY_PER_PROXY, named.length))).map((t) => ({ t, p }));
+          });
+          await mapLimit(checks, RECEIPT_CONCURRENCY, async ({ t, p }) => {
+            const claimed = indexedPayer(t, seller);
+            const payer = await readReceipt(t, 'in');
+            if (payer === undefined) return;
+            if (payer === claimed) p.matched++;
+            else p.mismatched++;
+          });
+          for (const [address, p] of proxies) if (p.mismatched > 0) distrusted.add(address);
+
+          // Whatever is still unnamed: an even sample of receipts, split between the seller's
+          // inflows (who paid it) and its own payments through the proxy (whom it paid).
+          const inGaps = [...proxies.values()].flatMap((p) => p.legs).filter((t) => !payerOf(t, seller));
+          const outGaps = outLegs.filter((t) => !payeeOf(t, seller));
+          const outTake = Math.min(outGaps.length, budget - Math.min(inGaps.length, Math.ceil(budget / 2)));
+          const inTake = Math.min(inGaps.length, budget - outTake);
+          const sample = [
+            ...spread(inGaps, take(inTake)).map((t) => ({ t, side: 'in' as const })),
+            ...spread(outGaps, take(outTake)).map((t) => ({ t, side: 'out' as const })),
+          ];
+          await mapLimit(sample, RECEIPT_CONCURRENCY, async ({ t, side }) => {
+            const named = await readReceipt(t, side);
+            if (named && side === 'in') proxies.get(t.from)!.matched++;
+          });
+        }
+
+        const outflows = rawOut.map((t) => {
+          if (!t.hash || !isProxy(t.to)) return t;
+          const payee = payeeOf(t, seller);
+          return payee ? { ...t, to: payee } : t;
+        });
+        return { inflows: rewriteIn(rawIn, seller), outflows };
+      },
+
+      async inflows(address, rows) {
+        const unnamed = rows.filter((t) => t.hash && isProxy(t.from) && !distrusted.has(t.from) && !payerOf(t, address));
+        if (unnamed.length > 0) await lookup('in', address, [...new Set(unnamed.map((t) => facilitatorOf(t.from)))]);
+        return rewriteIn(rows, address);
+      },
+
+      summary(checked, funded) {
+        const checkedSet = new Set(checked);
+        const notes: string[] = [];
+        const ranked = [...proxies]
+          .filter(([, p]) => p.legs.length > 0)
+          .map(([address, p]) => ({ address, p, value: p.legs.reduce((a, t) => a + t.usd, 0) }))
+          .sort((a, b) => b.value - a.value);
+        const proxied_payers = ranked.map(({ address, p, value }): ProxiedPayers => {
+          const payers = new Set<string>();
+          let named = 0;
+          for (const t of p.legs) {
+            const payer = payerOf(t, seller);
+            if (!payer || payer === seller) continue;
+            payers.add(payer);
+            named += t.usd;
+          }
+          const coverage = value > 0 ? Math.round((named / value) * 1000) / 1000 : 0;
+          const byIndex = !distrusted.has(address) && p.legs.some((t) => indexedPayer(t, seller));
+          const source = payers.size === 0 ? null : byIndex ? 'x402scan' : 'receipts';
+          if (distrusted.has(address)) {
+            notes.push(
+              `x402scan's payer disagreed with the chain on ${p.mismatched} of ${p.matched + p.mismatched} receipts checked for ${p.name}, so its payers here come from on-chain receipts instead: ${pct(coverage)} of ${p.name}'s payments to this address (partial coverage).`,
+            );
+          } else if (source !== 'x402scan') {
+            const why = sellerIndexFailed ? 'x402scan was unavailable' : 'x402scan has no record of these payments';
+            notes.push(
+              payers.size === 0
+                ? `${why} and no receipt named a payer, so the payers behind ${p.name} were not resolved.`
+                : `${why}, so the payers behind ${p.name} come from ${p.read} on-chain receipts: ${pct(coverage)} of its payments to this address (partial coverage).`,
+            );
+          }
+          const inTop = [...payers].filter((a) => checkedSet.has(a));
+          return {
+            proxy: address,
+            name: p.name,
+            payers_resolved: payers.size,
+            coverage_share: coverage,
+            source,
+            receipts: { read: p.read, matched: p.matched },
+            payers_checked: inTop.length,
+            payers_funded_by_seller: inTop.filter((a) => funded.has(a)).length,
+          };
+        });
+        if (indexFailedMidway) {
+          notes.push("x402scan stopped answering during the check, so some payers' own payments through a proxy were not resolved.");
+        }
+        return { proxied_payers, notes };
+      },
+    };
   };
 }

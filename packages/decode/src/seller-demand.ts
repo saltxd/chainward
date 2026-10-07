@@ -104,9 +104,47 @@ export interface SellerDemandReport {
   paid_back_share: number | null;
   common_first_funder: { address: string; buyer_share: number } | null;
   walk_stops: Record<string, number>;
+  /** Facilitator proxies among the senders, with the payers named behind them (empty when none or not resolved). */
+  proxied_payers: ProxiedPayers[];
   signals: DemandSignal[];
+  /** Caveats specific to this check (e.g. x402scan was down and payers came from a receipt sample). */
+  notes: string[];
   not_assessed: string[];
   disclaimer: string;
+}
+
+/** Payers named behind one facilitator proxy that delivered payments to the seller. */
+export interface ProxiedPayers {
+  proxy: string;
+  name: string;
+  /** Distinct payers named behind the proxy's payments to the seller in the sample. */
+  payers_resolved: number;
+  /** Share of the proxy's sampled payments to the seller (by value) whose payer was named. */
+  coverage_share: number;
+  /** x402scan's recorded payer (verified on receipts), or on-chain receipts alone; null when nothing was resolved. */
+  source: 'x402scan' | 'receipts' | null;
+  /** Receipts read for this proxy, and how many named the payer (agreeing with x402scan when it was the source). */
+  receipts: { read: number; matched: number };
+  /** Of those payers, how many were among the checked top buyers, and how many of them trace back to the seller. */
+  payers_checked: number;
+  payers_funded_by_seller: number;
+}
+
+/**
+ * Names payers behind facilitator proxies for one check (proxied-payers.ts builds it):
+ * proxy deliveries in a transfer list come back re-attributed to the payer (inflows)
+ * or the payee (the seller's outflows) where known.
+ */
+export interface ProxyResolver {
+  seller(inflows: UsdcTransfer[], outflows: UsdcTransfer[]): Promise<{ inflows: UsdcTransfer[]; outflows: UsdcTransfer[] }>;
+  inflows(address: string, rows: UsdcTransfer[]): Promise<UsdcTransfer[]>;
+  /** After the walks: `checked` top buyers, `funded` those whose trail reached the seller. */
+  summary(checked: string[], funded: Set<string>): { proxied_payers: ProxiedPayers[]; notes: string[] };
+}
+
+export interface SellerDemandOptions {
+  /** A fresh ProxyResolver per check (proxiedPayerResolver); without it, proxies count as intermediaries. */
+  proxies?: (seller: string) => ProxyResolver;
 }
 
 const NOT_ASSESSED = [
@@ -163,8 +201,13 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) =>
   return out;
 }
 
-export async function analyzeSellerDemand(address: string, source: TransferSource): Promise<SellerDemandReport> {
+export async function analyzeSellerDemand(
+  address: string,
+  source: TransferSource,
+  options: SellerDemandOptions = {},
+): Promise<SellerDemandReport> {
   const seller = address.toLowerCase();
+  const proxies = options.proxies?.(seller);
   const memo = new Map<string, Promise<UsdcTransfer[]>>();
   const get = (dir: 'in' | 'out', addr: string) => {
     const key = `${dir}:${addr}`;
@@ -179,7 +222,10 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
   };
   const isHub = async (addr: string): Promise<boolean> => isInflowHub(await get('in', addr), () => realInflows(addr));
 
-  const [inflows, outflows] = await Promise.all([get('in', seller), get('out', seller)]);
+  // Payments a facilitator proxy delivered count as their payer's (and the seller's own
+  // payments through a proxy as its payee's) when the resolver can name them.
+  const [rawIn, rawOut] = await Promise.all([get('in', seller), get('out', seller)]);
+  const { inflows, outflows } = proxies ? await proxies.seller(rawIn, rawOut) : { inflows: rawIn, outflows: rawOut };
   const bySender = sumBy(inflows.filter((t) => t.from !== seller), 'from');
   const totalIn = [...bySender.values()].reduce((a, b) => a + b, 0);
 
@@ -197,7 +243,20 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
   const total = [...byBuyer.values()].reduce((a, b) => a + b, 0);
   const viaIntermediary = [...intermediaries].reduce((a, i) => a + (bySender.get(i) ?? 0), 0);
 
-  const fundersOf = async (addr: string) => sumBy((await get('in', addr)).filter((t) => t.from !== addr), 'from');
+  const funderMemo = new Map<string, Promise<Map<string, number>>>();
+  const fundersOf = (addr: string): Promise<Map<string, number>> => {
+    if (!funderMemo.has(addr)) {
+      funderMemo.set(
+        addr,
+        (async () => {
+          const rows = await get('in', addr);
+          const resolved = proxies ? await proxies.inflows(addr, rows) : rows;
+          return sumBy(resolved.filter((t) => t.from !== addr), 'from');
+        })(),
+      );
+    }
+    return funderMemo.get(addr)!;
+  };
   // Reads the same page the hub test does, so it costs no extra call.
   const sellerMostlyFunds = async (addr: string): Promise<boolean> => {
     const funders = await fundersOf(addr);
@@ -235,12 +294,13 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
   const firstFunders = new Map<string, number>();
   await Promise.all(
     top.map(async (b) => {
-      const funders = sumBy((await get('in', b)).filter((t) => t.from !== b), 'from');
+      const funders = await fundersOf(b);
       const first = [...funders.entries()].sort((x, y) => y[1] - x[1])[0]?.[0];
       if (first) firstFunders.set(first, (firstFunders.get(first) ?? 0) + 1);
     }),
   );
   const [cfAddr, cfCount] = [...firstFunders.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
+  const proxied = proxies?.summary(top, new Set(reached.map((w) => w.buyer))) ?? { proxied_payers: [], notes: [] };
 
   const report: SellerDemandReport = {
     address: seller,
@@ -257,7 +317,9 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
     paid_back_share: total > 0 ? round(paidBack / total) : null,
     common_first_funder: top.length > 0 && cfAddr ? { address: cfAddr, buyer_share: round(cfCount / top.length) } : null,
     walk_stops: stops,
+    proxied_payers: proxied.proxied_payers,
     signals: [],
+    notes: proxied.notes,
     not_assessed: NOT_ASSESSED,
     disclaimer: DISCLAIMER,
   };
