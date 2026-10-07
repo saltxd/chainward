@@ -15,6 +15,7 @@ import {
   DEMAND_WINDOW_DAYS,
   SELLER_BLOCKS_PER_DAY,
   SELLER_STABLECOINS,
+  sellerDemandOptions,
   sellerDemandRpcUrl,
   HireCheckError,
   runHireCheck,
@@ -860,7 +861,8 @@ async function sellerDemandCheck(c: Context) {
     const head = await rpcHead(rpcUrl);
     const fromBlock = head - BigInt(DEMAND_WINDOW_DAYS * SELLER_BLOCKS_PER_DAY[chain]);
     const source = alchemyTransferSource(rpcUrl, fromBlock, logger, SELLER_STABLECOINS[chain]);
-    const report = await Promise.race([analyzeSellerDemand(address, source), timeout]);
+    // On Base, payers behind facilitator proxies (Meridian, Fluxa) come from x402scan, verified on receipts.
+    const report = await Promise.race([analyzeSellerDemand(address, source, sellerDemandOptions(chain, rpcUrl)), timeout]);
     const data = { ...report, chain };
     await redis.set(cacheKey, JSON.stringify(data), 'EX', DEMAND_CACHE_SEC);
     return c.json({ success: true, data });

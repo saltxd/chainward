@@ -92,6 +92,31 @@ describe('GET /api/risk/seller-demand', () => {
     expect(redis.set).not.toHaveBeenCalled();
   });
 
+  it('resolves payers behind facilitator proxies on Base (x402scan) but not on BNB Chain', async () => {
+    vi.stubEnv('SELLER_DEMAND_RPC_URL', 'https://base-mainnet.g.alchemy.com/v2/test-key');
+    vi.stubEnv('SELLER_DEMAND_BSC_RPC_URL', '');
+    fetchMock.mockImplementation(async (url: string, init?: { body?: string }) => {
+      if (url.startsWith('https://www.x402scan.com/')) {
+        return new Response(JSON.stringify({ result: { data: { json: { items: [], hasNextPage: false } } } }));
+      }
+      const { method } = JSON.parse(init?.body ?? '{}') as { method: string };
+      const result = method === 'eth_blockNumber' ? '0x3000000' : { transfers: [] };
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result }));
+    });
+    const x402scanCalls = () => fetchMock.mock.calls.filter(([u]) => String(u).startsWith('https://www.x402scan.com/')).length;
+
+    const base = await app().request(`/api/risk/seller-demand?address=${SELLER}`);
+    expect(base.status).toBe(200);
+    const body = (await base.json()) as { data: { proxied_payers: unknown[]; notes: string[] } };
+    expect(body.data.proxied_payers).toEqual([]);
+    expect(body.data.notes).toEqual([]);
+    expect(x402scanCalls()).toBe(1);
+
+    const bsc = await app().request(`/api/risk/seller-demand?address=${SELLER}&chain=bsc`);
+    expect(bsc.status).toBe(200);
+    expect(x402scanCalls()).toBe(1);
+  });
+
   it('serves a cached Base report from Redis without any fetch', async () => {
     const cached = { address: SELLER, window_days: 30, signals: [], chain: 'base' };
     redis.get.mockImplementation(async (key) => (key === `seller-demand:${SELLER}` ? JSON.stringify(cached) : null));
