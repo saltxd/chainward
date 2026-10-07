@@ -69,6 +69,16 @@ indexer:
       cpu: 500m
       memory: 512Mi
 
+# Sell the Set and Earn hire check on TermiX (BSC). Off until the agent's TermiX
+# account and listing exist (apps/api/scripts/termix-provider.mts --send) and
+# TERMIX_PROVIDER_PRIVATE_KEY is in chainward-secrets. docs/termix-provider.md.
+termixProvider:
+  enabled: false
+  maxJobsPerRun: 3
+  # Sends the provider's transactions. Keyless; quotes the real BSC gas price
+  # (~0.05 gwei), where bsc.rpcUrl quotes 1 gwei. The worker caps at 0.1 gwei.
+  rpcUrl: https://bsc-dataseed.bnbchain.org
+
 acpDecoder:
   enabled: false  # opt-in; flip after first acp-decoder setup completes
   replicas: 1

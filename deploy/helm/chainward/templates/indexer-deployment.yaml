@@ -69,6 +69,21 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: SELLER_DEMAND_BSC_RPC_URL
                   optional: true
+            # TermiX provider (workers/termixProvider.ts, docs/termix-provider.md). Runs only
+            # with the flag on AND the key present; the key must own ERC-8004 agent 365669
+            # on BSC (today the treasury EOA) and pays the gas for accept / deliver / claim.
+            - name: TERMIX_PROVIDER_ENABLED
+              value: {{ .Values.termixProvider.enabled | quote }}
+            - name: TERMIX_MAX_JOBS_PER_RUN
+              value: {{ .Values.termixProvider.maxJobsPerRun | quote }}
+            - name: TERMIX_BSC_RPC_URL
+              value: {{ .Values.termixProvider.rpcUrl | quote }}
+            - name: TERMIX_PROVIDER_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: TERMIX_PROVIDER_PRIVATE_KEY
+                  optional: true
             - name: BASE_RPC_FALLBACK_URL
               valueFrom:
                 secretKeyRef:

@@ -27,6 +27,7 @@ export default tseslint.config(
     ignores: [
       '**/node_modules/**',
       '.claude/**', // agent worktrees live here; each is linted in its own checkout
+      '.termix-skill/**', // TermiX's agent skill, downloaded for reference (gitignored; docs/termix-provider.md)
       '**/dist/**',
       '**/.next/**',
       '**/.turbo/**',
