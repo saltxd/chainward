@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RISK_CHECKS } from '@chainward/decode';
-import { buildCoverage } from '../lib/reportCoverage';
+import { buildCoverage, transfersUnavailable } from '../lib/reportCoverage';
 
 const reportData = {
   wallet: { type: 'eoa', nonce: 17, code_size: 0, is_virtuals_factory: false },
@@ -43,6 +43,56 @@ describe('buildCoverage', () => {
   it('returns undefined rather than inventing numbers when the decode data is missing', () => {
     expect(buildCoverage(null, [])).toBeUndefined();
     expect(buildCoverage({ activity: {} }, [])).toBeUndefined();
+  });
+});
+
+describe('buildCoverage when every transfer source failed', () => {
+  const REASON =
+    'Every transfer source failed: public Base RPC logs (eth_getLogs: 400); Blockscout (blockscout transfers: 403).';
+  const degraded = {
+    ...reportData,
+    activity: {
+      latest_transfer_at: null,
+      latest_transfer_age_hours: null,
+      transfers_24h: 0,
+      transfers_7d: 0,
+      transfers_30d: 0,
+      unique_counterparties_30d: 0,
+    },
+    fetch_meta: { transfers_fetched: 0, transfers_truncated: false, transfers_unavailable: REASON },
+    survival: { classification: 'unknown', rationale: `Not assessed: the transfer list could not be read. ${REASON}` },
+  };
+  const READS_TRANSFERS = [
+    'claim_vs_chain_offline',
+    'dormant_wallet',
+    'stranded_value',
+    'counterparty_concentration',
+    'inactive_no_history',
+    'activity_truncated',
+  ];
+
+  it('marks every check that reads the transfer list not assessed, with the reason, never "not raised"', () => {
+    const cov = buildCoverage(degraded, [{ id: 'factory_proxy_clone' }])!;
+    const notAssessed = cov.checks.filter((c) => c.status === 'not_assessed');
+    expect(notAssessed.map((c) => c.id)).toEqual(READS_TRANSFERS);
+    for (const c of notAssessed) {
+      expect(c.raised).toBe(false);
+      expect(c.reason).toBe(REASON);
+    }
+    expect(cov.checks.find((c) => c.id === 'factory_proxy_clone')).toMatchObject({ status: 'raised', raised: true });
+    expect(cov.checks.find((c) => c.id === 'cluster_collapsed')).toMatchObject({ status: 'not_raised', raised: false });
+    expect(cov.window.transfers_unavailable).toBe(REASON);
+    expect(transfersUnavailable(degraded)).toBe(REASON);
+  });
+
+  it('reports raised / not_raised on a report whose transfer list was read', () => {
+    const cov = buildCoverage(reportData, [{ id: 'dormant_wallet' }])!;
+    expect(cov.checks.find((c) => c.id === 'dormant_wallet')).toMatchObject({ status: 'raised', raised: true });
+    expect(cov.checks.find((c) => c.id === 'inactive_no_history')).toMatchObject({ status: 'not_raised', raised: false });
+    expect(cov.checks.some((c) => c.reason !== undefined)).toBe(false);
+    expect(cov.window).not.toHaveProperty('transfers_unavailable');
+    expect(transfersUnavailable(reportData)).toBeUndefined();
+    expect(transfersUnavailable(null)).toBeUndefined();
   });
 });
 

@@ -9,16 +9,30 @@ import { riskChecksFor, type DecodeChain } from '@chainward/decode';
  * undefined when the data is missing the fields it needs.
  */
 
+/**
+ * raised / not_raised: the check ran on what it needs. not_assessed: an input it
+ * needs could not be read (every transfer source failed), so it did not run.
+ */
+export type ReportCheckStatus = 'raised' | 'not_raised' | 'not_assessed';
+
 export interface ReportCoverageCheck {
   id: string;
   title: string;
   looks_for: string;
   raised: boolean;
+  status: ReportCheckStatus;
+  /** Why the check was not assessed (only with status not_assessed). */
+  reason?: string;
 }
 
 export interface ReportCoverage {
   checks: ReportCoverageCheck[];
   window: {
+    /**
+     * Set when every transfer source failed: the transfer figures below are
+     * unknown, not zero. Public-safe text naming the sources and their errors.
+     */
+    transfers_unavailable?: string;
     /** Days the transfer scan covered. Absent = the full 30-day activity horizon. */
     days?: number;
     transfers_scanned: number;
@@ -34,6 +48,17 @@ export interface ReportCoverage {
 
 function num(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+/**
+ * The reason the report's transfer list could not be read (every source failed),
+ * or undefined when it was read. A report like this must not be sold: its
+ * activity, survival and absence checks were not assessed.
+ */
+export function transfersUnavailable(reportData: unknown): string | undefined {
+  if (!reportData || typeof reportData !== 'object') return undefined;
+  const reason = (reportData as { fetch_meta?: { transfers_unavailable?: unknown } }).fetch_meta?.transfers_unavailable;
+  return typeof reason === 'string' && reason.length > 0 ? reason : undefined;
 }
 
 export function buildCoverage(
@@ -68,16 +93,17 @@ export function buildCoverage(
   }
   const raised = new Set(flags.map((f) => f.id));
   const latest = d.activity?.latest_transfer_at;
+  const unread = transfersUnavailable(reportData);
   return {
     // Only the checks that ran on this chain — Base-only ones are not listed as
     // "not raised" off Base, because they were never evaluated.
-    checks: riskChecksFor(chain, windowDays).map((c) => ({
-      id: c.id,
-      title: c.title,
-      looks_for: c.looks_for,
-      raised: raised.has(c.id),
-    })),
+    checks: riskChecksFor(chain, windowDays).map((c): ReportCoverageCheck => {
+      const base = { id: c.id, title: c.title, looks_for: c.looks_for };
+      if (unread && c.reads_transfers) return { ...base, raised: false, status: 'not_assessed', reason: unread };
+      return raised.has(c.id) ? { ...base, raised: true, status: 'raised' } : { ...base, raised: false, status: 'not_raised' };
+    }),
     window: {
+      ...(unread ? { transfers_unavailable: unread } : {}),
       ...(windowDays !== undefined ? { days: windowDays } : {}),
       transfers_scanned,
       transfers_truncated: d.fetch_meta?.transfers_truncated === true,

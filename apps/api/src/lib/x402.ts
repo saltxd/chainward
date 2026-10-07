@@ -277,6 +277,7 @@ export function x402OpenApiDocument() {
               content: { 'application/json': { example: OUTPUT_EXAMPLE } },
             },
             '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+            '503': { description: 'SOURCES_UNAVAILABLE: the on-chain sources the check reads were down, so no report was built; not charged' },
             '504': { description: 'Check did not finish in time; not charged' },
           },
         },

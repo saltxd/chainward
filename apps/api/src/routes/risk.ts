@@ -39,7 +39,7 @@ import { getQueues } from '../lib/queue.js';
 import { logger } from '../lib/logger.js';
 import { WalletLookupService } from '../services/walletLookupService.js';
 import { extractProvenance, type ReportProvenance } from '../lib/reportProvenance.js';
-import { buildCoverage, type ReportCoverage } from '../lib/reportCoverage.js';
+import { buildCoverage, transfersUnavailable, type ReportCoverage } from '../lib/reportCoverage.js';
 import { parseCounterpartyInput, parseHireInput, parseSellerInput } from '../lib/paidInput.js';
 
 // ---------------------------------------------------------------------------
@@ -768,7 +768,9 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   const { address, chain } = parseCounterpartyInput(rawAddress, c.req.query('chain'));
 
   const cached = await latestReport(address, chain);
-  if (cached && computeTtlState(cached) === 'fresh') {
+  // A cached report whose transfer list could not be read is never resold; the
+  // sources may be back, so it gets a fresh decode like a stale one.
+  if (cached && computeTtlState(cached) === 'fresh' && !transfersUnavailable(cached.reportData)) {
     return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
   }
 
@@ -803,6 +805,18 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
     if (state === 'completed') {
       const fresh = await latestReport(address, chain);
       if (fresh && new Date(fresh.generatedAt).getTime() >= started - 5_000) {
+        const unread = transfersUnavailable(fresh.reportData);
+        if (unread) {
+          // Activity, survival and the absence checks were not assessed. x402 settles
+          // on any 2xx, so answer 503: the buyer is not charged for a report that could
+          // not read the chain. The free route still shows it, with its coverage block.
+          logger.warn({ address, chain, jobId: job.id, reason: unread }, 'x402 check: transfer sources unavailable; not charged');
+          throw new AppError(
+            503,
+            'SOURCES_UNAVAILABLE',
+            'The on-chain sources this check reads were unavailable, so the report could not be built. You were not charged; retry shortly.',
+          );
+        }
         return c.json({ success: true, data: { status: 'ready', report: rowToReport(fresh) } });
       }
       break;
