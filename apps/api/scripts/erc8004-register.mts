@@ -8,7 +8,7 @@
  * card lives at https://chainward.ai/.well-known/erc8004-agent.json. The key is read
  * from the environment and never printed.
  */
-import { createPublicClient, createWalletClient, http, parseAbi, formatEther, type Hex } from 'viem';
+import { createPublicClient, createWalletClient, decodeEventLog, http, parseAbi, formatEther, type Hex } from 'viem';
 import { bsc } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -42,6 +42,14 @@ const wallet = createWalletClient({ account, chain: bsc, transport: http(rpc) })
 const hash = await wallet.writeContract({ address: REGISTRY, abi, functionName: 'register', args: [AGENT_URI, metadata], gas });
 console.log(`sent ${hash}`);
 const receipt = await pub.waitForTransactionReceipt({ hash });
-const log = receipt.logs.find((l) => l.address.toLowerCase() === REGISTRY.toLowerCase() && l.topics.length >= 3);
-const registered = receipt.logs.find((l) => l.address.toLowerCase() === REGISTRY.toLowerCase() && l.topics[0] === "0xca52e62c36f1e1d6ef9d1b1b2cd2d0e7c0bd8d8fcd6a0b6a8d2f1c9f1f8b8d9d0"); const agentId = (registered ?? log)?.topics[1] ? BigInt((registered ?? log)!.topics[1]!).toString() : "unknown";
+let agentId = 'unknown';
+for (const l of receipt.logs) {
+  if (l.address.toLowerCase() !== REGISTRY.toLowerCase()) continue;
+  try {
+    const ev = decodeEventLog({ abi, data: l.data, topics: l.topics });
+    if (ev.eventName === 'Registered') agentId = String((ev.args as { agentId: bigint }).agentId);
+  } catch {
+    // not a Registered event
+  }
+}
 console.log(`status ${receipt.status}  block ${receipt.blockNumber}  agentId ${agentId}`);
