@@ -1,6 +1,28 @@
 {
   "decodes": [
     {
+      "slug": "bankr-staking-who-earns",
+      "title": "Bankr Staking: Who Earns the $100K",
+      "subtitle": "Bankr funded 246M BNKR ($99.8K) of staking rewards. Its 2/3 fee Safe is the largest staker and earns about 13% of them.",
+      "date": "2026-10-06",
+      "url": "https://chainward.ai/decodes/bankr-staking-who-earns",
+      "addresses": [
+        "0x88470240ff0663faefa68b1d7621b472ddd9584a",
+        "0x042455f9990098e11592be1fbd72e6dc68419b13",
+        "0x5f8da8f88ec81e27f2e22fcb9ca5d926c595e508",
+        "0x12eb364a5ad1ad6c29b56ba7ac26773994dfe143",
+        "0xe65c028634f1adf0e423fac67d63166624a8f24b",
+        "0xc4bb37ac3e1bb17907d4f1fc8734f7b1a9dd28c3",
+        "0x619b93c061a4bf937067841d4082f0c0f187db3e",
+        "0xe85458669e58c9440c0045a034edf6d3110609c5",
+        "0x2aa0ecc698278f4d46e4c2390e9dd9a57511ed09",
+        "0xac619976d2a369eabd0e61021dec86fc8291df31",
+        "0x99ffe5f4093f51d30ed6e78d859e31058da2542e",
+        "0xb67ce169d4cd68da36f18c83100e295d7b0bb42f",
+        "0x6daf035ccd9fcdd5e88058adf9a31df034383f5d"
+      ]
+    },
+    {
       "slug": "bsc-erc8004-registry",
       "title": "BNB Chain's ERC-8004 Registry Count Says Little About Set and Earn",
       "subtitle": "3,496 new BSC agents since Oct 1: 69% from EvoEvo, Quack Q402 and an Ave.ai-branded card, at late-September pace; none of those hired.",
@@ -468,6 +490,50 @@
     }
   ],
   "byAddress": {
+    "0x88470240ff0663faefa68b1d7621b472ddd9584a": [
+      "bankr-staking-who-earns"
+    ],
+    "0x042455f9990098e11592be1fbd72e6dc68419b13": [
+      "bankr-staking-who-earns",
+      "bankr-on-chain"
+    ],
+    "0x5f8da8f88ec81e27f2e22fcb9ca5d926c595e508": [
+      "bankr-staking-who-earns",
+      "bankr-on-chain"
+    ],
+    "0x12eb364a5ad1ad6c29b56ba7ac26773994dfe143": [
+      "bankr-staking-who-earns",
+      "bankr-on-chain"
+    ],
+    "0xe65c028634f1adf0e423fac67d63166624a8f24b": [
+      "bankr-staking-who-earns",
+      "bankr-on-chain"
+    ],
+    "0xc4bb37ac3e1bb17907d4f1fc8734f7b1a9dd28c3": [
+      "bankr-staking-who-earns",
+      "bankr-on-chain"
+    ],
+    "0x619b93c061a4bf937067841d4082f0c0f187db3e": [
+      "bankr-staking-who-earns"
+    ],
+    "0xe85458669e58c9440c0045a034edf6d3110609c5": [
+      "bankr-staking-who-earns"
+    ],
+    "0x2aa0ecc698278f4d46e4c2390e9dd9a57511ed09": [
+      "bankr-staking-who-earns"
+    ],
+    "0xac619976d2a369eabd0e61021dec86fc8291df31": [
+      "bankr-staking-who-earns"
+    ],
+    "0x99ffe5f4093f51d30ed6e78d859e31058da2542e": [
+      "bankr-staking-who-earns"
+    ],
+    "0xb67ce169d4cd68da36f18c83100e295d7b0bb42f": [
+      "bankr-staking-who-earns"
+    ],
+    "0x6daf035ccd9fcdd5e88058adf9a31df034383f5d": [
+      "bankr-staking-who-earns"
+    ],
     "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432": [
       "bsc-erc8004-registry",
       "set-and-earn-week-one"
@@ -835,27 +901,12 @@
     "0xc3bc151b8a548b0584c18da1aa3c16528e28f597": [
       "bankr-on-chain"
     ],
-    "0xc4bb37ac3e1bb17907d4f1fc8734f7b1a9dd28c3": [
-      "bankr-on-chain"
-    ],
     "0xf240cad9fdfc2aceeb4d9e87208f72025bc1f8eb": [
-      "bankr-on-chain"
-    ],
-    "0x12eb364a5ad1ad6c29b56ba7ac26773994dfe143": [
-      "bankr-on-chain"
-    ],
-    "0xe65c028634f1adf0e423fac67d63166624a8f24b": [
       "bankr-on-chain"
     ],
     "0xf60633d02690e2a15a54ab919925f3d038df163e": [
       "bankr-on-chain",
       "bankr-hack-trace"
-    ],
-    "0x042455f9990098e11592be1fbd72e6dc68419b13": [
-      "bankr-on-chain"
-    ],
-    "0x5f8da8f88ec81e27f2e22fcb9ca5d926c595e508": [
-      "bankr-on-chain"
     ],
     "0xc3d963e0856a2c2d6f75c83c1355f680fd8f9f10": [
       "termix-on-chain"
