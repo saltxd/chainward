@@ -73,7 +73,7 @@ indexer:
 # account and listing exist (apps/api/scripts/termix-provider.mts --send) and
 # TERMIX_PROVIDER_PRIVATE_KEY is in chainward-secrets. docs/termix-provider.md.
 termixProvider:
-  enabled: false
+  enabled: true
   maxJobsPerRun: 3
   # Sends the provider's transactions. Keyless; quotes the real BSC gas price
   # (~0.05 gwei), where bsc.rpcUrl quotes 1 gwei. The worker caps at 0.1 gwei.
