@@ -1,0 +1,97 @@
+import { describe, expect, it } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { CheckResult } from '../CheckResult';
+import { COUNTERPARTY, HIRES, NO_HISTORY, SELLER } from './fixtures';
+
+const text = (html: string) =>
+  html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ');
+
+describe('CheckResult: seller check', () => {
+  const html = renderToStaticMarkup(<CheckResult kind="seller" data={SELLER} />);
+
+  it('lists every signal with its evidence', () => {
+    for (const s of SELLER.signals) {
+      expect(text(html)).toContain(s.title);
+      expect(text(html)).toContain(s.evidence);
+    }
+  });
+
+  it('says how many top buyers were checked and how many trace back', () => {
+    expect(text(html)).toContain('30 of 30 top buyers checked trace back to the seller');
+  });
+
+  it('names the payers behind facilitator proxies', () => {
+    expect(text(html)).toContain('payers behind Meridian: 5, all funded by the seller');
+  });
+
+  it('keeps the disclaimer and says so when no signal was raised', () => {
+    expect(text(html)).toContain(SELLER.disclaimer);
+    const quiet = renderToStaticMarkup(<CheckResult kind="seller" data={{ ...SELLER, signals: [], proxied_payers: [] }} />);
+    expect(text(quiet)).toContain('No signals raised.');
+  });
+});
+
+describe('CheckResult: hire check', () => {
+  const html = renderToStaticMarkup(<CheckResult kind="hires" data={HIRES} />);
+
+  it('shows every hirer with its verdict and evidence', () => {
+    expect(html).toContain('href="https://bscscan.com/address/0x4e276b4db12447254134b45e5add170993df5ad2"');
+    expect(text(html)).toContain('inconclusive');
+    expect(text(html)).toContain('shares a funder with the owner');
+    expect(text(html)).toContain(HIRES.hirers[1].evidence);
+  });
+
+  it('says whether three independent hirers were found', () => {
+    expect(text(html)).toContain('3 hires from 2 distinct hirers');
+    expect(text(html)).toContain('Fewer than 3 independent hirers');
+    const passing = renderToStaticMarkup(
+      <CheckResult kind="hires" data={{ ...HIRES, summary: { ...HIRES.summary, passes_three_independent: true } }} />,
+    );
+    expect(text(passing)).toContain('3 or more independent hirers');
+  });
+});
+
+describe('CheckResult: counterparty check', () => {
+  it('shows the band and each flag with its source', () => {
+    const html = renderToStaticMarkup(<CheckResult kind="counterparty" data={COUNTERPARTY} />);
+    expect(text(html)).toContain('high signal');
+    expect(text(html)).toContain('USDC balance held in a dormant wallet');
+    expect(text(html)).toContain('Holds 5451.386272 USDC while classified dormant');
+    expect(html).toContain('href="https://base.blockscout.com/address/0x4baadba26c3c0bdef9e8faf173925d463aa53bb2"');
+    expect(html).toContain('href="/report/0x4baadba26c3c0bdef9e8faf173925d463aa53bb2"');
+    expect(text(html)).toContain(COUNTERPARTY.report.disclaimer);
+  });
+
+  it('says when an address has no history', () => {
+    const html = renderToStaticMarkup(<CheckResult kind="counterparty" data={NO_HISTORY} />);
+    expect(text(html)).toContain('No on-chain history');
+  });
+
+  it('never reads as a clearance when no flag surfaced', () => {
+    const html = renderToStaticMarkup(
+      <CheckResult kind="counterparty" data={{ ...COUNTERPARTY, report: { ...COUNTERPARTY.report, band: 'low-signal', flags: [] } }} />,
+    );
+    expect(text(html)).toContain('No flags surfaced in the window checked. Not a safety verdict.');
+  });
+});
+
+describe('CheckResult: anything else', () => {
+  it('falls back to the raw JSON rather than failing', () => {
+    const html = renderToStaticMarkup(<CheckResult kind="seller" data={{ unexpected: true }} />);
+    expect(text(html)).toContain('"unexpected": true');
+  });
+
+  it('uses no verdict words', () => {
+    const all = [
+      renderToStaticMarkup(<CheckResult kind="seller" data={SELLER} />),
+      renderToStaticMarkup(<CheckResult kind="hires" data={HIRES} />),
+      renderToStaticMarkup(<CheckResult kind="counterparty" data={COUNTERPARTY} />),
+    ].join(' ');
+    expect(text(all)).not.toMatch(/\b(safe|scam|fraud|fake)\b/i);
+  });
+});
