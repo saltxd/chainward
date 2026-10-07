@@ -247,8 +247,8 @@ export async function analyzeSellerDemand(
   const bySender = sumBy(inflows.filter((t) => t.from !== seller), 'from');
   const totalIn = [...bySender.values()].reduce((a, b) => a + b, 0);
 
-  // Proxied facilitators (and exchanges) deliver payments from their own contract,
-  // so a high-throughput sender is an intermediary, not a buyer. Classify the
+  // Exchanges, and proxies whose payers weren't named, deliver payments from their own
+  // address, so a high-throughput sender is an intermediary, not a buyer. Classify the
   // largest senders; the lookups are the same ones the walk needs anyway.
   const intermediaries = new Set<string>();
   const top: string[] = [];
