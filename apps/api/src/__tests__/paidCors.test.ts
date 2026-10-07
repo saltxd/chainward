@@ -95,7 +95,7 @@ describe('paid routes: CORS for chainward.ai', () => {
   });
 
   it('gives an origin that is not configured no CORS grant', async () => {
-    const res = await app.request(PAID[1], { headers: { Origin: 'https://evil.example' } });
+    const res = await app.request(`/api/risk/seller-demand?address=${ADDR}`, { headers: { Origin: 'https://evil.example' } });
     expect(res.status).toBe(402);
     expect(res.headers.get('access-control-allow-origin')).toBeNull();
   });
