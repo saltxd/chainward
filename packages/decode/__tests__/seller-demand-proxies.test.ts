@@ -180,6 +180,17 @@ describe('payers behind facilitator proxies (Meridian ring fixture)', () => {
     expect(JSON.stringify(r)).not.toContain('0xbad');
   });
 
+  it('says so when x402scan is down and no listed proxy delivered to the seller (an unlisted one would go unseen)', async () => {
+    const w: World = { transfers: [], settlements: [], receipts: new Map() };
+    for (let i = 0; i < 6; i++) proxied(w, '0xf1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1', `0xpayer${i}`, '0xseller', 10, 'fluxa');
+    const down: SettlementSource = async () => {
+      throw new Error('x402scan public.transfers.list failed (503)');
+    };
+    const r = await analyzeSellerDemand('0xseller', transferSource(w), { proxies: proxiedPayerResolver({ settlements: down, receipts: receiptSource(w) }) });
+    expect(r.proxied_payers).toEqual([]);
+    expect(r.notes.join(' ')).toMatch(/x402scan was unavailable.*only the listed proxies/);
+  });
+
   it("names an unlisted proxy after x402scan's facilitator (Fluxa deploys one per seller)", async () => {
     const w: World = { transfers: [], settlements: [], receipts: new Map() };
     const FLUXA_PROXY = '0xf1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1';

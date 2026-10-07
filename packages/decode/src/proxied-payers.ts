@@ -399,6 +399,11 @@ export function proxiedPayerResolver(deps: ProxyDeps): (seller: string) => Proxy
             payers_funded_by_seller: inTop.filter((a) => funded.has(a)).length,
           };
         });
+        if (sellerIndexFailed && deps.settlements && proxied_payers.length === 0) {
+          notes.push(
+            "x402scan was unavailable, so only the listed proxies (Meridian's, and Fluxa's for one seller) were checked; payments through another Fluxa proxy would show as an intermediary.",
+          );
+        }
         if (indexFailedMidway) {
           notes.push("x402scan stopped answering during the check, so some payers' own payments through a proxy were not resolved.");
         }
