@@ -1,0 +1,47 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "ChainWard Hire Check",
+  "description": "On-chain hire independence check for BNB Chain's Set and Earn: for any ERC-8004 agent id, every wallet that hired it in the last 30 days and whether each is the owner, funded by the owner, sharing a funder, or independent within limits. Paid per call over x402 (0.10 USDC on Base), not charged if the check fails. Also sells a counterparty risk check and an x402 seller check for any Base or BNB Chain address. Never a safety verdict.",
+  "image": "https://chainward.ai/chainward-mark-512.png",
+  "services": [
+    {
+      "name": "x402",
+      "endpoint": "https://api.chainward.ai/api/risk/hires?agent={agentId}&chain=bsc",
+      "version": "2",
+      "price": "0.10 USDC on Base (eip155:8453)",
+      "method": "GET"
+    },
+    {
+      "name": "OpenAPI",
+      "endpoint": "https://api.chainward.ai/openapi.json",
+      "version": "3.1"
+    },
+    {
+      "name": "x402 discovery",
+      "endpoint": "https://api.chainward.ai/.well-known/x402",
+      "version": "2"
+    },
+    {
+      "name": "MCP",
+      "endpoint": "https://chainward.ai/mcp",
+      "version": "0.2.2"
+    },
+    {
+      "name": "Set and Earn board",
+      "endpoint": "https://chainward.ai/set-and-earn",
+      "version": "1"
+    }
+  ],
+  "x402Support": true,
+  "active": true,
+  "registrations": [],
+  "supportedTrust": ["reputation"],
+  "tags": ["Security", "Risk", "Verification", "On-chain forensics"],
+  "attributes": [
+    { "trait_type": "category", "value": "security" },
+    { "trait_type": "chains", "value": "Base, BNB Chain" },
+    { "trait_type": "payment", "value": "x402, USDC on Base" }
+  ],
+  "contact": "hello@chainward.ai",
+  "homepage": "https://chainward.ai"
+}
