@@ -16,6 +16,7 @@ export * from './attestation.js';
 export * from './data-fetch.js';
 export * from './rpc-fixtures.js';
 export * from './seller-demand.js';
+export * from './proxied-payers.js';
 export * from './hire-check.js';
 export * from './hire-sources.js';
 export * from './set-and-earn-board.js';
