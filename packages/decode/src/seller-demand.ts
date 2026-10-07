@@ -138,6 +138,8 @@ export interface ProxiedPayers {
 export interface ProxyResolver {
   seller(inflows: UsdcTransfer[], outflows: UsdcTransfer[]): Promise<{ inflows: UsdcTransfer[]; outflows: UsdcTransfer[] }>;
   inflows(address: string, rows: UsdcTransfer[]): Promise<UsdcTransfer[]>;
+  /** A facilitator proxy: it delivers other people's payments, so it is nobody's funder. */
+  isProxy(address: string): boolean;
   /** After the walks: `checked` top buyers, `funded` those whose trail reached the seller. */
   summary(checked: string[], funded: Set<string>): { proxied_payers: ProxiedPayers[]; notes: string[] };
 }
@@ -295,7 +297,7 @@ export async function analyzeSellerDemand(
   await Promise.all(
     top.map(async (b) => {
       const funders = await fundersOf(b);
-      const first = [...funders.entries()].sort((x, y) => y[1] - x[1])[0]?.[0];
+      const first = [...funders.entries()].filter(([a]) => !proxies?.isProxy(a)).sort((x, y) => y[1] - x[1])[0]?.[0];
       if (first) firstFunders.set(first, (firstFunders.get(first) ?? 0) + 1);
     }),
   );

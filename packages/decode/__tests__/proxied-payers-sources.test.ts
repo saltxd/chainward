@@ -3,6 +3,7 @@ import {
   FACILITATOR_PROXIES,
   PROXY_FACILITATORS,
   alchemyReceiptSource,
+  sellerDemandOptions,
   x402scanSettlementSource,
 } from '../src/proxied-payers.js';
 
@@ -77,6 +78,13 @@ describe('x402scanSettlementSource', () => {
   it('throws when x402scan answers an error, so the check can fall back to receipts', async () => {
     stub({ error: { json: { message: 'boom' } } }, 500);
     await expect(x402scanSettlementSource()('in', '0xs', ['mrdn'])).rejects.toThrow(/x402scan/);
+  });
+});
+
+describe('sellerDemandOptions', () => {
+  it('resolves proxied payers on Base (x402scan + receipts on the same RPC) and not on BNB Chain', () => {
+    expect(typeof sellerDemandOptions('base', 'https://base-mainnet.g.alchemy.com/v2/k').proxies).toBe('function');
+    expect(sellerDemandOptions('bsc', 'https://bnb-mainnet.g.alchemy.com/v2/k')).toEqual({});
   });
 });
 

@@ -14,6 +14,8 @@ import {
   mapLimit,
   type ProxiedPayers,
   type ProxyResolver,
+  type SellerChain,
+  type SellerDemandOptions,
   type UsdcTransfer,
 } from './seller-demand.js';
 
@@ -124,6 +126,16 @@ export function alchemyReceiptSource(rpcUrl: string, opts: { timeoutMs?: number 
         hash,
       }));
   };
+}
+
+/**
+ * The seller check's options for a chain, shared by the paid route and the x402 board:
+ * on Base, payers behind facilitator proxies come from x402scan, verified on receipts
+ * read from the check's own RPC. BNB Chain has no proxied facilitators to resolve.
+ */
+export function sellerDemandOptions(chain: SellerChain, rpcUrl: string): SellerDemandOptions {
+  if (chain !== 'base') return {};
+  return { proxies: proxiedPayerResolver({ settlements: x402scanSettlementSource(), receipts: alchemyReceiptSource(rpcUrl) }) };
 }
 
 // ─── Resolution ───────────────────────────────────────────────────────────────
@@ -334,6 +346,8 @@ export function proxiedPayerResolver(deps: ProxyDeps): (seller: string) => Proxy
         if (unnamed.length > 0) await lookup('in', address, [...new Set(unnamed.map((t) => facilitatorOf(t.from)))]);
         return rewriteIn(rows, address);
       },
+
+      isProxy,
 
       summary(checked, funded) {
         const checkedSet = new Set(checked);

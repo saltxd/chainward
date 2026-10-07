@@ -156,6 +156,9 @@ describe('payers behind facilitator proxies (Meridian ring fixture)', () => {
     expect(r.notes.join(' ')).toMatch(/x402scan was unavailable.*Meridian.*partial/);
     // The seller's own payments to its payers, read from the same receipts, still link them.
     expect(r.signals.map((s) => s.id)).toContain('buyers_funded_by_seller');
+    // The proxy delivered the payers' unnamed payments; it is not their common funder.
+    expect(r.common_first_funder?.address).not.toBe(MERIDIAN);
+    expect(r.signals.map((s) => s.id)).not.toContain('common_funder');
   });
 
   it("does not use x402scan's payer for a proxy when the chain disagrees", async () => {
