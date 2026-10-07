@@ -31,6 +31,15 @@ describe('alchemyTransferSource', () => {
     expect(rows).toEqual([{ from: '0xabc', to: '0xdef', usd: 12.5 }]);
   });
 
+  it('keeps each transfer\'s tx hash (proxied payments are matched to their payer by it)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      status: 200,
+      json: async () => ({ result: { transfers: [{ from: '0xProxy', to: '0xSeller', value: 4, hash: '0xAbC1' }] } }),
+    })));
+    const rows = await alchemyTransferSource('https://x.test', 1n)('in', '0xseller');
+    expect(rows).toEqual([{ from: '0xproxy', to: '0xseller', usd: 4, hash: '0xabc1' }]);
+  });
+
   it('with minUsd, pages past dust until it has atLeast inflows of that size', async () => {
     const calls: Array<Record<string, unknown>> = [];
     const page = (dust: number, real: number, pageKey?: string) => ({

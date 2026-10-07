@@ -67,6 +67,8 @@ export interface UsdcTransfer {
   from: string;
   to: string;
   usd: number;
+  /** Transaction hash, lowercase, when the source has it: proxied payments are matched to their payer by it. */
+  hash?: string;
 }
 
 /** Only transfers of at least `minUsd`, read back past one page until `atLeast` are found. */
@@ -399,7 +401,12 @@ export function alchemyTransferSource(
   const rows = (transfers: AlchemyTransfer[]): UsdcTransfer[] =>
     transfers
       .filter((t) => t.to)
-      .map((t) => ({ from: t.from.toLowerCase(), to: t.to!.toLowerCase(), usd: Number(t.value ?? 0) }));
+      .map((t) => ({
+        from: t.from.toLowerCase(),
+        to: t.to!.toLowerCase(),
+        usd: Number(t.value ?? 0),
+        ...(t.hash ? { hash: t.hash.toLowerCase() } : {}),
+      }));
 
   return async (direction, address, filter) => {
     const params = {
