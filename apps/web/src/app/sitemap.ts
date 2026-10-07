@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
-import { isThinReport, reportPath } from '@/lib/risk';
+import { reportPath } from '@/lib/risk';
+import { indexableReports } from '@/lib/indexableReports';
 import type { RiskLibraryResult } from '@/lib/api';
 import { getAllDecodes } from '@/lib/decodes';
 
@@ -73,16 +74,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         data?: RiskLibraryResult;
       };
       const reports = json.data?.reports ?? [];
-      // One URL per (address, chain): re-checks create a new report row for the same page.
-      const seen = new Set<string>();
-      reportRoutes = reports
-        .filter((r) => !isThinReport(r.flag_count, r.band))
-        .filter((r) => {
-          const key = `${r.chain ?? 'base'}:${r.address.toLowerCase()}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
+      // One URL per (address, chain), judged by the newest report: a re-check can
+      // turn a wallet thin, and that page is noindex.
+      reportRoutes = indexableReports(reports)
         .map((r) => ({
           url: `${SITE}${reportPath(r.address, r.chain)}`,
           lastModified: new Date(r.as_of_date),
