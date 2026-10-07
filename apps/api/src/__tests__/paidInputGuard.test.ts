@@ -107,7 +107,7 @@ describe('paid routes: input checked before the 402 challenge', () => {
   const tooLongAgent = '1'.repeat(5000);
   it.each([
     '/api/risk/x402?address=0xzz',
-    '/api/risk/x402',
+    '/api/risk/x402?address=',
     '/api/risk/x402/0xzz',
     `/api/risk/x402/${encodeURIComponent('\u{1F600}')}`,
     `/api/risk/x402?address=${ADDR}&chain=eth`,
@@ -115,10 +115,9 @@ describe('paid routes: input checked before the 402 challenge', () => {
     `/api/risk/x402/${ADDR}?chain=eth`,
     '/api/risk/x402?address=0x0000000000000000000000000000000000000001',
     '/api/risk/seller-demand?address=nope',
-    '/api/risk/seller-demand',
     `/api/risk/seller-demand?address=${ADDR}&chain=eth`,
     '/api/risk/hires?agent=abc',
-    '/api/risk/hires',
+    '/api/risk/hires?agent=',
     '/api/risk/hires?agent=352475&chain=base',
     '/api/risk/hires?agent=<5000 digits>',
     '/api/risk/hires?agent=1234567890123',
@@ -131,6 +130,19 @@ describe('paid routes: input checked before the 402 challenge', () => {
     expect(body.success).toBe(false);
     expect(body.error.code).toMatch(/^INVALID_/);
   });
+
+  // Catalogs (PayAI's probe, x402scan, agents reading a listing) GET the bare
+  // resource URL to learn the price and the input from the 402. Nobody is charged
+  // for it: a paid request with no target still ends in the handler's 400, and
+  // the middleware does not settle a response of 400 or above.
+  it.each(['/api/risk/x402', '/api/risk/seller-demand', '/api/risk/hires', '/api/risk/hires?chain=bsc'])(
+    'GET %s (bare resource, no target) answers 402 so catalogs can read the challenge',
+    async (path) => {
+      const res = await app.request(path);
+      expect(res.status).toBe(402);
+      expect(res.headers.get('payment-required')).toBeTruthy();
+    },
+  );
 
   it('answers 404 with no payment challenge for a dataset that does not exist', async () => {
     const res = await app.request('/api/paid/no-such-dataset/file');
