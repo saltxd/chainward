@@ -790,6 +790,7 @@ body:has(.press) {
   flex-basis: 100%;
 }
 .press .pay-input {
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 14px;
   padding: 10px 12px;
   border: 1px solid var(--rule-strong);
