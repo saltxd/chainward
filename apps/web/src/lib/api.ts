@@ -458,12 +458,21 @@ export interface RiskCoverageCheck {
   title: string;
   looks_for: string;
   raised: boolean;
+  /**
+   * not_assessed: an input the check needs could not be read, so it did not run.
+   * Absent on reports served before statuses existed (derive from `raised`).
+   */
+  status?: 'raised' | 'not_raised' | 'not_assessed';
+  /** Why the check was not assessed. */
+  reason?: string;
 }
 
 /** What the check covered: every check run (raised or not) + the window it saw. */
 export interface RiskCoverage {
   checks: RiskCoverageCheck[];
   window: {
+    /** Every transfer source failed: the transfer figures are unknown, not zero. */
+    transfers_unavailable?: string;
     /** Days the transfer scan covered; absent = the full 30-day horizon. */
     days?: number;
     transfers_scanned: number;

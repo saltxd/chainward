@@ -83,6 +83,10 @@ export const ZERO_FLAGS_COPY =
 export function zeroFlagsCopy(coverage: RiskCoverage | undefined): string {
   if (!coverage) return ZERO_FLAGS_COPY;
   const w = coverage.window;
+  // A failed read is not a quiet window: never "across 0 transfers".
+  if (w.transfers_unavailable) {
+    return 'No flags raised from what could be read. The transfer list could not be read, so the activity, dormancy and counterparty checks were not assessed.';
+  }
   const transfers = `${w.transfers_truncated ? 'at least ' : ''}${w.transfers_scanned.toLocaleString()} transfers`;
   const parties = `${w.unique_counterparties_30d.toLocaleString()} ${
     w.unique_counterparties_30d === 1 ? 'counterparty' : 'counterparties'

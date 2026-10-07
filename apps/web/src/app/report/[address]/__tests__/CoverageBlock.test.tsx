@@ -68,6 +68,51 @@ describe('zeroFlagsCopy', () => {
   });
 });
 
+describe('CoverageBlock when the transfer list could not be read', () => {
+  const REASON =
+    'Every transfer source failed: public Base RPC logs (eth_getLogs: 400); Blockscout (blockscout transfers: 403).';
+  const unread: RiskCoverage = {
+    checks: [
+      { ...coverage.checks[0]!, raised: false, status: 'not_assessed', reason: REASON },
+      { ...coverage.checks[1]!, raised: false, status: 'not_assessed', reason: REASON },
+      { ...coverage.checks[2]!, raised: false, status: 'not_raised' },
+    ],
+    window: {
+      ...coverage.window,
+      transfers_unavailable: REASON,
+      transfers_scanned: 0,
+      transfers_30d: 0,
+      unique_counterparties_30d: 0,
+      latest_transfer_at: null,
+      survival: 'unknown',
+    },
+  };
+
+  it('marks the checks that need the transfer list not assessed, never "not raised", and says why', () => {
+    const html = renderToStaticMarkup(<CoverageBlock coverage={unread} />);
+    expect(html).toContain('1 checks run');
+    expect(html).toContain('1 not raised');
+    expect(html).toContain('2 not assessed');
+    expect(html.match(/rr-check--na/g)?.length).toBe(2);
+    expect(html.match(/rr-check--quiet/g)?.length).toBe(1);
+    expect(html).toContain('Blockscout (blockscout transfers: 403)');
+  });
+
+  it('does not print zeros for transfer figures it never read', () => {
+    const html = renderToStaticMarkup(<CoverageBlock coverage={unread} />);
+    expect(html).not.toContain('none in window');
+    expect(html).not.toMatch(/rr-stat-value mono">0</);
+    // The nonce comes from an RPC read that did succeed, so txs.sent still shows.
+    expect(html).toContain('rr-stat-value mono">17<');
+  });
+
+  it('never words a failed read as a quiet result', () => {
+    const copy = zeroFlagsCopy(unread);
+    expect(copy).not.toMatch(/across 0 transfers/);
+    expect(copy).toMatch(/transfer list could not be read/);
+  });
+});
+
 describe('CoverageBlock window days', () => {
   it('labels the window with the days actually scanned when the report says so', () => {
     const bsc: RiskCoverage = { ...coverage, window: { ...coverage.window, days: 14 } };

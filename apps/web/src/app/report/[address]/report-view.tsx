@@ -976,6 +976,17 @@ function ReportStyles() {
         white-space: nowrap;
       }
       .rr-check--raised .rr-check-state { color: var(--oxblood); }
+      .rr-check--na .rr-check-title { color: var(--ink-soft); }
+      .rr-check--na .rr-check-mark,
+      .rr-check--na .rr-check-state { color: var(--sev-medium); }
+      .rr-cov-unread {
+        margin: 14px 0 0;
+        padding: 10px 14px;
+        border-left: 2px solid var(--sev-medium);
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--ink-soft);
+      }
       .rr-cov-stats { margin-top: 20px; }
       .rr-noflags {
         border: 1px solid var(--rule-strong);

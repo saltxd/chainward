@@ -129,58 +129,84 @@ export function FlagList({
 /**
  * What this check covered: every check that ran, raised or not, plus the window
  * it looked at. Rendered on every report so a quiet result is a list of things
- * examined. "not raised" is deliberate — never "passed" or "clear".
+ * examined. "not raised" is deliberate — never "passed" or "clear". A check
+ * whose input could not be read is "not assessed", with the reason, never
+ * "not raised", and transfer figures that were never read show as a dash.
  */
+const CHECK_STATE = {
+  raised: { cls: 'rr-check--raised', mark: '⚑', label: 'raised' },
+  not_raised: { cls: 'rr-check--quiet', mark: '—', label: 'not raised' },
+  not_assessed: { cls: 'rr-check--na', mark: '?', label: 'not assessed' },
+} as const;
+
 export function CoverageBlock({ coverage }: { coverage: RiskCoverage | undefined }) {
   if (!coverage) return null;
-  const raised = coverage.checks.filter((c) => c.raised).length;
-  const quiet = coverage.checks.length - raised;
+  // Reports served before statuses existed only carry `raised`.
+  const statusOf = (c: RiskCoverage['checks'][number]) => c.status ?? (c.raised ? 'raised' : 'not_raised');
+  const count = (s: keyof typeof CHECK_STATE) => coverage.checks.filter((c) => statusOf(c) === s).length;
+  const raised = count('raised');
+  const quiet = count('not_raised');
+  const unassessed = count('not_assessed');
   const w = coverage.window;
+  const unread = w.transfers_unavailable;
   const win = windowLabel(w.days);
   // Reports without a recorded window are the 30-day Base path; keep its labels.
   const bounded = w.days !== undefined;
-  const latest = w.latest_transfer_at
-    ? new Date(w.latest_transfer_at).toLocaleDateString(undefined, { dateStyle: 'medium' })
-    : 'none in window';
+  const figure = (n: number) => (unread ? '—' : n.toLocaleString());
+  const latest = unread
+    ? '—'
+    : w.latest_transfer_at
+      ? new Date(w.latest_transfer_at).toLocaleDateString(undefined, { dateStyle: 'medium' })
+      : 'none in window';
   return (
     <div className="rr-cov">
       <div className="rr-cov-head">
         <span className="rr-na-tag">What this check covered</span>
         <span className="rr-cov-tally mono">
-          {coverage.checks.length} checks run · {raised} raised · {quiet} not raised
+          {raised + quiet} checks run · {raised} raised · {quiet} not raised
+          {unassessed > 0 ? ` · ${unassessed} not assessed` : ''}
         </span>
       </div>
+      {unread && (
+        <p className="rr-cov-unread">
+          The transfer list could not be read for this report, so the checks that need it were not
+          assessed. {unread}
+        </p>
+      )}
       <ul className="rr-cov-list">
-        {coverage.checks.map((c) => (
-          <li key={c.id} className={`rr-check ${c.raised ? 'rr-check--raised' : 'rr-check--quiet'}`}>
-            <span className="rr-check-mark mono" aria-hidden>
-              {c.raised ? '⚑' : '—'}
-            </span>
-            <span className="rr-check-body">
-              <span className="rr-check-title">{c.title}</span>
-              <span className="rr-check-what">{c.looks_for}</span>
-            </span>
-            <span className="rr-check-state mono">{c.raised ? 'raised' : 'not raised'}</span>
-          </li>
-        ))}
+        {coverage.checks.map((c) => {
+          const s = CHECK_STATE[statusOf(c)];
+          return (
+            <li key={c.id} className={`rr-check ${s.cls}`}>
+              <span className="rr-check-mark mono" aria-hidden>
+                {s.mark}
+              </span>
+              <span className="rr-check-body">
+                <span className="rr-check-title">{c.title}</span>
+                <span className="rr-check-what">{c.looks_for}</span>
+              </span>
+              <span className="rr-check-state mono">{s.label}</span>
+            </li>
+          );
+        })}
       </ul>
       <div className="rr-stats rr-cov-stats">
         <div className="rr-stat">
           <span className="rr-stat-label">transfers.scanned</span>
           <span className="rr-stat-value mono">
-            {w.transfers_truncated ? '≥' : ''}
-            {w.transfers_scanned.toLocaleString()}
+            {w.transfers_truncated && !unread ? '≥' : ''}
+            {figure(w.transfers_scanned)}
           </span>
-          <span className="rr-stat-unit">transfers scanned</span>
+          <span className="rr-stat-unit">{unread ? 'not read' : 'transfers scanned'}</span>
         </div>
         <div className="rr-stat">
           <span className="rr-stat-label">{bounded ? 'transfers.window' : 'transfers.30d'}</span>
-          <span className="rr-stat-value mono">{w.transfers_30d.toLocaleString()}</span>
+          <span className="rr-stat-value mono">{figure(w.transfers_30d)}</span>
           <span className="rr-stat-unit">in the {win} window</span>
         </div>
         <div className="rr-stat">
           <span className="rr-stat-label">{bounded ? 'counterparties.window' : 'counterparties.30d'}</span>
-          <span className="rr-stat-value mono">{w.unique_counterparties_30d.toLocaleString()}</span>
+          <span className="rr-stat-value mono">{figure(w.unique_counterparties_30d)}</span>
           <span className="rr-stat-unit">unique counterparties</span>
         </div>
         <div className="rr-stat">
@@ -196,7 +222,7 @@ export function CoverageBlock({ coverage }: { coverage: RiskCoverage | undefined
         <div className="rr-stat">
           <span className="rr-stat-label">wallet.type</span>
           <span className="rr-stat-value mono">{w.wallet_type}</span>
-          <span className="rr-stat-unit">{w.survival} by activity</span>
+          <span className="rr-stat-unit">{unread ? 'activity not read' : `${w.survival} by activity`}</span>
         </div>
       </div>
     </div>
