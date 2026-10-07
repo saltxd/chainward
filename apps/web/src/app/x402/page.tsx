@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
 import { proxiedPayersLabel, type ProxiedPayers } from '@/lib/x402Board';
+import { PAID_CHECK_PRICE, sellerCheckUrl } from '@/lib/paidChecks';
+import { PayCheckRow } from '@/components/pay/PayCheckButton';
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
@@ -120,11 +122,18 @@ export default async function X402BoardPage() {
                     <th>Sent back to buyers</th>
                     <th>Largest common funder</th>
                     <th>Signals</th>
+                    <th>Fresh check</th>
                   </tr>
                 </thead>
                 <tbody>
                   {board.rows.map((row, i) => (
-                    <tr key={row.seller}>
+                    <PayCheckRow
+                      key={row.seller}
+                      resource={sellerCheckUrl(row.seller)}
+                      label={`Seller check for ${row.label ?? short(row.seller)}`}
+                      price={PAID_CHECK_PRICE.seller}
+                      colSpan={9}
+                    >
                       <td>{i + 1}</td>
                       <td>
                         <a
@@ -181,7 +190,7 @@ export default async function X402BoardPage() {
                           check did not complete this week
                         </td>
                       )}
-                    </tr>
+                    </PayCheckRow>
                   ))}
                 </tbody>
               </table>
@@ -227,7 +236,8 @@ export default async function X402BoardPage() {
           <p className="xb-p">
             Before your agent pays an x402 seller, run the same check on its payTo:{' '}
             <span className="mono">GET api.chainward.ai/api/risk/seller-demand?address=0x…</span>, 0.10
-            USDC over x402, not charged if the check fails.{' '}
+            USDC over x402, not charged if the check fails. For a seller on the board, the button on its row
+            runs it from your wallet.{' '}
             <Link className="press-link" href="/attest">
               More on ChainWard’s checks
             </Link>

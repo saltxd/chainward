@@ -47,7 +47,13 @@ export function PayCheckButton(props: PayCheckProps) {
   return (
     <div className="pay">
       {!open && (
-        <button type="button" className="press-btn press-btn--ghost pay-open" aria-expanded="false" onClick={() => dispatch({ type: 'open' })}>
+        <button
+          type="button"
+          className="press-btn press-btn--ghost pay-open"
+          aria-expanded="false"
+          data-resource={props.resource}
+          onClick={() => dispatch({ type: 'open' })}
+        >
           Run the {props.price} check with your wallet
         </button>
       )}
@@ -70,6 +76,7 @@ export function PayCheckRow({ colSpan, children, ...props }: PayCheckProps & { c
             className="pay-open pay-open--compact"
             aria-expanded={open}
             aria-label={`${props.label}: run the ${props.price} check with your wallet`}
+            data-resource={props.resource}
             disabled={open}
             onClick={() => dispatch({ type: 'open' })}
           >

@@ -128,7 +128,8 @@ export default async function SetAndEarnPage() {
           <span className="press-label">Check one agent</span>
           <p className="se-p">
             Every hirer, its verdict and the funding trail behind it, for any agent id: 0.10 USDC over x402,
-            not charged if the check fails.
+            not charged if the check fails. For an agent on the board, the button on its row runs it from your
+            wallet.
           </p>
           <pre className="se-code mono">
             <code>{hireCheckCurl()}</code>

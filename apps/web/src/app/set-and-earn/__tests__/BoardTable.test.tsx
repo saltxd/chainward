@@ -66,4 +66,11 @@ describe('BoardTable', () => {
     );
     expect(html).toContain('as of Oct 7');
   });
+
+  it('offers the paid hire check for each agent, from the wallet', () => {
+    const html = renderToStaticMarkup(<BoardTable generatedAt="2026-10-06T06:30:00.000Z" rows={[base]} />);
+    expect(html).toContain('<th>Hire check</th>');
+    expect(html).toContain('data-resource="https://api.chainward.ai/api/risk/hires?agent=361259&amp;chain=bsc"');
+    expect(html).toContain('aria-label="Hire check for agent #361259: run the $0.10 check with your wallet"');
+  });
 });

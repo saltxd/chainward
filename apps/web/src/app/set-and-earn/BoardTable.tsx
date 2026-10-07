@@ -1,4 +1,6 @@
 import { agentUrl, marketplaceLabel, registeredLabel, utcDay, verdictLabel, type SetAndEarnRow } from '@/lib/setAndEarn';
+import { hireCheckUrl, PAID_CHECK_PRICE } from '@/lib/paidChecks';
+import { PayCheckRow } from '@/components/pay/PayCheckButton';
 
 /** The board's table; styles (se-*) live on the page. A verdict from an earlier run carries its date. */
 export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; generatedAt: string }) {
@@ -13,6 +15,7 @@ export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; gener
             <th>Distinct hirers</th>
             <th>Independent</th>
             <th>3 independent?</th>
+            <th>Hire check</th>
           </tr>
         </thead>
         <tbody>
@@ -20,7 +23,13 @@ export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; gener
             const verdict = verdictLabel(row);
             const registered = registeredLabel(row);
             return (
-              <tr key={row.agent_id}>
+              <PayCheckRow
+                key={row.agent_id}
+                resource={hireCheckUrl(row.agent_id)}
+                label={`Hire check for agent #${row.agent_id}`}
+                price={PAID_CHECK_PRICE.hires}
+                colSpan={7}
+              >
                 <td>
                   <a className="se-addr" href={agentUrl(row.agent_id)} target="_blank" rel="noopener noreferrer">
                     #{row.agent_id}
@@ -41,7 +50,7 @@ export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; gener
                     <div className="se-sub">as of {utcDay(row.checked_at)}</div>
                   )}
                 </td>
-              </tr>
+              </PayCheckRow>
             );
           })}
         </tbody>

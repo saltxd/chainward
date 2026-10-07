@@ -12,6 +12,7 @@ describe('PayCheckButton (as served, before any click)', () => {
     expect(html).toContain('>Run the $0.10 check with your wallet</button>');
     expect(html).toContain('type="button"');
     expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain(`data-resource="${RESOURCE}"`);
   });
 
   it('renders no panel until clicked', () => {
@@ -35,6 +36,7 @@ describe('PayCheckRow', () => {
     expect(html).toContain('<td>a</td><td>b</td><td class="pay-cell">');
     expect(html).toContain('aria-label="Seller check for 0x6839…1a2b: run the $0.10 check with your wallet"');
     expect(html).toContain('>$0.10 check</button>');
+    expect(html).toContain(`data-resource="${RESOURCE}"`);
   });
 });
 
