@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
+import { proxiedPayersLabel, type ProxiedPayers } from '@/lib/x402Board';
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
@@ -29,6 +30,8 @@ interface Report {
   seller_funded: { buyers: number; volume_share: number | null; hops: Record<string, number> };
   paid_back_share: number | null;
   common_first_funder: { address: string; buyer_share: number } | null;
+  /** Absent on boards built before payers behind proxies were resolved. */
+  proxied_payers?: ProxiedPayers[];
   signals: Signal[];
 }
 interface Row {
@@ -142,10 +145,15 @@ export default async function X402BoardPage() {
                         <>
                           <td>
                             {traced(row.report)}
+                            {(row.report.proxied_payers ?? []).map((p) => (
+                              <div key={p.proxy} className="xb-sub">
+                                {proxiedPayersLabel(p)}
+                              </div>
+                            ))}
                             {(row.report.via_intermediary_share ?? 0) >= 0.5 && (
                               <div className="xb-sub">
-                                {pct(row.report.via_intermediary_share)} arrives via a proxy; payers behind it
-                                not traced
+                                {pct(row.report.via_intermediary_share)} arrives via a proxy or exchange; payers
+                                behind it not traced
                               </div>
                             )}
                           </td>
@@ -188,10 +196,13 @@ export default async function X402BoardPage() {
           <p className="xb-p">
             <strong>Top buyers tracing back to seller</strong>: of the seller’s 30 largest buyers in the
             last 30 days, how many reach the seller’s own address by following their largest funder (at
-            most four hops, stopping at exchanges and other high-throughput hubs). A seller whose revenue
-            funds its buyers can show any buyer count; this column shows how much of it does. Payments
-            that arrive through a facilitator proxy or another high-throughput address are not counted as
-            buyers, and the payers behind them are not traced.{' '}
+            most four hops, stopping at exchanges and other high-throughput hubs; a busy wallet that got
+            most of its money from the seller, such as its second payTo, counts as the seller’s). A
+            seller whose revenue funds its buyers can show any buyer count; this column shows how much of
+            it does. Payments delivered by a facilitator proxy (Meridian, Fluxa) count as their real
+            payer’s: x402scan names the payer and the chain confirms it on a sample of receipts. Payments
+            through an exchange or another high-throughput address are not counted as buyers, and the
+            payers behind them are not traced.{' '}
             <strong>Sent back to buyers</strong>: USDC the seller transferred to its own buyers, as a share
             of what it received. <strong>Largest common funder</strong>: the share of top buyers whose
             largest funder is the same wallet, which can be an app seeding its users’ wallets.
