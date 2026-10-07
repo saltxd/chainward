@@ -1,3 +1,5 @@
+import { CounterpartyPay } from '@/components/pay/CounterpartyPay';
+
 export const metadata = {
   title: 'API — risk checks, reports, attestations, datasets',
   description:
@@ -144,6 +146,12 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
         Discovery: <a href="/.well-known/x402">/.well-known/x402</a> and{' '}
         <a href="/openapi.json">/openapi.json</a>.
       </p>
+      <h3>Or pay from this page</h3>
+      <p>
+        Run the counterparty check with a wallet that holds USDC on Base. You sign
+        one transfer authorization; the facilitator pays the gas.
+      </p>
+      <CounterpartyPay />
 
       <h2>Datasets</h2>
       <pre>

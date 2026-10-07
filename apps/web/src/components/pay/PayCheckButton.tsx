@@ -6,7 +6,7 @@
  * viem) and the payment client load only after the first click.
  */
 import dynamic from 'next/dynamic';
-import { useReducer, type Dispatch, type ReactNode } from 'react';
+import { useEffect, useReducer, type Dispatch, type ReactNode } from 'react';
 import { INITIAL, payReducer, type PayEvent, type PayState } from './payState';
 
 export interface PayCheckProps {
@@ -41,9 +41,10 @@ function Panel({ label, ...props }: PayFlowProps & { label: string }) {
 }
 
 /** One button; the panel expands below it. */
-export function PayCheckButton(props: PayCheckProps) {
+export function PayCheckButton({ onOpenChange, ...props }: PayCheckProps & { onOpenChange?: (open: boolean) => void }) {
   const [state, dispatch] = useReducer(payReducer, INITIAL);
   const open = state.step !== 'idle';
+  useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
   return (
     <div className="pay">
       {!open && (

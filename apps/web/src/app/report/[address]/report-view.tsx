@@ -35,6 +35,7 @@ import {
   BandSummary,
   CoverageBlock,
   FlagList,
+  FreshPaidCheck,
   FreshnessStamp,
   HonestDisclaimer,
   NotAssessed,
@@ -593,6 +594,10 @@ function FullReport({
             live yet
           </p>
         )}
+      </div>
+
+      <div className="rr-block">
+        <FreshPaidCheck address={report.address} chain={chain} />
       </div>
 
       <div className="rr-block">

@@ -23,6 +23,8 @@ import {
 } from '@/lib/risk';
 import type { RiskBand } from '@/lib/api';
 import { chainMeta } from '@/lib/chains';
+import { counterpartyCheckUrl, PAID_CHECK_PRICE } from '@/lib/paidChecks';
+import { PayCheckButton } from '@/components/pay/PayCheckButton';
 
 function shortSource(url: string): string {
   try {
@@ -278,4 +280,21 @@ export function NotAssessed({ items }: { items: string[] }) {
 /** The disclaimer — must appear on every report page. */
 export function HonestDisclaimer({ text }: { text: string }) {
   return <div className="rr-disclaimer">{text}</div>;
+}
+
+/** Next to the free report: a check run now, paid per check from the reader's wallet. */
+export function FreshPaidCheck({ address, chain }: { address: string; chain: 'base' | 'bsc' }) {
+  return (
+    <div>
+      <span className="press-label">Fresh paid check</span>
+      <p className="rr-classifier">
+        A new check of this address, no older than 24h, paid per check. The free report above stays public.
+      </p>
+      <PayCheckButton
+        resource={counterpartyCheckUrl(address, chain)}
+        label={`Counterparty check for ${address.slice(0, 6)}…${address.slice(-4)}`}
+        price={PAID_CHECK_PRICE.counterparty}
+      />
+    </div>
+  );
 }

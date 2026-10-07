@@ -777,6 +777,37 @@ body:has(.press) {
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 12px;
 }
+.press .pay-form {
+  margin: 0 0 1.3rem;
+}
+.press .pay-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.press .pay-fields .press-label {
+  flex-basis: 100%;
+}
+.press .pay-input {
+  font-size: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 0;
+}
+.press .pay-input.mono {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.press .pay-input:focus {
+  outline: 2px solid var(--oxblood);
+  outline-offset: 1px;
+}
+.press .pay-input::placeholder {
+  color: var(--ink-faint);
+}
 @media (max-width: 720px) {
   .press .pay-panel {
     padding: 14px;
