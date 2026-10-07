@@ -174,6 +174,11 @@ function spread<T>(list: T[], count: number): T[] {
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
+const PROXY_METHOD =
+  "Payments a facilitator proxy (Meridian, Fluxa) delivered count as their real payer's: x402scan names the payer and up to " +
+  `${VERIFY_PER_PROXY} receipts per proxy confirm it on-chain; when x402scan is down or disagrees, up to ${PROXY_RECEIPTS_MAX} receipts name a sample ` +
+  '(proxied_payers[].coverage_share says how much). The seller\'s own payments through a proxy are re-attributed to their payee the same way.';
+
 /**
  * Builds a fresh ProxyResolver per check. Payers come from x402scan's record of each
  * settlement, checked against up to 3 receipts per proxy; when x402scan is down, has no
@@ -348,6 +353,8 @@ export function proxiedPayerResolver(deps: ProxyDeps): (seller: string) => Proxy
       },
 
       isProxy,
+
+      method: PROXY_METHOD,
 
       summary(checked, funded) {
         const checkedSet = new Set(checked);

@@ -14,7 +14,7 @@
 Send paid requests to https://api.chainward.ai directly. The first request answers 402 with the payment requirements; any x402 client pays and retries.
 
 - Counterparty check, 0.05 USDC: a risk report no older than 24 hours, run fresh if needed. GET https://api.chainward.ai/api/risk/x402?address=<address> (add &chain=bsc for BNB Chain)
-- x402 seller check, 0.10 USDC: where a seller's buyers get their stablecoins (seller-funded buyers, money sent back, common funders), on Base or BNB Chain. GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo> (add &chain=bsc)
+- x402 seller check, 0.10 USDC: where a seller's buyers get their stablecoins (seller-funded buyers, money sent back, common funders), on Base or BNB Chain. On Base it names the payers behind facilitator proxies (Meridian, Fluxa) from x402scan, confirmed on receipts; payers behind exchanges stay opaque. GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo> (add &chain=bsc)
 - Hire check, 0.10 USDC: who hired a BNB Chain ERC-8004 agent in the last 30 days, and whether each hirer is the owner, funded by it or shares a funder with it (BNB Chain's Set and Earn rule). GET https://api.chainward.ai/api/risk/hires?agent=<id or owner address>&chain=bsc
 - Discovery: https://api.chainward.ai/.well-known/x402 and https://api.chainward.ai/openapi.json
 

@@ -213,8 +213,9 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
           <p className="att-p">
             Paying an x402 seller?{' '}
             <span className="mono">GET api.chainward.ai/api/risk/seller-demand?address=0x…</span> (0.10
-            USDC) shows where its buyers get their USDC: how much traces back to the seller, how much it
-            pays back, and whether one wallet funds most buyers. It is the method behind{' '}
+            USDC) shows where its buyers get their USDC: how much traces back to the seller (payers behind
+            Meridian and Fluxa proxies included), how much it pays back, and whether one wallet funds most
+            buyers. It is the method behind{' '}
             <a className="press-link" href="/decodes/x402-on-base">
               the x402-on-Base decode
             </a>

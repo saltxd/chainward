@@ -104,6 +104,8 @@ export interface SellerDemandReport {
   paid_back_share: number | null;
   common_first_funder: { address: string; buyer_share: number } | null;
   walk_stops: Record<string, number>;
+  /** How the check works, in a paragraph. */
+  method: string;
   /** Facilitator proxies among the senders, with the payers named behind them (empty when none or not resolved). */
   proxied_payers: ProxiedPayers[];
   signals: DemandSignal[];
@@ -138,6 +140,8 @@ export interface ProxiedPayers {
 export interface ProxyResolver {
   seller(inflows: UsdcTransfer[], outflows: UsdcTransfer[]): Promise<{ inflows: UsdcTransfer[]; outflows: UsdcTransfer[] }>;
   inflows(address: string, rows: UsdcTransfer[]): Promise<UsdcTransfer[]>;
+  /** The resolver's part of the report's method text. */
+  readonly method: string;
   /** A facilitator proxy: it delivers other people's payments, so it is nobody's funder. */
   isProxy(address: string): boolean;
   /** After the walks: `checked` top buyers, `funded` those whose trail reached the seller. */
@@ -149,14 +153,26 @@ export interface SellerDemandOptions {
   proxies?: (seller: string) => ProxyResolver;
 }
 
-const NOT_ASSESSED = [
-  'Transfers older than the window or beyond the 1,000-transfer sample',
-  'Funding trails past high-throughput hubs (exchanges, routers, custodians)',
-  'Payers behind facilitator proxies and other high-throughput senders',
-  'Anything but the largest funder at each hop',
-  'Who controls any address, or why money moved',
-  'Payments in tokens other than the chain\'s main stablecoins',
-];
+const fmt = (n: number) => n.toLocaleString('en-US');
+
+const METHOD =
+  `Samples the address's newest stablecoin inflows in the last ${DEMAND_WINDOW_DAYS} days (up to ${fmt(TRANSFER_PAGE)} transfers) and follows each of its top ${TOP_BUYERS} buyers' largest funder back up to ${MAX_HOPS} hops. ` +
+  'A trail reaches the seller when the seller funded a wallet on it, or sent most of the money of the next wallet on it (one hop further, even when that wallet is busy, like a seller\'s second payTo). ' +
+  `Trails stop at hubs: wallets with ${fmt(HUB_INFLOWS)}+ inflows of at least $${HUB_MIN_USD} in the window that the seller did not mostly fund. Exchanges stay opaque.`;
+
+/** What the check does not see; payers behind proxies only when no resolver named them. */
+function notAssessed(resolvesProxies: boolean): string[] {
+  return [
+    'Transfers older than the window or beyond the 1,000-transfer sample',
+    'Funding trails past exchanges and other high-throughput hubs the seller did not mostly fund',
+    resolvesProxies
+      ? 'Payers behind exchanges and other high-throughput senders (Meridian and Fluxa proxies excepted)'
+      : 'Payers behind facilitator proxies, exchanges and other high-throughput senders',
+    'Anything but the largest funder at each hop',
+    'Who controls any address, or why money moved',
+    "Payments in tokens other than the chain's main stablecoins",
+  ];
+}
 
 const DISCLAIMER =
   'Describes where stablecoins moved on this chain, not why. A common funder can be a legitimate faucet, exchange or custodian. Not a safety verdict.';
@@ -319,10 +335,11 @@ export async function analyzeSellerDemand(
     paid_back_share: total > 0 ? round(paidBack / total) : null,
     common_first_funder: top.length > 0 && cfAddr ? { address: cfAddr, buyer_share: round(cfCount / top.length) } : null,
     walk_stops: stops,
+    method: proxies ? `${METHOD} ${proxies.method}` : METHOD,
     proxied_payers: proxied.proxied_payers,
     signals: [],
     notes: proxied.notes,
-    not_assessed: NOT_ASSESSED,
+    not_assessed: notAssessed(proxies !== undefined),
     disclaimer: DISCLAIMER,
   };
   report.signals = demandSignals(report);

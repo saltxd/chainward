@@ -112,7 +112,9 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
             <td>
               Where a seller&apos;s buyers get their stablecoins: how much traces
               back to the seller, how much it pays back, whether one wallet funds
-              most buyers. Add <code>?chain=bsc</code> for a BNB Chain seller.
+              most buyers. On Base, payers behind Meridian and Fluxa proxies are
+              named; exchanges stay opaque. Add <code>?chain=bsc</code> for a BNB
+              Chain seller.
             </td>
           </tr>
           <tr>

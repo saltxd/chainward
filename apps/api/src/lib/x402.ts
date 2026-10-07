@@ -95,6 +95,7 @@ const SELLER_OUTPUT_EXAMPLE = {
     paid_back_share: 0,
     common_first_funder: { address: '0x82b551e820efc3503a3a27fc450e07e328daf91c', buyer_share: 0.5 },
     walk_stops: {},
+    proxied_payers: [],
     signals: [
       {
         id: 'buyers_funded_by_seller',
@@ -285,7 +286,7 @@ export function x402OpenApiDocument() {
           operationId: 'sellerDemandCheck',
           summary: "Where an x402 or agent-marketplace seller's buyers get their stablecoins, paid per call over x402",
           description:
-            "For any Base or BNB Chain address that receives payments: samples its recent stablecoin inflows (USDC on Base; USDT and USDC on BNB Chain), walks each top buyer's funding back up to 4 hops, and reports how much traces to the seller itself, how much it pays back, and whether one wallet funds most buyers. Not charged if the check fails.",
+            "For any Base or BNB Chain address that receives payments: samples its recent stablecoin inflows (USDC on Base; USDT and USDC on BNB Chain), walks each top buyer's funding back up to 4 hops, and reports how much traces to the seller itself, how much it pays back, and whether one wallet funds most buyers. On Base, payments a facilitator proxy delivered (Meridian, Fluxa) are traced to their real payer: x402scan's record, confirmed on receipts (proxied_payers). Payers behind exchanges stay opaque. Not charged if the check fails.",
           parameters: [
             {
               name: 'address',
@@ -569,7 +570,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402SellerPrice(),
     serviceName: 'ChainWard x402 seller check',
     description:
-      "Where a seller's buyers get their stablecoins, on Base or BNB Chain (?chain=bsc): how much of its top buyers' money traces back to the seller, how much it pays back, and whether one wallet funds most buyers. Describes money flows, never intent.",
+      "Where a seller's buyers get their stablecoins, on Base or BNB Chain (?chain=bsc): how much of its top buyers' money traces back to the seller, how much it pays back, and whether one wallet funds most buyers. Payers behind facilitator proxies (Meridian, Fluxa) are named on Base. Describes money flows, never intent.",
     tags: ['base', 'bsc', 'x402', 'seller', 'demand', 'wash', 'counterparty', 'agents'],
     whatYouGet:
       "A seller demand report for the last 30 days (top 30 buyers' funding walked back up to 4 hops), JSON. Not charged if the check fails.",
