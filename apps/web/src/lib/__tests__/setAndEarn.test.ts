@@ -30,6 +30,10 @@ const row = (over: Partial<SetAndEarnRow>): SetAndEarnRow => ({
 });
 
 describe('verdictLabel', () => {
+  it("labels ChainWard's own agent and never calls it a pass", () => {
+    expect(verdictLabel(row({ ours: true }))).toEqual({ text: 'ours, not counted', tone: 'none' });
+  });
+
   it('says pass or fail for a checked agent', () => {
     expect(verdictLabel(row({}))).toEqual({ text: 'pass', tone: 'pass' });
     expect(verdictLabel(row({ passes_three_independent: false, independent_within_limits: 1 }))).toEqual({ text: 'fail', tone: 'fail' });

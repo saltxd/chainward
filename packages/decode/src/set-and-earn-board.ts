@@ -402,6 +402,8 @@ export interface SetAndEarnBoardRow {
   /** false when there are fewer than 3 distinct hirers; null when the check has not run. */
   passes_three_independent: boolean | null;
   checked_at: string | null;
+  /** ChainWard's own agent: shown, never counted as passing. */
+  ours: boolean;
 }
 
 export interface SetAndEarnBoard {
@@ -475,6 +477,9 @@ function verdictColumns(stats: AgentHireStats, verdict: AgentVerdict | undefined
   };
 }
 
+/** ChainWard's own ERC-8004 agents on BSC (365669 = the hire check, registered 2026-10-07). Listed, never counted. */
+export const OWN_AGENT_IDS: readonly number[] = [365669];
+
 export function assembleSetAndEarnBoard(input: {
   /** Every known agent: campaign registrations (to as_of) and older agents read from the registry. */
   registrations: Map<number, AgentRegistration>;
@@ -498,6 +503,7 @@ export function assembleSetAndEarnBoard(input: {
       marketplace: reg?.marketplace ?? null,
       registered_at: reg?.registered_at ?? null,
       registered_during_campaign: reg?.registered_during_campaign ?? false,
+      ours: OWN_AGENT_IDS.includes(s.agent_id),
       hires_total: s.hires_total,
       completed: s.completed,
       distinct_hirers: s.distinct_hirers,
@@ -522,8 +528,8 @@ export function assembleSetAndEarnBoard(input: {
       agents_with_hires: rows.filter((r) => r.registered_during_campaign).length,
       agents_hired: rows.length,
       hires: { total: counted.size, by_source: bySource },
-      agents_with_3_distinct_hirers: rows.filter((r) => r.distinct_hirers >= MIN_DISTINCT_HIRERS).length,
-      agents_passing: rows.filter((r) => r.passes_three_independent === true).length,
+      agents_with_3_distinct_hirers: rows.filter((r) => !r.ours && r.distinct_hirers >= MIN_DISTINCT_HIRERS).length,
+      agents_passing: rows.filter((r) => !r.ours && r.passes_three_independent === true).length,
     },
     rows: rows.slice(0, input.maxRows ?? BOARD_MAX_ROWS),
     method: SET_AND_EARN_BOARD_METHOD,

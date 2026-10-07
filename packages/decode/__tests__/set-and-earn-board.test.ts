@@ -23,6 +23,7 @@ import {
   type AgentVerdict,
   type BoardHire,
   type LogWithData,
+  OWN_AGENT_IDS,
 } from '../src/set-and-earn-board.js';
 import {
   BSC_IDENTITY_REGISTRY,
@@ -376,6 +377,7 @@ describe('assembleSetAndEarnBoard', () => {
       marketplace: 'termix',
       registered_at: '2026-10-02T00:00:00.000Z',
       registered_during_campaign: true,
+      ours: false,
       hires_total: 3,
       completed: 0,
       distinct_hirers: 3,
@@ -415,6 +417,16 @@ describe('assembleSetAndEarnBoard', () => {
       agents_with_3_distinct_hirers: 4,
       agents_passing: 2,
     });
+  });
+
+  it('keeps ChainWard\'s own agent out of the passing and 3+ hirer totals and marks its row', () => {
+    const regs = new Map([[OWN_AGENT_IDS[0]!, reg(OWN_AGENT_IDS[0]!, { name: 'ChainWard Hire Check', marketplace: 'other' })]]);
+    const hires = [0x61, 0x62, 0x63].map((h) => termixHire(OWN_AGENT_IDS[0]!, addr(h)));
+    const verdicts = new Map<number, AgentVerdict>([[OWN_AGENT_IDS[0]!, { status: 'checked', summary: summary(3), checked_at: '2026-10-07T12:00:00.000Z' }]]);
+    const board = assembleSetAndEarnBoard({ registrations: regs, hires, completions: new Set(), verdicts, asOf, generatedAt: '2026-10-07T12:10:00.000Z' });
+    expect(board.rows[0]).toMatchObject({ agent_id: OWN_AGENT_IDS[0], ours: true, passes_three_independent: true });
+    expect(board.totals.agents_passing).toBe(0);
+    expect(board.totals.agents_with_3_distinct_hirers).toBe(0);
   });
 
   it('marks an agent with 3+ distinct hirers and no verdict yet as pending', () => {

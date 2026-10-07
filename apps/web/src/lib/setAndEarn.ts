@@ -17,6 +17,7 @@ export interface SetAndEarnRow {
   marketplace: string | null;
   registered_at: string | null;
   registered_during_campaign: boolean;
+  ours?: boolean;
   hires_total: number;
   completed: number | null;
   distinct_hirers: number;
@@ -75,6 +76,7 @@ export function registeredLabel(row: SetAndEarnRow): string | null {
 }
 
 export function verdictLabel(row: SetAndEarnRow): { text: string; tone: 'pass' | 'fail' | 'none' } {
+  if (row.ours) return { text: 'ours, not counted', tone: 'none' };
   switch (row.verdict_status) {
     case 'checked':
       return row.passes_three_independent ? { text: 'pass', tone: 'pass' } : { text: 'fail', tone: 'fail' };
