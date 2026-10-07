@@ -32,10 +32,22 @@ describe('hub test ignores dust', () => {
 
   it('still stops at a wallet with 1,000 inflows of at least $0.01, dust or not', async () => {
     const edges = loopVia('0xdist');
+    edges.push(['0xother', '0xdist', 5000]); // most of 0xdist's money is not the seller's
     for (let i = 0; i < 300; i++) edges.push([`0xdust${i}`, '0xdist', 0.001]);
     for (let i = 0; i < 1000; i++) edges.push([`0xreal${i}`, '0xdist', 0.01]);
     const r = await analyzeSellerDemand('0xseller', graph(edges));
     expect(r.walk_stops).toEqual({ hub: 10 });
+  });
+
+  it('still stops at an exchange the seller also deposits into', async () => {
+    // Buyers withdraw from an exchange the seller cashes out to; most of the exchange's
+    // money is other people's, so the trail says nothing about the seller.
+    const edges: Array<[string, string, number]> = [['0xseller', '0xexchange', 2000]];
+    for (const b of buyers(10)) edges.push(['0xexchange', b, 10], [b, '0xseller', 5]);
+    for (let i = 0; i < 1000; i++) edges.push([`0xdepositor${i}`, '0xexchange', 3]);
+    const r = await analyzeSellerDemand('0xseller', graph(edges));
+    expect(r.walk_stops).toEqual({ hub: 10 });
+    expect(r.seller_funded.buyers).toBe(0);
   });
 
   it('reads further back when a full page of inflows is part dust', async () => {

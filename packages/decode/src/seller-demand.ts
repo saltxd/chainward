@@ -49,6 +49,14 @@ export const HUB_INFLOWS = 1000;
  * 10,000 atomic units of USDC on Base and 1e16 of BSC's 18-decimal USDT/USDC.
  */
 export const HUB_MIN_USD = 0.01;
+/**
+ * A wallet that got at least this share of its sampled stablecoin inflow from the seller
+ * holds the seller's money, however busy it is: a trail that reaches it reaches the
+ * seller one hop further. botpay's second payTo has 1,000+ inflows (its own buyers' payments)
+ * but 90% of its money comes from the first payTo, and it funds the root of the buyers' tree.
+ * An exchange's hot wallet holds mostly other people's money, so it still stops a trail.
+ */
+export const SELLER_MAJORITY = 0.5;
 /** Transfers per alchemy_getAssetTransfers page (maxCount). Equal to HUB_INFLOWS. */
 const TRANSFER_PAGE = 1000;
 /** Pages the hub test reads past dust before it stops looking. */
@@ -180,15 +188,24 @@ export async function analyzeSellerDemand(address: string, source: TransferSourc
   const total = [...byBuyer.values()].reduce((a, b) => a + b, 0);
   const viaIntermediary = [...intermediaries].reduce((a, i) => a + (bySender.get(i) ?? 0), 0);
 
+  const fundersOf = async (addr: string) => sumBy((await get('in', addr)).filter((t) => t.from !== addr), 'from');
+  // Reads the same page the hub test does, so it costs no extra call.
+  const sellerMostlyFunds = async (addr: string): Promise<boolean> => {
+    const funders = await fundersOf(addr);
+    const total = [...funders.values()].reduce((a, b) => a + b, 0);
+    return total > 0 && (funders.get(seller) ?? 0) / total >= SELLER_MAJORITY;
+  };
+
   const walks = await mapLimit(top, 3, async (buyer): Promise<WalkResult> => {
     let node = buyer;
     const seen = new Set([buyer]);
     for (let hop = 1; hop <= MAX_HOPS; hop++) {
-      const funders = sumBy((await get('in', node)).filter((t) => t.from !== node), 'from');
+      const funders = await fundersOf(node);
       if (funders.size === 0) return { buyer, reached: false, stop: 'no_funding' };
       if (funders.has(seller)) return { buyer, reached: true, hops: hop };
       const [largest] = [...funders.entries()].sort((a, b) => b[1] - a[1])[0]!;
       if (seen.has(largest)) return { buyer, reached: false, stop: 'no_funding' };
+      if (await sellerMostlyFunds(largest)) return { buyer, reached: true, hops: hop + 1 };
       if (await isHub(largest)) return { buyer, reached: false, stop: 'hub' };
       seen.add(largest);
       node = largest;
