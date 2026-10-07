@@ -3,6 +3,7 @@ import {
   alchemyTransferSource,
   analyzeSellerDemand,
   DEMAND_WINDOW_DAYS,
+  sellerDemandOptions,
   type SellerDemandReport,
 } from '@chainward/decode';
 import { getRedis } from '../lib/redis.js';
@@ -12,8 +13,9 @@ import { logger } from '../lib/logger.js';
 //
 // Weekly: Base's largest x402 sellers by 7-day volume (x402scan's public
 // ranking), each run through the seller check (where do its buyers get their
-// USDC?). Stored in Redis for GET /api/x402/board and chainward.ai/x402.
-// Needs SELLER_DEMAND_RPC_URL (an Alchemy Base URL); off without it.
+// USDC?). Same method as the paid check, payers behind facilitator proxies
+// included (report.proxied_payers). Stored in Redis for GET /api/x402/board and
+// chainward.ai/x402. Needs SELLER_DEMAND_RPC_URL (an Alchemy Base URL); off without it.
 
 const QUEUE = 'x402-board';
 const TOP_N = parseInt(process.env.X402_BOARD_SIZE ?? '20', 10);
@@ -85,6 +87,7 @@ export async function buildX402Board(): Promise<Record<string, unknown>> {
 
   const head = await baseHead(rpcUrl);
   const source = alchemyTransferSource(rpcUrl, head - BigInt(DEMAND_WINDOW_DAYS * 43_200), logger);
+  const options = sellerDemandOptions('base', rpcUrl);
   const sellers = await topSellers();
 
   const rows: BoardRow[] = [];
@@ -103,7 +106,7 @@ export async function buildX402Board(): Promise<Record<string, unknown>> {
     let report: SellerDemandReport | null = null;
     for (let attempt = 1; attempt <= 2 && !report; attempt++) {
       try {
-        report = await analyzeSellerDemand(s.recipient, source);
+        report = await analyzeSellerDemand(s.recipient, source, options);
       } catch (err) {
         logger.warn({ seller: s.recipient, attempt, err: (err as Error).message }, 'x402Board: seller check failed');
         if (attempt === 1) await sleep(20_000); // let the compute-unit budget refill
