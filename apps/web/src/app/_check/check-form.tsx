@@ -110,7 +110,7 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
             Run the risk check →
           </button>
           <span className="intake-hint">
-            Free · public · flags, not promises — the first check files a public report.
+            Free · public · the first check files a public report with its verdict.
           </span>
         </div>
       </div>

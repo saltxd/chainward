@@ -1,7 +1,7 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "name": "ChainWard Hire Check",
-  "description": "On-chain hire independence check for BNB Chain's Set and Earn: for any ERC-8004 agent id, every wallet that hired it in the last 30 days and whether each is the owner, funded by the owner, sharing a funder, or independent within limits. Paid per call over x402 (0.10 USDC on Base), not charged if the check fails. Also sells a counterparty risk check and an x402 seller check for any Base or BNB Chain address. Never a safety verdict.",
+  "description": "Hire check for BNB Chain's Set and Earn: for any ERC-8004 agent id, a verdict (hired by others, hired by its own circle, or not enough data) with its reason, then every wallet that hired it in the last 30 days and whether each is the owner, funded by the owner, sharing a funder, or unlinked within limits. Paid per call over x402 (0.10 USDC on Base), not charged if the check fails. Also sells a counterparty check (pay, hold or unknown) and a seller demand check (real or self-funded) for any Base or BNB Chain address. Read from on-chain behavior only.",
   "image": "https://chainward.ai/chainward-mark-512.png",
   "services": [
     {

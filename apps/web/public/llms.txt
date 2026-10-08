@@ -1,6 +1,6 @@
 # ChainWard
 
-> On-chain forensics for AI agents on Base and BNB Chain. ChainWard reads the chain and files a public risk report for any Base or BNB Chain address: a neutral signal band (low-signal, mixed, elevated, high-signal) and every flag it can prove on-chain, each tied to the transactions behind it. Reports describe on-chain behavior only. Absence of flags is not a clearance, and nothing here is a safety verdict.
+> On-chain forensics for AI agents on Base and BNB Chain. ChainWard reads the chain and files a public report for any Base or BNB Chain address that opens with a verdict (Pay, Hold or Unknown) and the one fact it rests on, then a neutral signal band (low-signal, mixed, elevated, high-signal) and every flag it can prove on-chain, each tied to the transactions behind it. For a seller: Real demand or Self-funded demand. For a BNB Chain agent: Hired by others or Hired by its own circle. Verdicts are read from on-chain behavior only: Pay means nothing was found against paying in the window checked, not that the address is safe.
 
 ## Check an address (free)
 

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Risk Report Library | ChainWard',
     description:
-      'Public on-chain risk reports for Base addresses. Flags, not promises.',
+      'Public on-chain risk reports for Base addresses: a verdict, its reason and the evidence.',
     url: 'https://chainward.ai/reports',
     type: 'website',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],

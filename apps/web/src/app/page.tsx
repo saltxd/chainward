@@ -1,7 +1,7 @@
 /**
  * Home = the Risk-Check intake, filed like a forensic dossier. The intake form
  * is the hero (paste a Base address or @handle), framed by the honest
- * positioning ("flags, not promises"), a "recently filed" strip, a quiet paid
+ * positioning (a verdict with its reason), a "recently filed" strip, a quiet paid
  * Intel Brief offer, and featured /decodes as proof. Free-first: no safety
  * verdict — just flags with evidence.
  */
@@ -42,8 +42,8 @@ function formatIsoDate(dateStr: string): string {
 
 const PRINCIPLES = [
   {
-    k: 'Flags, not promises',
-    v: 'We surface what on-chain behavior shows. We never say an address is safe.',
+    k: 'A verdict, with its reason',
+    v: 'Pay, Hold or Unknown, and the one fact it rests on. Read from on-chain behavior only: Pay means nothing was found against paying, not that an address is safe.',
   },
   {
     k: 'Evidence, always',
@@ -87,17 +87,17 @@ export default async function CheckHomePage({
               File № CW-∎ <span className="ph-dateline-sep">·</span> Forensic risk intake
             </div>
             <h1 className="home-title press-display">
-              Run an on-chain risk check on any Base or BNB Chain address.
+              Pay, hold or unknown: a verdict on any Base or BNB Chain address before you pay it.
             </h1>
-            <p className="home-kicker press-kicker">Flags, not promises.</p>
+            <p className="home-kicker press-kicker">The decision, the reason, the evidence.</p>
             <p className="home-lede">
-              Paste any Base or BNB Chain address. In about a minute you get every{' '}
-              <strong>risk flag</strong> we can prove on-chain: dormant wallets, USDC
-              stranded in them, transfers concentrated among a few counterparties,
-              factory-clone contracts, online claims the chain doesn&apos;t back. Each
-              is tied to the transactions behind it, read from{' '}
-              <NodeClaim live="our own Base node" neutral="the chain" />. The verdict
-              is yours. We show the evidence.
+              Paste any Base or BNB Chain address. In about a minute you get the{' '}
+              <strong>verdict</strong> and the one fact it rests on, then every risk
+              flag we can prove on-chain: dormant wallets, USDC stranded in them,
+              transfers concentrated among a few counterparties, factory-clone
+              contracts, online claims the chain doesn&apos;t back. Each is tied to the
+              transactions behind it, read from{' '}
+              <NodeClaim live="our own Base node" neutral="the chain" />.
             </p>
           </div>
 
@@ -105,12 +105,12 @@ export default async function CheckHomePage({
             <CheckForm initialChain={initialChain} />
             <aside className="home-stamp">
               <div className="press-stamp" aria-hidden>
-                <span className="press-stamp-lead">No Safety Verdict</span>
-                <span className="press-stamp-sub">Flags · Evidence · Sources</span>
+                <span className="press-stamp-lead">On-Chain Behavior Only</span>
+                <span className="press-stamp-sub">Verdict · Evidence · Sources</span>
               </div>
               <p className="home-stamp-note">
-                A report is a list of signals — read it like evidence, not a
-                clearance.
+                Pay means nothing was found against paying in the window checked. It is
+                not a clearance of the counterparty.
               </p>
               {featuredDecodes[0] && (
                 <Link

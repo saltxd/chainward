@@ -77,7 +77,7 @@ export async function generateMetadata({
     : `Risk check — ${truncated}`;
   const description = report
     ? `${flagCount} on-chain risk flag${flagCount === 1 ? '' : 's'} for ${truncated} on ${chainName}, with evidence. Risk flags from on-chain behavior only — not a safety verdict.`
-    : `Run a free forensic on-chain risk check for ${truncated} on ${chainName}. Flags, not promises.`;
+    : `Run a free on-chain check for ${truncated} on ${chainName}: pay, hold or unknown, with the reason and the evidence.`;
 
   return {
     title,

@@ -307,7 +307,7 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
           <div className="rr-subject mono">{address}</div>
           <div className="rr-hero-note">
             <span className="rr-chip" data-chain={chain}>{meta.name}</span>
-            <span>Flags, not promises — read from the chain.</span>
+            <span>The verdict, its reason, the evidence, read from the chain.</span>
             {valid && (
               <a
                 className="press-link rr-explorer"
