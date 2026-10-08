@@ -1,6 +1,7 @@
 import { eq, and, desc, count, inArray } from 'drizzle-orm';
 import { alertConfigs, alertEvents, agentRegistry } from '@chainward/db';
 import type { Database } from '@chainward/db';
+import { validateAddress } from '@chainward/common';
 import { AppError } from '../middleware/errorHandler.js';
 
 /** Per-user cap; each config is an outbound delivery target we fire on their behalf. */
@@ -32,10 +33,22 @@ interface UpdateAlertInput {
   cooldown?: string;
 }
 
+/**
+ * The address as agentService stores it (checksummed on base), so an alert
+ * matches the registered agent however the caller spelled the wallet.
+ */
+export function normalizeAlertWallet(chain: string, walletAddress: string): string {
+  if (chain !== 'base' && chain !== 'solana') throw new AppError(400, 'INVALID_CHAIN', 'chain must be base or solana');
+  const { valid, normalized } = validateAddress(chain, walletAddress);
+  if (!valid || !normalized) throw new AppError(400, 'INVALID_ADDRESS', `Invalid ${chain} wallet address`);
+  return normalized;
+}
+
 export class AlertService {
   constructor(private db: Database) {}
 
   async create(userId: string, input: CreateAlertInput) {
+    const walletAddress = normalizeAlertWallet(input.chain, input.walletAddress);
     // Verify user owns an agent with this wallet
     const [agent] = await this.db
       .select({ id: agentRegistry.id })
@@ -43,7 +56,7 @@ export class AlertService {
       .where(
         and(
           eq(agentRegistry.userId, userId),
-          eq(agentRegistry.walletAddress, input.walletAddress),
+          eq(agentRegistry.walletAddress, walletAddress),
         ),
       )
       .limit(1);
@@ -64,7 +77,7 @@ export class AlertService {
       .insert(alertConfigs)
       .values({
         userId,
-        walletAddress: input.walletAddress,
+        walletAddress,
         chain: input.chain,
         alertType: input.alertType,
         thresholdValue: input.thresholdValue ?? null,
