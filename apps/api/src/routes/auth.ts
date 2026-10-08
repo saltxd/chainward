@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { eq } from 'drizzle-orm';
-import { SiweMessage } from 'siwe';
+import { verifySiwe } from '../lib/siweVerify.js';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
 import { users } from '@chainward/db';
@@ -32,18 +32,14 @@ auth.post('/verify', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:auth-verify'
     return c.json({ error: 'Missing message or signature' }, 400);
   }
 
-  let siweMessage: SiweMessage;
-  try {
-    siweMessage = new SiweMessage(message);
-  } catch {
-    return c.json({ error: 'Invalid SIWE message' }, 400);
+  // EOA (ecrecover), then ERC-1271 / ERC-6492 on Base for smart accounts.
+  const verified = await verifySiwe(message, signature);
+  if (!verified.ok) {
+    if (verified.reason === 'invalid_message') return c.json({ error: 'Invalid SIWE message' }, 400);
+    if (verified.reason === 'invalid_signature') return c.json({ error: 'Invalid signature' }, 401);
+    return c.json({ error: 'Message expired or not yet valid' }, 401);
   }
-
-  const result = await siweMessage.verify({ signature });
-
-  if (!result.success) {
-    return c.json({ error: 'Invalid signature' }, 401);
-  }
+  const siweMessage = verified.message;
 
   // Validate nonce (atomic delete)
   const redis = getRedis();
