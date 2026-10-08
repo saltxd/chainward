@@ -7,6 +7,8 @@
 // wallet is the first funder of most buyers. Method and cases:
 // chainward.ai/decodes/x402-on-base. Describes where money moved, never why.
 
+import { sellerVerdict, type SellerVerdictLabel, type Verdict } from './verdict.js';
+
 export const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 export type SellerChain = 'base' | 'bsc';
@@ -109,6 +111,8 @@ export interface SellerDemandReport {
   /** Facilitator proxies among the senders, with the payers named behind them (empty when none or not resolved). */
   proxied_payers: ProxiedPayers[];
   signals: DemandSignal[];
+  /** One line a buyer can act on; the numbers above are the evidence, `not_assessed` the limits. */
+  verdict: Verdict<SellerVerdictLabel>;
   /** Caveats specific to this check (e.g. x402scan was down and payers came from a receipt sample). */
   notes: string[];
   not_assessed: string[];
@@ -338,11 +342,13 @@ export async function analyzeSellerDemand(
     method: proxies ? `${METHOD} ${proxies.method}` : METHOD,
     proxied_payers: proxied.proxied_payers,
     signals: [],
+    verdict: { label: 'not_enough_data', text: 'Not enough data', reason: '', limits: '' },
     notes: proxied.notes,
     not_assessed: notAssessed(proxies !== undefined),
     disclaimer: DISCLAIMER,
   };
   report.signals = demandSignals(report);
+  report.verdict = sellerVerdict(report);
   return report;
 }
 

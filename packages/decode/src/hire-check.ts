@@ -9,6 +9,7 @@
 // never who controls a wallet or why.
 
 import { HUB_INFLOWS, SELLER_BLOCKS_PER_DAY, mapLimit, type FirstFunding, type FundingKind } from './seller-demand.js';
+import { hireVerdict, type HireVerdictLabel, type Verdict } from './verdict.js';
 
 export const HIRE_WINDOW_DAYS = 30;
 export const HIRE_MAX_HOPS = 4;
@@ -59,6 +60,8 @@ export interface HireReport {
   hires: { total: number; distinct_hirers: number; by_source: Record<HireSource, number> };
   hirers: HirerAssessment[];
   summary: HireSummary;
+  /** One line a buyer can act on; the evidence is in `hirers`, the limits in `limits`. */
+  verdict: Verdict<HireVerdictLabel>;
   method: string;
   limits: string[];
   as_of: { block: number; time: string };
@@ -374,6 +377,12 @@ export function buildHireReport(input: {
 }): HireReport {
   const bySource: Record<HireSource, number> = { termix_escrow: 0, erc8183_shared: 0 };
   for (const e of input.events) bySource[e.source] += 1;
+  const hires = {
+    total: input.events.length,
+    distinct_hirers: new Set(input.events.map((e) => e.hirer.toLowerCase())).size,
+    by_source: bySource,
+  };
+  const summary = summarizeHirers(input.assessments);
   return {
     chain: 'bsc',
     agent_id: input.agentIds.length === 1 ? input.agentIds[0]! : null,
@@ -381,13 +390,10 @@ export function buildHireReport(input: {
     owner: input.owner.toLowerCase(),
     agent_wallet: input.agentWallet?.toLowerCase() ?? null,
     window_days: HIRE_WINDOW_DAYS,
-    hires: {
-      total: input.events.length,
-      distinct_hirers: new Set(input.events.map((e) => e.hirer.toLowerCase())).size,
-      by_source: bySource,
-    },
+    hires,
     hirers: input.assessments,
-    summary: summarizeHirers(input.assessments),
+    summary,
+    verdict: hireVerdict(summary, hires, HIRE_WINDOW_DAYS),
     method: HIRE_METHOD,
     limits: HIRE_LIMITS,
     as_of: input.asOf,

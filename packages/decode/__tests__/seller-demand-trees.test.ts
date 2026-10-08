@@ -60,6 +60,7 @@ describe('botpay payment tree (research fixture)', () => {
     expect(r.seller_funded.buyers).toBe(30);
     expect(r.seller_funded.hops).toEqual({ '5': 30 });
     expect(r.signals.map((s) => s.id)).toContain('buyers_funded_by_seller');
+    expect(r.verdict.label).toBe('self_funded_demand');
   });
 
   it('still reaches api.botpay once video.botpay is too quiet to count as a hub', async () => {

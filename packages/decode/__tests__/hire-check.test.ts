@@ -290,6 +290,7 @@ describe('buildHireReport', () => {
       window_days: 30,
       hires: { total: 3, distinct_hirers: 2, by_source: { termix_escrow: 2, erc8183_shared: 1 } },
       summary: { owner_linked: 1, inconclusive: 0, independent_within_limits: 1, passes_three_independent: false },
+      verdict: { label: 'not_enough_data', text: 'Not enough data', reason: '2 distinct hirers in the last 30 days; the rule needs 3.' },
       as_of: { block: 125_000_000, time: '2026-10-05T00:00:00.000Z' },
     });
     expect(report.hirers).toHaveLength(2);

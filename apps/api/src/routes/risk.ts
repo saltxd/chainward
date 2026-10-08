@@ -29,7 +29,7 @@ import {
   isPlaceholderAddress,
   type RiskChainId,
 } from '@chainward/common';
-import { rpcFixturesHaveHistory, type RpcFixtures } from '@chainward/decode';
+import { counterpartyVerdict, rpcFixturesHaveHistory, type CounterpartyVerdictLabel, type RpcFixtures, type Verdict } from '@chainward/decode';
 import { fetchChainFixtures, teaserStatsFromFixtures } from '../lib/riskChainFixtures.js';
 import { budget, rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -40,6 +40,7 @@ import { logger } from '../lib/logger.js';
 import { WalletLookupService } from '../services/walletLookupService.js';
 import { extractProvenance, type ReportProvenance } from '../lib/reportProvenance.js';
 import { buildCoverage, transfersUnavailable, type ReportCoverage } from '../lib/reportCoverage.js';
+import { reportVerdict } from '../lib/reportVerdict.js';
 import { parseCounterpartyInput, parseHireInput, parseSellerInput } from '../lib/paidInput.js';
 
 // ---------------------------------------------------------------------------
@@ -109,6 +110,8 @@ interface FreshnessInfo {
 interface ReportPayload {
   address: string;
   chain: string;
+  /** Pay / Hold / Unknown with the one reason; the flags are the evidence, `not_assessed` the limits. */
+  verdict: Verdict<CounterpartyVerdictLabel>;
   band: string;
   flags: RiskAssessment['flags'];
   not_assessed: string[];
@@ -184,11 +187,15 @@ function computeTtlState(row: RiskReportRow): 'fresh' | 'stale' {
   return 'fresh';
 }
 
+/** A paid check on an address with no history on the chain: nothing to judge. */
+const NO_HISTORY_VERDICT: Verdict<CounterpartyVerdictLabel> = counterpartyVerdict({ band: 'low-signal', flags: [] }, null);
+
 function rowToReport(row: RiskReportRow): ReportPayload {
   const assessment = row.riskAssessment as RiskAssessment;
   return {
     address: row.walletAddress,
     chain: row.chain,
+    verdict: reportVerdict(assessment, row.reportData),
     band: assessment.band,
     flags: assessment.flags,
     not_assessed: assessment.not_assessed,
@@ -777,7 +784,7 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   if (chain !== CHAIN) {
     const pre = await rpcChainPrecheck(chain, address);
     if (!pre.history) {
-      return c.json({ success: true, data: { status: 'no_history', address, chain, disclaimer: DISCLAIMER } });
+      return c.json({ success: true, data: { status: 'no_history', address, chain, verdict: NO_HISTORY_VERDICT, disclaimer: DISCLAIMER } });
     }
   } else {
     const history = await checkHistory(address);
@@ -786,7 +793,7 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
       const active =
         lookup.transactions.length > 0 || lookup.balances.some((b) => hexToNumber(b.tokenBalance) > 0n);
       if (!active) {
-        return c.json({ success: true, data: { status: 'no_history', address, disclaimer: DISCLAIMER } });
+        return c.json({ success: true, data: { status: 'no_history', address, verdict: NO_HISTORY_VERDICT, disclaimer: DISCLAIMER } });
       }
     }
   }
