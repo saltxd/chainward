@@ -14,6 +14,15 @@ const text = (html: string) =>
 describe('CheckResult: seller check', () => {
   const html = renderToStaticMarkup(<CheckResult kind="seller" data={SELLER} />);
 
+  it('opens with the verdict, its reason and its limit, before any signal', () => {
+    const v = { label: 'self_funded_demand', text: 'Self-funded demand', reason: '29 of 30 top buyers checked trace back.', limits: 'Walk stops at exchanges.' };
+    const html = renderToStaticMarkup(<CheckResult kind="seller" data={{ ...SELLER, verdict: v }} />);
+    expect(html).toContain('pay-verdict--self_funded_demand');
+    expect(html.indexOf('Self-funded demand')).toBeLessThan(html.indexOf('One wallet funds most checked buyers'));
+    expect(html).toContain('29 of 30 top buyers checked trace back.');
+    expect(html).toContain('Walk stops at exchanges.');
+  });
+
   it('lists every signal with its evidence', () => {
     for (const s of SELLER.signals) {
       expect(text(html)).toContain(s.title);
@@ -37,6 +46,13 @@ describe('CheckResult: seller check', () => {
 });
 
 describe('CheckResult: hire check', () => {
+  it('opens the hire result with the verdict', () => {
+    const v = { label: 'hired_by_others', text: 'Hired by others', reason: '7 of 7 hirers show no link.', limits: 'Not proven independence.' };
+    const html = renderToStaticMarkup(<CheckResult kind="hires" data={{ ...HIRES, verdict: v }} />);
+    expect(html).toContain('pay-verdict--hired_by_others');
+    expect(html.indexOf('Hired by others')).toBeLessThan(html.indexOf('distinct hirers'));
+  });
+
   const html = renderToStaticMarkup(<CheckResult kind="hires" data={HIRES} />);
 
   it('shows every hirer with its verdict and evidence', () => {
@@ -57,6 +73,21 @@ describe('CheckResult: hire check', () => {
 });
 
 describe('CheckResult: counterparty check', () => {
+  it('opens the counterparty result with Pay / Hold / Unknown', () => {
+    const v = { label: 'hold', text: 'Hold', reason: 'Stranded value: holds 5,451 USDC while dormant.', limits: 'On-chain behavior only.' };
+    const html = renderToStaticMarkup(
+      <CheckResult kind="counterparty" data={{ ...COUNTERPARTY, report: { ...COUNTERPARTY.report, verdict: v } }} />,
+    );
+    expect(html).toContain('pay-verdict--hold');
+    expect(html.indexOf('Hold')).toBeLessThan(html.indexOf('Band'));
+  });
+
+  it('shows Unknown on a no-history result that carries a verdict', () => {
+    const v = { label: 'unknown', text: 'Unknown', reason: 'No transfers in the last 30 days on this chain.', limits: 'On-chain behavior only.' };
+    const html = renderToStaticMarkup(<CheckResult kind="counterparty" data={{ ...NO_HISTORY, verdict: v }} />);
+    expect(html).toContain('pay-verdict--unknown');
+  });
+
   it('shows the band and each flag with its source', () => {
     const html = renderToStaticMarkup(<CheckResult kind="counterparty" data={COUNTERPARTY} />);
     expect(text(html)).toContain('high signal');

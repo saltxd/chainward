@@ -112,7 +112,9 @@ export default async function SetAndEarnPage() {
               directly, and whose first BNB and first stablecoin, followed back up to four hops, reach
               neither the owner nor a wallet that also funded the owner. That is what the trail shows within
               those limits; it is not proven independence.{' '}
-            <strong>Pass</strong>: 3 or more of them, whether or not their hires have completed yet. Hires are
+            <strong>Hired by others</strong>: 3 or more of them, whether or not their hires have completed yet.{' '}
+            <strong>Hired by its own circle</strong>: the hirers that trace back to the owner or share its funder
+            outnumber the rest. Hires are
             TermiX escrow orders and jobs on the shared ERC-8183 contract; completed means the order settled or
             the job completed. The method and worked
             cases are in{' '}

@@ -190,11 +190,11 @@ export function x402DiscoveryDocument() {
  * free web check. Static apart from the prices; no request data is rendered.
  */
 export function apiHomePage(): string {
-  const title = 'ChainWard API: on-chain risk checks an agent pays for per call';
+  const title = 'ChainWard API: pay, hold or unknown for any address, per call';
   const description =
-    `Check a Base or BNB Chain address before your agent pays it (${x402CheckPrice()}), ` +
-    `see where an x402 or agent-marketplace seller's buyers get their stablecoins, on either chain (${x402SellerPrice()}), or buy the dataset behind a ` +
-    `published decode (${x402FilePrice()}). Paid in USDC on Base over x402; a check that fails is never charged.`;
+    `Before your agent pays a Base or BNB Chain address: Pay, Hold or Unknown with the one reason (${x402CheckPrice()}). ` +
+    `For a seller: real or self-funded demand (${x402SellerPrice()}). For a BNB Chain agent: hired by others or by its own circle (${x402HiresPrice()}). ` +
+    `Evidence and limits under every verdict. Paid in USDC on Base over x402; a check that fails is never charged.`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -248,7 +248,7 @@ export function x402OpenApiDocument() {
       '/api/risk/x402': {
         get: {
           operationId: 'counterpartyCheck',
-          summary: 'Fresh risk report for a Base or BNB Chain address, paid per call over x402',
+          summary: 'Pay, Hold or Unknown for a Base or BNB Chain address, with the reason and the full report, paid per call over x402',
           description:
             'Returns a report no older than 24h, running a fresh check when needed: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Not charged if the check fails.',
           parameters: [
@@ -285,7 +285,7 @@ export function x402OpenApiDocument() {
       '/api/risk/seller-demand': {
         get: {
           operationId: 'sellerDemandCheck',
-          summary: "Where an x402 or agent-marketplace seller's buyers get their stablecoins, paid per call over x402",
+          summary: "Real or self-funded demand for an x402 or agent-marketplace seller, with the money trail behind it, paid per call over x402",
           description:
             "For any Base or BNB Chain address that receives payments: samples its recent stablecoin inflows (USDC on Base; USDT and USDC on BNB Chain), walks each top buyer's funding back up to 4 hops, and reports how much traces to the seller itself, how much it pays back, and whether one wallet funds most buyers. On Base, payments a facilitator proxy delivered (Meridian, Fluxa) are traced to their real payer: x402scan's record, confirmed on receipts (proxied_payers). Payers behind exchanges stay opaque. Not charged if the check fails.",
           parameters: [
@@ -318,7 +318,7 @@ export function x402OpenApiDocument() {
       '/api/risk/hires': {
         get: {
           operationId: 'hireCheck',
-          summary: "Set and Earn hire check: are an ERC-8004 agent's hirers wallets its owner neither owns nor funds? BNB Chain, paid per call over x402",
+          summary: "Hired by others or by its own circle: an ERC-8004 agent's hirers under Set and Earn's rule, BNB Chain, paid per call over x402",
           description:
             `For an ERC-8004 agent on BNB Chain (an agent id, or an owner address for all its agents): every wallet that hired it in the last ${HIRE_WINDOW_DAYS} days through the TermiX escrow or the shared ERC-8183 contract, each with a verdict (owner, owner_funded, shared_funder, inconclusive, independent_within_limits), the evidence and the funding path. Follows each wallet's first incoming BNB and first incoming stablecoin up to ${HIRE_MAX_HOPS} hops. independent_within_limits means no link found within those limits, not proven independence. Not charged if the check fails.`,
           parameters: [
@@ -562,19 +562,19 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402CheckPrice(),
     serviceName: 'ChainWard counterparty check',
     description:
-      'Fresh on-chain risk report for a Base or BNB Chain (?chain=bsc) address before you pay it: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Never a safety verdict.',
+      'Pay, Hold or Unknown for a Base or BNB Chain (?chain=bsc) address before you pay it, with the one reason: active with real counterparties, or a high-severity flag named. Under it, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. On-chain behavior only.',
     tags: ['base', 'bsc', 'bnb', 'risk', 'counterparty', 'wallet', 'address', 'reputation', 'trust', 'due-diligence', 'agents', 'eas', 'attestation'],
     whatYouGet:
-      'A risk report no older than 24h (a fresh check runs if needed), JSON. Base by default; add ?chain=bsc for a BNB Chain address. Not charged if the check fails.',
+      'A verdict (pay / hold / unknown) with its reason, then the full risk report no older than 24h (a fresh check runs if needed), JSON. Base by default; add ?chain=bsc for a BNB Chain address. Not charged if the check fails.',
   };
   const sellerDemand: Product = {
     price: x402SellerPrice(),
     serviceName: 'ChainWard x402 seller check',
     description:
-      "Where a seller's buyers get their stablecoins, on Base or BNB Chain (?chain=bsc): how much of its top buyers' money traces back to the seller, how much it pays back, and whether one wallet funds most buyers. Payers behind facilitator proxies (Meridian, Fluxa) are named on Base. Describes money flows, never intent.",
+      "Real demand, self-funded demand, mixed or not enough data for an x402 or marketplace seller on Base or BNB Chain (?chain=bsc), with the one number behind it: how much of its top buyers' money traces back to the seller, how much it pays back, whether one wallet funds most buyers. Payers behind facilitator proxies (Meridian, Fluxa) are named on Base. Describes money flows, never intent.",
     tags: ['base', 'bsc', 'x402', 'seller', 'demand', 'wash', 'funding', 'wallet', 'counterparty', 'agents'],
     whatYouGet:
-      "A seller demand report for the last 30 days (top 30 buyers' funding walked back up to 4 hops), JSON. Not charged if the check fails.",
+      "A verdict (real_demand / self_funded_demand / mixed / not_enough_data) with its reason, then the seller demand report for the last 30 days (top 30 buyers' funding walked back up to 4 hops), JSON. Not charged if the check fails.",
   };
   const paidFile: Product = {
     price: x402FilePrice(),
@@ -588,10 +588,10 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402HiresPrice(),
     serviceName: 'ChainWard hire check',
     description:
-      `For BNB Chain's Set and Earn rule of 3 hires from wallets you neither own nor fund: every wallet that hired an ERC-8004 agent in the last ${HIRE_WINDOW_DAYS} days (TermiX escrow and the shared ERC-8183 contract), and whether each is the owner, funded by it, or shares a funder with it. Describes money flows, never intent.`,
+      `Hired by others, hired by its own circle, or not enough data, for an ERC-8004 agent on BNB Chain under Set and Earn's rule of 3 hires from wallets you neither own nor fund: every wallet that hired it in the last ${HIRE_WINDOW_DAYS} days (TermiX escrow and the shared ERC-8183 contract), and whether each is the owner, funded by it, or shares a funder with it. Describes money flows, never intent.`,
     tags: ['bsc', 'bnb', 'erc8004', 'erc8183', 'agents', 'hires', 'sybil', 'funding', 'wallet', 'set-and-earn'],
     whatYouGet:
-      `Every hirer of the agent in the last ${HIRE_WINDOW_DAYS} days with a verdict, the evidence and the funding path (first incoming BNB and stablecoin, up to ${HIRE_MAX_HOPS} hops), JSON. Not charged if the check fails.`,
+      `A verdict (hired_by_others / hired_by_own_circle / not_enough_data) with its reason, then every hirer of the agent in the last ${HIRE_WINDOW_DAYS} days with its own verdict, the evidence and the funding path (first incoming BNB and stablecoin, up to ${HIRE_MAX_HOPS} hops), JSON. Not charged if the check fails.`,
   };
   const hireSchema = {
     type: 'object',

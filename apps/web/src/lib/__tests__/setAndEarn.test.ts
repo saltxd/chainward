@@ -34,9 +34,16 @@ describe('verdictLabel', () => {
     expect(verdictLabel(row({ ours: true }))).toEqual({ text: 'ours, not counted', tone: 'none' });
   });
 
-  it('says pass or fail for a checked agent', () => {
-    expect(verdictLabel(row({}))).toEqual({ text: 'pass', tone: 'pass' });
-    expect(verdictLabel(row({ passes_three_independent: false, independent_within_limits: 1 }))).toEqual({ text: 'fail', tone: 'fail' });
+  it('says who hired a checked agent, in words a builder can act on', () => {
+    expect(verdictLabel(row({}))).toEqual({ text: 'hired by others', tone: 'pass' });
+    expect(verdictLabel(row({ passes_three_independent: false, independent_within_limits: 1, owner_linked: 4 }))).toEqual({
+      text: 'hired by its own circle',
+      tone: 'fail',
+    });
+    expect(verdictLabel(row({ passes_three_independent: false, independent_within_limits: 1, owner_linked: 1, inconclusive: 3 }))).toEqual({
+      text: 'not enough data',
+      tone: 'none',
+    });
   });
   it('says why there is no verdict otherwise', () => {
     expect(verdictLabel(row({ verdict_status: 'fewer_than_3_hirers' }))).toEqual({ text: 'not enough hires', tone: 'none' });

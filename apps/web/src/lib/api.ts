@@ -488,9 +488,19 @@ export interface RiskCoverage {
 
 // NOTE: signal_density is stored server-side for library sorting but is
 // intentionally absent from the Report payload — never render it as a rating.
+/** Pay / Hold / Unknown with the one reason it rests on and a one-line limit. */
+export interface RiskVerdict {
+  label: 'pay' | 'hold' | 'unknown' | string;
+  text: string;
+  reason: string;
+  limits: string;
+}
+
 export interface RiskReport {
   address: string;
   chain: string;
+  /** Absent on reports filed before verdicts existed. */
+  verdict?: RiskVerdict;
   band: RiskBand;
   flags: RiskFlag[];
   not_assessed: string[];

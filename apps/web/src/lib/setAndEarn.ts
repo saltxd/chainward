@@ -78,8 +78,15 @@ export function registeredLabel(row: SetAndEarnRow): string | null {
 export function verdictLabel(row: SetAndEarnRow): { text: string; tone: 'pass' | 'fail' | 'none' } {
   if (row.ours) return { text: 'ours, not counted', tone: 'none' };
   switch (row.verdict_status) {
-    case 'checked':
-      return row.passes_three_independent ? { text: 'pass', tone: 'pass' } : { text: 'fail', tone: 'fail' };
+    case 'checked': {
+      if (row.passes_three_independent) return { text: 'hired by others', tone: 'pass' };
+      const linked = row.owner_linked ?? 0;
+      const unlinked = row.independent_within_limits ?? 0;
+      const open = row.inconclusive ?? 0;
+      return linked >= 1 && linked >= unlinked && linked >= open
+        ? { text: 'hired by its own circle', tone: 'fail' }
+        : { text: 'not enough data', tone: 'none' };
+    }
     case 'fewer_than_3_hirers':
       return { text: 'not enough hires', tone: 'none' };
     case 'pending':

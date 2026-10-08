@@ -37,7 +37,7 @@ describe('BoardTable', () => {
     expect(html).toContain('Plinth keeper');
     expect(html).toContain('TermiX');
     expect(html).toContain('3 completed');
-    expect(html).toContain('pass');
+    expect(html).toContain('hired by others');
     expect(html).toContain('Dolphin');
     expect(html).toContain('not enough hires');
     expect(html).not.toMatch(/fake|scam|dirty|fraud/i);

@@ -21,7 +21,7 @@ import {
   windowLabel,
   zeroFlagsCopy,
 } from '@/lib/risk';
-import type { RiskBand } from '@/lib/api';
+import type { RiskBand, RiskVerdict } from '@/lib/api';
 import { chainMeta } from '@/lib/chains';
 import { counterpartyCheckUrl, PAID_CHECK_PRICE } from '@/lib/paidChecks';
 import { PayCheckButton } from '@/components/pay/PayCheckButton';
@@ -41,6 +41,21 @@ const SEVERITY_LABEL: Record<RiskSeverity, string> = {
   low: 'low',
   info: 'info',
 };
+
+/** One line a buyer can act on, above the band: the decision, its reason, its limit. */
+export function VerdictBlock({ verdict }: { verdict?: RiskVerdict | null }) {
+  if (!verdict) return null;
+  return (
+    <div className={`rr-verdict rr-verdict--${verdict.label}`}>
+      <div className="rr-verdict-head">
+        <span className="press-label">Verdict</span>
+        <strong className="rr-verdict-text press-display">{verdict.text}</strong>
+      </div>
+      <p className="rr-verdict-reason">{verdict.reason}</p>
+      <p className="rr-verdict-limits">{verdict.limits}</p>
+    </div>
+  );
+}
 
 /** Neutral band header + severity-count breakdown. Flag counts, never a score. */
 export function BandSummary({

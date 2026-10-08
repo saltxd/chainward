@@ -33,6 +33,7 @@ import { chainMeta, chainQuery, type RiskChainParam } from '@/lib/chains';
 import { track } from '@/lib/track';
 import {
   BandSummary,
+  VerdictBlock,
   CoverageBlock,
   FlagList,
   FreshPaidCheck,
@@ -547,6 +548,7 @@ function FullReport({
       )}
 
       <div className="rr-block">
+        <VerdictBlock verdict={report.verdict} />
         <BandSummary band={report.band} flags={report.flags} />
       </div>
 
@@ -806,6 +808,34 @@ function ReportStyles() {
         line-height: 1.5;
         max-width: 640px;
       }
+
+      /* Verdict: the decision, its reason, its limit */
+      .rr-verdict {
+        border: 1px solid var(--rule);
+        border-left: 4px solid var(--ink-faint);
+        padding: 0.9rem 1rem;
+        margin: 0 0 1rem;
+      }
+      .rr-verdict-head {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+      }
+      .rr-verdict-text {
+        font-size: 1.5rem;
+        color: var(--ink);
+      }
+      .rr-verdict-reason {
+        margin: 0.4rem 0 0;
+        color: var(--ink);
+      }
+      .rr-verdict-limits {
+        margin: 0.25rem 0 0;
+        font-size: 0.85rem;
+        color: var(--ink-faint);
+      }
+      .rr-verdict--pay { border-left-color: var(--sev-low); }
+      .rr-verdict--hold { border-left-color: var(--sev-high); }
 
       /* Band summary */
       .rr-band {

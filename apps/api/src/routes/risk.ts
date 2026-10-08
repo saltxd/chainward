@@ -748,6 +748,7 @@ risk.get(
       success: true,
       data: {
         address,
+        verdict: reportVerdict(assessment, row.reportData),
         band: assessment.band,
         flag_ids: assessment.flags.map((f) => f.id),
         as_of_block: row.asOfBlock,

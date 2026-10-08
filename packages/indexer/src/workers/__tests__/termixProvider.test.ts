@@ -108,6 +108,7 @@ function hireReport(target: HireAgentInput): HireReport {
     hires: { total: 4, distinct_hirers: 3, by_source: { termix_escrow: 4, erc8183_shared: 0 } },
     hirers: [],
     summary: { owner_linked: 0, inconclusive: 0, independent_within_limits: 3, passes_three_independent: true },
+    verdict: { label: 'not_enough_data', text: 'Not enough data', reason: 'test', limits: 'test' },
     method: HIRE_METHOD,
     limits: HIRE_LIMITS,
     as_of: { block: 126_000_000, time: '2026-10-07T12:00:00.000Z' },

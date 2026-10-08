@@ -69,7 +69,8 @@ const CLOSING = 'No link found is not proven independence. This describes where 
 /** The one-paragraph summary: counts, the 3-independent bar as the check measures it, and the limits. */
 export function hireSummary(r: HireReport): string {
   const window = `${r.window_days} days to block ${n(r.as_of.block)} (${utc(r.as_of.time)})`;
-  const head = `ChainWard hire check for ${subject(r)}, ${window}:`;
+  const verdict = r.verdict ? `Verdict: ${r.verdict.text}. ${r.verdict.reason} ` : '';
+  const head = `ChainWard hire check for ${subject(r)}, ${window}: ${verdict}`.trimEnd();
   if (r.hires.total === 0) {
     return `${head} No hires found on the TermiX escrow or the shared ERC-8183 contract, so the agent does not meet the 3-independent-hirer bar. ${CLOSING}`;
   }
@@ -119,6 +120,7 @@ function markdown(r: HireReport, summary: string): string {
     '',
     '## Result',
     '',
+    ...(r.verdict ? [`**${r.verdict.text}.** ${r.verdict.reason}`, ''] : []),
     `- Hires: ${n(r.hires.total)} from ${n(r.hires.distinct_hirers)} distinct wallets (TermiX escrow ${n(r.hires.by_source.termix_escrow)}, ERC-8183 ${n(r.hires.by_source.erc8183_shared)})`,
     `- Linked to the owner: ${n(s.owner_linked)}`,
     `- Inconclusive: ${n(s.inconclusive)}`,

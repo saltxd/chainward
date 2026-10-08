@@ -7,8 +7,31 @@ import { proxiedPayersLabel, type ProxiedPayers } from '@/lib/x402Board';
 // The `data` of a paid check, as the press pages show it. Types are the fields
 // read here, not the full API documents (packages/decode is the authority).
 
+/** One line a buyer can act on, from the API; older cached results may lack it. */
+export interface VerdictData {
+  label: string;
+  text: string;
+  reason: string;
+  limits: string;
+}
+
+export function VerdictLine({ verdict }: { verdict?: VerdictData | null }) {
+  if (!verdict) return null;
+  return (
+    <div className={`pay-verdict pay-verdict--${verdict.label}`}>
+      <div className="pay-verdict-head">
+        <span className="pay-verdict-tag">Verdict</span>
+        <strong className="pay-verdict-text">{verdict.text}</strong>
+      </div>
+      <p className="pay-verdict-reason">{verdict.reason}</p>
+      <p className="pay-verdict-limits">{verdict.limits}</p>
+    </div>
+  );
+}
+
 interface SellerData {
   address: string;
+  verdict?: VerdictData;
   chain?: string;
   buyers_checked: number;
   seller_funded: { buyers: number; volume_share: number | null };
@@ -29,14 +52,15 @@ interface HiresData {
   hires: { total: number; distinct_hirers: number };
   hirers: { address: string; hires: number; verdict: HirerVerdict; evidence: string }[];
   summary: { owner_linked: number; inconclusive: number; independent_within_limits: number; passes_three_independent: boolean };
+  verdict?: VerdictData;
 }
 
 type CounterpartyData =
   | {
       status: 'ready';
-      report: { address: string; chain?: string; band: RiskBand; flags: RiskFlag[]; disclaimer?: string };
+      report: { address: string; chain?: string; band: RiskBand; flags: RiskFlag[]; disclaimer?: string; verdict?: VerdictData };
     }
-  | { status: 'no_history'; address: string; chain?: string; disclaimer?: string };
+  | { status: 'no_history'; address: string; chain?: string; disclaimer?: string; verdict?: VerdictData };
 
 const VERDICT: Record<HirerVerdict, string> = {
   owner: 'the owner',
@@ -72,6 +96,7 @@ function Disclaimer({ text }: { text?: string }) {
 function SellerResult({ d }: { d: SellerData }) {
   return (
     <>
+      <VerdictLine verdict={d.verdict} />
       <p className="pay-lede">
         {d.seller_funded.buyers} of {d.buyers_checked} top buyers checked trace back to the seller (
         {pct(d.seller_funded.volume_share)} of their volume). Sent back to buyers: {pct(d.paid_back_share)}.
@@ -109,6 +134,7 @@ function HiresResult({ d }: { d: HiresData }) {
   const passes = d.summary.passes_three_independent;
   return (
     <>
+      <VerdictLine verdict={d.verdict} />
       <p className="pay-lede">
         {d.agent_id != null ? `Agent #${d.agent_id}: ` : `Agents of ${short(d.owner)}: `}
         {d.hires.total} hires from {d.hires.distinct_hirers} distinct hirers in {d.window_days} days.{' '}
@@ -157,6 +183,7 @@ function CounterpartyResult({ d }: { d: CounterpartyData }) {
   if (d.status === 'no_history') {
     return (
       <>
+        <VerdictLine verdict={d.verdict} />
         <p className="pay-lede">No on-chain history for this address.</p>
         <Disclaimer text={d.disclaimer} />
       </>
@@ -165,6 +192,7 @@ function CounterpartyResult({ d }: { d: CounterpartyData }) {
   const r = d.report;
   return (
     <>
+      <VerdictLine verdict={r.verdict} />
       <p className="pay-lede">
         Band: <strong>{BAND_LABEL[r.band] ?? r.band}</strong> · {r.flags.length} flag{r.flags.length === 1 ? '' : 's'}
       </p>

@@ -25,9 +25,13 @@ export default function DocsPage() {
         machine-readable spec is at <a href="/openapi.json">/openapi.json</a>.
       </p>
       <p>
-        A report is a list of flags read from on-chain behavior, each tied to the
-        transactions behind it. It is never a safety verdict: no flags means nothing
-        surfaced in the window checked, not that an address is safe.
+        Every check opens with a verdict you can act on and the one fact it rests on:
+        Pay, Hold or Unknown for an address; Real demand or Self-funded demand for a
+        seller; Hired by others or Hired by its own circle for an agent. Under it sits
+        the evidence, each flag tied to the transactions behind it, and a one-line
+        limit saying what the check cannot see. A verdict is read from on-chain
+        behavior only: Pay means nothing was found against paying, not that an
+        address is safe.
       </p>
 
       <h2>Run a risk check (free)</h2>
@@ -102,8 +106,9 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
             </td>
             <td>0.05 USDC</td>
             <td>
-              A risk report no older than 24h (a fresh check runs if needed). Add{' '}
-              <code>?chain=bsc</code> for a BNB Chain address; payment is still USDC on Base.
+              <strong>Pay, Hold or Unknown</strong> with the reason, then the full report no
+              older than 24h (a fresh check runs if needed). Add <code>?chain=bsc</code> for a
+              BNB Chain address; payment is still USDC on Base.
             </td>
           </tr>
           <tr>
@@ -112,11 +117,11 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
             </td>
             <td>0.10 USDC</td>
             <td>
-              Where a seller&apos;s buyers get their stablecoins: how much traces
-              back to the seller, how much it pays back, whether one wallet funds
-              most buyers. On Base, payers behind Meridian and Fluxa proxies are
-              named; exchanges stay opaque. Add <code>?chain=bsc</code> for a BNB
-              Chain seller.
+              <strong>Real demand, Self-funded demand, Mixed or Not enough data</strong>, with
+              the number behind it: how much of the top buyers&apos; money traces back to
+              the seller, how much it pays back, whether one wallet funds most buyers. On
+              Base, payers behind Meridian and Fluxa proxies are named; exchanges stay
+              opaque. Add <code>?chain=bsc</code> for a BNB Chain seller.
             </td>
           </tr>
           <tr>
@@ -125,9 +130,10 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
             </td>
             <td>0.10 USDC</td>
             <td>
-              For BNB Chain&apos;s Set and Earn: every wallet that hired an ERC-8004
-              agent (an id, or an owner address) in the last 30 days, and whether each
-              is the owner, funded by it or shares a funder with it.{' '}
+              <strong>Hired by others, Hired by its own circle or Not enough data</strong> for
+              an ERC-8004 agent (an id, or an owner address) under BNB Chain&apos;s Set and
+              Earn rule, then every wallet that hired it in the last 30 days and whether
+              each is the owner, funded by it or shares a funder with it.{' '}
               <code>independent_within_limits</code> means no link was found within 4
               hops, not proven independence. BNB Chain only. Free daily results for every
               agent hired since Oct 1: <a href="/set-and-earn">/set-and-earn</a>.

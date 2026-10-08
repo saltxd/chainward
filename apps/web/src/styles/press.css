@@ -698,6 +698,44 @@ body:has(.press) {
 .press .pay-panel .pay-lede {
   color: var(--ink);
 }
+/* The verdict: one line a buyer acts on, its reason, its limit. */
+.press .pay-verdict {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--ink-faint);
+  padding: 0.75rem 0.9rem;
+  margin: 0 0 1rem;
+}
+.press .pay-verdict-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.press .pay-verdict-tag {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.press .pay-verdict-text {
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+.press .pay-verdict-reason {
+  margin: 0.35rem 0 0;
+  color: var(--ink);
+}
+.press .pay-verdict-limits {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+}
+.press .pay-verdict--pay,
+.press .pay-verdict--hired_by_others,
+.press .pay-verdict--real_demand { border-left-color: var(--sev-low, #4ade80); }
+.press .pay-verdict--hold,
+.press .pay-verdict--hired_by_own_circle,
+.press .pay-verdict--self_funded_demand { border-left-color: var(--sev-high, #f87171); }
+.press .pay-verdict--mixed { border-left-color: var(--sev-medium, #fbbf24); }
 .press .pay-panel strong {
   color: var(--ink);
   font-weight: 640;

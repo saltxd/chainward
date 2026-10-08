@@ -188,7 +188,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
   // ── Tool: check_counterparty ────────────────────────────────────────────────
   server.tool(
     'check_counterparty',
-    "Before paying or trusting an address on Base or BNB Chain, check what ChainWard's on-chain risk check says about it. Pass chain: 'bsc' for a BNB Chain address (default 'base'). Returns the neutral signal band and flags; on Base, also the EAS attestation (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain (BNB Chain reports are not attested yet). Never a safety verdict: absence of flags is not a clearance. If the address has no report yet, say so and point to the free check at https://chainward.ai (https://chainward.ai/?chain=bsc for BNB Chain).",
+    "Before paying or trusting an address on Base or BNB Chain, get ChainWard's verdict on it: Pay, Hold or Unknown, with the one reason it rests on (the `verdict` field), then the signal band and flags as evidence. Pass chain: 'bsc' for a BNB Chain address (default 'base'). On Base, also the EAS attestation (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain (BNB Chain reports are not attested yet). Read from on-chain behavior only: Pay means nothing was found against paying, not that the address is safe. If the address has no report yet, say so and point to the free check at https://chainward.ai (https://chainward.ai/?chain=bsc for BNB Chain).",
     { wallet: walletSchema, chain: chainSchema },
     async ({ wallet, chain }) => {
       // Attestations are Base-only (EAS on Base); other chains go straight to the report.

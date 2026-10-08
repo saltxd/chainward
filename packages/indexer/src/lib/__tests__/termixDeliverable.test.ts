@@ -16,6 +16,12 @@ function report(overrides: Partial<HireReport> = {}): HireReport {
     hires: { total: 5, distinct_hirers: 4, by_source: { termix_escrow: 5, erc8183_shared: 0 } },
     hirers: [],
     summary: { owner_linked: 1, inconclusive: 0, independent_within_limits: 3, passes_three_independent: true },
+    verdict: {
+      label: 'hired_by_others',
+      text: 'Hired by others',
+      reason: '3 of 4 hirers in the last 30 days show no funding link to the owner within 4 hops.',
+      limits: 'Not proven independence.',
+    },
     method: HIRE_METHOD,
     limits: HIRE_LIMITS,
     as_of: { block: 126_000_000, time: '2026-10-07T12:00:00.000Z' },
@@ -60,6 +66,8 @@ describe('hireSummary', () => {
   it('states the counts, the bar and the limits in one paragraph', () => {
     const s = hireSummary(report());
     expect(s).toContain('agent 332962');
+    expect(s.indexOf('Verdict: Hired by others.')).toBeGreaterThan(-1);
+    expect(s.indexOf('Verdict: Hired by others.')).toBeLessThan(s.indexOf('5 hires from'));
     expect(s).toContain('5 hires from 4 distinct wallets');
     expect(s).toContain('1 linked to the owner');
     expect(s).toContain('3 with no link found');
