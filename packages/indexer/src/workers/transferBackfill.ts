@@ -59,18 +59,36 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function rpcCall(method: string, params: unknown[]): Promise<unknown> {
-  const res = await fetch(BASE_RPC, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id: 1, jsonrpc: '2.0', method, params }),
-  });
-  const text = await res.text();
+/** Alchemy's free tier throttles bursts (HTTP 429, empty body). Retry those with backoff. */
+const RETRY_ATTEMPTS = 5;
+const DEFAULT_RETRY_DELAY_MS = 1_000;
+
+class RetryableRpcError extends Error {}
+
+async function postJson(body: unknown, retryDelayMs: number): Promise<string> {
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(BASE_RPC, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    if (res.status === 429 || res.status >= 500) {
+      if (attempt >= RETRY_ATTEMPTS) throw new RetryableRpcError(`RPC HTTP ${res.status} after ${attempt} attempts: ${text.slice(0, 200)}`);
+      await sleep(retryDelayMs * 2 ** (attempt - 1));
+      continue;
+    }
+    return text;
+  }
+}
+
+async function rpcCall(method: string, params: unknown[], retryDelayMs = DEFAULT_RETRY_DELAY_MS): Promise<unknown> {
+  const text = await postJson({ id: 1, jsonrpc: '2.0', method, params }, retryDelayMs);
   let data: { result?: unknown; error?: { message: string } };
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error(`RPC returned non-JSON (${res.status}): ${text.slice(0, 200)}`);
+    throw new Error(`RPC returned non-JSON: ${text.slice(0, 200)}`);
   }
   if (data.error) throw new Error(`RPC error: ${data.error.message}`);
   return data.result;
@@ -78,19 +96,15 @@ async function rpcCall(method: string, params: unknown[]): Promise<unknown> {
 
 async function rpcBatch(
   calls: { method: string; params: unknown[] }[],
+  retryDelayMs = DEFAULT_RETRY_DELAY_MS,
 ): Promise<{ id: number; result: unknown }[]> {
   const body = calls.map((c, i) => ({ id: i + 1, jsonrpc: '2.0', method: c.method, params: c.params }));
-  const res = await fetch(BASE_RPC, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
+  const text = await postJson(body, retryDelayMs);
   let results: { id: number; result: unknown }[];
   try {
     results = JSON.parse(text);
   } catch {
-    throw new Error(`RPC batch returned non-JSON (${res.status}): ${text.slice(0, 200)}`);
+    throw new Error(`RPC batch returned non-JSON: ${text.slice(0, 200)}`);
   }
   return results.sort((a, b) => a.id - b.id);
 }
@@ -100,6 +114,8 @@ export interface TransferWindow {
   fromBlock: bigint;
   /** Pages of 100 per direction; Infinity for everything. Bounds a registration of a busy wallet. */
   maxPages: number;
+  /** First backoff on a 429 (doubles per attempt). Tests shorten it. */
+  retryDelayMs?: number;
 }
 
 /**
@@ -127,7 +143,7 @@ export async function fetchTransfers(
     else params.toAddress = address;
     if (pageKey) params.pageKey = pageKey;
 
-    const result = (await rpcCall('alchemy_getAssetTransfers', [params])) as {
+    const result = (await rpcCall('alchemy_getAssetTransfers', [params], window.retryDelayMs)) as {
       transfers: AlchemyTransfer[];
       pageKey?: string;
     };

@@ -57,6 +57,27 @@ describe('fetchTransfers (registration backfill via alchemy_getAssetTransfers)',
     expect(calls[0]?.params[0]).toMatchObject({ fromBlock: '0x30a847a', toBlock: 'latest', fromAddress: '0xabc' });
   });
 
+  it('retries a 429 with backoff instead of failing the backfill', async () => {
+    let n = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: { body: string }) => {
+        n++;
+        calls.push(JSON.parse(init.body) as RpcBody);
+        if (n <= 2) return new Response('', { status: 429 });
+        return new Response(JSON.stringify({ id: 1, jsonrpc: '2.0', result: page(1) }));
+      }),
+    );
+    const transfers = await fetchTransfers('0xabc', 'from', { fromBlock: 0n, maxPages: 1, retryDelayMs: 1 });
+    expect(n).toBe(3);
+    expect(transfers).toHaveLength(100);
+  });
+
+  it('gives up after the retry budget', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 429 })));
+    await expect(fetchTransfers('0xabc', 'from', { fromBlock: 0n, maxPages: 1, retryDelayMs: 1 })).rejects.toThrow(/429/);
+  });
+
   it('stops after the page cap even when Alchemy keeps returning a pageKey', async () => {
     const transfers = await fetchTransfers('0xabc', 'to', { fromBlock: 0n, maxPages: 3 });
     expect(calls).toHaveLength(3);
