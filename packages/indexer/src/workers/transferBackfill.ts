@@ -95,20 +95,29 @@ async function rpcBatch(
   return results.sort((a, b) => a.id - b.id);
 }
 
+export interface TransferWindow {
+  /** First block to include; 0n for the whole chain (the reconcile job's choice). */
+  fromBlock: bigint;
+  /** Pages of 100 per direction; Infinity for everything. Bounds a registration of a busy wallet. */
+  maxPages: number;
+}
+
 /**
- * Fetch ALL asset transfers for a wallet in one direction, paginating via `pageKey`
- * until Alchemy stops returning one. Unlike eth_getLogs this has no block-range limit.
+ * Fetch asset transfers for a wallet in one direction, newest first, paginating via
+ * `pageKey` until Alchemy stops returning one or the page cap is reached. Unlike
+ * eth_getLogs this has no block-range limit.
  */
-async function fetchAllTransfers(
+export async function fetchTransfers(
   address: string,
   direction: 'from' | 'to',
+  window: TransferWindow,
 ): Promise<AlchemyTransfer[]> {
   const all: AlchemyTransfer[] = [];
   let pageKey: string | undefined;
   let pages = 0;
   do {
     const params: Record<string, unknown> = {
-      fromBlock: '0x0',
+      fromBlock: `0x${window.fromBlock.toString(16)}`,
       toBlock: 'latest',
       category: TRANSFER_CATEGORIES,
       maxCount: PAGE_SIZE_HEX,
@@ -125,12 +134,15 @@ async function fetchAllTransfers(
     all.push(...(result.transfers ?? []));
     pageKey = result.pageKey; // loop terminates when Alchemy omits pageKey
     pages++;
+    if (pageKey && pages >= window.maxPages) break;
     if (pageKey) await sleep(150); // be gentle between pages
   } while (pageKey);
 
   logger.debug({ address, direction, pages, total: all.length }, '[transferBackfill] fetched transfers');
   return all;
 }
+
+const WHOLE_CHAIN: TransferWindow = { fromBlock: 0n, maxPages: Infinity };
 
 async function batchFetchBlocks(blockNumbers: string[], batchSize = 20): Promise<Map<string, BlockInfo>> {
   const blocks = new Map<string, BlockInfo>();
@@ -170,7 +182,11 @@ async function batchFetchReceipts(txHashes: string[], batchSize = 20): Promise<M
  * Throws if ALCHEMY_API_KEY is missing (no point continuing). Per-transfer failures are
  * logged and skipped; the caller (reconcile) also try/catches per wallet.
  */
-export async function backfillWalletViaTransfers(walletAddress: string): Promise<number> {
+export function alchemyBackfillAvailable(): boolean {
+  return Boolean(ALCHEMY_KEY);
+}
+
+export async function backfillWalletViaTransfers(walletAddress: string, window: TransferWindow = WHOLE_CHAIN): Promise<number> {
   if (!ALCHEMY_KEY) {
     throw new Error('ALCHEMY_API_KEY not set — cannot backfill via alchemy_getAssetTransfers');
   }
@@ -178,8 +194,8 @@ export async function backfillWalletViaTransfers(walletAddress: string): Promise
   const db = getDb();
   const addrLower = walletAddress.toLowerCase();
 
-  // 1. Fetch every transfer in both directions (paginated, no range limit).
-  const [outgoing, incoming] = [await fetchAllTransfers(walletAddress, 'from'), await fetchAllTransfers(walletAddress, 'to')];
+  // 1. Fetch the window's transfers in both directions (paginated, no range limit).
+  const [outgoing, incoming] = [await fetchTransfers(walletAddress, 'from', window), await fetchTransfers(walletAddress, 'to', window)];
   const allTransfers = [...outgoing, ...incoming];
 
   // 2. Dedup. Same tx can appear in both directions; key on hash + endpoints + category.

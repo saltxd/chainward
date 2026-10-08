@@ -6,6 +6,8 @@ import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { processWebhookTx } from '../processors/baseProcessor.js';
 import { backfillAgent } from './backfill.js';
+import { getBaseClient } from '../lib/viem.js';
+import { alchemyBackfillAvailable, backfillWalletViaTransfers } from './transferBackfill.js';
 import { isAddressPaused, isOutbound, recordAndCheck } from '../lib/rateLimiter.js';
 import { insertTransactionIfNew } from '../lib/transactionStore.js';
 
@@ -161,5 +163,21 @@ async function handleBackfill(job: Job<WebhookJobData>) {
     return;
   }
 
+  // The old path is one eth_getLogs over ~30 days of blocks; the own node is
+  // pruned and every fallback RPC refuses the range (HTTP 413), so new agents
+  // got no history. Alchemy's transfer index has no range cap: same 30-day
+  // window, at most 1,000 transfers per direction like the old maxCount.
+  if (chain === 'base' && alchemyBackfillAvailable()) {
+    const currentBlock = await getBaseClient().getBlockNumber();
+    const inserted = await backfillWalletViaTransfers(walletAddress, {
+      fromBlock: currentBlock > BACKFILL_LOOKBACK_BLOCKS ? currentBlock - BACKFILL_LOOKBACK_BLOCKS : 0n,
+      maxPages: 10,
+    });
+    logger.info({ walletAddress, inserted }, 'Registration backfill via alchemy_getAssetTransfers');
+    return;
+  }
   await backfillAgent(walletAddress, chain);
 }
+
+/** ~2 s blocks on Base: 30 days. Same window backfillAgent used. */
+const BACKFILL_LOOKBACK_BLOCKS = 1_296_000n;
