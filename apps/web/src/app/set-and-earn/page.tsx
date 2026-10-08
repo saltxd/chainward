@@ -15,7 +15,7 @@ export const metadata = {
   alternates: { canonical: 'https://chainward.ai/set-and-earn' },
   openGraph: {
     title: 'Set and Earn Board',
-    description: 'Who hired the agents built for BNB Chain’s Set and Earn, and whether 3 hirers are independent of the owner. Updated daily from on-chain data.',
+    description: 'Who hired the agents built for BNB Chain’s Set and Earn, and whether 3 hirers show no funding link to the owner. Updated daily from on-chain data.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
 };
@@ -84,7 +84,7 @@ export default async function SetAndEarnPage() {
                 <Stat value={t.agents_hired} label="agents hired since Oct 1" />
                 <Stat value={t.hires.total} label="hires" />
                 <Stat value={t.agents_with_3_distinct_hirers} label="with 3+ distinct hirers" />
-                <Stat value={t.agents_passing} label="with 3+ independent hirers" />
+                <Stat value={t.agents_passing} label="with 3+ hirers, no link found" />
                 <Stat value={t.agents_registered} label="new agents registered since Oct 1" />
                 <Stat value={t.agents_on_campaign_marketplaces} label="of them on a campaign marketplace" />
               </div>
@@ -108,9 +108,10 @@ export default async function SetAndEarnPage() {
         <section className="se-section">
           <span className="press-label">How to read it</span>
           <p className="se-p">
-            <strong>Independent</strong>: hirers that never moved BNB or stablecoins to or from the owner
+            <strong>No link found</strong>: hirers that never moved BNB or stablecoins to or from the owner
               directly, and whose first BNB and first stablecoin, followed back up to four hops, reach
-              neither the owner nor a wallet that also funded the owner.{' '}
+              neither the owner nor a wallet that also funded the owner. That is what the trail shows within
+              those limits; it is not proven independence.{' '}
             <strong>Pass</strong>: 3 or more of them, whether or not their hires have completed yet. Hires are
             TermiX escrow orders and jobs on the shared ERC-8183 contract; completed means the order settled or
             the job completed. The method and worked

@@ -13,8 +13,8 @@ export function BoardTable({ rows, generatedAt }: { rows: SetAndEarnRow[]; gener
             <th>Marketplace</th>
             <th>Hires</th>
             <th>Distinct hirers</th>
-            <th>Independent</th>
-            <th>3 independent?</th>
+            <th>No link found</th>
+            <th>3 with no link?</th>
             <th>Hire check</th>
           </tr>
         </thead>

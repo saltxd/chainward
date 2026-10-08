@@ -23,7 +23,7 @@ const base: SetAndEarnRow = {
 };
 
 describe('BoardTable', () => {
-  it('links each agent to BscScan and shows hires, hirers, independent hirers and the verdict', () => {
+  it('links each agent to BscScan and shows hires, hirers, no-link hirers and the verdict', () => {
     const html = renderToStaticMarkup(
       <BoardTable
         generatedAt="2026-10-06T06:30:00.000Z"
@@ -41,6 +41,9 @@ describe('BoardTable', () => {
     expect(html).toContain('Dolphin');
     expect(html).toContain('not enough hires');
     expect(html).not.toMatch(/fake|scam|dirty|fraud/i);
+    // 'No link found within limits' is what the trail shows; it is not proven independence.
+    expect(html).toContain('No link found');
+    expect(html).not.toMatch(/\bindependent\b/i);
     expect(html).not.toContain('as of');
     expect(html).toContain('new · Oct 3');
   });
