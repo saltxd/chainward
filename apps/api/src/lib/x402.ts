@@ -563,7 +563,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     serviceName: 'ChainWard counterparty check',
     description:
       'Fresh on-chain risk report for a Base or BNB Chain (?chain=bsc) address before you pay it: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Never a safety verdict.',
-    tags: ['base', 'risk', 'counterparty', 'agents', 'eas', 'attestation'],
+    tags: ['base', 'bsc', 'bnb', 'risk', 'counterparty', 'wallet', 'address', 'reputation', 'trust', 'due-diligence', 'agents', 'eas', 'attestation'],
     whatYouGet:
       'A risk report no older than 24h (a fresh check runs if needed), JSON. Base by default; add ?chain=bsc for a BNB Chain address. Not charged if the check fails.',
   };
@@ -572,7 +572,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     serviceName: 'ChainWard x402 seller check',
     description:
       "Where a seller's buyers get their stablecoins, on Base or BNB Chain (?chain=bsc): how much of its top buyers' money traces back to the seller, how much it pays back, and whether one wallet funds most buyers. Payers behind facilitator proxies (Meridian, Fluxa) are named on Base. Describes money flows, never intent.",
-    tags: ['base', 'bsc', 'x402', 'seller', 'demand', 'wash', 'counterparty', 'agents'],
+    tags: ['base', 'bsc', 'x402', 'seller', 'demand', 'wash', 'funding', 'wallet', 'counterparty', 'agents'],
     whatYouGet:
       "A seller demand report for the last 30 days (top 30 buyers' funding walked back up to 4 hops), JSON. Not charged if the check fails.",
   };
@@ -589,7 +589,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     serviceName: 'ChainWard hire check',
     description:
       `For BNB Chain's Set and Earn rule of 3 hires from wallets you neither own nor fund: every wallet that hired an ERC-8004 agent in the last ${HIRE_WINDOW_DAYS} days (TermiX escrow and the shared ERC-8183 contract), and whether each is the owner, funded by it, or shares a funder with it. Describes money flows, never intent.`,
-    tags: ['bsc', 'bnb', 'erc8004', 'erc8183', 'agents', 'hires', 'sybil', 'set-and-earn'],
+    tags: ['bsc', 'bnb', 'erc8004', 'erc8183', 'agents', 'hires', 'sybil', 'funding', 'wallet', 'set-and-earn'],
     whatYouGet:
       `Every hirer of the agent in the last ${HIRE_WINDOW_DAYS} days with a verdict, the evidence and the funding path (first incoming BNB and stablecoin, up to ${HIRE_MAX_HOPS} hops), JSON. Not charged if the check fails.`,
   };
