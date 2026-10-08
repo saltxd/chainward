@@ -106,6 +106,20 @@ describe('CoverageBlock when the transfer list could not be read', () => {
     expect(html).toContain('rr-stat-value mono">17<');
   });
 
+  it('names a failed balance read in the window notice and the quiet copy, never "across N transfers" as a clean result', () => {
+    const degraded = {
+      ...coverage,
+      checks: coverage.checks.map((c) =>
+        c.id === 'stranded_value' ? { ...c, raised: false, status: 'not_assessed' as const, reason: 'The USDC balance could not be read.' } : c,
+      ),
+      window: { ...coverage.window, state_unavailable: ['usdc_balance'] },
+    };
+    const html = renderToStaticMarkup(<CoverageBlock coverage={degraded} />);
+    expect(html).toContain('1 not assessed');
+    expect(html).toContain('USDC balance could not be read');
+    expect(zeroFlagsCopy(degraded)).toMatch(/USDC balance could not be read/);
+  });
+
   it('never words a failed read as a quiet result', () => {
     const copy = zeroFlagsCopy(unread);
     expect(copy).not.toMatch(/across 0 transfers/);

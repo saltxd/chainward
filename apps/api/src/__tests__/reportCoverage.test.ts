@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RISK_CHECKS } from '@chainward/decode';
-import { buildCoverage, transfersUnavailable } from '../lib/reportCoverage';
+import { buildCoverage, sourcesUnavailable, transfersUnavailable } from '../lib/reportCoverage';
 
 const reportData = {
   wallet: { type: 'eoa', nonce: 17, code_size: 0, is_virtuals_factory: false },
@@ -93,6 +93,27 @@ describe('buildCoverage when every transfer source failed', () => {
     expect(cov.window).not.toHaveProperty('transfers_unavailable');
     expect(transfersUnavailable(reportData)).toBeUndefined();
     expect(transfersUnavailable(null)).toBeUndefined();
+  });
+});
+
+describe('buildCoverage when a state read failed', () => {
+  const degraded = {
+    ...reportData,
+    fetch_meta: { ...(reportData as { fetch_meta: object }).fetch_meta, state_unavailable: ['usdc_balance'] },
+  };
+
+  it('marks the checks that read that value not assessed, with the reason, never "not raised"', () => {
+    const cov = buildCoverage(degraded, [])!;
+    const stranded = cov.checks.find((c) => c.id === 'stranded_value')!;
+    expect(stranded.status).toBe('not_assessed');
+    expect(stranded.reason).toMatch(/USDC balance could not be read/);
+    expect(cov.checks.find((c) => c.id === 'dormant_wallet')!.status).toBe('not_raised');
+    expect(cov.window.state_unavailable).toEqual(['usdc_balance']);
+  });
+
+  it('is a report the paid route must not sell', () => {
+    expect(sourcesUnavailable(degraded)).toMatch(/USDC balance could not be read/);
+    expect(sourcesUnavailable(reportData)).toBeUndefined();
   });
 });
 

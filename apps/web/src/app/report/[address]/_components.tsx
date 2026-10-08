@@ -188,6 +188,15 @@ export function CoverageBlock({ coverage }: { coverage: RiskCoverage | undefined
           assessed. {unread}
         </p>
       )}
+      {(w.state_unavailable ?? []).length > 0 && (
+        <p className="rr-cov-unread">
+          {coverage.checks
+            .filter((c) => statusOf(c) === 'not_assessed' && c.reason && !c.reason.startsWith(unread ?? '\u0000'))
+            .map((c) => c.reason)
+            .filter((r, i, all) => all.indexOf(r) === i)
+            .join(' ') || 'A state value (balance, transaction count or contract code) could not be read, so the checks that rest on it were not assessed.'}
+        </p>
+      )}
       <ul className="rr-cov-list">
         {coverage.checks.map((c) => {
           const s = CHECK_STATE[statusOf(c)];

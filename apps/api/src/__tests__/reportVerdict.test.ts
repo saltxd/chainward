@@ -37,6 +37,15 @@ describe('reportVerdict', () => {
     expect(v.label).toBe('unknown');
   });
 
+  it('is unknown, never pay, when the USDC balance could not be read', () => {
+    const v = reportVerdict(
+      { band: 'low-signal', flags: [] },
+      { ...active, fetch_meta: { state_unavailable: ['usdc_balance'] } },
+    );
+    expect(v.label).toBe('unknown');
+    expect(v.reason).toMatch(/USDC balance could not be read/);
+  });
+
   it('is unknown when the decode data carries no activity block', () => {
     const v = reportVerdict({ band: 'low-signal', flags: [] }, {});
     expect(v.label).toBe('unknown');

@@ -80,12 +80,24 @@ export const ZERO_FLAGS_COPY =
  * The quiet-result sentence. With coverage it states what was examined, so
  * "nothing found" reads as a result of a specific scan, never as a clearance.
  */
+const STATE_READ_LABEL: Record<string, string> = {
+  usdc_balance: 'USDC balance',
+  eth_balance: 'ETH balance',
+  nonce: 'transaction count',
+  code: 'contract code',
+};
+
 export function zeroFlagsCopy(coverage: RiskCoverage | undefined): string {
   if (!coverage) return ZERO_FLAGS_COPY;
   const w = coverage.window;
   // A failed read is not a quiet window: never "across 0 transfers".
   if (w.transfers_unavailable) {
     return 'No flags raised from what could be read. The transfer list could not be read, so the activity, dormancy and counterparty checks were not assessed.';
+  }
+  const stateUnread = w.state_unavailable ?? [];
+  if (stateUnread.length > 0) {
+    const what = stateUnread.map((k) => STATE_READ_LABEL[k] ?? k).join(', ');
+    return `No flags raised from what could be read. The ${what} could not be read, so the checks that rest on it were not assessed.`;
   }
   const transfers = `${w.transfers_truncated ? 'at least ' : ''}${w.transfers_scanned.toLocaleString()} transfers`;
   const parties = `${w.unique_counterparties_30d.toLocaleString()} ${

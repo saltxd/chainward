@@ -537,11 +537,20 @@ async function fetchFromRpc(
   }
 
   // State reads — all `latest` on the same RPC so they agree with the head above.
+  // A failed read is recorded, never passed off as zero: the checks that read it are not assessed.
+  const stateUnavailable: string[] = [];
+  const stateRead = <T>(name: string, p: Promise<T>, fallback: T) =>
+    p.catch(() => {
+      stateUnavailable.push(name);
+      return fallback;
+    });
   const [code, nonce, native, ...stables] = await Promise.all([
-    rpcCall(rpc.url, 'eth_getCode', [address, 'latest'], t),
-    rpcCall(rpc.url, 'eth_getTransactionCount', [address, 'latest'], t),
-    rpcCall(rpc.url, 'eth_getBalance', [address, 'latest'], t),
-    ...cfg.stablecoins.map((s) => balanceOf(rpcCall, rpc.url, s.address, address, t).catch(() => '0x0')),
+    stateRead('code', rpcCall(rpc.url, 'eth_getCode', [address, 'latest'], t), '0x'),
+    stateRead('nonce', rpcCall(rpc.url, 'eth_getTransactionCount', [address, 'latest'], t), '0x0'),
+    stateRead('eth_balance', rpcCall(rpc.url, 'eth_getBalance', [address, 'latest'], t), '0x0'),
+    ...cfg.stablecoins.map((s) =>
+      stateRead(s.symbol === 'USDC' ? 'usdc_balance' : `${s.symbol.toLowerCase()}_balance`, balanceOf(rpcCall, rpc.url, s.address, address, t), '0x0'),
+    ),
   ]);
   const stablecoin_balances: Record<string, string> = {};
   cfg.stablecoins.forEach((s, i) => {
@@ -576,6 +585,7 @@ async function fetchFromRpc(
     sentinel_usdc_balance: { result: stablecoin_balances.USDC ?? '0x0' },
     geckoterminal: null,
     sentinel_block: { number: '0x' + head.number.toString(16), hash: head.hash },
+    ...(stateUnavailable.length ? { state_unavailable: stateUnavailable as RpcFixtures['state_unavailable'] } : {}),
     data_source: {
       rpc_role: 'public',
       head_number: head.number,

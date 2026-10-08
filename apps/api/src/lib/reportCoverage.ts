@@ -1,4 +1,4 @@
-import { riskChecksFor, type DecodeChain } from '@chainward/decode';
+import { riskChecksFor, STATE_READ_UNAVAILABLE, type DecodeChain } from '@chainward/decode';
 
 /**
  * "What this check covered" — the per-report coverage block. Turns a quiet
@@ -33,6 +33,8 @@ export interface ReportCoverage {
      * unknown, not zero. Public-safe text naming the sources and their errors.
      */
     transfers_unavailable?: string;
+    /** State reads (balance, nonce, code) that failed on every RPC. */
+    state_unavailable?: string[];
     /** Days the transfer scan covered. Absent = the full 30-day activity horizon. */
     days?: number;
     transfers_scanned: number;
@@ -59,6 +61,24 @@ export function transfersUnavailable(reportData: unknown): string | undefined {
   if (!reportData || typeof reportData !== 'object') return undefined;
   const reason = (reportData as { fetch_meta?: { transfers_unavailable?: unknown } }).fetch_meta?.transfers_unavailable;
   return typeof reason === 'string' && reason.length > 0 ? reason : undefined;
+}
+
+/** State reads (balance, nonce, code) that failed on every RPC, as recorded by the decode. */
+export function stateUnavailable(reportData: unknown): string[] {
+  if (!reportData || typeof reportData !== 'object') return [];
+  const list = (reportData as { fetch_meta?: { state_unavailable?: unknown } }).fetch_meta?.state_unavailable;
+  return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : [];
+}
+
+/**
+ * Why this report must not be sold as complete: the transfer list or a state
+ * value it rests on could not be read. Undefined when every source answered.
+ */
+export function sourcesUnavailable(reportData: unknown): string | undefined {
+  const parts = [transfersUnavailable(reportData), ...stateUnavailable(reportData).map((k) => STATE_READ_UNAVAILABLE[k] ?? `The ${k} read failed.`)].filter(
+    (x): x is string => Boolean(x),
+  );
+  return parts.length ? parts.join(' ') : undefined;
 }
 
 export function buildCoverage(
@@ -94,16 +114,22 @@ export function buildCoverage(
   const raised = new Set(flags.map((f) => f.id));
   const latest = d.activity?.latest_transfer_at;
   const unread = transfersUnavailable(reportData);
+  const stateUnread = stateUnavailable(reportData);
   return {
     // Only the checks that ran on this chain — Base-only ones are not listed as
     // "not raised" off Base, because they were never evaluated.
     checks: riskChecksFor(chain, windowDays).map((c): ReportCoverageCheck => {
       const base = { id: c.id, title: c.title, looks_for: c.looks_for };
       if (unread && c.reads_transfers) return { ...base, raised: false, status: 'not_assessed', reason: unread };
+      const failedState = (c.reads_state ?? []).find((k) => stateUnread.includes(k));
+      if (failedState) {
+        return { ...base, raised: false, status: 'not_assessed', reason: STATE_READ_UNAVAILABLE[failedState] ?? `The ${failedState} read failed.` };
+      }
       return raised.has(c.id) ? { ...base, raised: true, status: 'raised' } : { ...base, raised: false, status: 'not_raised' };
     }),
     window: {
       ...(unread ? { transfers_unavailable: unread } : {}),
+      ...(stateUnread.length ? { state_unavailable: stateUnread } : {}),
       ...(windowDays !== undefined ? { days: windowDays } : {}),
       transfers_scanned,
       transfers_truncated: d.fetch_meta?.transfers_truncated === true,

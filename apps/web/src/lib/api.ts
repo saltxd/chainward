@@ -473,6 +473,8 @@ export interface RiskCoverage {
   window: {
     /** Every transfer source failed: the transfer figures are unknown, not zero. */
     transfers_unavailable?: string;
+    /** State reads (balance, nonce, code) that failed on every RPC; the checks that read them are not assessed. */
+    state_unavailable?: string[];
     /** Days the transfer scan covered; absent = the full 30-day horizon. */
     days?: number;
     transfers_scanned: number;

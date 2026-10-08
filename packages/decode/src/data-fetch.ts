@@ -111,7 +111,15 @@ export interface FetchedFixtures {
   sentinel_block?: { number: string; hash: string };
   /** Which RPC actually served the reads above (freshness-gated). */
   data_source: NodeDataSource;
+  /**
+   * State reads that failed on every RPC (throttled, timed out). Their fixture
+   * holds a placeholder, never a value: a throttled balanceOf is not a zero
+   * balance, and every check that reads it is not assessed.
+   */
+  state_unavailable?: StateRead[];
 }
+
+export type StateRead = 'code' | 'nonce' | 'eth_balance' | 'usdc_balance';
 
 /**
  * Minimal logger shape so this module stays free of any concrete logging
@@ -290,6 +298,16 @@ export async function fetchFixtures(
   const sentinel_eth_balance = settled(ethBalanceResult, { result: '0x0' }, log);
   const sentinel_usdc_balance = settled(usdcBalanceResult, { result: '0x0' }, log);
   const sentinel_block = settled(blockResult, undefined, log);
+  const state_unavailable = (
+    [
+      ['code', codeResult],
+      ['nonce', nonceResult],
+      ['eth_balance', ethBalanceResult],
+      ['usdc_balance', usdcBalanceResult],
+    ] as Array<[StateRead, PromiseSettledResult<unknown>]>
+  )
+    .filter(([, r]) => r.status === 'rejected')
+    .map(([name]) => name);
 
   const tokenAddress: string | null =
     acp_details?.data?.tokenAddress ?? acp_details?.tokenAddress ?? null;
@@ -316,6 +334,7 @@ export async function fetchFixtures(
     geckoterminal,
     sentinel_block,
     data_source,
+    ...(state_unavailable.length ? { state_unavailable } : {}),
   };
 }
 

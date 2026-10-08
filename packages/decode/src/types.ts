@@ -73,7 +73,8 @@ export interface QuickDecodeResultData {
   };
   balances: {
     eth: { wei: string; usd: number };
-    usdc: { amount: number; usd: number };
+    /** `read: false` means the balance call failed on every RPC and `amount` is a placeholder, not a reading. */
+    usdc: { amount: number; usd: number; read?: boolean };
     agent_token: { symbol: string; amount: number; usd: number } | null;
   };
   token_trading: {
@@ -109,6 +110,8 @@ export interface QuickDecodeResultData {
      * assessed. Public-safe text naming each source and how it failed (never a URL).
      */
     transfers_unavailable?: string;
+    /** State reads (balance, nonce, code) that failed on every RPC; the checks that read them are not assessed. */
+    state_unavailable?: string[];
     /**
      * How far back the transfer scan ACTUALLY looked, in days. Set when the
      * window is narrower than the 30-day activity horizon (public-RPC chains),

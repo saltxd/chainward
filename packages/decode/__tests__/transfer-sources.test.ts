@@ -86,6 +86,8 @@ interface Upstream {
   /** alchemy_getAssetTransfers answer. */
   alchemy: 'error' | 'ok' | 'ok_empty';
   blockscout: 403 | 200;
+  /** eth_call (the USDC balanceOf) answer: a value, or every RPC throttling it. */
+  usdc?: 'ok' | 'throttled';
 }
 
 /** Every upstream the fetch touches, scripted. Records which RPC methods each host saw. */
@@ -122,6 +124,11 @@ function upstreams(u: Upstream) {
     }
     // eth_getCode / eth_getTransactionCount / eth_getBalance / eth_call
     if (method === 'eth_getTransactionCount') return rpc('0x81'); // nonce 129
+    if (method === 'eth_call') {
+      if (u.usdc === 'throttled') return new Response('{"error":"rate limited"}', { status: 429 });
+      if (u.usdc === 'ok') return rpc('0x' + (5_451_386_272n).toString(16).padStart(64, '0')); // 5,451.386272 USDC
+      return rpc('0x0');
+    }
     return rpc('0x0');
   });
   return { impl, seen };
@@ -340,5 +347,40 @@ describe('mapAlchemyTransfers', () => {
     expect(res.items).toHaveLength(1);
     // 3,000 blocks behind the head at 2 s a block.
     expect(res.items[0]!.timestamp).toBe(new Date((headTs - 6000) * 1000).toISOString());
+  });
+});
+
+describe('state reads: a failed balance read is never reported as a zero balance', () => {
+  let originalFetch: typeof fetch;
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    _resetHeadCache();
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+    _resetHeadCache();
+  });
+
+  it('records the failed read, does not fire or pass the balance checks, and marks them not assessed', async () => {
+    const { impl } = upstreams({ logs: 'http_400', alchemy: 'ok_empty', blockscout: 403, usdc: 'throttled' });
+    global.fetch = impl as any;
+    const fx = await fetchFixtures(WALLET, { sentinelRpc: SENTINEL, fallbackRpc: PUBLIC_FALLBACK, alchemyRpc: ALCHEMY, fetchTimeoutMs: 2000 });
+    const { data, assessment } = await decode(fx);
+
+    expect(data.fetch_meta.state_unavailable).toEqual(['usdc_balance']);
+    // The wallet holds 5,451 USDC; a throttled read must not become "holds 0".
+    expect(data.balances.usdc.read).toBe(false);
+    expect(assessment.flags.map((f) => f.id)).not.toContain('stranded_value');
+    expect(assessment.not_assessed.join(' ')).toMatch(/USDC balance could not be read/);
+  });
+
+  it('with the balance read, the same wallet is dormant with stranded value', async () => {
+    const { impl } = upstreams({ logs: 'http_400', alchemy: 'ok_empty', blockscout: 403, usdc: 'ok' });
+    global.fetch = impl as any;
+    const fx = await fetchFixtures(WALLET, { sentinelRpc: SENTINEL, fallbackRpc: PUBLIC_FALLBACK, alchemyRpc: ALCHEMY, fetchTimeoutMs: 2000 });
+    const { data, assessment } = await decode(fx);
+    expect(data.fetch_meta.state_unavailable).toBeUndefined();
+    expect(data.balances.usdc.read).toBe(true);
+    expect(assessment.flags.map((f) => f.id)).toEqual(expect.arrayContaining(['dormant_wallet', 'stranded_value']));
   });
 });

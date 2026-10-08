@@ -73,12 +73,21 @@ const NOT_ASSESSED: readonly string[] = [
  * not checked, and the window line states the bounded log window that was
  * actually read instead of implying 30 days.
  */
+/** Public-safe line per failed state read, for `not_assessed` and coverage. */
+export const STATE_READ_UNAVAILABLE: Record<string, string> = {
+  usdc_balance: 'The USDC balance could not be read (every RPC refused or timed out), so stranded value was not assessed and the balance shown is a placeholder.',
+  code: 'The contract code could not be read, so the wallet architecture and the factory-clone check were not assessed.',
+  nonce: 'The transaction count could not be read, so sent-transaction counts are a placeholder.',
+  eth_balance: 'The ETH balance could not be read; the balance shown is a placeholder.',
+};
+
 export function notAssessedFor(chain: DecodeChain, fetchMeta: QuickDecodeResultData['fetch_meta']): string[] {
   // Every transfer source failed: recent activity was not read, so say so first.
   const unread = fetchMeta.transfers_unavailable
     ? [`Recent transfer activity, dormancy and counterparties: ${fetchMeta.transfers_unavailable}`]
     : [];
-  return [...unread, ...notAssessedForChain(chain, fetchMeta)];
+  const stateUnread = (fetchMeta.state_unavailable ?? []).map((k) => STATE_READ_UNAVAILABLE[k] ?? `The ${k} read failed on every RPC.`);
+  return [...unread, ...stateUnread, ...notAssessedForChain(chain, fetchMeta)];
 }
 
 function notAssessedForChain(chain: DecodeChain, fetchMeta: QuickDecodeResultData['fetch_meta']): string[] {
@@ -126,6 +135,11 @@ export interface RiskCheck {
    * assessed: it never fires, and coverage says why instead of "not raised".
    */
   reads_transfers?: true;
+  /**
+   * Reads a state value (balance, nonce, code). When that read failed on every
+   * RPC the check is not assessed: a throttled balanceOf is not a zero balance.
+   */
+  reads_state?: readonly ('code' | 'nonce' | 'eth_balance' | 'usdc_balance')[];
 }
 
 /**
@@ -152,12 +166,14 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     title: 'USDC balance held in a dormant wallet',
     looks_for: 'A USDC balance sitting in a wallet classified dormant',
     reads_transfers: true,
+    reads_state: ['usdc_balance'],
   },
   {
     id: 'factory_proxy_clone',
     title: 'Virtuals factory proxy clone',
     looks_for: 'Virtuals factory minimal-proxy bytecode (a clone, not bespoke code)',
     base_only: true,
+    reads_state: ['code'],
   },
   {
     id: 'counterparty_concentration',
@@ -334,6 +350,9 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   // transfer list (absence of activity, dormancy, concentration, truncation)
   // needs a successful read before it may fire; coverage marks them not assessed.
   const transfersRead = !data.fetch_meta.transfers_unavailable;
+  const stateUnread = new Set(data.fetch_meta.state_unavailable ?? []);
+  const usdcRead = !stateUnread.has('usdc_balance');
+  const codeRead = !stateUnread.has('code');
 
   // 1. claim_vs_chain_offline (medium) <- discrepancies[] entry field 'isOnline'
   const onlineDisc = findDiscrepancy(data.discrepancies, 'isOnline');
@@ -359,7 +378,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   }
 
   // 3. stranded_value (high) <- data.usdc_pattern === 'graveyard' (graveyard implies dormant)
-  if (data.usdc_pattern === 'graveyard' && !headStale && transfersRead) {
+  if (data.usdc_pattern === 'graveyard' && !headStale && transfersRead && usdcRead) {
     flags.push({
       id: 'stranded_value',
       severity: 'high',
@@ -370,7 +389,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   }
 
   // 4. factory_proxy_clone (info) <- data.wallet.is_virtuals_factory === true
-  if (baseSources && data.wallet.is_virtuals_factory === true) {
+  if (baseSources && codeRead && data.wallet.is_virtuals_factory === true) {
     flags.push({
       id: 'factory_proxy_clone',
       severity: 'info',

@@ -40,6 +40,8 @@ export interface QuickDecodeInput {
     };
     /** The transfer window actually scanned, when narrower than 30 days (rpc-fixtures). */
     window?: { days: number; requested_days?: number; from_block: number; to_block: number };
+    /** State reads that failed on every RPC (data-fetch): their fixture is a placeholder, not a value. */
+    state_unavailable?: string[];
   };
   // Optional spot prices for ETH and USDC, used to USD-quote balances.
   // Defaulting USDC to 1 is fine; ETH defaults to 0 and yields a $0 USD
@@ -81,6 +83,8 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
     nonce: parseInt(input.fixtures.sentinel_nonce.result, 16),
   });
 
+  const stateUnavailable = input.fixtures.state_unavailable ?? [];
+  const usdcRead = !stateUnavailable.includes('usdc_balance');
   const balances = computeBalances({
     ethBalanceWei: input.fixtures.sentinel_eth_balance?.result ?? '0x0',
     usdcRawBalance: input.fixtures.sentinel_usdc_balance?.result ?? '0x0',
@@ -88,6 +92,8 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
     usdcUsdPrice: input.usdcUsdPrice ?? 1,
     usdcDecimals: riskChainStablecoin(chain, 'USDC')?.decimals ?? 6,
   });
+  // A throttled balanceOf is not a zero balance: say so on the number itself.
+  balances.usdc = { ...balances.usdc, read: usdcRead };
 
   const transfers = input.fixtures.blockscout_transfers ?? { items: [] };
   const transferItems: any[] = Array.isArray(transfers.items) ? transfers.items : [];
@@ -102,6 +108,7 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
     transfers_truncated: transfers.truncated === true,
     ...(transfers.source ? { transfers_source: transfers.source } : {}),
     ...(unavailable ? { transfers_unavailable: unavailable } : {}),
+    ...(stateUnavailable.length ? { state_unavailable: stateUnavailable } : {}),
     // Record the RPC source only when the freshness-gated fetch provided it, so
     // legacy fixtures keep their exact two-key shape.
     ...(ds
@@ -133,13 +140,13 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
         transfers_7d: activity.transfers_7d,
         latest_transfer_age_hours: activity.latest_transfer_age_hours,
         window_days: fetch_meta.window_days ?? 30,
-        holds_value: balances.usdc.amount > 0,
+        holds_value: usdcRead && balances.usdc.amount > 0,
       });
 
-  const usdc_pattern = classifyUsdcPattern({
-    classification: survival.classification,
-    usdc_balance: balances.usdc.amount,
-  });
+  // Without a balance reading the pattern is unknown: nothing downstream may call it a graveyard or running.
+  const usdc_pattern = usdcRead
+    ? classifyUsdcPattern({ classification: survival.classification, usdc_balance: balances.usdc.amount })
+    : 'unknown';
 
   const claims = {
     agdp: acp.grossAgenticAmount ?? null,
