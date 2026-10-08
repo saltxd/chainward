@@ -10,7 +10,9 @@
  *      which the API must validate on Base. This is the case that was broken until
  *      7f69abc: siwe's verify() without a provider only accepted EOAs.
  * After each sign-in: the session shows the wallet, an API key is created, used as
- * Bearer auth, revoked, and refused afterwards. A tampered message must be refused.
+ * Bearer auth, revoked, and refused afterwards. The EOA then does what an agent
+ * developer does: registers a wallet, reads it, sets an alert on it (lowercase
+ * spelling), deletes both. A tampered message must be refused.
  * Exit code 1 on any failure.
  *
  * Both signers derive from one fixed, publicly known key so the smoke leaves a
@@ -86,6 +88,55 @@ async function dashboard(label: string, cookie: string, address: string): Promis
   return ok;
 }
 
+// A wallet with real Base activity, spelled lowercase the way SDK and CLI users
+// type it (the API stores it checksummed; alerts must still match it).
+const WATCHED_WALLET = '0x42a09a72ec47647fe9be1f450ab8f835d0ff556a';
+
+/** What an agent developer does: register a wallet, read it, set an alert, clean up. */
+async function developerFlow(label: string, cookie: string): Promise<boolean> {
+  const H = { cookie, 'content-type': 'application/json' };
+  const check = (pass: boolean, what: string): boolean => {
+    console.log(`${pass ? 'OK  ' : 'FAIL'} ${label} ${what}`);
+    return pass;
+  };
+  const registered = await fetch(`${API_URL}/api/agents`, {
+    method: 'POST',
+    headers: H,
+    body: JSON.stringify({ chain: 'base', walletAddress: WATCHED_WALLET, agentName: 'login-smoke agent' }),
+  });
+  const agent = ((await registered.json()) as { data?: { id: number } }).data;
+  let ok = check(registered.status === 201 && Boolean(agent?.id), `agent registered: HTTP ${registered.status}`);
+  if (!agent) return false;
+
+  const got = await fetch(`${API_URL}/api/agents/${agent.id}`, { headers: H });
+  ok = check(got.status === 200, `agent read back: HTTP ${got.status}`) && ok;
+  const txs = await fetch(`${API_URL}/api/transactions?agentId=${agent.id}&limit=3`, { headers: H });
+  ok = check(txs.status === 200, `transactions listed: HTTP ${txs.status}`) && ok;
+
+  const alertRes = await fetch(`${API_URL}/api/alerts`, {
+    method: 'POST',
+    headers: H,
+    body: JSON.stringify({
+      walletAddress: WATCHED_WALLET,
+      chain: 'base',
+      alertType: 'large_transfer',
+      thresholdValue: '100',
+      thresholdUnit: 'usd',
+      channels: ['webhook'],
+      webhookUrl: 'https://example.com/chainward-smoke',
+    }),
+  });
+  const alert = ((await alertRes.json()) as { data?: { id: number } }).data;
+  ok = check(alertRes.status === 201 && Boolean(alert?.id), `alert created for the lowercase wallet: HTTP ${alertRes.status}`) && ok;
+  if (alert?.id) {
+    const removed = await fetch(`${API_URL}/api/alerts/${alert.id}`, { method: 'DELETE', headers: { cookie } });
+    ok = check(removed.status === 200, `alert deleted: HTTP ${removed.status}`) && ok;
+  }
+  const gone = await fetch(`${API_URL}/api/agents/${agent.id}`, { method: 'DELETE', headers: { cookie } });
+  ok = check(gone.status === 200, `agent deleted: HTTP ${gone.status}`) && ok;
+  return ok;
+}
+
 function siweMessage(address: string, n: string): string {
   return new SiweMessage({
     domain: DOMAIN,
@@ -107,6 +158,7 @@ async function signIn(signer: Signer): Promise<boolean> {
   console.log(`${pass ? 'OK  ' : 'FAIL'} ${signer.label} sign-in: HTTP ${ok.status}, session cookie ${ok.cookie !== null}${pass ? '' : ` ${ok.body}`}`);
   if (!pass || ok.cookie === null) return false;
   if (!(await dashboard(signer.label, ok.cookie, signer.address))) return false;
+  if (signer.label === 'EOA' && !(await developerFlow(signer.label, ok.cookie))) return false;
 
   // Same signature over a message with a different nonce must be refused.
   const tampered = await verify(siweMessage(signer.address, await nonce()), signature);
