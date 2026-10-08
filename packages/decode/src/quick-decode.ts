@@ -132,6 +132,8 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
     : classifySurvival({
         transfers_7d: activity.transfers_7d,
         latest_transfer_age_hours: activity.latest_transfer_age_hours,
+        window_days: fetch_meta.window_days ?? 30,
+        holds_value: balances.usdc.amount > 0,
       });
 
   const usdc_pattern = classifyUsdcPattern({

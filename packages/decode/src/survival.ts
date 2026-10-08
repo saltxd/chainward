@@ -3,6 +3,10 @@ import type { SurvivalClassification } from './types.js';
 export interface SurvivalInput {
   transfers_7d: number;
   latest_transfer_age_hours: number | null;
+  /** Days of transfers the decode read (30 by default). */
+  window_days?: number;
+  /** The wallet holds USDC: that balance is history even if no transfer falls in the window. */
+  holds_value?: boolean;
 }
 
 export interface SurvivalResult {
@@ -20,6 +24,15 @@ export function classifySurvival(input: SurvivalInput): SurvivalResult {
   const { transfers_7d, latest_transfer_age_hours: age } = input;
 
   if (age === null) {
+    // Transfers are read for a window, not for life. A balance from before the
+    // window is history too: the wallet is dormant, not unknown. Dormant means
+    // more than 7 days of silence, so a window shorter than that cannot show it.
+    if (input.holds_value && (input.window_days ?? 30) >= 7) {
+      return {
+        classification: 'dormant',
+        rationale: `no transfers in the last ${input.window_days ?? 30} days; holds a balance from before the window`,
+      };
+    }
     return {
       classification: 'unknown',
       rationale: 'no ERC-20 transfers found; wallet may be ETH-only or never used as agent',

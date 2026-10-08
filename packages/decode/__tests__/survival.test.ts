@@ -23,6 +23,24 @@ describe('classifySurvival', () => {
     expect(r.rationale).toBeTruthy();
   });
 
+  it('classifies a wallet with no transfer in the window but a stablecoin balance as dormant, not unknown', () => {
+    // Transfers are read for a 30-day window. A wallet that received USDC before
+    // that and has not moved since still has history: its balance proves it.
+    const r = classifySurvival({ transfers_7d: 0, latest_transfer_age_hours: null, window_days: 30, holds_value: true });
+    expect(r.classification).toBe('dormant');
+    expect(r.rationale).toBe('no transfers in the last 30 days; holds a balance from before the window');
+  });
+
+  it('cannot call a wallet dormant from a window shorter than 7 days, balance or not', () => {
+    const r = classifySurvival({ transfers_7d: 0, latest_transfer_age_hours: null, window_days: 4.6, holds_value: true });
+    expect(r.classification).toBe('unknown');
+  });
+
+  it('classifies a wallet with no transfer in the window and nothing held as unknown', () => {
+    const r = classifySurvival({ transfers_7d: 0, latest_transfer_age_hours: null, window_days: 30, holds_value: false });
+    expect(r.classification).toBe('unknown');
+  });
+
   it('classifies ETH-only EOA (null age) as unknown', () => {
     const r = classifySurvival({ transfers_7d: 0, latest_transfer_age_hours: null });
     expect(r.classification).toBe('unknown');

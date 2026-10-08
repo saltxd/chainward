@@ -364,7 +364,7 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
       id: 'stranded_value',
       severity: 'high',
       title: CHECK_TITLE.stranded_value,
-      evidence: `Holds ${data.balances.usdc.amount} USDC while classified dormant (no transfers in the 7-day window).`,
+      evidence: `Holds ${data.balances.usdc.amount} USDC while classified dormant (${data.survival.rationale}).`,
       source,
     });
   }

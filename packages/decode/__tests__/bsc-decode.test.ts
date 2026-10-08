@@ -101,8 +101,18 @@ describe('deriveRiskFlags on bsc', () => {
     expect(ids).not.toContain('cluster_collapsed');
   });
 
-  it('raises inactive_no_history with the real window and a BscScan citation when nothing moved', () => {
+  it('calls a wallet holding USDC with nothing moved in 14 days dormant with stranded value, citing BscScan', () => {
     const { data } = computeQuickDecodeData(bscInput());
+    const r = deriveRiskFlags(data);
+    const ids = r.flags.map((f) => f.id);
+    expect(ids).toContain('dormant_wallet');
+    expect(ids).toContain('stranded_value');
+    expect(ids).not.toContain('inactive_no_history');
+    expect(r.flags.find((f) => f.id === 'stranded_value')!.source).toBe(`https://bscscan.com/address/${WALLET}`);
+  });
+
+  it('raises inactive_no_history with the real window and a BscScan citation when nothing moved and nothing is held', () => {
+    const { data } = computeQuickDecodeData(bscInput({ sentinel_usdc_balance: { result: '0x0' } }));
     const r = deriveRiskFlags(data);
     const flag = r.flags.find((f) => f.id === 'inactive_no_history');
     expect(flag).toBeDefined();
