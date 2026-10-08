@@ -37,6 +37,7 @@ auth.post('/verify', rateLimit({ max: 5, windowSec: 60, prefix: 'rl:auth-verify'
   if (!verified.ok) {
     if (verified.reason === 'invalid_message') return c.json({ error: 'Invalid SIWE message' }, 400);
     if (verified.reason === 'invalid_signature') return c.json({ error: 'Invalid signature' }, 401);
+    if (verified.reason === 'wrong_chain') return c.json({ error: 'Sign in on Base (chain 8453)' }, 401);
     return c.json({ error: 'Message expired or not yet valid' }, 401);
   }
   const siweMessage = verified.message;

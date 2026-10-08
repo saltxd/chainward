@@ -72,6 +72,15 @@ describe('verifySiwe', () => {
     expect(result).toEqual({ ok: false, reason: 'not_yet_valid' });
   });
 
+  it('rejects a message signed for another chain, since the check runs on Base', async () => {
+    const onChain = vi.fn(async () => true);
+    const message = siwe({ chainId: 1 });
+    const signature = await account.signMessage({ message });
+    const result = await verifySiwe(message, signature, onChain);
+    expect(result).toEqual({ ok: false, reason: 'wrong_chain' });
+    expect(onChain).not.toHaveBeenCalled();
+  });
+
   it('rejects a message that does not parse', async () => {
     const result = await verifySiwe('not a siwe message', CONTRACT_SIGNATURE, async () => true);
     expect(result).toEqual({ ok: false, reason: 'invalid_message' });

@@ -29,9 +29,12 @@ export async function fetchSession(): Promise<SessionData> {
   return data;
 }
 
+/** Sign-in is to ChainWard on Base: the API checks smart-account signatures on Base and refuses other chains. */
+const SIGN_IN_CHAIN_ID = 8453;
+
 export async function siweSignIn(
   address: string,
-  chainId: number,
+  _connectedChainId: number,
   signMessageAsync: (args: { message: string }) => Promise<string>,
 ): Promise<{ user: User }> {
   // 1. Fetch nonce
@@ -45,7 +48,7 @@ export async function siweSignIn(
     statement: 'Sign in to ChainWard',
     uri: window.location.origin,
     version: '1',
-    chainId,
+    chainId: SIGN_IN_CHAIN_ID,
     nonce,
   });
   const messageStr = message.prepareMessage();

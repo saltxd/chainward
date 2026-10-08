@@ -1,5 +1,6 @@
 import { SiweMessage } from 'siwe';
 import { isAddressEqual, recoverMessageAddress, type Address, type Hex } from 'viem';
+import { base } from 'viem/chains';
 import { getBaseClient } from './viem.js';
 import { logger } from './logger.js';
 
@@ -14,7 +15,7 @@ export type OnChainSignatureCheck = (args: { address: Address; message: string; 
 
 export type SiweVerifyResult =
   | { ok: true; message: SiweMessage }
-  | { ok: false; reason: 'invalid_message' | 'expired' | 'not_yet_valid' | 'invalid_signature' };
+  | { ok: false; reason: 'invalid_message' | 'wrong_chain' | 'expired' | 'not_yet_valid' | 'invalid_signature' };
 
 /** viem's verifyMessage on the Base client: a deployless call to the universal signature validator. */
 const baseOnChainCheck: OnChainSignatureCheck = ({ address, message, signature }) =>
@@ -31,6 +32,10 @@ export async function verifySiwe(
   } catch {
     return { ok: false, reason: 'invalid_message' };
   }
+
+  // The smart-account check runs on Base, so the message must be for Base: a
+  // message signed for another chain would be validated against the wrong state.
+  if (message.chainId !== base.id) return { ok: false, reason: 'wrong_chain' };
 
   const now = Date.now();
   if (message.expirationTime && Date.parse(message.expirationTime) <= now) return { ok: false, reason: 'expired' };
