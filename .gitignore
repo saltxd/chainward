@@ -118,3 +118,10 @@ deliverables/bankr-staking-who-earns/publish-checklist.md
 
 # TermiX agent skill package + docs, downloaded for reference (docs/termix-provider.md)
 .termix-skill/
+
+# Set and Earn week-one-closed follow-up decode: wallet-level research stays local
+deliverables/set-and-earn-week-one-closed/research.md
+deliverables/set-and-earn-week-one-closed/scripts/
+deliverables/set-and-earn-week-one-closed/data/
+deliverables/set-and-earn-week-one-closed/publish-checklist.md
+deliverables/set-and-earn-week-one-closed/verification.md

@@ -1,6 +1,38 @@
 {
   "decodes": [
     {
+      "slug": "set-and-earn-week-one-closed",
+      "title": "Set and Earn's First Full Week: 20 Agents Clear Our Hire Check, 16 of Them in One Ring",
+      "subtitle": "BNB Chain's Set and Earn, first full week: 4,752 new ERC-8004 agents, 10,734 hires, 7 wallets hiring on 2+ marketplaces and a 48-wallet ring's fourth full round.",
+      "date": "2026-10-08",
+      "url": "https://chainward.ai/decodes/set-and-earn-week-one-closed",
+      "addresses": [
+        "0xfb0ce70ad5bcce56567ee66bd11955ec10ba9741",
+        "0x8894e0a0c962cb723c1976a4421c95949be2d4e3",
+        "0xe2fc31f816a9b94326492132018c3aecc4a93ae1",
+        "0x4a9f36116e113be9ce74a30bcdedfe1aba425b4d",
+        "0xeb99d951ba80ed8dade4c32f5d96e494e45c41d2",
+        "0x505098f5077c3addb518864454738306a0209b1c",
+        "0x94e6927eaf8e96e046103281958ea8a85088656a",
+        "0x5f68f040ce9c7e4980b3a4d3a5dde17ea9db9fb6",
+        "0x26c6be753ae99d6982aa06ae40c325dfe65e9edf",
+        "0x0d8c9ad8eebb6879fefa218f0799219bcaabe999",
+        "0xbfaa69233741924ed5b9d5daa9b4bf7b84567f0a",
+        "0x494ae5cf2729e662cc05dbd63d2107d707fd00de",
+        "0x0b306a358aef8c391779bcc62a8253aabf524993",
+        "0x37fc1f942085c2ef2be4f6c0b6b9aba426d7bd68",
+        "0x805600c2297e15ae9fa1f472a355182a23de06d4",
+        "0x785d52874b0273144bff467bfffacd2791370d81",
+        "0x342b8e9277ea1a6b53b3a6f4560c04bf05ae8f21",
+        "0x677a5904e712537d3aa93c4c8c1b498bf4d0e3cb",
+        "0xc5e62c8a854d2df11a17a59429d3bd4a9c5414d9",
+        "0x60ef148485c2a5119fa52ca13c52e9fd98f28e87",
+        "0x8eb372d863949d2464213dc96a5f39cae34310a1",
+        "0x538f021dc158c57ceb12b8a9ce4ecd1f9d1e10d2",
+        "0x26e7bb5a54f4f00a5a5fd11444bbc024e60018f4"
+      ]
+    },
+    {
       "slug": "bankr-staking-who-earns",
       "title": "Bankr Staking: Who Earns the $100K",
       "subtitle": "Bankr funded 246M BNKR ($99.8K) of staking rewards. Its 2/3 fee Safe is the largest staker and earns about 13% of them.",
@@ -490,6 +522,83 @@
     }
   ],
   "byAddress": {
+    "0xfb0ce70ad5bcce56567ee66bd11955ec10ba9741": [
+      "set-and-earn-week-one-closed",
+      "bsc-erc8004-registry"
+    ],
+    "0x8894e0a0c962cb723c1976a4421c95949be2d4e3": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0xe2fc31f816a9b94326492132018c3aecc4a93ae1": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x4a9f36116e113be9ce74a30bcdedfe1aba425b4d": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0xeb99d951ba80ed8dade4c32f5d96e494e45c41d2": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x505098f5077c3addb518864454738306a0209b1c": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x94e6927eaf8e96e046103281958ea8a85088656a": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x5f68f040ce9c7e4980b3a4d3a5dde17ea9db9fb6": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x26c6be753ae99d6982aa06ae40c325dfe65e9edf": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x0d8c9ad8eebb6879fefa218f0799219bcaabe999": [
+      "set-and-earn-week-one-closed",
+      "set-and-earn-week-one"
+    ],
+    "0xbfaa69233741924ed5b9d5daa9b4bf7b84567f0a": [
+      "set-and-earn-week-one-closed",
+      "set-and-earn-week-one"
+    ],
+    "0x494ae5cf2729e662cc05dbd63d2107d707fd00de": [
+      "set-and-earn-week-one-closed",
+      "set-and-earn-week-one"
+    ],
+    "0x0b306a358aef8c391779bcc62a8253aabf524993": [
+      "set-and-earn-week-one-closed",
+      "set-and-earn-week-one"
+    ],
+    "0x37fc1f942085c2ef2be4f6c0b6b9aba426d7bd68": [
+      "set-and-earn-week-one-closed",
+      "set-and-earn-week-one"
+    ],
+    "0x805600c2297e15ae9fa1f472a355182a23de06d4": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x785d52874b0273144bff467bfffacd2791370d81": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x342b8e9277ea1a6b53b3a6f4560c04bf05ae8f21": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x677a5904e712537d3aa93c4c8c1b498bf4d0e3cb": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0xc5e62c8a854d2df11a17a59429d3bd4a9c5414d9": [
+      "set-and-earn-week-one-closed",
+      "set-and-earn-week-one"
+    ],
+    "0x60ef148485c2a5119fa52ca13c52e9fd98f28e87": [
+      "set-and-earn-week-one-closed",
+      "set-and-earn-week-one"
+    ],
+    "0x8eb372d863949d2464213dc96a5f39cae34310a1": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x538f021dc158c57ceb12b8a9ce4ecd1f9d1e10d2": [
+      "set-and-earn-week-one-closed"
+    ],
+    "0x26e7bb5a54f4f00a5a5fd11444bbc024e60018f4": [
+      "set-and-earn-week-one-closed"
+    ],
     "0x88470240ff0663faefa68b1d7621b472ddd9584a": [
       "bankr-staking-who-earns"
     ],
@@ -537,9 +646,6 @@
     "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432": [
       "bsc-erc8004-registry",
       "set-and-earn-week-one"
-    ],
-    "0xfb0ce70ad5bcce56567ee66bd11955ec10ba9741": [
-      "bsc-erc8004-registry"
     ],
     "0x9708738b65a866def24973f5d916dd8a8816208b": [
       "bsc-erc8004-registry",
@@ -793,9 +899,6 @@
     "0x236d70b9beb20230c3a341754681e8129ab11c2f": [
       "set-and-earn-week-one"
     ],
-    "0xc5e62c8a854d2df11a17a59429d3bd4a9c5414d9": [
-      "set-and-earn-week-one"
-    ],
     "0x329fddb153de52e956992f037cae246bac6358dc": [
       "set-and-earn-week-one"
     ],
@@ -817,9 +920,6 @@
     "0xe47ccc6801812f65c731c6dde004801770df82ca": [
       "set-and-earn-week-one"
     ],
-    "0x60ef148485c2a5119fa52ca13c52e9fd98f28e87": [
-      "set-and-earn-week-one"
-    ],
     "0xaa25aa7a19f9c426e07dee59b12f944f4d9f1dd3": [
       "set-and-earn-week-one"
     ],
@@ -827,9 +927,6 @@
       "set-and-earn-week-one"
     ],
     "0x27fcfcd74f7379733123ffd862c4596e85eaad8b": [
-      "set-and-earn-week-one"
-    ],
-    "0x494ae5cf2729e662cc05dbd63d2107d707fd00de": [
       "set-and-earn-week-one"
     ],
     "0xdf1074a272c53a1a10b96fa0201eb58bbbaafe00": [
@@ -859,16 +956,10 @@
     "0x73809f69916fcf7ddc5bb1315fbdf96a569a5963": [
       "set-and-earn-week-one"
     ],
-    "0xbfaa69233741924ed5b9d5daa9b4bf7b84567f0a": [
-      "set-and-earn-week-one"
-    ],
     "0xeec49d097c1306da51ca42d8ac8762a53fc0feb4": [
       "set-and-earn-week-one"
     ],
     "0x581d903814f4f2479177e7664d92043922149f0f": [
-      "set-and-earn-week-one"
-    ],
-    "0x0d8c9ad8eebb6879fefa218f0799219bcaabe999": [
       "set-and-earn-week-one"
     ],
     "0x99186e9a933fd83c0813d7ee694464ca55aeb7f9": [
@@ -878,12 +969,6 @@
       "set-and-earn-week-one"
     ],
     "0x161ba15a5f335c9f06bb5bbb0a9ce14076fbb645": [
-      "set-and-earn-week-one"
-    ],
-    "0x0b306a358aef8c391779bcc62a8253aabf524993": [
-      "set-and-earn-week-one"
-    ],
-    "0x37fc1f942085c2ef2be4f6c0b6b9aba426d7bd68": [
       "set-and-earn-week-one"
     ],
     "0x9eb7814904de8a594779d1c57b836036941ed45e": [
