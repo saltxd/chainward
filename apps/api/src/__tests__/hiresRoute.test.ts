@@ -145,6 +145,19 @@ describe('GET /api/risk/hires', () => {
     expect(redis.set).not.toHaveBeenCalled();
   });
 
+  it('answers 503 SOURCES_UNAVAILABLE, not 500, when Alchemy is still throttling after retries', async () => {
+    vi.stubEnv('SELLER_DEMAND_RPC_URL', ALCHEMY_BASE);
+    vi.stubEnv('SELLER_DEMAND_BSC_RPC_URL', '');
+    fetchMock.mockImplementation(async () => headResponse());
+    runHireCheck.mockRejectedValue(new Error('transfer source throttled'));
+    const res = await app().request('/api/risk/hires?agent=332962&chain=bsc');
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as ErrorBody;
+    expect(body.error.code).toBe('SOURCES_UNAVAILABLE');
+    expect(body.error.message).toMatch(/not charged/);
+    expect(redis.set).not.toHaveBeenCalled();
+  });
+
   it('runs the check on the BNB Alchemy URL and caches the report for an hour', async () => {
     vi.stubEnv('SELLER_DEMAND_RPC_URL', ALCHEMY_BASE);
     vi.stubEnv('SELLER_DEMAND_BSC_RPC_URL', '');

@@ -858,6 +858,14 @@ export async function rpcHead(rpcUrl: string): Promise<bigint> {
 // The Alchemy RPC for a chain's seller check; shared with the indexer's boards.
 export { sellerDemandRpcUrl };
 
+/** The transfer index refused every retry: the check could not read its sources. Nobody is charged. */
+function isSourceThrottled(err: unknown): boolean {
+  return err instanceof Error && /transfer source throttled|throttl/i.test(err.message);
+}
+
+const SOURCES_THROTTLED = () =>
+  new AppError(503, 'SOURCES_UNAVAILABLE', 'The on-chain sources this check reads are rate-limited right now, so no report was built. You were not charged; retry in a minute.');
+
 /** Alchemy answers this when the network isn't switched on for the app in its dashboard. */
 export function isAlchemyNetworkDisabled(err: unknown): boolean {
   return err instanceof Error && /is not enabled for this app/i.test(err.message);
@@ -892,6 +900,10 @@ async function sellerDemandCheck(c: Context) {
     if (isAlchemyNetworkDisabled(err)) {
       logger.warn({ err, chain }, 'seller check: Alchemy network not enabled for this app');
       throw new AppError(503, 'UNAVAILABLE', `Seller check is not available on ${chain} yet`);
+    }
+    if (isSourceThrottled(err)) {
+      logger.warn({ chain }, 'seller check: transfer source throttled, answered 503');
+      throw SOURCES_THROTTLED();
     }
     throw err;
   } finally {
@@ -938,6 +950,10 @@ async function hiresCheck(c: Context) {
     if (isAlchemyNetworkDisabled(err)) {
       logger.warn({ err }, 'hire check: Alchemy BNB network not enabled for this app');
       throw new AppError(503, 'UNAVAILABLE', 'Hire check is not available on bsc yet');
+    }
+    if (isSourceThrottled(err)) {
+      logger.warn('hire check: transfer source throttled, answered 503');
+      throw SOURCES_THROTTLED();
     }
     throw err;
   } finally {
