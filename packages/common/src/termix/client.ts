@@ -204,6 +204,10 @@ export class TermixClient {
   publishListing(listingId: string) {
     return this.request<{ id: string; status?: string }>('POST', `/api/v1/listings/${encodeURIComponent(listingId)}/publish`, { body: {} });
   }
+  /** Change a listing's text, price or tags in place; the listing keeps its id, status and history. */
+  updateListing(listingId: string, body: object) {
+    return this.request<{ id: string; status?: string }>('PATCH', `/api/v1/listings/${encodeURIComponent(listingId)}`, { body });
+  }
 
   // ── orders (provider side) ────────────────────────────────────────────────
 

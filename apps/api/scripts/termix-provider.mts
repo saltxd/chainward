@@ -4,7 +4,8 @@
  *   TERMIX_PROVIDER_PRIVATE_KEY=0x… pnpm --filter @chainward/api exec tsx scripts/termix-provider.mts            # dry run (default)
  *   TERMIX_PROVIDER_PRIVATE_KEY=0x… pnpm --filter @chainward/api exec tsx scripts/termix-provider.mts --send     # do it
  *
- * Options: --price <USDT> (default 0.25), --mint-handle (also mint a NEW agent to claim the .agent handle; not recommended).
+ * Options: --price <USDT> (default 0.25), --mint-handle (also mint a NEW agent to claim the .agent handle; not recommended),
+ *          --update (PATCH the existing listing's title, description, tags and price to match HIRE_CHECK_LISTING).
  * TREASURY_PRIVATE_KEY is read if TERMIX_PROVIDER_PRIVATE_KEY is unset. The key must own ERC-8004 agent 365669.
  *
  * Steps (docs/termix-provider.md):
@@ -165,8 +166,18 @@ const existing = termixItems<{ id: string; title?: string; skillTag?: string; st
 ).find((l) => l.skillTag === body.skillTag || l.title === body.title);
 const fee = (Number(price) * usdt.protocolFeeBps) / 10_000;
 say(`  "${body.title}" at ${price} ${body.currency}: TermiX keeps ${fee.toFixed(4)}, we receive ${(Number(price) - fee).toFixed(4)} ${body.currency} per settled order.`);
-if (existing) {
-  say(`  Already listed: ${existing.id} (${existing.status ?? '?'}, ${existing.basePrice ?? '?'} ${existing.currency ?? ''}). Nothing to post.`);
+const update = args.includes('--update');
+if (existing && update) {
+  const patch = { title: body.title, description: body.description, tags: body.tags, basePrice: body.basePrice };
+  if (!send) {
+    say(`  Would PATCH /api/v1/listings/${existing.id} (off-chain, 0 gas) with title, description, tags, basePrice:`);
+    say(JSON.stringify(patch, null, 2).replace(/^/gm, '    '));
+  } else {
+    const updated = await api.updateListing(existing.id, patch);
+    say(`  updated ${updated.id} (${updated.status ?? '?'}): "${body.title}"`);
+  }
+} else if (existing) {
+  say(`  Already listed: ${existing.id} (${existing.status ?? '?'}, ${existing.basePrice ?? '?'} ${existing.currency ?? ''}). Nothing to post; --update rewrites it.`);
 } else if (!send) {
   say(`  Would POST /api/v1/agents/${storefront.id}/services, then POST /api/v1/listings/<id>/publish. Off-chain, 0 gas. Body:`);
   say(JSON.stringify(body, null, 2).replace(/^/gm, '    '));

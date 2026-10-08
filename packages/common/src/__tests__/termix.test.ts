@@ -125,6 +125,20 @@ describe('TermixClient', () => {
     expect(calls[0]!.auth).toBeNull();
   });
 
+  it('updates a listing in place with PATCH /api/v1/listings/:id, as the session', async () => {
+    const { calls, fetchFn } = fakeBackend({
+      ...loginRoutes(),
+      'PATCH /api/v1/listings/lst1': (call) => ({ body: { id: 'lst1', status: 'PUBLISHED', ...(call.body as object) } }),
+    });
+    const client = new TermixClient({ baseUrl: TERMIX_API_BASE.bsc, signer, fetch: fetchFn });
+    const updated = await client.updateListing('lst1', { title: 'New title', description: 'New description' });
+    expect(updated).toMatchObject({ id: 'lst1', title: 'New title' });
+    const patch = calls.find((c) => c.method === 'PATCH')!;
+    expect(patch.path).toBe('/api/v1/listings/lst1');
+    expect(patch.auth).toBe('Bearer access-1');
+    expect(patch.body).toEqual({ title: 'New title', description: 'New description' });
+  });
+
   it('refuses a session call without a signer instead of sending it unauthenticated', async () => {
     const { calls, fetchFn } = fakeBackend({});
     const client = new TermixClient({ baseUrl: TERMIX_API_BASE.bsc, fetch: fetchFn });
@@ -212,7 +226,7 @@ describe('checkProviderIntent', () => {
 describe('HIRE_CHECK_LISTING', () => {
   it('is a valid create-listing body for the strict schema', () => {
     expect(HIRE_CHECK_LISTING).toMatchObject({
-      title: 'Set and Earn hire check',
+      title: 'Set and Earn hire check: will your agent pass?',
       category: 'Security & Verification',
       currency: 'USDT',
       instantBuyable: true,
@@ -224,11 +238,11 @@ describe('HIRE_CHECK_LISTING', () => {
     expect(HIRE_CHECK_LISTING.challengeWindowHours).toBeGreaterThanOrEqual(24);
   });
 
-  it('says what the deliverable is and is never a safety verdict', () => {
+  it('says what the deliverable is: a verdict, its reason, the report, the limits', () => {
     const d = HIRE_CHECK_LISTING.description;
     expect(d).toMatch(/JSON report/);
     expect(d).toMatch(/summary/);
-    expect(d).toMatch(/Not a safety verdict/);
+    expect(d).toMatch(/Hired by others, Hired by its own circle, or Not enough data/);
     expect(d).toMatch(/not proven independence/);
   });
 
