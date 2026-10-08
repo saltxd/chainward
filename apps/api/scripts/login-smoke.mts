@@ -110,8 +110,17 @@ async function developerFlow(label: string, cookie: string): Promise<boolean> {
 
   const got = await fetch(`${API_URL}/api/agents/${agent.id}`, { headers: H });
   ok = check(got.status === 200, `agent read back: HTTP ${got.status}`) && ok;
-  const txs = await fetch(`${API_URL}/api/transactions?agentId=${agent.id}&limit=3`, { headers: H });
-  ok = check(txs.status === 200, `transactions listed: HTTP ${txs.status}`) && ok;
+  // The indexer backfills 30 days of history on registration (Alchemy transfer
+  // index). It failed silently for months (HTTP 413 on every RPC), so wait for it.
+  let total = 0;
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const txs = await fetch(`${API_URL}/api/transactions?agentId=${agent.id}&limit=1`, { headers: H });
+    total = ((await txs.json()) as { pagination?: { total?: number } }).pagination?.total ?? 0;
+    if (total > 0) break;
+    await new Promise((r) => setTimeout(r, 5_000));
+  }
+  ok = check(total > 0, `history backfilled after registration: ${total} transactions`) && ok;
 
   const alertRes = await fetch(`${API_URL}/api/alerts`, {
     method: 'POST',

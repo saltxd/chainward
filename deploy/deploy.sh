@@ -295,10 +295,11 @@ if ! $DRY_RUN; then
   fi
 
   # Sign-in the way real users do: an EOA and an undeployed Coinbase Smart
-  # Wallet (ERC-6492), tampered messages refused. Smart-wallet login was broken
-  # for months without anything noticing; this keeps it honest after every
-  # api rollout. SKIP_LOGIN_SMOKE=1 to skip.
-  if [[ " ${SERVICES[*]} " == *" api "* ]] && [[ -z "${SKIP_LOGIN_SMOKE:-}" ]]; then
+  # Wallet (ERC-6492), tampered messages refused, a registered agent gets its
+  # history backfilled. Smart-wallet login and the backfill were broken for
+  # months without anything noticing; this keeps both honest after every api
+  # or indexer rollout. SKIP_LOGIN_SMOKE=1 to skip.
+  if [[ " ${SERVICES[*]} " == *" api "* || " ${SERVICES[*]} " == *" indexer "* ]] && [[ -z "${SKIP_LOGIN_SMOKE:-}" ]]; then
     echo ""
     echo "--- Login smoke (apps/api/scripts/login-smoke.mts) ---"
     if (cd "$REPO_ROOT/apps/api" && npx tsx scripts/login-smoke.mts 2>&1 | grep -v -i deprecation | sed 's/^/  /'); then
