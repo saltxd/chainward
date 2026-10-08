@@ -9,7 +9,9 @@
  *   2. an undeployed Coinbase Smart Wallet (ERC-6492 wrapped ERC-1271 signature),
  *      which the API must validate on Base. This is the case that was broken until
  *      7f69abc: siwe's verify() without a provider only accepted EOAs.
- * A tampered message must be refused. Exit code 1 on any failure.
+ * After each sign-in: the session shows the wallet, an API key is created, used as
+ * Bearer auth, revoked, and refused afterwards. A tampered message must be refused.
+ * Exit code 1 on any failure.
  *
  * Both signers derive from one fixed, publicly known key so the smoke leaves a
  * single pair of empty user rows instead of a new one per run. Nothing of value
@@ -40,13 +42,48 @@ async function nonce(): Promise<string> {
   return body.nonce;
 }
 
-async function verify(message: string, signature: string): Promise<{ status: number; cookie: boolean; body: string }> {
+async function verify(message: string, signature: string): Promise<{ status: number; cookie: string | null; body: string }> {
   const res = await fetch(`${API_URL}/api/auth/verify`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ message, signature }),
   });
-  return { status: res.status, cookie: /chainward-session=/.test(res.headers.get('set-cookie') ?? ''), body: (await res.text()).slice(0, 160) };
+  const cookie = (res.headers.get('set-cookie') ?? '').match(/chainward-session=[^;]+/)?.[0] ?? null;
+  return { status: res.status, cookie, body: (await res.text()).slice(0, 160) };
+}
+
+/** What a signed-in user does next: session, API key, a Bearer call, revoke. */
+async function dashboard(label: string, cookie: string, address: string): Promise<boolean> {
+  const check = (pass: boolean, what: string): boolean => {
+    console.log(`${pass ? 'OK  ' : 'FAIL'} ${label} ${what}`);
+    return pass;
+  };
+  const session = await fetch(`${API_URL}/api/auth/session`, { headers: { cookie } });
+  const sessionBody = (await session.json()) as { user?: { walletAddress?: string } | null };
+  let ok = check(
+    session.status === 200 && (sessionBody.user?.walletAddress ?? '').toLowerCase() === address.toLowerCase(),
+    `session shows the signed-in wallet: HTTP ${session.status}`,
+  );
+
+  const created = await fetch(`${API_URL}/api/keys`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ name: `login-smoke ${new Date().toISOString()}` }),
+  });
+  const createdBody = (await created.json()) as { data?: { id: number; rawKey: string } };
+  const key = createdBody.data;
+  ok = check(created.status === 201 && Boolean(key?.rawKey?.startsWith('ag_')), `API key created: HTTP ${created.status}`) && ok;
+  if (!key) return false;
+
+  const viaKey = await fetch(`${API_URL}/api/agents`, { headers: { authorization: `Bearer ${key.rawKey}` } });
+  ok = check(viaKey.status === 200, `Bearer ag_ key lists agents: HTTP ${viaKey.status}`) && ok;
+
+  const revoked = await fetch(`${API_URL}/api/keys/${key.id}`, { method: 'DELETE', headers: { cookie } });
+  ok = check(revoked.status === 200, `API key revoked: HTTP ${revoked.status}`) && ok;
+
+  const afterRevoke = await fetch(`${API_URL}/api/agents`, { headers: { authorization: `Bearer ${key.rawKey}` } });
+  ok = check(afterRevoke.status === 401, `revoked key refused: HTTP ${afterRevoke.status}`) && ok;
+  return ok;
 }
 
 function siweMessage(address: string, n: string): string {
@@ -66,9 +103,10 @@ async function signIn(signer: Signer): Promise<boolean> {
   const message = siweMessage(signer.address, await nonce());
   const signature = await signer.signMessage({ message });
   const ok = await verify(message, signature);
-  const pass = ok.status === 200 && ok.cookie;
-  console.log(`${pass ? 'OK  ' : 'FAIL'} ${signer.label} sign-in: HTTP ${ok.status}, session cookie ${ok.cookie}${pass ? '' : ` ${ok.body}`}`);
-  if (!pass) return false;
+  const pass = ok.status === 200 && ok.cookie !== null;
+  console.log(`${pass ? 'OK  ' : 'FAIL'} ${signer.label} sign-in: HTTP ${ok.status}, session cookie ${ok.cookie !== null}${pass ? '' : ` ${ok.body}`}`);
+  if (!pass || ok.cookie === null) return false;
+  if (!(await dashboard(signer.label, ok.cookie, signer.address))) return false;
 
   // Same signature over a message with a different nonce must be refused.
   const tampered = await verify(siweMessage(signer.address, await nonce()), signature);
