@@ -230,7 +230,29 @@ export function apiHomePage(): string {
  * /openapi.json — what x402 indexers (x402scan via @agentcash/discovery) read
  * first. Lists only the paid operation; its 402 challenge stays authoritative.
  */
+/** Published datasets, each also listed under its own concrete path (catalogs can't probe {slug}). */
+export const PUBLISHED_DATASETS: ReadonlyArray<{ slug: string; title: string }> = [
+  { slug: 'termix-wallets', title: 'TermiX escrow: every wallet that settled a job through Sep 29, tiered' },
+  { slug: 'set-and-earn-week-one', title: "Set and Earn week one: every wallet that hired an agent, Oct 1 to 8, with tier and groups" },
+];
+
 export function x402OpenApiDocument() {
+  const doc = x402OpenApiBase();
+  const template = doc.paths['/api/paid/{slug}/file'].get;
+  for (const d of PUBLISHED_DATASETS) {
+    (doc.paths as Record<string, unknown>)[`/api/paid/${d.slug}/file`] = {
+      get: {
+        ...template,
+        operationId: `datasetFile_${d.slug.replace(/-/g, '_')}`,
+        summary: `${d.title}, as CSV, paid over x402`,
+        parameters: [],
+      },
+    };
+  }
+  return doc;
+}
+
+function x402OpenApiBase() {
   const usd = (x402CheckPrice().match(/[\d.]+/) ?? ['0.05'])[0];
   const sellerUsd = (x402SellerPrice().match(/[\d.]+/) ?? ['0.10'])[0];
   const hiresUsd = (x402HiresPrice().match(/[\d.]+/) ?? ['0.10'])[0];
