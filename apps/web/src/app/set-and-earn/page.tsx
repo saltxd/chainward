@@ -122,6 +122,12 @@ export default async function SetAndEarnPage() {
               Set and Earn, week one
             </Link>
             .
+          {' '}
+            Every wallet that hired an agent in the first week, with its tier and groups, is{' '}
+            <Link className="press-link" href="/paid/set-and-earn-week-one">
+              a CSV for 10 USDC
+            </Link>
+            . Checking one wallet is free.
           </p>
         </section>
 

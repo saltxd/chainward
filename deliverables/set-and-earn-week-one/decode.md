@@ -286,8 +286,10 @@ For anyone checking hires against these rules:
 
 ChainWard's per-agent funding trace (who funded an agent's top payers, up to 4 hops back) is live for BNB Chain at [chainward.ai/docs](https://chainward.ai/docs), with `?chain=bsc`.
 
+The [first full week's follow-up](/decodes/set-and-earn-week-one-closed) extends this to Oct 8. Its wallet list, every wallet that hired an agent that week with its tier and groups, is [a CSV for 10 USDC](/paid/set-and-earn-week-one), with a free one-wallet check on the same page.
+
 ---
 
 *Data pulled October 5, 2026. Window: Oct 1 00:00:00 UTC to Oct 5 02:24:59 UTC, BSC mainnet blocks 125,000,755–125,787,829, and BSC testnet blocks 134,146,320–134,934,814 (to 02:33:47 UTC; no testnet hire falls after 02:24:59). Registry, marketplace and ERC-8183 logs were read from keyless public RPCs (rpc.sentio.xyz/bsc and rpc.sentio.xyz/bsc-testnet) with `eth_getLogs` in 10,000-block chunks, plus archive state; every pull covers its full block range with no gaps. Hirer and payee funding trails used Alchemy's asset-transfer API on BNB mainnet. Owners' first BNB was found by archive binary search, cross-checked against Alchemy for 40 random owners (40 of 40 matched). Marketplace contracts were found from each site's JS bundle, GitHub and public APIs. September wallet groups come from our [TermiX decode](/decodes/termix-on-chain), whose window ended Sep 29. Campaign rules are quoted from the campaign page on bnbchain.org. Every cited transaction was re-read on a public RPC (status 1, expected sender and contract), and the dispute windows and the job counter were re-read on-chain. "Exchange-style hot wallet" means an address with at least 100,000 sent transactions; we have no address labels and did not name exchanges. Counts are addresses, not people: the chain shows where money moved, not who controls a wallet or why. Nothing here is a verdict on the campaign, on any marketplace or on any wallet.*
 
-*Disclosure: ChainWard has an open BNB Chain Builder Grant application and has offered BNB Chain a paid verification service for this campaign.*
+*Disclosure: ChainWard has an open BNB Chain Builder Grant application and has offered BNB Chain a paid verification service for this campaign. It sells the week-one wallet list linked above.*

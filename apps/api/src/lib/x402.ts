@@ -179,6 +179,7 @@ export function x402DiscoveryDocument() {
       'https://api.chainward.ai/api/risk/hires',
       // One concrete dataset URL so crawlers can probe the route; GET /api/paid lists them all.
       'https://api.chainward.ai/api/paid/termix-wallets/file',
+      'https://api.chainward.ai/api/paid/set-and-earn-week-one/file',
     ],
     docs: 'https://chainward.ai/docs',
   };
