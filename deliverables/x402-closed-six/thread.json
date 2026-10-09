@@ -1,0 +1,7 @@
+[
+  "In September we showed six x402 wallets on Base paying only each other through the Meridian facilitator. On Oct 9 they held ranks 3 to 8 on x402scan's 7-day board, up from 9 to 14, while their volume fell 19%.\n\nThis time we read their whole history, back to May 5.",
+  "Since May 5 the six have moved $981,397 between them and never ended a day holding more than $1,598 of USDC. Outside x402 money in, ever: $98.35, paid on day one.\n\nLast 30 days: 3,554 payments among them, $120,249, zero from outside.",
+  "Meridian keeps 1% of each payment and gives the payer about 1.9% back in its own token, MRDN.\n\nIn 30 days the six paid $1,215 in fees, collected 89.8% of the MRDN cashback Meridian paid out on Base, and sold it for $2,320. A $1 hop costs a cent and returns about two.",
+  "Apart from fees and $12.50 swapped for gas, all $7,749 that ever left the six reached one address, 0x30c2282e, on Base or bridged to Arbitrum.\n\nThere, a second address it paid at least $3,245 put $3,948 into Railgun, which hides where money goes next.",
+  "None of the six is listed in the x402 catalogs we searched (x402scan, PayAI, Coinbase, Agent402), and none owns an agent identity on Base. Our free board labels all six self-funded demand.\n\nThe matrix, the money trail and the limits:\nhttps://chainward.ai/decodes/x402-closed-six"
+]

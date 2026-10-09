@@ -1,6 +1,37 @@
 {
   "decodes": [
     {
+      "slug": "x402-closed-six",
+      "title": "Six x402 Wallets Paid Only by Each Other Now Rank 3 to 8 on Base",
+      "subtitle": "The six wallets from our two earlier x402 decodes, ranks 3 to 8 on x402scan on Oct 9, have moved $981K between them through Meridian since May 5.",
+      "date": "2026-10-09",
+      "url": "https://chainward.ai/decodes/x402-closed-six",
+      "addresses": [
+        "0x30c2282e7e238a977ec710cf67a5d1e1a1bfe85f",
+        "0x1cec447da1915f018bd74006ff6d695468b68dd4",
+        "0xfe8f511d8542f687cf70b798c388ef4c3265794d",
+        "0xa6a90366a307080bccb859642d3378121fe8809d",
+        "0x475436ef0a97286081d0fc2a762ad6296949327b",
+        "0x13db4caf175f23f1429c2df6b333350c24705192",
+        "0xe55eb84c37e90dfb7304969e5c6bff02c600f748",
+        "0x51dbd97fa14f4d78f8afc2e92a692a9e087efb5c",
+        "0x2e2d22bf1a796049648cd83dbf1602ebc05fd43c",
+        "0x488d3271c45bc95230144b8461c917d8483bfe57",
+        "0x4862c0e4b015cf73e716dadc20fd4a4cd78aae88",
+        "0x0740d9c9eee1a6b25f600a16b779b33c7852c339",
+        "0x12e32d02154b9061c4a5d572666be29d35759816",
+        "0x2db4eb269985a3ecdf951d11208ee1113bef1993",
+        "0x1c3ab1babc7f1cd1a96b660906d34e4c1fb55be0",
+        "0x788473b0836310f194b850fb37594d6668469618",
+        "0xc1d8a0f4f78f946f582116045486784f2ef83aaf",
+        "0x3d5a87152469779b3a20a6dc56466402c82a25d0",
+        "0xc2204317799b521cd1ff1f7c6cab84d3ac5f774e",
+        "0x1cfffac9aa5590338f2650f1461b70feddad0fcb",
+        "0x0085d9a8d555b23d522a31f97a47ae4291c79586",
+        "0xf7ee65130fb2b3bb42cc5cbfed085d7d482667cd"
+      ]
+    },
+    {
       "slug": "set-and-earn-week-one-closed",
       "title": "Set and Earn's First Full Week: 20 Agents Clear Our Hire Check, 16 of Them in One Ring",
       "subtitle": "BNB Chain's Set and Earn, first full week: 4,752 new ERC-8004 agents, 10,734 hires, 7 wallets hiring on 2+ marketplaces and a 48-wallet ring's fourth full round.",
@@ -522,6 +553,79 @@
     }
   ],
   "byAddress": {
+    "0x30c2282e7e238a977ec710cf67a5d1e1a1bfe85f": [
+      "x402-closed-six"
+    ],
+    "0x1cec447da1915f018bd74006ff6d695468b68dd4": [
+      "x402-closed-six",
+      "x402-on-base"
+    ],
+    "0xfe8f511d8542f687cf70b798c388ef4c3265794d": [
+      "x402-closed-six"
+    ],
+    "0xa6a90366a307080bccb859642d3378121fe8809d": [
+      "x402-closed-six",
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x475436ef0a97286081d0fc2a762ad6296949327b": [
+      "x402-closed-six",
+      "x402-on-base"
+    ],
+    "0x13db4caf175f23f1429c2df6b333350c24705192": [
+      "x402-closed-six",
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xe55eb84c37e90dfb7304969e5c6bff02c600f748": [
+      "x402-closed-six"
+    ],
+    "0x51dbd97fa14f4d78f8afc2e92a692a9e087efb5c": [
+      "x402-closed-six"
+    ],
+    "0x2e2d22bf1a796049648cd83dbf1602ebc05fd43c": [
+      "x402-closed-six"
+    ],
+    "0x488d3271c45bc95230144b8461c917d8483bfe57": [
+      "x402-closed-six"
+    ],
+    "0x4862c0e4b015cf73e716dadc20fd4a4cd78aae88": [
+      "x402-closed-six"
+    ],
+    "0x0740d9c9eee1a6b25f600a16b779b33c7852c339": [
+      "x402-closed-six"
+    ],
+    "0x12e32d02154b9061c4a5d572666be29d35759816": [
+      "x402-closed-six"
+    ],
+    "0x2db4eb269985a3ecdf951d11208ee1113bef1993": [
+      "x402-closed-six"
+    ],
+    "0x1c3ab1babc7f1cd1a96b660906d34e4c1fb55be0": [
+      "x402-closed-six"
+    ],
+    "0x788473b0836310f194b850fb37594d6668469618": [
+      "x402-closed-six"
+    ],
+    "0xc1d8a0f4f78f946f582116045486784f2ef83aaf": [
+      "x402-closed-six"
+    ],
+    "0x3d5a87152469779b3a20a6dc56466402c82a25d0": [
+      "x402-closed-six"
+    ],
+    "0xc2204317799b521cd1ff1f7c6cab84d3ac5f774e": [
+      "x402-closed-six",
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x1cfffac9aa5590338f2650f1461b70feddad0fcb": [
+      "x402-closed-six",
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x0085d9a8d555b23d522a31f97a47ae4291c79586": [
+      "x402-closed-six",
+      "x402-on-base-two-weeks-later"
+    ],
+    "0xf7ee65130fb2b3bb42cc5cbfed085d7d482667cd": [
+      "x402-closed-six"
+    ],
     "0xfb0ce70ad5bcce56567ee66bd11955ec10ba9741": [
       "set-and-earn-week-one-closed",
       "bsc-erc8004-registry"
@@ -700,21 +804,6 @@
       "x402-on-base-two-weeks-later"
     ],
     "0x1d5bf7baa9d48e5da170d7f7c134a25e8e26d9af": [
-      "x402-on-base-two-weeks-later"
-    ],
-    "0x13db4caf175f23f1429c2df6b333350c24705192": [
-      "x402-on-base-two-weeks-later"
-    ],
-    "0xa6a90366a307080bccb859642d3378121fe8809d": [
-      "x402-on-base-two-weeks-later"
-    ],
-    "0xc2204317799b521cd1ff1f7c6cab84d3ac5f774e": [
-      "x402-on-base-two-weeks-later"
-    ],
-    "0x1cfffac9aa5590338f2650f1461b70feddad0fcb": [
-      "x402-on-base-two-weeks-later"
-    ],
-    "0x0085d9a8d555b23d522a31f97a47ae4291c79586": [
       "x402-on-base-two-weeks-later"
     ],
     "0x0beade8a82de601ba91a39330cd163fd9aa7514a": [
@@ -1093,12 +1182,6 @@
       "x402-on-base"
     ],
     "0x36b70906d04d3d984a97b3e47e49440a5b0b618f": [
-      "x402-on-base"
-    ],
-    "0x475436ef0a97286081d0fc2a762ad6296949327b": [
-      "x402-on-base"
-    ],
-    "0x1cec447da1915f018bd74006ff6d695468b68dd4": [
       "x402-on-base"
     ],
     "0xa60fb201b4144456684f8eee1f69a17d8235dd15": [
