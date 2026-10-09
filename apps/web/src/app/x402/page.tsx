@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'x402 Seller Board — where Base’s top x402 sellers’ buyers get their USDC',
   description:
-    'Every week, Base’s largest x402 sellers by volume, and where their buyers’ USDC comes from: how much traces back to the seller, how much it pays back, and whether one wallet funds most buyers. On-chain, neutral, never a verdict.',
+    'Every week, Base’s largest x402 sellers by volume, each with a verdict on its demand (real, self-funded, mixed or not enough data) and the money trail behind it: how much traces back to the seller, how much it pays back, whether one wallet funds most buyers. Read from the chain.',
   alternates: { canonical: 'https://chainward.ai/x402' },
   openGraph: {
     title: 'x402 Seller Board',
@@ -35,6 +35,8 @@ interface Report {
   /** Absent on boards built before payers behind proxies were resolved. */
   proxied_payers?: ProxiedPayers[];
   signals: Signal[];
+  /** One line a buyer can act on; absent on boards built before verdicts. */
+  verdict?: { label: string; text: string; reason: string; limits: string };
 }
 interface Row {
   seller: string;
@@ -117,6 +119,7 @@ export default async function X402BoardPage() {
                     <th>#</th>
                     <th>Seller (x402scan label)</th>
                     <th>7-day volume · buyers</th>
+                    <th>Verdict</th>
                     <th>Top buyers tracing back to seller</th>
                     <th>Share of their volume</th>
                     <th>Sent back to buyers</th>
@@ -153,6 +156,16 @@ export default async function X402BoardPage() {
                       {row.report ? (
                         <>
                           <td>
+                            {row.report.verdict ? (
+                              <span className={`xb-verdict xb-verdict--${row.report.verdict.label}`} title={row.report.verdict.reason}>
+                                {row.report.verdict.text}
+                                <span className="xb-sub">{row.report.verdict.reason}</span>
+                              </span>
+                            ) : (
+                              <span className="xb-none">built before verdicts</span>
+                            )}
+                          </td>
+                          <td>
                             {traced(row.report)}
                             {(row.report.proxied_payers ?? []).map((p) => (
                               <div key={p.proxy} className="xb-sub">
@@ -186,7 +199,7 @@ export default async function X402BoardPage() {
                           </td>
                         </>
                       ) : (
-                        <td colSpan={5} className="xb-none">
+                        <td colSpan={6} className="xb-none">
                           check did not complete this week
                         </td>
                       )}
@@ -220,8 +233,8 @@ export default async function X402BoardPage() {
             Rankings, 7-day volume and buyer counts are x402scan’s public figures; labels are x402scan’s
             origin labels, not ownership claims. Funding is read from Base via Alchemy. The board
             describes where USDC moved, never why, and a common funder can be a legitimate faucet,
-            exchange or custodian. Nothing here is a verdict on any project. The method and worked cases
-            are in{' '}
+            exchange or custodian. The verdict is on the demand the check could see within its limits,
+            not on the project or the people behind it. The method and worked cases are in{' '}
             <Link className="press-link" href="/decodes/x402-on-base">
               the x402-on-Base decode
             </Link>
@@ -267,6 +280,11 @@ export default async function X402BoardPage() {
         .xb-addr:hover { color: var(--oxblood); }
         .xb-sub { color: var(--ink-faint); font-size: 11px; margin-top: 2px; }
         .xb-chip { display: inline-block; margin: 0 4px 4px 0; padding: 2px 6px; border: 1px solid var(--rule-strong); font-size: 11px; color: var(--ink); cursor: help; }
+        .xb-verdict { display: block; font-weight: 640; color: var(--ink); border-left: 3px solid var(--ink-faint); padding-left: 6px; }
+        .xb-verdict .xb-sub { font-weight: 400; }
+        .xb-verdict--real_demand { border-left-color: var(--sev-low); }
+        .xb-verdict--self_funded_demand { border-left-color: var(--sev-high); }
+        .xb-verdict--mixed { border-left-color: var(--sev-medium); }
         .xb-none { color: var(--ink-faint); }
       `}</style>
     </PressShell>

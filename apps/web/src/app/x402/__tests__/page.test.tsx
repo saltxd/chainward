@@ -39,6 +39,36 @@ const board = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('/x402', () => {
+  it('shows each seller\'s verdict first, and says so when a board predates verdicts', async () => {
+    const withVerdict = {
+      ...board,
+      rows: [
+        {
+          ...board.rows[0],
+          report: {
+            ...board.rows[0]!.report,
+            verdict: { label: 'self_funded_demand', text: 'Self-funded demand', reason: '30 of 30 top buyers checked trace back.', limits: 'Walk stops at exchanges.' },
+          },
+        },
+        board.rows[1],
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: withVerdict }))));
+    const html = renderToStaticMarkup(await X402BoardPage());
+    expect(html).toContain('<th>Verdict</th>');
+    expect(html).toContain('class="xb-verdict xb-verdict--self_funded_demand"');
+    expect(html).toContain('Self-funded demand');
+    expect(html).toContain('30 of 30 top buyers checked trace back.');
+  });
+
+  it('renders a board built before verdicts without inventing one', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: board }))));
+    const html = renderToStaticMarkup(await X402BoardPage());
+    expect(html).toContain('<th>Verdict</th>');
+    expect(html).not.toMatch(/class="xb-verdict xb-verdict--/);
+    expect(html).toContain('built before verdicts');
+  });
+
   it('offers the seller check on every board row, paid from the wallet', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: board }))));
     const html = renderToStaticMarkup(await X402BoardPage());
