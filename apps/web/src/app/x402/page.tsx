@@ -281,7 +281,7 @@ export default async function X402BoardPage() {
         .xb-sub { color: var(--ink-faint); font-size: 11px; margin-top: 2px; }
         .xb-chip { display: inline-block; margin: 0 4px 4px 0; padding: 2px 6px; border: 1px solid var(--rule-strong); font-size: 11px; color: var(--ink); cursor: help; }
         .xb-verdict { display: block; font-weight: 640; color: var(--ink); border-left: 3px solid var(--ink-faint); padding-left: 6px; }
-        .xb-verdict .xb-sub { font-weight: 400; }
+        .xb-verdict .xb-sub { display: block; font-weight: 400; margin-top: 2px; }
         .xb-verdict--real_demand { border-left-color: var(--sev-low); }
         .xb-verdict--self_funded_demand { border-left-color: var(--sev-high); }
         .xb-verdict--mixed { border-left-color: var(--sev-medium); }
