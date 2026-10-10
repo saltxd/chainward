@@ -12,6 +12,12 @@ export const metadata = {
       'npx -y chainward-mcp-server — labeled agent wallets, ACP economics, Decodes corpus, queryable from any MCP client.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ChainWard MCP — read-side intel for your AI assistant',
+    description: 'npx -y chainward-mcp-server — labeled agent wallets, ACP economics, Decodes corpus, queryable from any MCP client.',
+    images: ['/chainward-og-card.png'],
+  },
 };
 
 const TOOLS = [

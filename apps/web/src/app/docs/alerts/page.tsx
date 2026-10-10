@@ -10,6 +10,12 @@ export const metadata = {
     description: '7 alert types for AI agent wallets delivered via Discord, Telegram, or webhook.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Alert Types — ChainWard Docs',
+    description: '7 alert types for AI agent wallets delivered via Discord, Telegram, or webhook.',
+    images: ['/chainward-og-card.png'],
+  },
 };
 
 const alertTypes = [

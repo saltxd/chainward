@@ -18,6 +18,12 @@ export const metadata = {
     description: 'Who hired the agents built for BNB Chain’s Set and Earn, and whether 3 hirers show no funding link to the owner. Updated daily from on-chain data.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Set and Earn Board',
+    description: 'Who hired the agents built for BNB Chain’s Set and Earn, and whether 3 hirers show no funding link to the owner. Updated daily from on-chain data.',
+    images: ['/chainward-og-card.png'],
+  },
 };
 
 async function getBoard(): Promise<SetAndEarnBoard | null> {

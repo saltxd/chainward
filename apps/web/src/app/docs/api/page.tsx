@@ -10,6 +10,12 @@ export const metadata = {
     description: 'ChainWard REST API reference for AI agent wallet monitoring on Base.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'API Reference — ChainWard Docs',
+    description: 'ChainWard REST API reference for AI agent wallet monitoring on Base.',
+    images: ['/chainward-og-card.png'],
+  },
 };
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';

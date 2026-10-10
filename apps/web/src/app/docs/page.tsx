@@ -11,6 +11,12 @@ export const metadata = {
       'Free risk checks for Base and BNB Chain addresses, public reports, attestations, x402 pay-per-check and datasets. No account needed.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ChainWard API',
+    description: 'Free risk checks for Base and BNB Chain addresses, public reports, attestations, x402 pay-per-check and datasets. No account needed.',
+    images: ['/chainward-og-card.png'],
+  },
 };
 
 export default function DocsPage() {

@@ -19,6 +19,12 @@ export const metadata = {
     description: 'Where Base’s top x402 sellers’ buyers get their USDC. Updated weekly from on-chain data.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'x402 Seller Board',
+    description: 'Where Base’s top x402 sellers’ buyers get their USDC. Updated weekly from on-chain data.',
+    images: ['/chainward-og-card.png'],
+  },
 };
 
 interface Signal {

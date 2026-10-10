@@ -10,6 +10,12 @@ export const metadata = {
     description: 'Monitor your agents from the terminal.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CLI — ChainWard Docs',
+    description: 'Monitor your agents from the terminal.',
+    images: ['/chainward-og-card.png'],
+  },
 };
 
 const commands = [

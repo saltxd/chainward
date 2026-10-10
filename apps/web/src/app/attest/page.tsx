@@ -12,6 +12,12 @@ export const metadata = {
       'Risk reports as EAS attestations on Base. Check a counterparty before you pay it.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ChainWard Attest — on-chain risk flags for AI agents on Base',
+    description: 'Risk reports as EAS attestations on Base. Check a counterparty before you pay it.',
+    images: ['/chainward-og-card.png'],
+  },
 };
 
 const SCHEMA_UID = '0x09573690adba41164227b57600aa02061b0ce79dc0655e4c8b36bfe95bb41552';
