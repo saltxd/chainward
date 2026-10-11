@@ -147,6 +147,10 @@ jobs:
           - image: chainward-acp-decoder
             context: .
             dockerfile: apps/acp-decoder/Dockerfile
+          # Migration runner + this commit's SQL; the chart's pre-upgrade hook runs it before the apps roll.
+          - image: chainward-migrate
+            context: .
+            dockerfile: deploy/migrate.Dockerfile
     steps:
       - uses: actions/checkout@v4
 
@@ -174,9 +178,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Deploy is manual for now — K3s is on a private network.
-  # After images push, deploy from any machine with kubectl access:
-  #   TAG=$(git rev-parse --short HEAD)
-  #   kubectl -n chainward set image deployment/api api=ghcr.io/saltxd/chainward-api:$TAG
-  #   kubectl -n chainward set image deployment/web web=ghcr.io/saltxd/chainward-web:$TAG
-  #   kubectl -n chainward set image deployment/indexer indexer=ghcr.io/saltxd/chainward-indexer:$TAG
+  # Deploy = GitOps: commit the new tag for all five images into saltxd/homelab-k3s apps/chainward/helmrelease.yaml;
+  # Flux runs the chart's pre-upgrade migration hook, then rolls api/web/indexer/acp-decoder. Rollback = revert that
+  # commit (no automatic Helm rollback: revision 1 pins :latest). Never `kubectl set image` or `deploy/deploy.sh`
+  # a rollout by hand any more: Flux drift detection reverts it.
+  bump:
+    name: Deploy (bump homelab-k3s)
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency: { group: bump-homelab-k3s, cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+      - id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: saltxd/.github/.github/actions/bump-image@main
+        with:
+          image: "ghcr.io/saltxd/chainward-api,ghcr.io/saltxd/chainward-web,ghcr.io/saltxd/chainward-indexer,ghcr.io/saltxd/chainward-acp-decoder,ghcr.io/saltxd/chainward-migrate"
+          tag: ${{ steps.sha.outputs.short }}
+          file: apps/chainward/helmrelease.yaml
+          kind: helm-values
+          deploy-key: ${{ secrets.HOMELAB_K3S_DEPLOY_KEY }}

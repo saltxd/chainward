@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# 2026-10-11: chainward is Flux-managed (homelab-k3s apps/chainward). Image rollouts and migrations now run through
+# CI -> bump -> Flux (chart pre-upgrade hook). Do NOT use this script to roll images: drift detection reverts it.
+# --migrate-only still works for an emergency out-of-band migration.
 set -euo pipefail
 
 # deploy.sh — ChainWard deploy orchestrator
