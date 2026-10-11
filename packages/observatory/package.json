@@ -15,11 +15,11 @@
   "dependencies": {
     "@chainward/common": "workspace:*",
     "@chainward/db": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "ioredis": "^5.4.0"
+    "drizzle-orm": "^0.45.4",
+    "ioredis": "^6.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "typescript": "^5.7.0"
+    "@types/node": "^26.6.4",
+    "typescript": "^7.0.2"
   }
 }

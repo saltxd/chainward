@@ -59,7 +59,7 @@
   "devDependencies": {
     "@elizaos/core": "^1.7.2",
     "tsup": "^8.3.0",
-    "typescript": "^5.7.0",
-    "zod": "^4.0.0"
+    "typescript": "^7.0.2",
+    "zod": "^4.6.5"
   }
 }

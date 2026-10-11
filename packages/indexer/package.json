@@ -19,20 +19,20 @@
     "@chainward/db": "workspace:*",
     "@chainward/decode": "workspace:*",
     "@chainward/observatory": "workspace:*",
-    "bullmq": "^5.25.0",
-    "drizzle-orm": "^0.45.2",
-    "ioredis": "^5.4.0",
-    "pino": "^9.6.0",
-    "undici": "^6.29.0",
-    "viem": "^2.21.0",
-    "zod": "^4.0.0"
+    "bullmq": "^6.3.11",
+    "drizzle-orm": "^0.45.4",
+    "ioredis": "^6.0.0",
+    "pino": "^10.4.0",
+    "undici": "^8.11.2",
+    "viem": "^2.57.4",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "pino-pretty": "^13.0.0",
+    "@types/node": "^26.6.4",
+    "pino-pretty": "^13.2.0",
     "tsup": "^8.3.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
-    "vitest": "^4.0.18"
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
   }
 }
