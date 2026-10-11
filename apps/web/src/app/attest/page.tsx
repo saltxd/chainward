@@ -2,20 +2,20 @@ import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
 
 export const metadata = {
-  title: 'ChainWard Attest — on-chain risk flags for AI agents on Base',
+  title: 'ChainWard Attest: flagged reports, written onto Base',
   description:
-    'ChainWard publishes its risk reports as EAS attestations on Base, so any agent or contract can check what the chain says about a counterparty before it pays. Verifiable and open source.',
+    'ChainWard writes flagged reports onto Base as EAS attestations (signed public records), so any agent or contract can check what we found about an address before it pays, and verify it. On-chain behavior only; no flags is not a clearance. Open source.',
   alternates: { canonical: 'https://chainward.ai/attest' },
   openGraph: {
-    title: 'ChainWard Attest — on-chain risk flags for AI agents on Base',
+    title: 'ChainWard Attest: flagged reports, written onto Base',
     description:
-      'Risk reports as EAS attestations on Base. Check a counterparty before you pay it.',
+      'Flagged ChainWard reports as EAS attestations on Base. Check an address before you pay it.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ChainWard Attest — on-chain risk flags for AI agents on Base',
-    description: 'Risk reports as EAS attestations on Base. Check a counterparty before you pay it.',
+    title: 'ChainWard Attest: flagged reports, written onto Base',
+    description: 'Flagged ChainWard reports as EAS attestations on Base. Check an address before you pay it.',
     images: ['/chainward-og-card.png'],
   },
 };
@@ -24,31 +24,31 @@ const SCHEMA_UID = '0x09573690adba41164227b57600aa02061b0ce79dc0655e4c8b36bfe95b
 const ATTESTER = '0x5edc6276B89CC185aC8D6A7eCfdE076e1ACf50DF';
 
 const FIELDS = [
-  { name: 'band', desc: 'low-signal · mixed · elevated · high-signal. A count of what surfaced, never a rating.' },
+  { name: 'band', desc: 'How much surfaced and how serious: low-signal, mixed, elevated or high-signal. The check answers Hold on elevated, high-signal, or any high-severity flag.' },
   { name: 'flagIds', desc: 'Stable ids of every flag raised (dormant_wallet, stranded_value, …).' },
   { name: 'high / medium / low / infoCount', desc: 'Flags by severity, so a contract can branch without parsing strings.' },
   { name: 'asOfBlock', desc: 'The Base block the report was read at.' },
   { name: 'reportURI', desc: 'The human-readable report on chainward.ai.' },
-  { name: 'reportHash', desc: 'keccak256 of the canonical report JSON — evidence and the not-assessed list included.' },
-  { name: 'scope', desc: '"On-chain behavior only. Absence of flags is not a clearance. Not a safety verdict."' },
+  { name: 'reportHash', desc: 'A keccak256 fingerprint of the canonical report JSON (evidence and the not-assessed list included), so anyone can confirm the report was not changed.' },
+  { name: 'scope', desc: 'The limit, written into every attestation: on-chain behavior only, and no flags is not a clearance.' },
 ];
 
 const READ_PATHS = [
   {
     name: 'API',
-    body: 'GET api.chainward.ai/api/risk/attestation/<address> — uid, tx, explorer link, and the exact canonical JSON to recompute the hash.',
+    body: 'GET api.chainward.ai/api/risk/attestation/<address> returns the uid, tx, explorer link, and the exact canonical JSON to recompute the hash.',
   },
   {
     name: 'EAS',
-    body: 'base.easscan.org or its GraphQL — filter by the schema UID, the recipient, and ChainWard’s attester.',
+    body: 'base.easscan.org or its GraphQL: filter by the schema UID, the recipient, and ChainWard’s attester.',
   },
   {
     name: 'MCP',
-    body: 'check_counterparty in chainward-mcp-server (npx -y chainward-mcp-server) — for assistants and agents that speak MCP.',
+    body: 'check_counterparty in chainward-mcp-server (npx -y chainward-mcp-server), for AI assistants and agents that call tools over MCP.',
   },
   {
     name: 'Example agent',
-    body: 'examples/check-counterparty.ts finds the attestation, re-reads it from the EAS contract, verifies the hash, and applies a payment policy. examples/x402-guard does the same inside an x402 client and refuses to pay a flagged seller before signing.',
+    body: 'examples/check-counterparty.ts finds the attestation, re-reads it from the EAS contract, verifies the hash, and applies a payment policy. examples/x402-guard does the same inside an x402 client (x402 lets one program pay another a few cents per request in USDC) and refuses to pay a flagged seller before signing.',
   },
 ];
 
@@ -93,17 +93,18 @@ export default async function AttestPage() {
             Check a counterparty <em>before</em> you pay it.
           </h1>
           <p className="att-lede">
-            Agents on Base pay each other now — x402, ACP, plain transfers. ChainWard
-            reads the chain and files a public risk report for any address. ChainWard
-            Attest puts that report on Base itself as an <strong>EAS attestation</strong>,
-            so any agent, contract, or indexer can read what the chain shows about a
-            counterparty, and verify it, without trusting our website.
+            More people are paying AI agents, and agents are paying each other, in USDC
+            on Base. ChainWard&apos;s free check reads an address&apos;s on-chain history
+            and answers Pay or Hold, with one reason. ChainWard Attest writes flagged
+            reports onto Base itself as <strong>EAS attestations</strong> (signed, public
+            records anyone can read), so any agent, contract or app can see what we found
+            about an address, and verify it, without trusting our website.
           </p>
           <div className="att-meta">
             {live && <span>{count.toLocaleString()} attestations on Base</span>}
             <span>open source · MIT</span>
             <span>free to read</span>
-            <span>never a safety verdict</span>
+            <span>on-chain behavior only</span>
           </div>
         </section>
 
@@ -111,7 +112,7 @@ export default async function AttestPage() {
 
         <section className="att-section">
           <span className="press-label">What goes on-chain</span>
-          <h2 className="att-h2 press-display">One attestation per report. The caveat travels with it.</h2>
+          <h2 className="att-h2 press-display">One attestation per flagged report. The limit travels with it.</h2>
           <p className="att-p">
             The recipient is the address that was checked. Each new report points
             back to the previous one, so the history is on-chain too.
@@ -180,12 +181,17 @@ export default async function AttestPage() {
               </div>
             ))}
           </dl>
+          <p className="att-p">
+            The example agent reads ChainWard&apos;s latest attestation for an address,
+            checks the fingerprint, and applies a sample policy you can change: a
+            high-severity flag means hold the payment.
+          </p>
           <pre className="att-code mono">
             <code>{`$ git clone https://github.com/saltxd/chainward && cd chainward && pnpm install
 $ npx tsx examples/check-counterparty.ts 0x…
 
-ChainWard on 0x… (as of block 51,799,275):
-  band high-signal · flags dormant_wallet, stranded_value · high 1 / medium 1 / …
+ChainWard on 0x… (as of block 51,799,275, 2 days ago):
+  band high-signal · flags dormant_wallet, stranded_value · high 1 / medium 1 / low 0 / info 0
   report https://chainward.ai/report/0x… · hash verified
 Policy: high-severity flag on record → hold the payment for review.`}</code>
           </pre>
@@ -211,17 +217,17 @@ Policy: high-severity flag on record → hold the payment for review.`}</code>
             Need it fresh? <em>Pay per call.</em>
           </h2>
           <p className="att-p">
-            <span className="mono">GET api.chainward.ai/api/risk/x402?address=0x…</span> returns a
-            report no older than 24 hours, running a new check when needed. It is paid over x402: 0.05
-            USDC on Base per call, no account, no API key. Settlement happens only after the check
-            succeeds, so a failed check is never charged.
+            <span className="mono">GET api.chainward.ai/api/risk/x402?address=0x…</span> returns Pay
+            or Hold with its reason and the full report, no older than 24 hours, running a new check
+            when needed. It costs 0.05 USDC on Base per call, paid over x402, with no account and no API
+            key. You are charged only after the check succeeds, so a failed check costs nothing.
           </p>
           <p className="att-p">
             Paying an x402 seller?{' '}
             <span className="mono">GET api.chainward.ai/api/risk/seller-demand?address=0x…</span> (0.10
-            USDC) shows where its buyers get their USDC: how much traces back to the seller (payers behind
-            Meridian and Fluxa proxies included), how much it pays back, and whether one wallet funds most
-            buyers. It is the method behind{' '}
+            USDC) shows where its buyers get their USDC: how much traces back to the seller (including
+            payers who go through payment proxies such as Meridian and Fluxa), how much it pays back, and
+            whether one wallet funds most buyers. It is the method behind{' '}
             <a className="press-link" href="/decodes/x402-on-base">
               the x402-on-Base decode
             </a>
@@ -251,11 +257,14 @@ $ BUYER_PRIVATE_KEY=0x… npx tsx index.ts 0x…`}</code>
 
         <section className="att-section">
           <span className="press-label">Start here</span>
-          <h2 className="att-h2 press-display">Every free check becomes an attestation.</h2>
+          <h2 className="att-h2 press-display">Flagged reports go on-chain. Most checks don&apos;t.</h2>
           <p className="att-p">
-            {live
-              ? 'Run a check on any Base address. If the report flags observed behavior, it is attested on Base within minutes.'
-              : 'The attester is launching now. Run a check on any Base address: if the report flags observed behavior, it is attested on Base as soon as the attester is live.'}
+            Run the free check on any Base address. Its report is attested on Base, usually within
+            about 10 minutes, only when all of this holds: it was filed in the last 7 days from an
+            up-to-date copy of the chain, it carries at least one flag based on what the address
+            actually did (missing activity or a sanctions-list match alone doesn&apos;t count), and the
+            address isn&apos;t one of ChainWard&apos;s own. At most 50 reports go on-chain a day. BNB
+            Chain reports are not attested.
           </p>
           <Link href="/" className="press-btn att-cta">
             Run a free risk check →
