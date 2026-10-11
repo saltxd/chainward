@@ -1,4 +1,16 @@
-import { pgTable, bigserial, text, boolean, integer, real, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  bigserial,
+  bigint,
+  text,
+  boolean,
+  integer,
+  real,
+  timestamp,
+  uniqueIndex,
+  index,
+  primaryKey,
+} from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const agentRegistry = pgTable(
@@ -39,5 +51,22 @@ export const agentRegistry = pgTable(
     index('idx_agent_registry_chain').on(table.chain),
     index('idx_agent_registry_framework').on(table.agentFramework),
     index('idx_agent_registry_user').on(table.userId),
+  ],
+);
+
+/** Old /base slugs that now point at an agent's current slug (migration 0025). */
+export const agentSlugRedirects = pgTable(
+  'agent_slug_redirects',
+  {
+    chain: text('chain').notNull(),
+    oldSlug: text('old_slug').notNull(),
+    agentId: bigint('agent_id', { mode: 'number' })
+      .notNull()
+      .references(() => agentRegistry.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.chain, table.oldSlug] }),
+    index('idx_agent_slug_redirects_agent').on(table.agentId),
   ],
 );
