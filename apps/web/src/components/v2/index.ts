@@ -8,4 +8,3 @@ export { TerminalCard } from './TerminalCard';
 export { DataTable, type Column } from './DataTable';
 export { Button } from './Button';
 export { Badge } from './Badge';
-export { CodeBlock } from './CodeBlock';

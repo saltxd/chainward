@@ -429,27 +429,6 @@ body {
   border-color: rgba(94, 196, 230, 0.3);
 }
 
-/* ── CodeBlock ────────────────────────────────────────────────────── */
-.v2-code-inline {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.9em;
-  color: var(--phosphor);
-  background: rgba(58, 167, 109, 0.08);
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-}
-.v2-code-block {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 12.5px;
-  line-height: 1.7;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  padding: 16px 18px;
-  overflow-x: auto;
-  color: var(--fg);
-  margin: 0;
-}
-
 /* ── StatusTicker ─────────────────────────────────────────────────── */
 .v2-ticker {
   position: relative;

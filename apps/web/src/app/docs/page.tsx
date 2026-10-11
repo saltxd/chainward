@@ -1,7 +1,8 @@
 import { CounterpartyPay } from '@/components/pay/CounterpartyPay';
+import { CodeBlock } from '@/components/press';
 
 export const metadata = {
-  title: 'API — risk checks, reports, attestations, datasets',
+  title: 'API: risk checks, reports, attestations, datasets',
   description:
     'Public ChainWard API: free on-chain risk checks for Base and BNB Chain addresses, public reports, EAS attestations, pay-per-check over x402, and the datasets behind our decodes. No account needed.',
   alternates: { canonical: 'https://chainward.ai/docs' },
@@ -19,150 +20,291 @@ export const metadata = {
   },
 };
 
+const EXAMPLE = '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2';
+
+const checkCurl = `curl -X POST https://api.chainward.ai/api/risk/check \\
+  -H 'Content-Type: application/json' \\
+  -d '{"target":"${EXAMPLE}","chain":"base"}'`;
+
+const verdictExample = `"verdict": {
+  "label": "hold",
+  "text": "Hold",
+  "reason": "USDC balance held in a dormant wallet: Holds 5451.386272 USDC while classified dormant (no transfers in the last 30 days; holds a balance from before the window).",
+  "limits": "On-chain behavior only. Absence of flags is not a clearance of the counterparty."
+}`;
+
+const readCurl = `# the latest report for an address (add ?chain=bsc for BNB Chain; 404 if none)
+curl https://api.chainward.ai/api/risk/report/${EXAMPLE}
+
+# addresses on file, newest first (limit up to 100, page with offset)
+curl 'https://api.chainward.ai/api/risk/library?sort=recent&limit=50&distinct=address'
+
+# the EAS attestation ChainWard published on Base for an address, with the
+# canonical JSON so you can recompute report_hash yourself
+curl https://api.chainward.ai/api/risk/attestation/${EXAMPLE}`;
+
+const probeCurl = `# no payment attached: answers 402 with the price
+curl -i 'https://api.chainward.ai/api/risk/x402?address=${EXAMPLE}'`;
+
+const datasetCurl = `# what's for sale
+curl https://api.chainward.ai/api/paid
+
+# free (30 a minute): is one wallet in a dataset, and in which tier?
+curl https://api.chainward.ai/api/paid/termix-wallets/lookup/0xb709860b8a1ce20019f3786d6982f773912bd286
+
+# the same for agents, verdict first: 0.25 USDC over x402 (answers 402 until paid)
+curl 'https://api.chainward.ai/api/paid/termix-wallets/check?address=0xb709860b8a1ce20019f3786d6982f773912bd286'`;
+
+const mcpConfig = `{
+  "mcpServers": {
+    "chainward": {
+      "command": "npx",
+      "args": ["-y", "chainward-mcp-server"]
+    }
+  }
+}`;
+
 export default function DocsPage() {
   return (
     <article className="decode-prose">
       <h1>ChainWard API</h1>
       <p>
-        Everything on chainward.ai is available over HTTP. The public endpoints need
-        no account and no key. Base URL: <code>https://api.chainward.ai</code>. The
-        free paths also work under <code>https://chainward.ai/api/…</code>; send paid
-        requests to <code>https://api.chainward.ai</code> directly. The
-        machine-readable spec is at <a href="/openapi.json">/openapi.json</a>.
+        Check an address before you pay it. An address is the <code>0x…</code> account
+        a person, an AI agent or a contract uses on a blockchain. Everything on
+        chainward.ai is also available over HTTP, and the public endpoints need no
+        account and no key.
       </p>
       <p>
-        Every check opens with a verdict you can act on and the one fact it rests on:
-        Pay, Hold or Unknown for an address; Real demand or Self-funded demand for a
-        seller; Hired by others or Hired by its own circle for an agent. Under it sits
-        the evidence, each flag tied to the transactions behind it, and a one-line
-        limit saying what the check cannot see. A verdict is read from on-chain
-        behavior only: Pay means nothing was found against paying, not that an
-        address is safe.
+        Base URL: <code>https://api.chainward.ai</code>. The free endpoints also work
+        under <code>https://chainward.ai/api/…</code>; send paid requests to{' '}
+        <code>https://api.chainward.ai</code> directly. The machine-readable spec is at{' '}
+        <a href="/openapi.json">/openapi.json</a>.
       </p>
 
+      <h2>Reading a verdict</h2>
+      <p>
+        Every check opens with a verdict: one decision and the one fact it rests on.
+        Under it sits the evidence, each flag tied to the transactions behind it, and
+        one line on what the check cannot see. Verdicts are read from on-chain behavior
+        only, so Pay means nothing was found against paying, not that an address is
+        safe.
+      </p>
+      <p>
+        A verdict has two names. <code>label</code> is a fixed value for your code to
+        branch on; <code>text</code> is the wording to show a person. For an address:
+      </p>
+      <div className="decode-table-scroll">
+        <table className="docs-nowrap-code">
+          <thead>
+            <tr>
+              <th>label</th>
+              <th>text</th>
+              <th>Means</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>pay</code>
+              </td>
+              <td>Pay</td>
+              <td>Active in the last 30 days, with no high-severity flag.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>hold</code>
+              </td>
+              <td>Hold</td>
+              <td>A high-severity flag, or medium-severity flags that raise the signal band. The reason names the first one.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>unknown</code>
+              </td>
+              <td>Inactive</td>
+              <td>It has sent transactions before, but made no transfers in the last 30 days.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>unknown</code>
+              </td>
+              <td>No track record</td>
+              <td>No transfers in the last 30 days and no earlier activity found.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>unknown</code>
+              </td>
+              <td>Couldn&apos;t check</td>
+              <td>The data sources were down, so activity could not be read. Try again later.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Branch on <code>label</code>, not <code>text</code>: the <code>unknown</code> label
+        has three wordings. The seller check uses <code>real_demand</code>,{' '}
+        <code>self_funded_demand</code>, <code>mixed</code> and{' '}
+        <code>not_enough_data</code>; the hire check uses <code>hired_by_others</code>,{' '}
+        <code>hired_by_own_circle</code> and <code>not_enough_data</code>. Their text is
+        the same words in plain case (Real demand, Hired by its own circle, and so on).
+        A verdict in a report looks like this:
+      </p>
+      <CodeBlock>{verdictExample}</CodeBlock>
+
       <h2>Run a risk check (free)</h2>
-      <pre>
-        <code>{`curl -X POST https://api.chainward.ai/api/risk/check \\
-  -H 'Content-Type: application/json' \\
-  -d '{"target":"0x4baadba26c3c0bdef9e8faf173925d463aa53bb2","chain":"base"}'`}</code>
-      </pre>
+      <CodeBlock>{checkCurl}</CodeBlock>
       <ul>
         <li>
           <code>chain</code> is <code>base</code> (default) or <code>bsc</code> (BNB
-          Chain). <code>force_recheck: true</code> re-runs an existing report (one
-          forced re-check per address per 10 minutes).
+          Chain). <code>force_recheck: true</code> runs a new check on an address that
+          already has a report (one forced re-check per address every 10 minutes).
         </li>
         <li>
-          The response <code>status</code> is <code>ready</code> (a fresh report),{' '}
-          <code>stale</code> (an older report plus a free re-check offer),{' '}
-          <code>teaser</code> or <code>queued</code> (a decode is running: poll{' '}
-          <code>GET /api/risk/check/:check_id</code>), or <code>no_history</code>.
+          The answer&apos;s <code>status</code> is one of:
+          <ul>
+            <li>
+              <code>ready</code>: a current report is in <code>report</code>.
+            </li>
+            <li>
+              <code>stale</code>: the report is out of date (over 24 hours old, or made
+              by an older version of the checks). Re-run it free with{' '}
+              <code>force_recheck: true</code>.
+            </li>
+            <li>
+              <code>teaser</code>: the first check of this address has started. You get
+              a few public stats now; poll <code>GET /api/risk/report/&lt;address&gt;</code>{' '}
+              until it stops answering 404.
+            </li>
+            <li>
+              <code>queued</code>: a check is already running. Poll{' '}
+              <code>GET /api/risk/check/&lt;check_id&gt;</code> until its status is{' '}
+              <code>ready</code> or <code>failed</code>.
+            </li>
+            <li>
+              <code>no_history</code>: the address has no activity on that chain, so
+              there is nothing to judge.
+            </li>
+          </ul>
         </li>
         <li>
-          A first decode takes about a minute. Limits: 30 checks a minute and 8
-          new decodes an hour per IP. Answers from an existing report, and
-          rejected requests, don&apos;t count toward the 8.
+          A first check takes about a minute. Limits per IP: 30 requests a minute and 8
+          new checks an hour. Answers from an existing report, checks already running,{' '}
+          <code>no_history</code> answers and rejected requests don&apos;t count toward
+          the 8.
         </li>
         <li>
-          BNB Chain reads public RPC logs over the last 14 days; the report says
-          exactly what window it covered. Attestations are Base-only for now.
+          On BNB Chain the check reads the last 14 days from public RPC nodes (the open
+          servers anyone can query for chain data); the report says exactly what window
+          it covered. Attestations are Base-only for now.
         </li>
       </ul>
 
       <h2>Read reports (free)</h2>
-      <pre>
-        <code>{`# the latest report for an address (add ?chain=bsc for BNB Chain)
-curl https://api.chainward.ai/api/risk/report/0x4baadba26c3c0bdef9e8faf173925d463aa53bb2
-
-# every address on file, newest first
-curl 'https://api.chainward.ai/api/risk/library?sort=recent&limit=50&distinct=address'
-
-# the EAS attestation ChainWard published on Base for an address, with the
-# canonical JSON so you can recompute reportHash yourself
-curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf173925d463aa53bb2`}</code>
-      </pre>
+      <CodeBlock>{readCurl}</CodeBlock>
       <p>
         Every report is also a public page at{' '}
-        <code>chainward.ai/report/&lt;address&gt;</code>. Attestations are readable
-        on-chain by any agent or contract; see <a href="/attest">ChainWard Attest</a>.
+        <code>chainward.ai/report/&lt;address&gt;</code>. An attestation is a signed
+        record of the report&apos;s result, published on Base through EAS (the
+        Ethereum Attestation Service), so any agent or contract can read it on-chain;
+        see <a href="/attest">ChainWard Attest</a>.
       </p>
 
       <h2>Pay per request over x402</h2>
       <p>
-        For agents that want a guaranteed-fresh answer in one call. Pay in USDC on
-        Base with any x402 client; the first request returns <code>402</code> with
-        the payment requirements, the retry with a payment header returns the data.
-        Settlement happens only after the handler succeeds, so a failed check is
-        never charged. Send paid requests to <code>https://api.chainward.ai</code>{' '}
-        directly, not through <code>chainward.ai/api/…</code>: a fresh check can take
-        close to a minute.
+        x402 lets a program pay for a single API request with no account. The first
+        request answers <code>402 Payment Required</code> with the price; the client
+        signs a USDC payment on Base and sends the request again with it; the data comes
+        back. Any x402 client works. Payment settles only after the check succeeds, so a
+        failed check is never charged. Send paid requests to{' '}
+        <code>https://api.chainward.ai</code> directly, not through{' '}
+        <code>chainward.ai/api/…</code>: a fresh check can take close to a minute.
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Endpoint</th>
-            <th>Price</th>
-            <th>Returns</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>
-              <code>GET /api/risk/x402/:address</code>
-            </td>
-            <td>0.05 USDC</td>
-            <td>
-              <strong>Pay, Hold or Unknown</strong> with the reason, then the full report no
-              older than 24h (a fresh check runs if needed). Add <code>?chain=bsc</code> for a
-              BNB Chain address; payment is still USDC on Base.
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <code>GET /api/risk/seller-demand?address=</code>
-            </td>
-            <td>0.10 USDC</td>
-            <td>
-              <strong>Real demand, Self-funded demand, Mixed or Not enough data</strong>, with
-              the number behind it: how much of the top buyers&apos; money traces back to
-              the seller, how much it pays back, whether one wallet funds most buyers. On
-              Base, payers behind Meridian and Fluxa proxies are named; exchanges stay
-              opaque. Add <code>?chain=bsc</code> for a BNB Chain seller.
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <code>GET /api/risk/hires?agent=&amp;chain=bsc</code>
-            </td>
-            <td>0.10 USDC</td>
-            <td>
-              <strong>Hired by others, Hired by its own circle or Not enough data</strong> for
-              an ERC-8004 agent (an id, or an owner address) under BNB Chain&apos;s Set and
-              Earn rule, then every wallet that hired it in the last 30 days and whether
-              each is the owner, funded by it or shares a funder with it.{' '}
-              <code>independent_within_limits</code> means no link was found within 4
-              hops, not proven independence. BNB Chain only. Free daily results for every
-              agent hired since Oct 1: <a href="/set-and-earn">/set-and-earn</a>.
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <code>GET /api/paid/:slug/file</code>
-            </td>
-            <td>10 USDC</td>
-            <td>The full dataset behind a decode, as CSV.</td>
-          </tr>
-          <tr>
-            <td>
-              <code>GET /api/paid/:slug/check?address=</code>
-            </td>
-            <td>0.25 USDC</td>
-            <td>Is one wallet in a dataset, and at what tier: listed or not, with the reason and the limit.</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="decode-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>Price</th>
+              <th>Returns</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>GET /api/risk/x402?address=</code>
+              </td>
+              <td>0.05 USDC</td>
+              <td>
+                <strong>The counterparty check.</strong> The verdict with its reason, then
+                the full report, no older than 24 hours (a fresh check runs if needed). Add{' '}
+                <code>&amp;chain=bsc</code> for a BNB Chain address; payment is still USDC
+                on Base. <code>/api/risk/x402/&lt;address&gt;</code> also works.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>GET /api/risk/seller-demand?address=</code>
+              </td>
+              <td>0.10 USDC</td>
+              <td>
+                <strong>Real demand, Self-funded demand, Mixed or Not enough data</strong>{' '}
+                for a seller, with the numbers behind it: how much of the top buyers&apos;
+                money traces back to the seller, how much it pays back, whether one wallet
+                funds most buyers. On Base, payers behind the Meridian and Fluxa payment
+                proxies are named; exchanges stay opaque. Add <code>&amp;chain=bsc</code>{' '}
+                for a BNB Chain seller.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>GET /api/risk/hires?agent=&amp;chain=bsc</code>
+              </td>
+              <td>0.10 USDC</td>
+              <td>
+                <strong>Hired by others, Hired by its own circle or Not enough data</strong>{' '}
+                for an ERC-8004 agent (an agent registered on-chain: pass its id, or its
+                owner&apos;s address for all its agents) under BNB Chain&apos;s Set and Earn
+                rule. Then every wallet that hired it in the last 30 days, and whether each
+                is the owner, funded by it, or shares a funder with it.{' '}
+                <code>independent_within_limits</code> means no link was found within 4
+                hops (4 transfers back), not proven independence. BNB Chain only. Free
+                daily results for every agent hired since Oct 1:{' '}
+                <a href="/set-and-earn">/set-and-earn</a>.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>GET /api/paid/:slug/check?address=</code>
+              </td>
+              <td>0.25 USDC</td>
+              <td>
+                Is one wallet in a dataset: <code>listed</code> or{' '}
+                <code>not_listed</code>, with the tier, the reason and the limit.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>GET /api/paid/:slug/file</code>
+              </td>
+              <td>10 USDC</td>
+              <td>The full dataset behind a decode, as CSV.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p>
-        Discovery: <a href="/.well-known/x402">/.well-known/x402</a> and{' '}
+        Dataset slugs today: <code>termix-wallets</code> and{' '}
+        <code>set-and-earn-week-one</code> (<code>GET /api/paid</code> lists them). To see
+        a price without paying, call an endpoint with no payment:
+      </p>
+      <CodeBlock>{probeCurl}</CodeBlock>
+      <p>
+        The <code>PAYMENT-REQUIRED</code> header is base64-encoded JSON. Its{' '}
+        <code>amount</code> is in USDC&apos;s smallest unit (6 decimals): 50000 is 0.05
+        USDC, 100000 is 0.10, 250000 is 0.25 and 10000000 is 10. The JSON body says the
+        price in plain words. Discovery files for x402 clients:{' '}
+        <a href="/.well-known/x402">/.well-known/x402</a> and{' '}
         <a href="/openapi.json">/openapi.json</a>.
       </p>
       <h3>Or pay from this page</h3>
@@ -173,33 +315,33 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
       <CounterpartyPay />
 
       <h2>Datasets</h2>
-      <pre>
-        <code>{`# what's for sale
-curl https://api.chainward.ai/api/paid
-
-# free (rate-limited): is one wallet in a dataset, and in which tier?
-curl https://api.chainward.ai/api/paid/termix-wallets/lookup/0xb709860b8a1ce20019f3786d6982f773912bd286
-
-# the same, for agents: 0.25 USDC over x402, no rate limit, verdict first
-curl https://api.chainward.ai/api/paid/termix-wallets/check?address=0xb709860b8a1ce20019f3786d6982f773912bd286`}</code>
-      </pre>
+      <CodeBlock>{datasetCurl}</CodeBlock>
       <p>
         People can buy a dataset from any wallet at{' '}
         <a href="/paid/termix-wallets">chainward.ai/paid/&lt;slug&gt;</a>: send the
-        price in USDC on Base, and the page verifies the transfer and returns a
-        24-hour download link. No account.
+        price in USDC on Base, and the page checks the transfer and gives you a download
+        link that works for 24 hours. No account.
       </p>
 
       <h2>MCP server</h2>
       <p>
-        For Claude, Cursor and other MCP clients: <code>npx chainward-mcp-server</code>{' '}
-        (npm <code>chainward-mcp-server</code>, registry{' '}
-        <code>io.github.saltxd/chainward</code>). Tools: <code>check_counterparty</code>,{' '}
-        <code>lookup_agent</code>, <code>get_agent_profile</code>,{' '}
-        <code>get_agent_economics</code>, <code>get_observatory_overview</code>,{' '}
-        <code>get_top_agents</code>, <code>get_activity_feed</code>,{' '}
-        <code>list_decodes</code>, <code>find_decodes_for_address</code>. Questions or
-        listing requests: <a href="mailto:hello@chainward.ai">hello@chainward.ai</a>.
+        MCP (Model Context Protocol) lets an AI assistant such as Claude or Cursor call
+        outside tools. Add ChainWard to your client&apos;s MCP config:
+      </p>
+      <CodeBlock>{mcpConfig}</CodeBlock>
+      <p>
+        Or run it directly with <code>npx -y chainward-mcp-server</code>. Package:{' '}
+        <a href="https://www.npmjs.com/package/chainward-mcp-server">
+          chainward-mcp-server on npm
+        </a>{' '}
+        (MCP registry name <code>io.github.saltxd/chainward</code>, source on{' '}
+        <a href="https://github.com/saltxd/chainward/tree/main/packages/mcp-server">GitHub</a>
+        ). Tools: <code>check_counterparty</code>, <code>lookup_agent</code>,{' '}
+        <code>get_agent_profile</code>, <code>get_agent_economics</code>,{' '}
+        <code>get_observatory_overview</code>, <code>get_top_agents</code>,{' '}
+        <code>get_activity_feed</code>, <code>list_decodes</code>,{' '}
+        <code>find_decodes_for_address</code>. Questions or listing requests:{' '}
+        <a href="mailto:hello@chainward.ai">hello@chainward.ai</a>.
       </p>
 
       <h2>Agent monitoring (signed-in)</h2>

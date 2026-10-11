@@ -1,10 +1,10 @@
 export const metadata = {
-  title: 'CLI — Monitor Agents from Your Terminal',
+  title: 'CLI: Monitor Agents from Your Terminal',
   description:
     'Install the ChainWard CLI to monitor AI agent wallets on Base from your terminal. List agents, view transactions, create alerts, and watch a live feed.',
   alternates: { canonical: 'https://chainward.ai/docs/cli' },
   openGraph: {
-    title: 'CLI — Monitor Agents from Your Terminal | ChainWard',
+    title: 'CLI: Monitor Agents from Your Terminal | ChainWard',
     description:
       'Install the ChainWard CLI to monitor AI agent wallets on Base from your terminal.',
     url: 'https://chainward.ai/docs/cli',
@@ -14,7 +14,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image' as const,
     site: '@chainwardai',
-    title: 'CLI — Monitor Agents from Your Terminal | ChainWard',
+    title: 'CLI: Monitor Agents from Your Terminal | ChainWard',
     description:
       'Install the ChainWard CLI to monitor AI agent wallets on Base from your terminal.',
     images: ['/chainward-og-card.png'],

@@ -1,4 +1,4 @@
-import { CodeBlock } from '@/components/v2';
+import { CodeBlock } from '@/components/press';
 
 export const metadata = {
   title: 'CLI',
@@ -6,13 +6,13 @@ export const metadata = {
     'ChainWard CLI reference. Monitor agents, list transactions, stream alerts, and create alert rules from your terminal. Install via npm.',
   alternates: { canonical: 'https://chainward.ai/docs/cli' },
   openGraph: {
-    title: 'CLI — ChainWard Docs',
+    title: 'CLI | ChainWard Docs',
     description: 'Monitor your agents from the terminal.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CLI — ChainWard Docs',
+    title: 'CLI | ChainWard Docs',
     description: 'Monitor your agents from the terminal.',
     images: ['/chainward-og-card.png'],
   },
@@ -21,7 +21,7 @@ export const metadata = {
 const commands = [
   {
     name: 'chainward status',
-    desc: 'Fleet overview — total agents, 24h transactions, gas spend, portfolio value.',
+    desc: 'Fleet overview: total agents, transactions and gas spend in the last 24 hours, and portfolio value.',
   },
   {
     name: 'chainward agents list',
@@ -29,7 +29,7 @@ const commands = [
   },
   {
     name: 'chainward agents add <address> --name "My Agent"',
-    desc: 'Register a new wallet for monitoring. Indexing starts immediately.',
+    desc: 'Register a wallet on Base for monitoring. Indexing starts right away. If the address is a contract rather than a wallet, the CLI asks you to confirm.',
   },
   {
     name: 'chainward agents remove <address>',
@@ -37,7 +37,7 @@ const commands = [
   },
   {
     name: 'chainward txs',
-    desc: 'List recent transactions across all agents. Clickable Basescan links in supported terminals.',
+    desc: 'List recent transactions across all agents, with Basescan links you can click in terminals that support them.',
     flags: [
       { flag: '--agent <address>', desc: 'Filter by agent wallet' },
       { flag: '--limit <n>', desc: 'Number of results (default: 20)' },
@@ -49,11 +49,11 @@ const commands = [
   },
   {
     name: 'chainward alerts create',
-    desc: 'Interactive prompt to create an alert — select agent, type, threshold, and delivery channel.',
+    desc: 'Create an alert step by step: pick the agent, the alert type, the threshold and the delivery channel. Inactivity alerts can\'t be created from the CLI yet (the API rejects the request); create those in the dashboard.',
   },
   {
     name: 'chainward watch',
-    desc: 'Live transaction feed. Polls every 5 seconds and prints new transactions as they arrive. Ctrl+C to stop.',
+    desc: 'Live transaction feed. Checks every 5 seconds and prints new transactions as they arrive. Ctrl+C to stop.',
     flags: [{ flag: '--agent <address>', desc: 'Watch a specific agent' }],
   },
 ];
@@ -62,7 +62,10 @@ export default function CliDocsPage() {
   return (
     <article className="decode-prose">
       <h1>CLI</h1>
-      <p>Monitor your agents from the terminal. Same data as the dashboard, piped into stdout.</p>
+      <p>
+        Monitor your agents from the terminal: the same data as the dashboard, printed to
+        your shell. You need Node.js and a ChainWard API key.
+      </p>
 
       <h2>Install</h2>
       <CodeBlock>npm i -g @chainward/cli</CodeBlock>
@@ -74,9 +77,11 @@ export default function CliDocsPage() {
         <li>
           Go to <a href="https://chainward.ai">chainward.ai</a>
         </li>
-        <li>Connect your wallet</li>
+        <li>Connect your wallet and sign in</li>
         <li>
-          Open <a href="/settings">Settings</a> → Generate Key
+          Open <a href="/settings">Settings</a>, click Generate key, give it read and
+          write scopes (write is needed to add or remove agents and create alerts), then
+          Create key
         </li>
         <li>
           Paste the <code>ag_</code> key when prompted
@@ -96,7 +101,7 @@ export default function CliDocsPage() {
             <ul>
               {cmd.flags.map((f) => (
                 <li key={f.flag}>
-                  <code>{f.flag}</code> — {f.desc}
+                  <code>{f.flag}</code>: {f.desc}
                 </li>
               ))}
             </ul>

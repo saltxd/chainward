@@ -1,18 +1,19 @@
-import { CodeBlock, Badge } from '@/components/v2';
+import { Badge } from '@/components/v2';
+import { CodeBlock } from '@/components/press';
 
 export const metadata = {
   title: 'API Reference',
   description:
-    'ChainWard REST API reference. Endpoints for managing agents, transactions, alerts, balances, and gas analytics. TypeScript SDK included.',
+    'ChainWard monitoring API reference. Endpoints for managing agents, transactions, alerts, balances, and gas analytics. TypeScript SDK included.',
   alternates: { canonical: 'https://chainward.ai/docs/api' },
   openGraph: {
-    title: 'API Reference — ChainWard Docs',
+    title: 'API Reference | ChainWard Docs',
     description: 'ChainWard REST API reference for AI agent wallet monitoring on Base.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'API Reference — ChainWard Docs',
+    title: 'API Reference | ChainWard Docs',
     description: 'ChainWard REST API reference for AI agent wallet monitoring on Base.',
     images: ['/chainward-og-card.png'],
   },
@@ -157,7 +158,7 @@ const endpoints: Array<{ group: string; items: Endpoint[] }> = [
       {
         method: 'POST',
         path: '/api/alerts',
-        desc: 'Create a new alert. Types: large_transfer, balance_drop, gas_spike, failed_tx, inactivity, new_contract, idle_balance.',
+        desc: 'Create a new alert. alertType is one of large_transfer, balance_drop, gas_spike, failed_tx, inactivity, new_contract, idle_balance (see Alert Types). thresholdUnit is usd, native or percentage. lookbackWindow (for example "24 hours") sets the window for balance_drop and inactivity, and how long the balance must sit idle for idle_balance. channels takes discord, telegram and webhook, with discordWebhook, telegramChatId and webhookUrl.',
         curl: `curl -X POST \\
   -H "Authorization: Bearer ag_YOUR_KEY" \\
   -H "Content-Type: application/json" \\
@@ -245,30 +246,38 @@ export default function ApiReferencePage() {
   return (
     <article className="decode-prose">
       <h1>API Reference</h1>
-      <p>Programmatic access to ChainWard. All endpoints require authentication.</p>
+      <p>
+        The monitoring API manages the agent wallets you watch from the dashboard. Every
+        endpoint on this page needs your API key or a signed-in session; without one it
+        answers <code>401</code>. The free public checks are on the{' '}
+        <a href="/docs">Public API</a> page.
+      </p>
 
       <h2>Authentication</h2>
       <p>
         <strong>Base URL:</strong> <code>https://api.chainward.ai</code>
       </p>
-      <p>All API endpoints accept two authentication methods:</p>
+      <p>Every endpoint accepts either of two credentials:</p>
 
       <h3>API key (recommended)</h3>
       <p>
-        Generate an API key in <a href="/settings">Settings</a>. Keys use the{' '}
-        <code>ag_</code> prefix and are shown only once at creation.
+        Generate an API key in <a href="/settings">Settings</a> (sign in with your
+        wallet first). Keys start with <code>ag_</code> and are shown only once, when
+        you create them. A key with the <code>read</code> scope can make GET requests;
+        POST, PATCH and DELETE need <code>write</code>, or the API answers{' '}
+        <code>403</code>.
       </p>
       <CodeBlock>{`curl -H "Authorization: Bearer ag_YOUR_KEY" \\
   https://api.chainward.ai/api/agents`}</CodeBlock>
 
       <h3>Session cookie</h3>
       <p>
-        When signed in via the dashboard, a <code>chainward-session</code> JWT cookie
-        is set automatically. Browser requests include this cookie by default.
+        When you sign in on the dashboard, a <code>chainward-session</code> cookie is
+        set. Browser requests send it automatically.
       </p>
 
       <h2>TypeScript SDK</h2>
-      <p>Install the SDK for typed access to every endpoint:</p>
+      <p>Install the SDK for typed access to agents, transactions and alerts:</p>
       <CodeBlock>npm install @chainward/sdk</CodeBlock>
       <CodeBlock>{`import { ChainWard } from '@chainward/sdk';
 
@@ -294,64 +303,18 @@ await cw.alerts.create({
         <section key={group.group}>
           <h3>{group.group}</h3>
           {group.items.map((ep) => (
-            <div
-              key={`${ep.method} ${ep.path}`}
-              className="v2-api-endpoint"
-              style={{
-                border: '1px solid var(--line)',
-                background: 'var(--bg-1)',
-                marginBottom: 24,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '12px 16px',
-                  borderBottom: '1px solid var(--line)',
-                }}
-              >
+            <div key={`${ep.method} ${ep.path}`} className="docs-endpoint">
+              <div className="docs-endpoint-head">
                 <Badge tone={methodTone[ep.method]}>{ep.method}</Badge>
-                <code
-                  className="v2-code-inline"
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--fg)',
-                    padding: 0,
-                  }}
-                >
-                  {ep.path}
-                </code>
+                <code className="docs-endpoint-path">{ep.path}</code>
               </div>
-              <div style={{ padding: '16px' }}>
-                <p style={{ marginBottom: 16 }}>{ep.desc}</p>
-                <div
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: '0.14em',
-                    textTransform: 'uppercase',
-                    color: 'var(--muted)',
-                    marginBottom: 6,
-                  }}
-                >
-                  Example
-                </div>
+              <div className="docs-endpoint-body">
+                <p>{ep.desc}</p>
+                <div className="press-label docs-endpoint-label">Example</div>
                 <CodeBlock>{ep.curl}</CodeBlock>
                 {ep.response && (
                   <>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: '0.14em',
-                        textTransform: 'uppercase',
-                        color: 'var(--muted)',
-                        margin: '16px 0 6px',
-                      }}
-                    >
-                      Response
-                    </div>
+                    <div className="press-label docs-endpoint-label">Response</div>
                     <CodeBlock>{ep.response}</CodeBlock>
                   </>
                 )}
@@ -363,9 +326,9 @@ await cw.alerts.create({
 
       <blockquote>
         <p>
-          <strong>Rate limits.</strong> API requests are rate-limited to 100
-          requests per minute per session. Rate limit headers are included in every
-          response.
+          <strong>Rate limits.</strong> 100 requests a minute per IP address. Every
+          response carries <code>X-RateLimit-Limit</code>,{' '}
+          <code>X-RateLimit-Remaining</code> and <code>X-RateLimit-Reset</code> headers.
         </p>
       </blockquote>
     </article>
