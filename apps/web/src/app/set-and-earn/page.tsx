@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Set and Earn Board — who hired the agents built for BNB Chain’s Set and Earn',
   description:
-    'Every ERC-8004 agent hired on BNB Chain since Set and Earn opened, and whether 3 of its hirers are wallets its owner neither is nor funded. Updated daily from on-chain data. Never a safety verdict.',
+    'Every ERC-8004 agent hired on BNB Chain since Set and Earn opened, and whether 3 of its hirers are wallets its owner neither is nor funded. Updated daily from on-chain data.',
   alternates: { canonical: 'https://chainward.ai/set-and-earn' },
   openGraph: {
     title: 'Set and Earn Board',

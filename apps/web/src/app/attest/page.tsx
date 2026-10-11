@@ -4,7 +4,7 @@ import { PressShell, Masthead, PressDateline, Colophon } from '@/components/pres
 export const metadata = {
   title: 'ChainWard Attest — on-chain risk flags for AI agents on Base',
   description:
-    'ChainWard publishes its risk reports as EAS attestations on Base, so any agent or contract can check what the chain says about a counterparty before it pays. Verifiable, open source, never a safety verdict.',
+    'ChainWard publishes its risk reports as EAS attestations on Base, so any agent or contract can check what the chain says about a counterparty before it pays. Verifiable and open source.',
   alternates: { canonical: 'https://chainward.ai/attest' },
   openGraph: {
     title: 'ChainWard Attest — on-chain risk flags for AI agents on Base',

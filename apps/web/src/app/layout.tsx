@@ -9,6 +9,7 @@ import './globals.css';
 import '../styles/v2-tokens.css';
 import '../styles/press.css';
 import { Analytics } from '@/components/press/Analytics';
+import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from '@/lib/siteCopy';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -44,15 +45,16 @@ const newsreader = Newsreader({
   display: 'swap',
 });
 
+// No canonical (or og:url) here: every page inherits the root metadata, so a
+// canonical set here told Google that each page without its own was the home
+// page. The home page and each indexable page set their own.
 export const metadata: Metadata = {
   title: {
-    default: 'ChainWard — on-chain risk checks for any Base or BNB Chain address',
+    default: SITE_TITLE,
     template: '%s | ChainWard',
   },
-  description:
-    'Paste any Base or BNB Chain address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
-  metadataBase: new URL('https://chainward.ai'),
-  alternates: { canonical: 'https://chainward.ai/' },
+  description: SITE_DESCRIPTION,
+  metadataBase: new URL(SITE_URL),
   robots: { index: true, follow: true },
   keywords: [
     'AI agent analytics',
@@ -74,21 +76,18 @@ export const metadata: Metadata = {
     apple: '/chainward-mark-180.png',
   },
   openGraph: {
-    title: 'ChainWard — on-chain risk checks for any Base or BNB Chain address',
-    description:
-      'Paste any Base or BNB Chain address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     siteName: 'ChainWard',
-    url: 'https://chainward.ai',
     type: 'website',
-    images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
+    images: [DEFAULT_OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@chainwardai',
-    title: 'ChainWard — on-chain risk checks for any Base or BNB Chain address',
-    description:
-      'Paste any Base or BNB Chain address and get every risk flag we can prove on-chain: dormant wallets, stranded USDC, concentrated counterparties, factory clones, claims the chain doesn’t back. Each flag is tied to its transactions. Free and public; flagged reports are attested on Base. Never a safety verdict.',
-    images: ['/chainward-og-card.png'],
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE.url],
   },
 };
 

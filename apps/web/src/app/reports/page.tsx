@@ -13,9 +13,9 @@ const PAGE_SIZE = 60;
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Risk Report Library — On-Chain Flags for Base Addresses',
+  title: 'Report Library: Pay or Hold for Base addresses',
   description:
-    'A public, free library of on-chain risk reports for Base addresses. Flags from on-chain behavior, with evidence — never a safety verdict.',
+    'A free, public library of checks on Base addresses: Pay or Hold for each, the reason, and the on-chain evidence behind it.',
   alternates: { canonical: 'https://chainward.ai/reports' },
   openGraph: {
     title: 'Risk Report Library | ChainWard',

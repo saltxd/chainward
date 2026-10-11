@@ -6,6 +6,7 @@
  * verdict — just flags with evidence.
  */
 
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   PressShell,
@@ -17,18 +18,39 @@ import {
 } from '@/components/press';
 import { getAllDecodes } from '@/lib/decodes';
 import { watchWalletHref } from '@/lib/watch';
+import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from '@/lib/siteCopy';
 import { CheckForm } from './_check/check-form';
 import { RecentlyChecked } from './_check/recently-checked';
+
+// The home page owns the site's canonical URL; the root layout sets none, so
+// other pages don't inherit it.
+export const metadata: Metadata = {
+  alternates: { canonical: `${SITE_URL}/` },
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    siteName: 'ChainWard',
+    url: `${SITE_URL}/`,
+    type: 'website',
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@chainwardai',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE.url],
+  },
+};
 
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
-  name: 'ChainWard Risk Check',
+  name: 'ChainWard',
   applicationCategory: 'SecurityApplication',
   operatingSystem: 'Web',
-  description:
-    'Paste any Base or BNB Chain address and get a forensic on-chain risk report — risk flags from on-chain behavior, with evidence. Free, public, and never a safety verdict.',
-  url: 'https://chainward.ai',
+  description: SITE_DESCRIPTION,
+  url: SITE_URL,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   publisher: {
     '@type': 'Organization',
