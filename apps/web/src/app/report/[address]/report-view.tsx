@@ -840,26 +840,50 @@ function ReportStyles() {
         letter-spacing: -0.02em;
       }
       .rr-answer {
-        border: 1px solid var(--rule-strong);
-        border-left: 8px solid var(--ink-faint);
-        background: var(--paper-2);
-        padding: 22px 24px 18px;
+        border-top: 3px double var(--rule-strong);
+        border-bottom: 1px solid var(--rule-strong);
+        padding: 28px 0 18px;
       }
-      .rr-answer--pay { border-left-color: var(--seal); }
-      .rr-answer--hold { border-left-color: var(--sev-medium); }
-      .rr-answer--unknown { border-left-color: var(--ink-faint); }
-      .rr-answer-word {
-        font-size: clamp(56px, 11vw, 96px);
-        line-height: 0.95;
-        letter-spacing: -0.02em;
+      .rr-answer-top {
+        display: flex;
+        align-items: center;
+        gap: 18px 32px;
+        flex-wrap: wrap;
       }
-      .rr-answer--pay .rr-answer-word { color: var(--seal); }
-      .rr-answer--hold .rr-answer-word { color: var(--sev-medium); }
-      .rr-answer--unknown .rr-answer-word { color: var(--ink-soft); }
+      /* The verdict is stamped on the file, like the dossier's other marks. */
+      .rr-answer-stamp {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 22px 8px;
+        border: 3px solid currentColor;
+        box-shadow: inset 0 0 0 1px currentColor;
+        transform: rotate(-3deg);
+        font-family: var(--font-mono), ui-monospace, monospace;
+        text-transform: uppercase;
+        user-select: none;
+        color: var(--ink-faint);
+      }
+      .rr-answer--pay .rr-answer-stamp { color: var(--seal); }
+      .rr-answer--hold .rr-answer-stamp { color: var(--sev-medium); }
+      .rr-answer-stamp-word {
+        font-size: clamp(40px, 8vw, 64px);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        line-height: 1;
+      }
+      .rr-answer-stamp-sub {
+        margin-top: 6px;
+        font-size: 10px;
+        letter-spacing: 0.3em;
+        opacity: 0.85;
+      }
       .rr-answer-headline {
-        margin: 10px 0 0;
-        font-size: clamp(20px, 2.8vw, 26px);
-        line-height: 1.3;
+        flex: 1 1 280px;
+        margin: 0;
+        font-size: clamp(26px, 3.6vw, 38px);
+        line-height: 1.12;
+        letter-spacing: -0.01em;
         color: var(--ink);
       }
       .rr-answer-why {
@@ -986,14 +1010,9 @@ function ReportStyles() {
       .rr-flag {
         position: relative;
         border: 1px solid var(--rule);
-        border-left: 3px solid var(--rule-strong);
         background: var(--paper);
         padding: 20px 22px;
       }
-      .rr-flag--high { border-left-color: var(--sev-high); }
-      .rr-flag--medium { border-left-color: var(--sev-medium); }
-      .rr-flag--low { border-left-color: var(--sev-low); }
-      .rr-flag--info { border-left-color: var(--sev-info); }
       .rr-flag-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .rr-flag-title {
         font-family: var(--font-display), Georgia, serif;

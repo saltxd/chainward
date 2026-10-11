@@ -56,8 +56,13 @@ export function AnswerCard({
   const cameUp = answer.raised === 0 ? 'nothing came up' : `${answer.raised} came up`;
   return (
     <section className={`rr-answer rr-answer--${answer.label}`} aria-label="The answer">
-      <div className="rr-answer-word press-display">{answer.word}</div>
-      <p className="rr-answer-headline">{answer.headline}</p>
+      <div className="rr-answer-top">
+        <div className="rr-answer-stamp" aria-label={`Verdict: ${answer.word}`}>
+          <span className="rr-answer-stamp-word">{answer.word}</span>
+          <span className="rr-answer-stamp-sub">Verdict · on-chain</span>
+        </div>
+        <p className="rr-answer-headline press-display">{answer.headline}</p>
+      </div>
       <p className="rr-answer-why">
         <span className="rr-answer-why-tag">Why:</span> {answer.why}
       </p>
