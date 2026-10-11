@@ -77,7 +77,6 @@ describe('noindex pages', () => {
     const { generateMetadata } = await import('../base/digest/page');
     const meta = await generateMetadata();
     expect(meta.robots).toMatchObject({ index: false });
-    expect(meta.alternates?.canonical).toBeUndefined();
   });
 
   it('/hyperliquid, /deck/bnb and /base/digest/snippets stay noindex', async () => {
@@ -89,6 +88,5 @@ describe('noindex pages', () => {
     for (const p of pages) {
       expect(p.metadata.robots).toMatchObject({ index: false });
     }
-    expect(pages[0].metadata.alternates?.canonical).toBeUndefined();
   });
 });

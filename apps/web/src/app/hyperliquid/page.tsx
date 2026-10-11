@@ -11,7 +11,9 @@ export const metadata: Metadata = {
   description:
     "Independent audit of Virtuals' Arena leaderboard against Hyperliquid's public API. Side-by-side display of what the dashboard claims vs what the chain actually shows.",
   // Retired from search (not in the sitemap); the route keeps working for old links.
+  // The self canonical stays so the page never inherits another URL.
   robots: { index: false, follow: true },
+  alternates: { canonical: 'https://chainward.ai/hyperliquid' },
   openGraph: {
     title: 'Hyperliquid Agent Audit | ChainWard',
     description:

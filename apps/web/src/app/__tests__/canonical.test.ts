@@ -23,6 +23,7 @@ const PUBLIC_PAGES = [
   'mcp/page.tsx',
   'hyperliquid/page.tsx',
   'base/page.tsx',
+  'base/[slug]/page.tsx',
   'docs/page.tsx',
   'paid/[slug]/layout.tsx',
   '(checkout)/request-brief/layout.tsx',
