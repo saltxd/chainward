@@ -1,23 +1,41 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
+
+// Next adds its own <meta name="robots" content="noindex"> to every 404. Null
+// drops the root layout's "index, follow", so the page carries that one tag only.
+export const metadata: Metadata = {
+  title: 'Page not found',
+  robots: null,
+};
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4 text-center">
-      <div className="rounded-full bg-accent-foreground/10 p-4">
-        <span className="text-3xl font-bold text-accent-foreground">404</span>
+    <PressShell>
+      <PressDateline />
+      <div className="press-wrap">
+        <Masthead />
+
+        <section className="press-notice">
+          <div className="press-fileno">File № 404</div>
+          <h1 className="press-notice-title press-display">This page isn&apos;t on file.</h1>
+          <p className="press-notice-lede">
+            The link may be old, or the address in it mistyped. If you were about to pay or hire an AI
+            agent, paste its wallet address into the free check. Or read how we look into agents in the
+            decodes.
+          </p>
+          <div className="press-notice-ctas">
+            <Link href="/" className="press-btn">
+              Check an address →
+            </Link>
+            <Link href="/decodes" className="press-btn press-btn--ghost">
+              Read the decodes
+            </Link>
+          </div>
+        </section>
+
+        <Colophon />
       </div>
-      <div>
-        <h2 className="text-lg font-semibold text-white">Page not found</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The page you&apos;re looking for doesn&apos;t exist or has been moved.
-        </p>
-      </div>
-      <Link
-        href="/"
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-      >
-        Back to home
-      </Link>
-    </div>
+    </PressShell>
   );
 }

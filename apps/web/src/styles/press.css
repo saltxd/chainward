@@ -981,3 +981,35 @@ body:has(.press) {
 .press .decode-prose > :is(p, ul, ol, blockquote) {
   max-width: 34em;
 }
+
+/* 404 and error pages: a short notice with two ways back. */
+.press .press-notice {
+  padding: 64px 0 72px;
+  max-width: 720px;
+}
+.press .press-notice-title {
+  margin: 16px 0 0;
+  font-size: clamp(34px, 5.2vw, 58px);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+.press .press-notice-lede {
+  margin: 20px 0 0;
+  font-family: var(--font-text);
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.press .press-notice-ref {
+  margin: 14px 0 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.press .press-notice-ctas {
+  margin-top: 30px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+}
