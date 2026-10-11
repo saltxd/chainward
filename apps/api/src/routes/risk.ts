@@ -166,6 +166,8 @@ interface ReportCard {
   address: string;
   chain: string;
   agent_name?: string;
+  /** The answer the report opens with, from the stored row (as GET /report computes it). */
+  verdict: Pick<Verdict<CounterpartyVerdictLabel>, 'label' | 'text'>;
   band: string;
   flag_count: number;
   top_severity: string | null;
@@ -237,8 +239,7 @@ function attestationInfo(row: RiskReportRow): AttestationInfo {
 
 const SEVERITY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1, info: 0 };
 
-function topSeverity(row: RiskReportRow): string | null {
-  const flags = (row.topFlags as Array<{ severity: string }> | null) ?? [];
+function topSeverity(flags: Array<{ severity: string }>): string | null {
   let top: string | null = null;
   for (const f of flags) {
     if (top === null || (SEVERITY_RANK[f.severity] ?? 0) > (SEVERITY_RANK[top] ?? 0)) {
@@ -254,14 +255,25 @@ function reportPath(address: string, chain: string): string {
 }
 
 function rowToCard(row: RiskReportRow): ReportCard {
+  // Same reading as rowToReport: the sanctions list is applied on read, so a
+  // card filed before the address was listed still says Hold and names why.
+  const assessment = withSanctionsFlag(row.riskAssessment as RiskAssessment, row.walletAddress);
+  const { label, text } = reportVerdict(assessment, row.reportData);
+  const stored = (row.topFlags as TopFlagPreview[] | null) ?? [];
+  const sanctions = assessment.flags.find((f) => f.id === 'ofac_sanctioned');
+  const topFlags =
+    sanctions && !stored.some((f) => f.id === sanctions.id)
+      ? [{ id: sanctions.id, severity: sanctions.severity, title: sanctions.title }, ...stored].slice(0, 3)
+      : stored;
   return {
     address: row.walletAddress,
     chain: row.chain,
     agent_name: row.agentName ?? undefined,
+    verdict: { label, text },
     band: row.band,
-    flag_count: row.flagCount,
-    top_severity: topSeverity(row),
-    top_flags: (row.topFlags as TopFlagPreview[] | null) ?? [],
+    flag_count: topFlags === stored ? row.flagCount : row.flagCount + 1,
+    top_severity: topSeverity(topFlags),
+    top_flags: topFlags,
     as_of_date: new Date(row.generatedAt).toISOString(),
     view_count: row.viewCount,
     report_url: reportPath(row.walletAddress, row.chain),
