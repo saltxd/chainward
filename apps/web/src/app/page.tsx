@@ -42,20 +42,24 @@ function formatIsoDate(dateStr: string): string {
 
 const PRINCIPLES = [
   {
-    k: 'A verdict, with its reason',
-    v: 'Pay or Hold (or, when there is too little to judge, Inactive or No track record), and the one fact it rests on. Read from on-chain behavior only: Pay means nothing was found against paying, not that an address is safe.',
+    k: 'Pay means nothing turned up',
+    v: "Pay means we found nothing on-chain against paying in the last 30 days. It isn't a guarantee, so for a big payment, start small.",
   },
   {
-    k: 'Evidence, always',
-    v: 'Every flag carries on-chain evidence and a source link. No uncited claims.',
+    k: 'Hold means look closer',
+    v: 'Hold means something should make you stop, like USDC left sitting in a wallet that has gone quiet. The report names it.',
   },
   {
-    k: 'Free & public',
-    v: 'Every check is free. The first check of an address files a public, shareable report.',
+    k: 'Check it yourself',
+    v: 'Every finding links to the on-chain record, so you can see the transactions behind it.',
+  },
+  {
+    k: 'Free and public',
+    v: 'Every check on the site is free. The first check of an address files a public report you can share.',
   },
   {
     k: 'What we cannot see',
-    v: 'No off-chain agreements, no social engineering, no intent. Absence of flags is not a guarantee.',
+    v: "Promises made off-chain, private deals, or what someone intends. We only read what the chain shows.",
   },
 ];
 
@@ -155,9 +159,9 @@ export default async function CheckHomePage({
           <div className="home-policy-head">
             <h2 className="home-h2 press-display">How to read a report</h2>
             <p className="home-policy-lede">
-              ChainWard describes on-chain behavior in a neutral band — low, mixed,
-              elevated, or high signal. That is a count of what surfaced, never a
-              claim that an address is safe or unsafe.
+              Every report opens with one answer: Pay or Hold. If there isn&apos;t enough
+              recent history to judge, it says so (Inactive or No track record) instead
+              of guessing. Below the answer: the reason, and what we checked to get there.
             </p>
           </div>
           <dl className="home-principles">
