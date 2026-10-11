@@ -66,9 +66,68 @@ jobs:
         env:
           TEST_DB_URL: postgres://test:test@localhost:5432/chainward_test
 
+  # Images must boot, not just build: a Dockerfile that drops a runtime dep or an env var the config
+  # schema requires still compiles. Each image runs against throwaway Postgres/Redis service containers
+  # (host network) and must answer its liveness signal within 60 s. Same gha cache as the push job,
+  # so the push job only re-tags.
+  smoke:
+    name: Smoke (images boot)
+    needs: check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: smoke, POSTGRES_PASSWORD: smoke, POSTGRES_DB: smoke }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with: { context: ., file: apps/api/Dockerfile, load: true, tags: smoke/api:ci, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+      - uses: docker/build-push-action@v6
+        with: { context: ., file: apps/web/Dockerfile, load: true, tags: smoke/web:ci, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+      - uses: docker/build-push-action@v6
+        with: { context: ., file: packages/indexer/Dockerfile, load: true, tags: smoke/indexer:ci, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+      - name: boot the three images
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Throwaway values: the api only validates their shape at boot; the RPC URL points at a closed port.
+          env_args=(-e NODE_ENV=production -e DATABASE_URL=postgres://smoke:smoke@127.0.0.1:5432/smoke -e REDIS_URL=redis://127.0.0.1:6379
+                    -e "JWT_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" -e BASE_RPC_URL=http://127.0.0.1:9 -e ALCHEMY_WEBHOOK_SIGNING_KEY=smoke)
+          docker run -d --name api --network host -e PORT=8000 "${env_args[@]}" smoke/api:ci
+          docker run -d --name web --network host -e PORT=3000 -e API_INTERNAL_URL=http://127.0.0.1:8000 smoke/web:ci
+          docker run -d --name indexer --network host "${env_args[@]}" smoke/indexer:ci
+          wait_for() { # name, check-command
+            for i in $(seq 1 30); do if eval "$2" >/dev/null 2>&1; then echo "$1: up after ${i}x2s"; return 0; fi; sleep 2; done
+            echo "::error::$1 did not come up in 60 s"; return 1
+          }
+          wait_for api     'curl -fsS http://127.0.0.1:8000/livez'
+          wait_for web     'curl -fsS -o /dev/null http://127.0.0.1:3000/'
+          # The indexer has no port; it writes a Redis heartbeat once every worker and schedule is registered.
+          wait_for indexer 'test -n "$(docker run --rm --network host redis:7-alpine redis-cli get chainward:indexer:heartbeat)"'
+      - name: container logs
+        if: failure()
+        run: for c in api web indexer; do echo "::group::$c"; docker logs "$c" 2>&1 | tail -80; echo "::endgroup::"; done
+
+  # Public repo: a leaked key is world-readable the moment it is pushed. Scans the pushed commits (PR: the PR's).
+  gitleaks:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+
   docker:
     name: Build & Push Images
-    needs: check
+    needs: [check, smoke, gitleaks]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     strategy:
