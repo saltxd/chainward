@@ -216,7 +216,16 @@ jobs:
       - uses: actions/checkout@v4
       - id: sha
         run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      # The bump only deploys the branch head; a superseded run has nothing live to test.
+      - id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head=$(gh api "repos/$GITHUB_REPOSITORY/commits/${GITHUB_REF#refs/heads/}" --jq .sha)
+          if [ "$head" = "$GITHUB_SHA" ]; then echo "go=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice::${GITHUB_SHA::7} was superseded by ${head::7}; that run's smoke covers it"; echo "go=false" >> "$GITHUB_OUTPUT"; fi
       - name: Wait for this commit's api to be live
+        if: steps.head.outputs.go == 'true'
         env:
           WANT: ${{ steps.sha.outputs.short }}
         run: |
@@ -228,12 +237,16 @@ jobs:
           done
           echo "::error::api never reported $WANT within 15 minutes; check the Flux HelmRelease"
           exit 1
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - if: steps.head.outputs.go == 'true'
+        uses: pnpm/action-setup@v4
+      - if: steps.head.outputs.go == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - if: steps.head.outputs.go == 'true'
+        run: pnpm install --frozen-lockfile
       - name: Sign in with an EOA and a smart wallet
+        if: steps.head.outputs.go == 'true'
         run: pnpm --filter @chainward/api exec tsx scripts/login-smoke.mts
 
