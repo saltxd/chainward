@@ -8,5 +8,5 @@ updates:
   - package-ecosystem: npm
     directory: "/"
     schedule: { interval: weekly, day: monday }
-    groups: { node: { patterns: ["*"] } }
+    groups: { node: { patterns: ["*"], update-types: ["minor", "patch"] } }   # majors arrive as their own PRs
     open-pull-requests-limit: 3
