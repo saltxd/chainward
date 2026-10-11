@@ -93,10 +93,26 @@ describe('plainAnswer', () => {
       report({
         verdict: { label: 'hold', text: 'Hold', reason: 'x', limits: 'x' },
         flags: [{ id: 'dormant_wallet', severity: 'medium', title: 't', evidence: 'e', source: '' }],
+        window: { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_at: null },
       }),
       NOW,
     );
     expect(dormant!.why).toBe("This wallet hasn't moved any tokens in the last 30 days.");
+  });
+
+  // Dormant means no transfer in the last 7 days, so a dormant wallet can still
+  // have transfers inside the 14- or 30-day window: say how long it has been quiet.
+  it('Hold on a dormant wallet with transfers in the window says how long it has been quiet', () => {
+    const a = plainAnswer(
+      report({
+        chain: 'bsc',
+        verdict: { label: 'hold', text: 'Hold', reason: 'x', limits: 'x' },
+        flags: [{ id: 'dormant_wallet', severity: 'medium', title: 't', evidence: 'e', source: '' }],
+        window: { days: 14, transfers_30d: 7, unique_counterparties_30d: 8, latest_transfer_at: '2026-10-02T17:00:00Z' },
+      }),
+      NOW,
+    );
+    expect(a!.why).toBe("This wallet hasn't moved any tokens in 9 days.");
   });
 
   it('the third answer says which case it is: Inactive, No track record, or Couldn\'t check', () => {
@@ -152,6 +168,25 @@ describe('plainAnswer', () => {
       NOW,
     );
     expect(odd!.why).toBe('Something new: 12 events.');
+  });
+
+  // BNB Chain reads a 14-day transfer window, Base 30: the reason and the limit
+  // name the window the report actually read.
+  it('names the window the report read, in the reason and the limit', () => {
+    const pay = { label: 'pay', text: 'Pay', reason: 'r', limits: 'x' };
+    const bsc = plainAnswer(report({ chain: 'bsc', verdict: pay, window: { days: 14 } }), NOW)!;
+    expect(bsc.why).toMatch(/in the last 14 days,/);
+    expect(bsc.limit).toBe('On-chain only, last 14 days. Pay means nothing was found against it, not a guarantee.');
+    const partial = plainAnswer(report({ chain: 'bsc', verdict: pay, window: { days: 4.62 } }), NOW)!;
+    expect(partial.why).toMatch(/in the last 4\.6 days,/);
+    expect(partial.limit).toBe('On-chain only, last 4.6 days. Pay means nothing was found against it, not a guarantee.');
+    const base = plainAnswer(report({ verdict: pay }), NOW)!;
+    expect(base.limit).toBe('On-chain only, last 30 days. Pay means nothing was found against it, not a guarantee.');
+    const quiet = plainAnswer(
+      report({ chain: 'bsc', verdict: { label: 'unknown', text: 'Inactive', reason: 'x', limits: 'x' }, window: { days: 14, transfers_30d: 0, sent_tx_count: 43 } }),
+      NOW,
+    )!;
+    expect(quiet.why).toBe("This wallet has sent 43 transactions in its life, but hasn't moved any tokens in the last 14 days.");
   });
 
   it('reports filed before verdicts have no answer card', () => {

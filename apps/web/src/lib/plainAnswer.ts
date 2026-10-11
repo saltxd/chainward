@@ -1,4 +1,5 @@
 import type { RiskFlag, RiskReport } from './api';
+import { windowSpan } from './risk';
 
 /**
  * The answer card at the top of a report: what someone about to pay or hire this
@@ -37,11 +38,12 @@ const UNKNOWN: Record<UnknownCase, { word: string; headline: string; advice: str
   unread: { word: "Couldn't check", headline: "We couldn't read the chain just now.", advice: 'Re-check in a minute.' },
 };
 
-const LIMIT: Record<PlainAnswer['label'], string> = {
-  pay: 'On-chain only, last 30 days. Pay means nothing was found against it, not a guarantee.',
-  hold: "On-chain only. We can't see promises made off-chain.",
-  unknown: "On-chain only. We can't see promises made off-chain.",
-};
+/** The limit line; Pay names the transfer window read (30 days on Base, 14 on BNB Chain). */
+function limitFor(label: PlainAnswer['label'], span: string): string {
+  return label === 'pay'
+    ? `On-chain only, last ${span}. Pay means nothing was found against it, not a guarantee.`
+    : "On-chain only. We can't see promises made off-chain.";
+}
 
 const SEVERITY_ORDER: Record<RiskFlag['severity'], number> = { high: 3, medium: 2, low: 1, info: 0 };
 
@@ -105,22 +107,30 @@ function usdc(evidence: string): string | null {
   return n >= 10 ? int(n) : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-function holdWhy(flag: RiskFlag | undefined, w: NonNullable<RiskReport['coverage']>['window'] | undefined, days: number): string | null {
+function holdWhy(
+  flag: RiskFlag | undefined,
+  w: NonNullable<RiskReport['coverage']>['window'] | undefined,
+  days: string,
+  now: Date,
+): string | null {
   if (!flag) return null;
+  // Dormant is a week of silence, so a dormant wallet can still have transfers in
+  // the window: then say how long it has been quiet, not "in the last 14 days".
+  const quiet = w?.latest_transfer_at ? `in ${ago(w.latest_transfer_at, now).replace(/ ago$/, '')}` : `in the last ${days}`;
   switch (flag.id) {
     case 'ofac_sanctioned':
       return 'This address is on the US Treasury sanctions list. Paying it may be illegal for US persons.';
     case 'stranded_value': {
       const amount = usdc(flag.evidence);
       return amount
-        ? `This wallet holds ${amount} USDC but hasn't moved any tokens in the last ${days} days.`
-        : `This wallet holds USDC but hasn't moved any tokens in the last ${days} days.`;
+        ? `This wallet holds ${amount} USDC but hasn't moved any tokens ${quiet}.`
+        : `This wallet holds USDC but hasn't moved any tokens ${quiet}.`;
     }
     case 'dormant_wallet':
-      return `This wallet hasn't moved any tokens in the last ${days} days.`;
+      return `This wallet hasn't moved any tokens ${quiet}.`;
     case 'counterparty_concentration':
       return w
-        ? `Its ${int(w.transfers_30d)} transfers in the last ${days} days all went to or from just ${plural(w.unique_counterparties_30d, 'wallet')}.`
+        ? `Its ${int(w.transfers_30d)} transfers in the last ${days} all went to or from just ${plural(w.unique_counterparties_30d, 'wallet')}.`
         : null;
     case 'claim_vs_chain_offline':
       return "It's listed as online on Virtuals, but the chain shows it idle.";
@@ -140,18 +150,19 @@ export function plainAnswer(report: RiskReport, now: Date = new Date()): PlainAn
   if (!v) return null;
   const label: PlainAnswer['label'] = v.label === 'pay' || v.label === 'hold' ? v.label : 'unknown';
   const w = report.coverage?.window;
-  const days = w?.days ?? 30;
+  // "30 days", "14 days", "4.6 days": the window the scan really covered.
+  const days = windowSpan(w?.days);
 
   let why: string | null = null;
   if (label === 'pay' && w) {
     const last = w.latest_transfer_at ? `, the last one ${ago(w.latest_transfer_at, now)}` : '';
-    why = `${int(w.transfers_30d)}${w.transfers_truncated ? '+' : ''} transfers with ${int(w.unique_counterparties_30d)} different wallet${w.unique_counterparties_30d === 1 ? '' : 's'} in the last ${days} days${last}.`;
+    why = `${int(w.transfers_30d)}${w.transfers_truncated ? '+' : ''} transfers with ${int(w.unique_counterparties_30d)} different wallet${w.unique_counterparties_30d === 1 ? '' : 's'} in the last ${days}${last}.`;
   } else if (label === 'hold') {
     // A sanctions match is the reason whenever it is there, as on the server.
     const top =
       report.flags.find((f) => f.id === 'ofac_sanctioned') ??
       [...report.flags].sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity])[0];
-    why = holdWhy(top, w, days);
+    why = holdWhy(top, w, days, now);
   }
 
   let word = v.text;
@@ -163,9 +174,9 @@ export function plainAnswer(report: RiskReport, now: Date = new Date()): PlainAn
     const kind: UnknownCase = unread ? 'unread' : typeof sent === 'number' && sent > 0 ? 'inactive' : 'new';
     ({ word, headline, advice } = UNKNOWN[kind]);
     if (kind === 'inactive' && typeof sent === 'number') {
-      why = `This wallet has sent ${plural(sent, 'transaction')} in its life, but hasn't moved any tokens in the last ${days} days.`;
+      why = `This wallet has sent ${plural(sent, 'transaction')} in its life, but hasn't moved any tokens in the last ${days}.`;
     } else if (kind === 'new' && w && w.transfers_30d === 0) {
-      why = `No token transfers or sent transactions on this chain in the last ${days} days.`;
+      why = `No token transfers or sent transactions on this chain in the last ${days}.`;
     } else if (kind === 'unread') {
       why = "We couldn't read this wallet's history, so there's nothing to judge yet.";
     }
@@ -180,7 +191,7 @@ export function plainAnswer(report: RiskReport, now: Date = new Date()): PlainAn
     ...(advice ? { advice } : {}),
     checked: checks.length,
     raised: checks.filter((c) => (c.status ?? (c.raised ? 'raised' : 'not_raised')) === 'raised').length,
-    limit: LIMIT[label],
+    limit: limitFor(label, days),
     checkedAgo: ago(report.freshness.generated_at, now),
     stale: report.freshness.ttl_state === 'stale',
   };

@@ -65,7 +65,7 @@ function formatIsoDate(dateStr: string): string {
 const PRINCIPLES = [
   {
     k: 'Pay means nothing turned up',
-    v: "Pay means we found nothing on-chain against paying in the last 30 days. It isn't a guarantee, so for a big payment, start small.",
+    v: "Pay means we found nothing on-chain against paying in the last 30 days (14 on BNB Chain). It isn't a guarantee, so for a big payment, start small.",
   },
   {
     k: 'Hold means look closer',

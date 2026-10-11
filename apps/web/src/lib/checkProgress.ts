@@ -1,5 +1,5 @@
 import { ApiError } from './api';
-import { CHECKS_RUN } from './checkCount';
+import { CHECKS_RUN, TRANSFER_WINDOW_DAYS } from './checkCount';
 
 /**
  * What a running check is doing, said in plain words, one step at a time. The
@@ -9,7 +9,7 @@ import { CHECKS_RUN } from './checkCount';
 export function checkSteps(chain: keyof typeof CHECKS_RUN = 'base'): readonly string[] {
   return [
     'Looking up the wallet',
-    'Reading its last 30 days of transfers',
+    `Reading its last ${TRANSFER_WINDOW_DAYS[chain]} days of transfers`,
     'Counting who it deals with',
     'Checking what it holds',
     `Running ${CHECKS_RUN[chain]} checks against what we found`,

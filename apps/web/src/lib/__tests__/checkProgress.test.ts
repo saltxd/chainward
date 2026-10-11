@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, publicApi } from '../api';
 import { CHECK_STEPS, checkSteps, isTransient, progressStep } from '../checkProgress';
-import { CHECKS_RUN } from '../checkCount';
+import { CHECKS_RUN, TRANSFER_WINDOW_DAYS } from '../checkCount';
 
 // While a check runs the page says what it is doing, step by step, and a hiccup
 // between the browser and our server never shows up as a raw parser error.
@@ -27,6 +27,12 @@ describe('progressStep', () => {
     expect(checkSteps('bsc')).toContain(`Running ${CHECKS_RUN.bsc} checks against what we found`);
     expect(CHECK_STEPS).toEqual(checkSteps('base'));
     expect(CHECKS_RUN.base).toBeGreaterThan(CHECKS_RUN.bsc);
+  });
+
+  it('says how many days of transfers it reads on the chain being checked', () => {
+    expect(checkSteps('base')).toContain('Reading its last 30 days of transfers');
+    expect(checkSteps('bsc')).toContain('Reading its last 14 days of transfers');
+    expect(TRANSFER_WINDOW_DAYS).toEqual({ base: 30, bsc: 14 });
   });
 });
 

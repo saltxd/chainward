@@ -116,6 +116,13 @@ export function windowLabel(days: number | undefined): string {
   return Number.isInteger(rounded) ? `${rounded}-day` : `${rounded.toFixed(1)}-day`;
 }
 
+/** The same window as a noun phrase: "30 days" / "4.6 days" / "3 hours".
+ * Mirrors formatWindowSpan in packages/decode. */
+export function windowSpan(days: number | undefined): string {
+  const [n, unit] = windowLabel(days).split('-');
+  return `${n} ${unit}${n === '1' ? '' : 's'}`;
+}
+
 /** The FE report route. Canonical, lowercased address; Base stays bare, other
  * chains carry `?chain=` so existing Base links never change. */
 export function reportPath(address: string, chain?: string): string {
