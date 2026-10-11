@@ -1,126 +1,27 @@
 'use client';
 
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { usePressPalette, type PressPalette } from '@/lib/pressPalette';
-import Link from 'next/link';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { PressShell, Masthead, PressDateline, Colophon, BriefOffer } from '@/components/press';
 import { fetchDedup } from '@/lib/api-dedup';
-
-interface OverviewData {
-  agentsTracked: number;
-  transactions24h: number;
-  transactions7d: number;
-  gasBurned24h: { eth: number; usd: number };
-  gasBurned7d: { eth: number; usd: number };
-  totalPortfolioValue: number;
-  activeAgents24h: number;
-  activeAgents7d: number;
-  totalAgents: number;
-  updatedAt: string;
-}
-
-interface FeedItem {
-  timestamp: string;
-  agentName: string;
-  walletAddress: string;
-  direction: string;
-  tokenSymbol: string | null;
-  amountUsd: number | null;
-  gasCostUsd: number;
-  txHash: string;
-  txType: string;
-  status: string;
-}
-
-interface LeaderboardEntry {
-  walletAddress: string;
-  agentName: string;
-  agentFramework: string | null;
-  slug: string;
-  txCount?: number;
-  gasSpendUsd?: number;
-  portfolioValueUsd?: number;
-  healthScore?: number;
-  rank: number;
-}
-
-interface LeaderboardData {
-  mostActive: LeaderboardEntry[];
-  highestGas: LeaderboardEntry[];
-  largestPortfolio: LeaderboardEntry[];
-  healthiest: LeaderboardEntry[];
-}
-
-interface TrendPoint {
-  date: string;
-  count?: number;
-  gasUsd?: number;
-}
-
-interface TrendsData {
-  dailyTxCount: TrendPoint[];
-  dailyGasSpend: TrendPoint[];
-  dailyActiveAgents: TrendPoint[];
-  avgTxPerAgentPerDay: number;
-}
-
-function timeAgo(timestamp: string): string {
-  const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function formatUsd(value: number): string {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}k`;
-  if (value >= 1) return `$${value.toFixed(2)}`;
-  if (value >= 0.01) return `$${value.toFixed(2)}`;
-  return `$${value.toFixed(4)}`;
-}
-
-function truncateAddress(addr: string): string {
-  if (!addr || addr.length < 10) return addr;
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
+import type { ObservatoryFeedItem, ObservatoryInitial, TrendPoint } from '@/lib/observatory';
+import { ObservatoryHero, TopAgentsPanel, WirePanel } from './observatory-sections';
 
 function formatChartDate(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-async function fetchObservatory<T>(path: string): Promise<T | null> {
+async function fetchFeed(): Promise<ObservatoryFeedItem[] | null> {
   try {
-    return await fetchDedup<T>(`/api/observatory${path}`);
+    return await fetchDedup<ObservatoryFeedItem[]>('/api/observatory/feed');
   } catch {
     return null;
   }
 }
 
-type LeaderboardTab = 'mostActive' | 'highestGas' | 'largestPortfolio' | 'healthiest';
-
-const TAB_LABELS: Record<LeaderboardTab, string> = {
-  mostActive: 'Most active',
-  highestGas: 'Highest gas',
-  largestPortfolio: 'Most ETH',
-  healthiest: 'Healthiest',
-};
-
-// Paper chart furniture — ink strokes on manila, hairline-consistent.
 // Chart furniture comes from usePressPalette() (light or night paper).
-
 function chartTooltip(palette: PressPalette) {
   return {
     backgroundColor: palette.paper2,
@@ -131,66 +32,79 @@ function chartTooltip(palette: PressPalette) {
   };
 }
 
-function healthColor(score: number): string {
-  if (score >= 80) return 'var(--seal)';
-  if (score >= 50) return 'var(--sev-medium)';
-  return 'var(--oxblood)';
+function TrendChart({
+  title,
+  note,
+  points,
+  name,
+  palette,
+}: {
+  title: string;
+  note: string;
+  points: TrendPoint[];
+  name: string;
+  palette: PressPalette;
+}) {
+  const data = points.map((d) => ({ date: formatChartDate(d.date), count: d.count ?? 0 }));
+  return (
+    <div className="obs-panel">
+      <h2 className="obs-h2 press-display">{title}</h2>
+      <div className="obs-chart-note press-label">{note}</div>
+      <div className="obs-chart">
+        <ResponsiveContainer width="100%" height={240}>
+          <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <XAxis
+              dataKey="date"
+              stroke={palette.inkFaint}
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={32}
+            />
+            <YAxis stroke={palette.inkFaint} fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+            <Tooltip
+              contentStyle={chartTooltip(palette)}
+              labelStyle={{ color: palette.inkSoft }}
+              itemStyle={{ color: palette.ink }}
+              cursor={{ stroke: palette.ruleStrong }}
+            />
+            <Area
+              type="monotone"
+              dataKey="count"
+              stroke={palette.ink}
+              fill={palette.ink}
+              fillOpacity={0.07}
+              strokeWidth={1.25}
+              name={name}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 }
 
-export function ObservatoryPage({ children }: { children?: ReactNode }) {
+/**
+ * /base. The server reads the summary, lists, trends and the x402 board and
+ * hands them in as `initial`, so the HTML carries the numbers. In the browser
+ * only the wire refreshes, once a minute.
+ */
+export function ObservatoryPage({ initial, children }: { initial: ObservatoryInitial; children?: ReactNode }) {
   const palette = usePressPalette();
-  const [overview, setOverview] = useState<OverviewData | null>(null);
-  const [feed, setFeed] = useState<FeedItem[] | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
-  const [trends, setTrends] = useState<TrendsData | null>(null);
-  const [tab, setTab] = useState<LeaderboardTab>('mostActive');
-
-  const loadData = useCallback(async () => {
-    const [o, f, l, t] = await Promise.all([
-      fetchObservatory<OverviewData>(''),
-      fetchObservatory<FeedItem[]>('/feed'),
-      fetchObservatory<LeaderboardData>('/leaderboard'),
-      fetchObservatory<TrendsData>('/trends'),
-    ]);
-    setOverview(o);
-    setFeed(f);
-    setLeaderboard(l);
-    setTrends(t);
-  }, []);
+  const [feed, setFeed] = useState<ObservatoryFeedItem[] | null>(initial.feed);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const f = await fetchObservatory<FeedItem[]>('/feed');
+    const refresh = async () => {
+      const f = await fetchFeed();
       if (f) setFeed(f);
-    }, 60_000);
+    };
+    // The server read can fail on a cold API; try once from the browser.
+    if (!initial.feed) void refresh();
+    const interval = setInterval(() => void refresh(), 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [initial.feed]);
 
-  const txChartData = (trends?.dailyTxCount ?? []).map((d) => ({
-    date: formatChartDate(d.date),
-    count: d.count ?? 0,
-  }));
-
-  const gasChartData = (trends?.dailyGasSpend ?? []).map((d) => ({
-    date: formatChartDate(d.date),
-    gasUsd: d.gasUsd ?? 0,
-  }));
-
-  const leaderboardRows = leaderboard?.[tab] ?? [];
-
-  function tabValue(r: LeaderboardEntry): ReactNode {
-    if (tab === 'mostActive') return `${r.txCount ?? 0} txs`;
-    if (tab === 'highestGas') return formatUsd(r.gasSpendUsd ?? 0);
-    if (tab === 'healthiest') {
-      const score = r.healthScore ?? 0;
-      return <span style={{ color: healthColor(score) }}>{score}/100</span>;
-    }
-    return formatUsd(r.portfolioValueUsd ?? 0);
-  }
+  const trends = initial.trends;
 
   return (
     <PressShell>
@@ -198,242 +112,31 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
       <div className="press-wrap">
         <Masthead />
 
-        <section className="obs-lead">
-          <span className="press-label">Live · The Observatory</span>
-          <h1 className="obs-title press-display">Base Agent Observatory.</h1>
-          <p className="obs-lede">
-            Every Virtuals, Olas, and operator-built agent transacting on Base —
-            indexed live. Browse activity, stack-rank by health, watch the tx flow
-            in real time.
-          </p>
-
-          {/* Market-data strip */}
-          <div className="obs-stats">
-            <div className="obs-stat">
-              <span className="obs-stat-label">Agents tracked</span>
-              <span className="obs-stat-value mono">
-                {overview ? overview.totalAgents.toLocaleString() : '—'}
-              </span>
-            </div>
-            <div className="obs-stat">
-              <span className="obs-stat-label">Active 24h</span>
-              <span className="obs-stat-value mono">
-                {overview ? String(overview.activeAgents24h) : '—'}
-              </span>
-            </div>
-            <div className="obs-stat">
-              <span className="obs-stat-label">Tx 24h</span>
-              <span className="obs-stat-value mono">
-                {overview ? overview.transactions24h.toLocaleString() : '—'}
-              </span>
-            </div>
-            <div className="obs-stat">
-              <span className="obs-stat-label">Gas 24h</span>
-              <span className="obs-stat-value mono">
-                {overview ? formatUsd(overview.gasBurned24h.usd) : '—'}
-              </span>
-            </div>
-            <div className="obs-stat">
-              <span className="obs-stat-label">ETH held (USD)</span>
-              <span className="obs-stat-value mono">
-                {overview ? formatUsd(overview.totalPortfolioValue) : '—'}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <p className="sr-only">
-          The Base Agent Observatory tracks autonomous AI agent wallets operating on Base chain.
-          View real-time transaction volumes, gas analytics, agent leaderboards, and a live feed of
-          on-chain activity. All data is sourced from Base mainnet and updated continuously.
-        </p>
+        <ObservatoryHero overview={initial.overview} trends={trends} />
 
         <section className="obs-grid">
-          {/* Leaderboard */}
-          <div className="obs-panel">
-            <h2 className="obs-h2 press-display">Top agents</h2>
-            <div className="obs-tabs" role="tablist" aria-label="Leaderboard ranking">
-              {(Object.keys(TAB_LABELS) as LeaderboardTab[]).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`obs-tab ${tab === t ? 'obs-tab-active' : ''}`}
-                  role="tab"
-                  aria-selected={tab === t}
-                >
-                  {TAB_LABELS[t]}
-                </button>
-              ))}
-            </div>
-            <div className="obs-table">
-              <div className="obs-thead obs-lb-row">
-                <span>№</span>
-                <span>Agent</span>
-                <span>Framework</span>
-                <span className="obs-right">{TAB_LABELS[tab]}</span>
-              </div>
-              {leaderboardRows.length === 0 ? (
-                <div className="obs-empty">No leaderboard data yet.</div>
-              ) : (
-                leaderboardRows.map((r) => (
-                  <Link
-                    key={`${tab}-${r.walletAddress}`}
-                    href={`/base/${r.slug}`}
-                    className="obs-row obs-lb-row"
-                  >
-                    <span className="obs-rank mono">{r.rank}</span>
-                    <span className="obs-agent">
-                      <span className="obs-agent-name">
-                        {r.agentName || truncateAddress(r.walletAddress)}
-                      </span>
-                      <span className="obs-agent-addr mono">
-                        {truncateAddress(r.walletAddress)}
-                      </span>
-                    </span>
-                    <span className="obs-framework mono">
-                      {r.agentFramework ?? ''}
-                    </span>
-                    <span className="obs-value mono obs-right">{tabValue(r)}</span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Live feed */}
-          <div className="obs-panel">
-            <h2 className="obs-h2 press-display">The wire</h2>
-            <div className="obs-feed-note press-label">
-              Live agent transactions · refreshes every 60s
-            </div>
-            <div className="obs-table">
-              <div className="obs-thead obs-feed-row">
-                <span>Time</span>
-                <span>Agent</span>
-                <span>Dir</span>
-                <span>Token</span>
-                <span className="obs-right">USD</span>
-              </div>
-              {(feed ?? []).length === 0 ? (
-                <div className="obs-empty">No recent activity.</div>
-              ) : (
-                (feed ?? []).map((r, i) => (
-                  <Link
-                    key={`${r.txHash}-${i}`}
-                    href={`/wallet/${r.walletAddress}`}
-                    className="obs-row obs-feed-row"
-                  >
-                    <span className="obs-time mono">{timeAgo(r.timestamp)}</span>
-                    <span className="obs-agent-name">
-                      {r.agentName || truncateAddress(r.walletAddress)}
-                    </span>
-                    <span
-                      className="obs-dir mono"
-                      style={{
-                        color:
-                          r.direction.toUpperCase() === 'IN'
-                            ? 'var(--seal)'
-                            : 'var(--ink-faint)',
-                      }}
-                    >
-                      {r.direction.slice(0, 3).toUpperCase()}
-                    </span>
-                    <span className="obs-token mono">{r.tokenSymbol ?? 'ETH'}</span>
-                    <span className="obs-usd mono obs-right">
-                      {r.amountUsd == null ? '—' : formatUsd(r.amountUsd)}
-                    </span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
+          <TopAgentsPanel mostActive={initial.mostActive} x402={initial.x402} />
+          <WirePanel feed={feed} />
         </section>
 
-        <section className="obs-charts">
-          <div className="obs-panel">
-            <h2 className="obs-h2 press-display">Transaction volume</h2>
-            <div className="obs-chart-note press-label">Trailing 30 days</div>
-            <div className="obs-chart">
-              <ResponsiveContainer width="100%" height={240}>
-                <AreaChart
-                  data={txChartData}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="date"
-                    stroke={palette.inkFaint}
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={32}
-                  />
-                  <YAxis stroke={palette.inkFaint} fontSize={10} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={chartTooltip(palette)}
-                    labelStyle={{ color: palette.inkSoft }}
-                    itemStyle={{ color: palette.ink }}
-                    cursor={{ stroke: palette.ruleStrong }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke={palette.ink}
-                    fill={palette.ink}
-                    fillOpacity={0.07}
-                    strokeWidth={1.25}
-                    name="tx"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="obs-panel">
-            <h2 className="obs-h2 press-display">Gas spend</h2>
-            <div className="obs-chart-note press-label">Trailing 30 days · USD</div>
-            <div className="obs-chart">
-              <ResponsiveContainer width="100%" height={240}>
-                <AreaChart
-                  data={gasChartData}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="date"
-                    stroke={palette.inkFaint}
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={32}
-                  />
-                  <YAxis
-                    stroke={palette.inkFaint}
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v: number) =>
-                      v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`
-                    }
-                  />
-                  <Tooltip
-                    contentStyle={chartTooltip(palette)}
-                    labelStyle={{ color: palette.inkSoft }}
-                    itemStyle={{ color: palette.ink }}
-                    cursor={{ stroke: palette.ruleStrong }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="gasUsd"
-                    stroke={palette.ink}
-                    fill={palette.ink}
-                    fillOpacity={0.07}
-                    strokeWidth={1.25}
-                    name="gas"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </section>
+        {trends && trends.dailyTxCount.length > 0 && (
+          <section className="obs-charts">
+            <TrendChart
+              title="Agents active per day"
+              note="Trailing 30 days · wallets with at least one transfer"
+              points={trends.dailyActiveAgents}
+              name="agents"
+              palette={palette}
+            />
+            <TrendChart
+              title="Transfers per day"
+              note="Trailing 30 days · spam tokens left out"
+              points={trends.dailyTxCount}
+              name="transfers"
+              palette={palette}
+            />
+          </section>
+        )}
 
         <BriefOffer
           placement="observatory"
@@ -465,7 +168,7 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
         .obs-stats {
           margin-top: 32px;
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 1px;
           background: var(--rule);
           border: 1px solid var(--rule);
@@ -490,9 +193,16 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
           line-height: 1;
           color: var(--ink);
         }
+        .obs-note {
+          margin: 12px 0 0;
+          font-family: var(--font-text);
+          font-size: 14px;
+          line-height: 1.5;
+          color: var(--ink-faint);
+          max-width: 680px;
+        }
         @media (max-width: 960px) {
           .obs-stats { grid-template-columns: repeat(2, 1fr); }
-          .obs-stats .obs-stat:last-child { grid-column: 1 / -1; }
         }
 
         .obs-h2 { margin: 0 0 10px; font-size: clamp(22px, 2.8vw, 30px); }
@@ -510,6 +220,7 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
 
         .obs-tabs {
           display: flex;
+          flex-wrap: wrap;
           gap: 0;
           border-bottom: 1px solid var(--rule-strong);
           margin-bottom: 0;
@@ -552,7 +263,13 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
         .obs-row:last-child { border-bottom: none; }
         .obs-lb-row {
           display: grid;
-          grid-template-columns: 34px minmax(0, 1fr) 110px 110px;
+          grid-template-columns: 34px minmax(0, 1fr) 110px 90px;
+          gap: 14px;
+          align-items: center;
+        }
+        .obs-x4-row {
+          display: grid;
+          grid-template-columns: 34px minmax(0, 1fr) 150px 90px;
           gap: 14px;
           align-items: center;
         }
@@ -575,11 +292,12 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
         .obs-row:hover .obs-agent-name { color: var(--oxblood); }
         .obs-agent-addr { font-size: 10.5px; color: var(--ink-faint); }
         .obs-framework { font-size: 11px; letter-spacing: 0.04em; color: var(--ink-faint); text-transform: lowercase; }
+        .obs-verdict { font-family: var(--font-text); font-size: 14px; color: var(--ink); }
         .obs-value { font-size: 12.5px; color: var(--ink); }
         .obs-right { text-align: right; }
         .obs-time { font-size: 11px; color: var(--ink-faint); }
         .obs-dir { font-size: 10.5px; letter-spacing: 0.08em; }
-        .obs-token { font-size: 11.5px; color: var(--ink-soft); }
+        .obs-token { font-size: 11.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .obs-usd { font-size: 12px; color: var(--ink); }
         .obs-empty {
           padding: 32px 4px;
@@ -588,11 +306,20 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
           font-size: 15px;
           color: var(--ink-faint);
         }
+        .obs-panel-foot {
+          margin: 12px 0 0;
+          font-family: var(--font-text);
+          font-size: 14px;
+          line-height: 1.5;
+          color: var(--ink-soft);
+        }
         .obs-feed-note, .obs-chart-note { display: block; margin-bottom: 10px; }
 
         @media (max-width: 560px) {
-          .obs-lb-row { grid-template-columns: 28px minmax(0, 1fr) 90px; }
+          .obs-lb-row { grid-template-columns: 28px minmax(0, 1fr) 70px; }
           .obs-lb-row .obs-framework { display: none; }
+          .obs-x4-row { grid-template-columns: 28px minmax(0, 1fr) 110px; }
+          .obs-x4-row .obs-value { display: none; }
           .obs-feed-row { grid-template-columns: 56px minmax(0, 1fr) 70px; }
           .obs-feed-row .obs-dir, .obs-feed-row .obs-token { display: none; }
         }
@@ -611,7 +338,6 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
           background: var(--paper-2);
           padding: 14px 10px 6px;
         }
-
       `}</style>
     </PressShell>
   );
