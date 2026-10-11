@@ -2,7 +2,7 @@ import type { RiskFlag, RiskReport } from './api';
 
 /**
  * The answer card at the top of a report: what someone about to pay or hire this
- * address needs first. The decision (Pay / Hold / Unknown, from the server), what
+ * address needs first. The decision (Pay / Hold, or which kind of not-enough-to-judge), what
  * it means in plain words, the one reason with readable numbers, and the limit.
  * Never says "safe": Pay means nothing was found against paying.
  */
@@ -11,6 +11,8 @@ export interface PlainAnswer {
   word: string;
   headline: string;
   why: string;
+  /** What to do about it, for the third answer. */
+  advice?: string;
   checked: number;
   raised: number;
   limit: string;
@@ -18,10 +20,21 @@ export interface PlainAnswer {
   stale: boolean;
 }
 
-const HEADLINE: Record<PlainAnswer['label'], string> = {
+const HEADLINE: Record<'pay' | 'hold', string> = {
   pay: "Nothing we can see says don't.",
   hold: "Don't pay yet. Something here should make you stop.",
-  unknown: 'Not enough history to judge. Treat it like a stranger: start small.',
+};
+
+/** The third answer, by case: the server's label is 'unknown' for all three. */
+type UnknownCase = 'inactive' | 'new' | 'unread';
+const UNKNOWN: Record<UnknownCase, { word: string; headline: string; advice: string }> = {
+  inactive: {
+    word: 'Inactive',
+    headline: 'Nothing recent to go on.',
+    advice: "If it's meant to be a working agent, ask why before you pay, or start small.",
+  },
+  new: { word: 'No track record', headline: 'Brand new: no history yet.', advice: 'Treat it like a stranger: start small.' },
+  unread: { word: "Couldn't check", headline: "We couldn't read the chain just now.", advice: 'Re-check in a minute.' },
 };
 
 const LIMIT: Record<PlainAnswer['label'], string> = {
@@ -134,17 +147,32 @@ export function plainAnswer(report: RiskReport, now: Date = new Date()): PlainAn
   } else if (label === 'hold') {
     const top = [...report.flags].sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity])[0];
     why = holdWhy(top, w, days);
-  } else if (label === 'unknown') {
-    if (w?.transfers_unavailable) why = "We couldn't read this wallet's history just now. Re-check in a minute.";
-    else if (w && w.transfers_30d === 0) why = `No token transfers on this chain in the last ${days} days.`;
+  }
+
+  let word = v.text;
+  let headline = label === 'unknown' ? '' : HEADLINE[label];
+  let advice: string | undefined;
+  if (label === 'unknown') {
+    const sent = w?.sent_tx_count;
+    const unread = Boolean(w?.transfers_unavailable) || /could not be read|unavailable/i.test(v.reason);
+    const kind: UnknownCase = unread ? 'unread' : typeof sent === 'number' && sent > 0 ? 'inactive' : 'new';
+    ({ word, headline, advice } = UNKNOWN[kind]);
+    if (kind === 'inactive' && typeof sent === 'number') {
+      why = `This wallet has sent ${plural(sent, 'transaction')} in its life, but hasn't moved any tokens in the last ${days} days.`;
+    } else if (kind === 'new' && w && w.transfers_30d === 0) {
+      why = `No token transfers or sent transactions on this chain in the last ${days} days.`;
+    } else if (kind === 'unread') {
+      why = "We couldn't read this wallet's history, so there's nothing to judge yet.";
+    }
   }
 
   const checks = report.coverage?.checks ?? [];
   return {
     label,
-    word: v.text,
-    headline: HEADLINE[label],
+    word,
+    headline,
     why: why ?? tidyNumbers(v.reason),
+    ...(advice ? { advice } : {}),
     checked: checks.length,
     raised: checks.filter((c) => (c.status ?? (c.raised ? 'raised' : 'not_raised')) === 'raised').length,
     limit: LIMIT[label],

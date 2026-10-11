@@ -32,7 +32,7 @@ describe('plainCallout', () => {
     expect(plainCallout({ ...base, plain: ' Most of it loops. ' })).toEqual({
       text: 'Most of it loops.',
       href: '/',
-      cta: 'Paste an address: Pay, Hold or Unknown →',
+      cta: 'Paste an address: should you pay it? →',
     });
   });
 

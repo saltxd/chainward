@@ -149,6 +149,8 @@ export interface CounterpartyActivity {
   transfers_30d: number;
   unique_counterparties_30d: number;
   latest_transfer_age_hours: number | null;
+  /** Lifetime transactions sent (the nonce), when read: tells a quiet wallet from a new one. */
+  sent_tx_count?: number;
 }
 
 const COUNTERPARTY_LIMITS = 'On-chain behavior only. Absence of flags is not a clearance of the counterparty.';
@@ -171,7 +173,7 @@ export function counterpartyVerdict(
   if (opts.transfersUnavailable) {
     return {
       label: 'unknown',
-      text: 'Unknown',
+      text: "Couldn't check",
       reason: 'The on-chain sources this check reads were unavailable, so activity could not be assessed.',
       limits: COUNTERPARTY_LIMITS,
     };
@@ -193,11 +195,24 @@ export function counterpartyVerdict(
       limits: COUNTERPARTY_LIMITS,
     };
   }
+  // The machine label stays 'unknown'; the text says which case it is.
   if (!activity || activity.transfers_30d === 0) {
+    const sent = activity?.sent_tx_count;
+    if (typeof sent === 'number' && sent > 0) {
+      return {
+        label: 'unknown',
+        text: 'Inactive',
+        reason: `No transfers in the last 30 days on this chain; ${sent} transaction${sent === 1 ? '' : 's'} sent in its lifetime.`,
+        limits: COUNTERPARTY_LIMITS,
+      };
+    }
     return {
       label: 'unknown',
-      text: 'Unknown',
-      reason: 'No transfers in the last 30 days on this chain.',
+      text: 'No track record',
+      reason:
+        sent === 0
+          ? 'No transfers in the last 30 days on this chain, and no transactions sent from it.'
+          : 'No transfers in the last 30 days on this chain.',
       limits: COUNTERPARTY_LIMITS,
     };
   }

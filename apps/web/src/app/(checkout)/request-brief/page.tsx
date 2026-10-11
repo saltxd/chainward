@@ -398,7 +398,18 @@ export default function RequestBriefPage() {
                 <div key={o.id} className="brf-order">
                   <div className="brf-order-row">
                     <code className="mono">{o.targetKind === 'address' ? shortAddr(o.target) : o.target}</code>
-                    <span className={`brf-status brf-status-${state.key}`}>{state.label}</span>
+                    {state.link ? (
+                      <a
+                        className={`brf-status brf-status-${state.key}`}
+                        href={state.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {state.label} →
+                      </a>
+                    ) : (
+                      <span className={`brf-status brf-status-${state.key}`}>{state.label}</span>
+                    )}
                     <span className="brf-order-date mono">{new Date(o.createdAt).toLocaleDateString()}</span>
                   </div>
                   {state.key === 'ready' && o.briefMarkdown ? (
@@ -409,7 +420,19 @@ export default function RequestBriefPage() {
                       </div>
                     </details>
                   ) : (
-                    state.hint && <p className="brf-order-hint">{state.hint}</p>
+                    state.hint && (
+                      <p className="brf-order-hint">
+                        {state.hint}
+                        {state.link && (
+                          <>
+                            {' '}
+                            <a className="press-link" href={state.link} target="_blank" rel="noopener noreferrer">
+                              Read the thread →
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    )
                   )}
                 </div>
               );

@@ -43,7 +43,7 @@ function formatIsoDate(dateStr: string): string {
 const PRINCIPLES = [
   {
     k: 'A verdict, with its reason',
-    v: 'Pay, Hold or Unknown, and the one fact it rests on. Read from on-chain behavior only: Pay means nothing was found against paying, not that an address is safe.',
+    v: 'Pay or Hold (or, when there is too little to judge, Inactive or No track record), and the one fact it rests on. Read from on-chain behavior only: Pay means nothing was found against paying, not that an address is safe.',
   },
   {
     k: 'Evidence, always',
@@ -90,7 +90,7 @@ export default async function CheckHomePage({
               About to pay or hire an AI agent? Paste its address first.
             </h1>
             <p className="home-kicker press-kicker">
-              We tell you Pay, Hold or Unknown, and why, in about a minute. Free.
+              We tell you Pay or Hold, and why, in about a minute. Free.
             </p>
             <p className="home-lede">
               We read the wallet&apos;s history on Base or BNB Chain and look for what
@@ -99,7 +99,8 @@ export default async function CheckHomePage({
               agent listed as online that the chain shows idle. You get one answer, the
               reason behind it, and a link to the on-chain record so you can check it
               yourself, read from{' '}
-              <NodeClaim live="our own Base node" neutral="the chain" />.
+              <NodeClaim live="our own Base node" neutral="the chain" />. When there isn&apos;t
+              enough recent history to judge, we say that instead.
             </p>
           </div>
 

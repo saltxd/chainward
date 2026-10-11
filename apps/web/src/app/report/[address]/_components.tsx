@@ -57,7 +57,10 @@ export function AnswerCard({
   return (
     <section className={`rr-answer rr-answer--${answer.label}`} aria-label="The answer">
       <div className="rr-answer-top">
-        <div className="rr-answer-stamp" aria-label={`Verdict: ${answer.word}`}>
+        <div
+          className={`rr-answer-stamp${answer.word.length > 9 ? ' rr-answer-stamp--long' : ''}`}
+          aria-label={`Verdict: ${answer.word}`}
+        >
           <span className="rr-answer-stamp-word">{answer.word}</span>
           <span className="rr-answer-stamp-sub">Verdict · on-chain</span>
         </div>
@@ -66,6 +69,7 @@ export function AnswerCard({
       <p className="rr-answer-why">
         <span className="rr-answer-why-tag">Why:</span> {answer.why}
       </p>
+      {answer.advice && <p className="rr-answer-advice">{answer.advice}</p>}
       <p className="rr-answer-meta">
         We checked {answer.checked} {answer.checked === 1 ? 'thing' : 'things'} · {cameUp} · details below
       </p>

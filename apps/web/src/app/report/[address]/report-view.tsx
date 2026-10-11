@@ -326,7 +326,7 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
           <div className="rr-subject mono">{address}</div>
           <div className="rr-hero-note">
             <span className="rr-chip" data-chain={chain}>{meta.name}</span>
-            <span>Pay, Hold or Unknown, the reason, and the evidence, read from the chain.</span>
+            <span>Should you pay it? The answer, the reason, and the evidence, read from the chain.</span>
             {valid && (
               <a
                 className="press-link rr-explorer"
@@ -421,7 +421,7 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
               <CheckProgress startedAt={startedAtRef.current} />
               <p className="rr-lede">
                 While that runs, here&apos;s a quick snapshot of the wallet. The answer
-                (Pay, Hold or Unknown) replaces this when the check finishes.
+                replaces this when the check finishes.
               </p>
               <div className="rr-stats">
                 <Stat label="sent txs" value={fmtNum(state.teaser.public_stats.tx_count, 0)} unit="from this wallet" />
@@ -871,6 +871,17 @@ function ReportStyles() {
         font-weight: 700;
         letter-spacing: 0.08em;
         line-height: 1;
+      }
+      .rr-answer-stamp--long .rr-answer-stamp-word {
+        font-size: clamp(26px, 5vw, 40px);
+        letter-spacing: 0.05em;
+      }
+      .rr-answer-advice {
+        margin: 8px 0 0;
+        font-size: 17px;
+        line-height: 1.5;
+        color: var(--ink);
+        max-width: 62ch;
       }
       .rr-answer-stamp-sub {
         margin-top: 6px;

@@ -38,13 +38,14 @@ describe('reportSearchCopy', () => {
     expect(c.description).toMatch(/^Hold\. USDC balance held in a dormant wallet: Holds 5451\.386272 USDC/);
   });
 
-  it('says Unknown plainly', () => {
+  it('names the case for the third answer, in the title and the description', () => {
     const c = reportSearchCopy({
       ...at,
-      flagCount: 0,
-      verdict: { label: 'unknown', text: 'Unknown', reason: 'Not enough history: 1 transfer in the last 30 days.', limits: '' },
+      flagCount: 1,
+      verdict: { label: 'unknown', text: 'Inactive', reason: "This wallet has sent 43 transactions in its life, but hasn't moved any tokens in the last 30 days.", limits: '' },
     });
-    expect(c.title).toBe('Should you pay 0xd655…4740? Unknown: not enough history');
+    expect(c.title).toBe('Should you pay 0xd655…4740? Inactive: nothing recent to go on');
+    expect(c.description).toMatch(/^Inactive\. This wallet has sent 43 transactions/);
   });
 
   it('falls back to the flag count for reports filed before verdicts, and to a plain prompt with no report', () => {

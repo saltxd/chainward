@@ -25,7 +25,7 @@ export interface PlainCallout {
   cta: string;
 }
 
-const DEFAULT_PLAIN_CTA = 'Paste an address: Pay, Hold or Unknown →';
+const DEFAULT_PLAIN_CTA = 'Paste an address: should you pay it? →';
 
 /** The plain-English box for a decode, or null when it has no summary. Links stay on this site. */
 export function plainCallout(meta: DecodeMeta): PlainCallout | null {

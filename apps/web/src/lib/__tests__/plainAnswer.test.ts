@@ -99,19 +99,32 @@ describe('plainAnswer', () => {
     expect(dormant!.why).toBe("This wallet hasn't moved any tokens in the last 30 days.");
   });
 
-  it('Unknown: not enough history, or sources down, and falls back to the server reason for anything unmapped', () => {
+  it('the third answer says which case it is: Inactive, No track record, or Couldn\'t check', () => {
     const quiet = plainAnswer(
-      report({ verdict: { label: 'unknown', text: 'Unknown', reason: 'No transfers in the last 30 days on this chain.', limits: 'x' }, window: { transfers_30d: 0 } }),
+      report({ verdict: { label: 'unknown', text: 'Unknown', reason: 'No transfers in the last 30 days on this chain.', limits: 'x' }, window: { transfers_30d: 0, sent_tx_count: 43 } }),
       NOW,
     );
-    expect(quiet!.word).toBe('Unknown');
-    expect(quiet!.headline).toBe('Not enough history to judge. Treat it like a stranger: start small.');
-    expect(quiet!.why).toBe('No token transfers on this chain in the last 30 days.');
+    expect(quiet!.word).toBe('Inactive');
+    expect(quiet!.headline).toBe('Nothing recent to go on.');
+    expect(quiet!.why).toBe("This wallet has sent 43 transactions in its life, but hasn't moved any tokens in the last 30 days.");
+    expect(quiet!.advice).toBe("If it's meant to be a working agent, ask why before you pay, or start small.");
+    const fresh = plainAnswer(
+      report({ verdict: { label: 'unknown', text: 'Unknown', reason: 'x', limits: 'x' }, window: { transfers_30d: 0, sent_tx_count: 0 } }),
+      NOW,
+    );
+    expect(fresh!.word).toBe('No track record');
+    expect(fresh!.headline).toBe('Brand new: no history yet.');
+    expect(fresh!.advice).toBe('Treat it like a stranger: start small.');
     const down = plainAnswer(
       report({ verdict: { label: 'unknown', text: 'Unknown', reason: 'x', limits: 'x' }, window: { transfers_unavailable: 'all sources failed' } }),
       NOW,
     );
-    expect(down!.why).toBe("We couldn't read this wallet's history just now. Re-check in a minute.");
+    expect(down!.word).toBe("Couldn't check");
+    expect(down!.headline).toBe("We couldn't read the chain just now.");
+    expect(down!.advice).toBe('Re-check in a minute.');
+  });
+
+  it('falls back to the server reason for an unmapped Hold flag', () => {
     const odd = plainAnswer(
       report({ verdict: { label: 'hold', text: 'Hold', reason: 'Something new: 12 events.', limits: 'x' }, flags: [{ id: 'brand_new_check', severity: 'high', title: 't', evidence: 'e', source: '' }] }),
       NOW,

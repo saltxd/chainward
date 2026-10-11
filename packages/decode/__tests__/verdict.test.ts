@@ -130,16 +130,34 @@ describe('counterpartyVerdict', () => {
     expect(v.reason).toBe('3 medium-severity flags in the last 30 days; the first is A.');
   });
 
-  it('says unknown when there is no activity to judge', () => {
-    const v = counterpartyVerdict({ band: 'low-signal', flags: [] }, { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_age_hours: null });
+  // The machine label stays 'unknown'; the words a person reads say which case it is.
+  it('says Inactive for a wallet with a history and no transfers in the window', () => {
+    const v = counterpartyVerdict(
+      { band: 'low-signal', flags: [] },
+      { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_age_hours: null, sent_tx_count: 43 },
+    );
     expect(v.label).toBe('unknown');
-    expect(v.text).toBe('Unknown');
-    expect(v.reason).toBe('No transfers in the last 30 days on this chain.');
+    expect(v.text).toBe('Inactive');
+    expect(v.reason).toBe('No transfers in the last 30 days on this chain; 43 transactions sent in its lifetime.');
   });
 
-  it('says unknown when the transfer sources could not be read', () => {
+  it('says No track record for a wallet with no history to judge', () => {
+    const fresh = counterpartyVerdict(
+      { band: 'low-signal', flags: [] },
+      { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_age_hours: null, sent_tx_count: 0 },
+    );
+    expect(fresh.label).toBe('unknown');
+    expect(fresh.text).toBe('No track record');
+    expect(fresh.reason).toBe('No transfers in the last 30 days on this chain, and no transactions sent from it.');
+    const unread = counterpartyVerdict({ band: 'low-signal', flags: [] }, { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_age_hours: null });
+    expect(unread.text).toBe('No track record');
+    expect(unread.reason).toBe('No transfers in the last 30 days on this chain.');
+  });
+
+  it("says Couldn't check when the transfer sources could not be read", () => {
     const v = counterpartyVerdict({ band: 'low-signal', flags: [] }, activity, { transfersUnavailable: true });
     expect(v.label).toBe('unknown');
+    expect(v.text).toBe("Couldn't check");
     expect(v.reason).toBe('The on-chain sources this check reads were unavailable, so activity could not be assessed.');
   });
 });

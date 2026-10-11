@@ -68,3 +68,23 @@ describe('orderDeliveryState', () => {
     expect(orderDeliveryState(order({ status: 'failed' })).key).toBe('failed');
   });
 });
+
+describe('a posted thread links to itself', () => {
+  it('links the @chainwardai thread recorded when the order was fulfilled', () => {
+    const manual = orderDeliveryState(
+      order({ status: 'fulfilled', contactMethod: 'x', briefMarkdown: null, notes: 'delivered: @chainwardai thread 2066862526294573446' }),
+    );
+    expect(manual.link).toBe('https://x.com/chainwardai/status/2066862526294573446');
+    const worker = orderDeliveryState(
+      order({ status: 'fulfilled', contactMethod: 'x', briefMarkdown: null, notes: 'check the treasury | delivered: x:2066888366889513111' }),
+    );
+    expect(worker.link).toBe('https://x.com/chainwardai/status/2066888366889513111');
+  });
+
+  it('has no link when no thread was recorded, or for private delivery', () => {
+    expect(orderDeliveryState(order({ status: 'fulfilled', contactMethod: 'x', briefMarkdown: null, notes: null })).link).toBeUndefined();
+    expect(
+      orderDeliveryState(order({ status: 'fulfilled', contactMethod: 'email', briefMarkdown: null, notes: 'delivered: x:2066888366889513111' })).link,
+    ).toBeUndefined();
+  });
+});

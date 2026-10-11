@@ -13,10 +13,19 @@ export interface OrderDeliveryState {
   key: OrderDeliveryKey;
   label: string;
   hint: string;
+  /** The published @chainwardai thread, when one was recorded at fulfillment. */
+  link?: string;
+}
+
+/** The last thread id recorded in an order's notes ("delivered: x:<id>" or "... thread <id>"). */
+function threadLink(notes: string | null | undefined): string | undefined {
+  const ids = [...(notes ?? '').matchAll(/delivered: (?:x:|@chainwardai thread )(\d{10,25})/g)].map((m) => m[1]);
+  const id = ids[ids.length - 1];
+  return id ? `https://x.com/chainwardai/status/${id}` : undefined;
 }
 
 /** What the buyer should understand about an order right now. */
-export function orderDeliveryState(order: Pick<BriefOrder, 'status' | 'contactMethod' | 'briefMarkdown'>): OrderDeliveryState {
+export function orderDeliveryState(order: Pick<BriefOrder, 'status' | 'contactMethod' | 'briefMarkdown'> & { notes?: string | null }): OrderDeliveryState {
   switch (order.status) {
     case 'pending':
       return { key: 'awaiting_payment', label: 'awaiting payment', hint: 'Pay to queue the decode.' };
@@ -35,6 +44,7 @@ export function orderDeliveryState(order: Pick<BriefOrder, 'status' | 'contactMe
           order.contactMethod === 'x'
             ? 'Published as an @chainwardai thread tagging you.'
             : 'Delivered to your contact.',
+        ...(order.contactMethod === 'x' && threadLink(order.notes) ? { link: threadLink(order.notes) } : {}),
       };
     case 'failed':
       return { key: 'failed', label: 'failed', hint: 'Something went wrong on our side. We will re-run it.' };

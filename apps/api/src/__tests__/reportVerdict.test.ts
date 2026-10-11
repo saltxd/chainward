@@ -51,4 +51,18 @@ describe('reportVerdict', () => {
     expect(v.label).toBe('unknown');
     expect(v.reason).toBe('No transfers in the last 30 days on this chain.');
   });
+
+  it('reads the lifetime sent count from the wallet nonce, so a quiet wallet reads Inactive', () => {
+    const v = reportVerdict(
+      { band: 'low-signal', flags: [] },
+      { activity: { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_age_hours: null }, wallet: { nonce: 43 } },
+    );
+    expect(v.text).toBe('Inactive');
+    expect(v.reason).toMatch(/43 transactions sent in its lifetime/);
+  });
+
+  it("says Couldn't check when the USDC balance could not be read", () => {
+    const v = reportVerdict({ band: 'low-signal', flags: [] }, { ...active, fetch_meta: { state_unavailable: ['usdc_balance'] } });
+    expect(v.text).toBe("Couldn't check");
+  });
 });

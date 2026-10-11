@@ -156,18 +156,18 @@ export function reportSearchCopy(input: {
     const reason = verdict.reason.trim();
     const sentence = /[.!?]$/.test(reason) ? reason : `${reason}.`;
     const head = (reason.split(':')[0] ?? reason).replace(/\.$/, '').slice(0, 70).trim();
-    // Lower-case a leading word ("Not enough history"), keep acronyms ("USDC balance").
-    const headInline = /^[A-Z][a-z]/.test(head) ? head[0]!.toLowerCase() + head.slice(1) : head;
     const title =
       verdict.label === 'pay'
         ? `${ask} Pay: nothing found against it`
-        : `${ask} ${verdict.text}: ${verdict.label === 'hold' ? head : headInline}`;
+        : verdict.label === 'hold'
+          ? `${ask} ${verdict.text}: ${head}`
+          : `${ask} ${verdict.text}: nothing recent to go on`;
     return { title, description: `${verdict.text}. ${sentence} ${tail}` };
   }
   if (flagCount === null) {
     return {
       title: `${ask} Free check`,
-      description: `Run a free check of ${short} on ${chainName} before you pay or hire it: Pay, Hold or Unknown, with the reason and the evidence.`,
+      description: `Run a free check of ${short} on ${chainName} before you pay or hire it: the answer, the reason and the evidence.`,
     };
   }
   const found = flagCount === 0 ? 'No risk flags found' : `${flagCount} risk flag${flagCount === 1 ? '' : 's'} found`;
