@@ -90,11 +90,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
-        with: { context: ., file: apps/api/Dockerfile, load: true, tags: smoke/api:ci, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+        with: { context: ., file: apps/api/Dockerfile, load: true, tags: smoke/api:ci, cache-from: "type=gha,scope=chainward-api", cache-to: "type=gha,mode=max,scope=chainward-api" }
       - uses: docker/build-push-action@v6
-        with: { context: ., file: apps/web/Dockerfile, load: true, tags: smoke/web:ci, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+        with: { context: ., file: apps/web/Dockerfile, load: true, tags: smoke/web:ci, cache-from: "type=gha,scope=chainward-web", cache-to: "type=gha,mode=max,scope=chainward-web" }
       - uses: docker/build-push-action@v6
-        with: { context: ., file: packages/indexer/Dockerfile, load: true, tags: smoke/indexer:ci, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+        with: { context: ., file: packages/indexer/Dockerfile, load: true, tags: smoke/indexer:ci, cache-from: "type=gha,scope=chainward-indexer", cache-to: "type=gha,mode=max,scope=chainward-indexer" }
       - name: boot the three images
         shell: bash
         run: |
@@ -177,8 +177,8 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ steps.sha.outputs.short }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
   # Deploy = GitOps: commit the new tag for all five images into saltxd/homelab-k3s apps/chainward/helmrelease.yaml;
   # Flux runs the chart's pre-upgrade migration hook, then rolls api/web/indexer/acp-decoder. Rollback = revert that
