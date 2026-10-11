@@ -203,7 +203,7 @@ observatory.get('/report', async (c) => {
   return c.json({ success: true, data });
 });
 
-// Slugs for the web sitemap — named agents only (see getSitemapAgents).
+// Slugs for the web sitemap: named agents that moved money in 30 days (see getSitemapAgents).
 observatory.get('/sitemap', async (c) => {
   const data = await getService().getSitemapAgents();
   return c.json({ success: true, data });
@@ -217,7 +217,15 @@ observatory.get('/agent/:slug', async (c) => {
   }
 
   const data = await getService().getAgentDetail(slug);
-  if (!data) return c.json({ success: false, error: 'agent not found' }, 404);
+  if (!data) {
+    // An old slug (e.g. a mangled one fixed by migration 0025) moves permanently.
+    const movedTo = await getService().getSlugRedirect(slug);
+    if (movedTo) {
+      c.header('Location', `/api/observatory/agent/${movedTo}`);
+      return c.json({ success: false, error: 'agent moved', movedTo }, 301);
+    }
+    return c.json({ success: false, error: 'agent not found' }, 404);
+  }
 
   return c.json({ success: true, data });
 });

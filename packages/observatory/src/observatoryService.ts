@@ -1,8 +1,9 @@
-import { sql, eq, and } from 'drizzle-orm';
-import { agentRegistry } from '@chainward/db';
+import { sql } from 'drizzle-orm';
 import type { Database } from '@chainward/db';
 import type IORedis from 'ioredis';
 import { spamExclusionSql as spamExclusion } from './spamFilter.js';
+import { diversifyFeed, type FeedItem } from './feed.js';
+import { summarizeRoster, type RosterRow, type RosterSummary } from './roster.js';
 
 export class ObservatoryService {
   constructor(
@@ -27,29 +28,56 @@ export class ObservatoryService {
     return data;
   }
 
-  // ── Private: observatory wallet addresses ─────────────────────────────
+  // ── Private: the wallets the public pages count and list ──────────────
+
+  /** Shown observatory wallets: named, or moved money in the last 30 days
+   * (spam-token dust doesn't count). See roster.ts. */
+  private async getRoster(): Promise<RosterSummary> {
+    // Versioned key: the old `obs:wallets` held a plain address list.
+    return this.cached('obs:roster:v1', 300, async () => {
+      const rows = await this.db.execute(sql`
+        WITH active AS (
+          SELECT DISTINCT wallet_address
+          FROM transactions
+          WHERE timestamp >= NOW() - INTERVAL '30 days'
+            ${spamExclusion}
+        )
+        SELECT
+          a.wallet_address,
+          a.registry_source,
+          (a.agent_name IS NOT NULL AND btrim(a.agent_name) <> ''
+            AND a.slug !~ '^agent-[0-9a-f]{8}$') AS named,
+          (act.wallet_address IS NOT NULL) AS active_30d
+        FROM agent_registry a
+        LEFT JOIN active act ON act.wallet_address = a.wallet_address
+        WHERE a.is_observatory = true AND a.is_public = true
+        ORDER BY a.id
+      `);
+      return summarizeRoster(rows as unknown as RosterRow[]);
+    });
+  }
 
   private async getObservatoryWallets(): Promise<string[]> {
-    return this.cached('obs:wallets', 60, async () => {
-      const agents = await this.db
-        .select({ walletAddress: agentRegistry.walletAddress })
-        .from(agentRegistry)
-        .where(and(eq(agentRegistry.isObservatory, true), eq(agentRegistry.isPublic, true)));
-
-      return agents.map((a) => a.walletAddress);
-    });
+    return (await this.getRoster()).wallets;
   }
 
   // ── 1. Overview ───────────────────────────────────────────────────────
 
   async getOverview(opts: { force?: boolean } = {}) {
-    return this.cached('obs:overview', 300, async () => {
-      const wallets = await this.getObservatoryWallets();
+    // v2: counts exclude unnamed idle wallets; adds named/by-source/30d fields.
+    return this.cached('obs:overview:v2', 300, async () => {
+      const roster = await this.getRoster();
+      const wallets = roster.wallets;
       const agentsTracked = wallets.length;
+      const rosterFields = {
+        namedAgents: roster.named,
+        agentsBySource: roster.bySource,
+      };
 
       if (agentsTracked === 0) {
         return {
           agentsTracked: 0,
+          ...rosterFields,
           transactions24h: 0,
           transactions7d: 0,
           transactions30d: 0,
@@ -59,6 +87,7 @@ export class ObservatoryService {
           totalPortfolioValue: 0,
           activeAgents24h: 0,
           activeAgents7d: 0,
+          activeAgents30d: 0,
           totalAgents: 0,
           updatedAt: new Date().toISOString(),
         };
@@ -84,7 +113,8 @@ export class ObservatoryService {
           COALESCE(SUM(CAST(gas_cost_native AS numeric)), 0) AS gas_eth_30d,
           COALESCE(SUM(CAST(gas_cost_usd AS numeric)),    0) AS gas_usd_30d,
           COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= ${dayAgo}::timestamptz) AS active_24h,
-          COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= ${weekAgo}::timestamptz) AS active_7d
+          COUNT(DISTINCT wallet_address) FILTER (WHERE timestamp >= ${weekAgo}::timestamptz) AS active_7d,
+          COUNT(DISTINCT wallet_address) AS active_30d
         FROM transactions
         WHERE wallet_address = ANY(${walletArray}::text[])
           AND timestamp >= ${monthAgo}::timestamptz
@@ -109,6 +139,7 @@ export class ObservatoryService {
 
       return {
         agentsTracked,
+        ...rosterFields,
         transactions24h: parseInt(s.tx_24h ?? '0', 10),
         transactions7d: parseInt(s.tx_7d ?? '0', 10),
         transactions30d: parseInt(s.tx_30d ?? '0', 10),
@@ -118,6 +149,7 @@ export class ObservatoryService {
         totalPortfolioValue,
         activeAgents24h: parseInt(s.active_24h ?? '0', 10),
         activeAgents7d: parseInt(s.active_7d ?? '0', 10),
+        activeAgents30d: parseInt(s.active_30d ?? '0', 10),
         totalAgents: agentsTracked,
         updatedAt: now.toISOString(),
       };
@@ -126,17 +158,21 @@ export class ObservatoryService {
 
   // ── 2. Feed ───────────────────────────────────────────────────────────
 
-  async getFeed(opts: { force?: boolean } = {}) {
-    return this.cached('obs:feed', 300, async () => {
+  async getFeed(opts: { force?: boolean } = {}): Promise<FeedItem[]> {
+    // v2: one row per transaction, at most two per agent, carries the slug.
+    return this.cached('obs:feed:v2', 300, async () => {
       const wallets = await this.getObservatoryWallets();
       if (wallets.length === 0) return [];
 
       const walletArray = `{${wallets.join(',')}}`;
 
+      // Over-fetch, then diversify: one busy agent's multi-token swaps would
+      // otherwise fill every row.
       const rows = await this.db.execute(sql`
         SELECT
           t.timestamp,
           COALESCE(a.agent_name, t.wallet_address) AS agent_name,
+          a.slug,
           t.wallet_address,
           t.direction,
           t.token_symbol,
@@ -152,12 +188,13 @@ export class ObservatoryService {
           AND (t.amount_usd IS NULL OR CAST(t.amount_usd AS numeric) >= 0)
           ${spamExclusion}
         ORDER BY t.timestamp DESC
-        LIMIT 10
+        LIMIT 200
       `);
 
-      return (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
+      const items = (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
         timestamp: String(r.timestamp),
         agentName: String(r.agent_name),
+        slug: r.slug != null ? String(r.slug) : null,
         walletAddress: String(r.wallet_address),
         direction: String(r.direction),
         tokenSymbol: r.token_symbol != null ? String(r.token_symbol) : null,
@@ -168,6 +205,8 @@ export class ObservatoryService {
         txType: String(r.tx_type ?? 'unknown'),
         status: String(r.status),
       }));
+
+      return diversifyFeed(items, { perAgent: 2, limit: 10 });
     }, opts.force);
   }
 
@@ -681,22 +720,51 @@ export class ObservatoryService {
 
   // ── Sitemap: agent pages worth indexing ───────────────────────────────
 
-  /** Named observatory agents. Unnamed agents carry a placeholder
-   * `agent-<8 hex>` slug and a near-empty page, so they stay out. */
+  /** Named observatory agents that moved money in the last 30 days. Unnamed
+   * agents carry a placeholder `agent-<8 hex>` slug and a near-empty page, and an
+   * agent idle for a month is a page with nothing new on it, so both stay out. */
   async getSitemapAgents(opts: { force?: boolean } = {}) {
-    return this.cached('obs:sitemap-agents', 3600, async () => {
+    // v2: active-in-30-days only; adds lastActiveAt.
+    return this.cached('obs:sitemap-agents:v2', 3600, async () => {
       const rows = await this.db.execute(sql`
-        SELECT slug, updated_at
-        FROM agent_registry
-        WHERE chain = 'base' AND is_observatory = true AND is_public = true
-          AND agent_name IS NOT NULL AND slug !~ '^agent-[0-9a-f]{8}$'
-        ORDER BY slug
+        SELECT a.slug, MAX(t.timestamp) AS last_active_at
+        FROM agent_registry a
+        JOIN transactions t ON t.wallet_address = a.wallet_address
+          AND t.timestamp >= NOW() - INTERVAL '30 days'
+          ${spamExclusion}
+        WHERE a.chain = 'base' AND a.is_observatory = true AND a.is_public = true
+          AND a.agent_name IS NOT NULL AND a.slug !~ '^agent-[0-9a-f]{8}$'
+        GROUP BY a.slug
+        ORDER BY a.slug
       `);
-      return (rows as unknown as Array<{ slug: string; updated_at: string | Date }>).map((r) => ({
-        slug: r.slug,
-        updatedAt: new Date(r.updated_at).toISOString(),
-      }));
+      return (rows as unknown as Array<{ slug: string; last_active_at: string | Date }>).map((r) => {
+        const lastActiveAt = new Date(r.last_active_at).toISOString();
+        // updatedAt kept for older readers of this endpoint.
+        return { slug: r.slug, lastActiveAt, updatedAt: lastActiveAt };
+      });
     }, opts.force);
+  }
+
+  // ── Old slugs ─────────────────────────────────────────────────────────
+
+  /** The current slug of an agent whose slug was rewritten (agent_slug_redirects,
+   * migration 0025), so old /base/<slug> links can 301. null when the slug is
+   * unknown, or when the table isn't there yet. */
+  async getSlugRedirect(slug: string): Promise<string | null> {
+    try {
+      const rows = await this.db.execute(sql`
+        SELECT a.slug
+        FROM agent_slug_redirects r
+        JOIN agent_registry a ON a.id = r.agent_id
+        WHERE r.chain = 'base' AND r.old_slug = ${slug}
+          AND a.is_observatory = true AND a.is_public = true
+        LIMIT 1
+      `);
+      const row = (rows as unknown as Array<{ slug: string }>)[0];
+      return row && row.slug !== slug ? row.slug : null;
+    } catch {
+      return null;
+    }
   }
 
   // ── Cache warmer entry point ──────────────────────────────────────────
