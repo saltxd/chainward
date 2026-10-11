@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt, useAccount, useChainId, useSwitchChain } from 'wagmi';
+import { useRef, useState } from 'react';
+import { useWriteContract, useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 import { base } from 'wagmi/chains';
-import { ApiError } from '@/lib/api';
+import { walletErrorMessage } from '@/lib/paymentConfirm';
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const;
 
@@ -16,170 +16,85 @@ const erc20Abi = [{
   outputs: [{ name: '', type: 'bool' }],
 }] as const;
 
-type Status = 'idle' | 'switching-chain' | 'confirming' | 'pending' | 'verifying' | 'success' | 'error';
-
-const STATUS_LABELS: Record<Status, string> = {
-  idle: 'Pay with USDC',
-  'switching-chain': 'Switching to Base...',
-  confirming: 'Confirm in wallet...',
-  pending: 'Waiting for confirmation...',
-  verifying: 'Verifying payment...',
-  success: 'Payment confirmed!',
-  error: 'Payment failed',
-};
+type Step = 'idle' | 'switching-chain' | 'confirming';
 
 interface PayButtonProps {
-  /** Amount in whole USDC (e.g. 49). */
+  /** Amount in whole USDC (e.g. 10). */
   amountUsdc: number;
-  /** Treasury address that receives the USDC — sourced at runtime (not NEXT_PUBLIC). */
+  /** Treasury address that receives the USDC, sourced at runtime (not NEXT_PUBLIC). */
   treasuryAddress: string | null | undefined;
-  /** Verify the transfer server-side (e.g. attach it to a brief order). */
-  verify: (txHash: string) => Promise<void>;
-  onSuccess?: () => void;
+  /**
+   * The wallet returned a transaction hash: the money has been sent. Hand it to
+   * usePaymentConfirmation().start, which saves it before confirming. The page
+   * swaps this button out for the payment status from here on.
+   */
+  onSent: (txHash: string) => void;
   /** Disable the button (e.g. while the order form is incomplete). */
   disabled?: boolean;
 }
 
-export function PayButton({ amountUsdc, treasuryAddress, verify, onSuccess, disabled }: PayButtonProps) {
-  const [status, setStatus] = useState<Status>('idle');
+/**
+ * Sends one USDC transfer from the connected wallet. That transfer is the only
+ * thing in the checkout that moves money; confirming it is the caller's job.
+ */
+export function PayButton({ amountUsdc, treasuryAddress, onSent, disabled }: PayButtonProps) {
+  const [step, setStep] = useState<Step>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // A second click while the wallet prompt is open must not open a second transfer.
+  const inFlight = useRef(false);
 
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
 
-  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
-
-  const { isLoading: isWaiting } = useWaitForTransactionReceipt({
-    hash: txHash,
-    query: {
-      enabled: !!txHash,
-    },
-  });
-
   async function handlePay() {
+    if (inFlight.current) return;
     if (!isConnected) {
-      setErrorMsg('Connect your wallet first');
-      setStatus('error');
+      setErrorMsg('Connect your wallet first.');
       return;
     }
-
     if (!treasuryAddress) {
-      setErrorMsg('Payments are not configured yet');
-      setStatus('error');
+      setErrorMsg('Payments are not set up yet. Please check back shortly.');
       return;
     }
 
+    inFlight.current = true;
     setErrorMsg(null);
-    setStatus('idle');
-
     try {
       if (chainId !== base.id) {
-        setStatus('switching-chain');
+        setStep('switching-chain');
         await switchChainAsync({ chainId: base.id });
       }
 
-      setStatus('confirming');
-      const amount = parseUnits(amountUsdc.toString(), 6);
-
+      setStep('confirming');
       const hash = await writeContractAsync({
         address: USDC_ADDRESS,
         abi: erc20Abi,
         functionName: 'transfer',
-        args: [treasuryAddress as `0x${string}`, amount],
+        args: [treasuryAddress as `0x${string}`, parseUnits(amountUsdc.toString(), 6)],
         chainId: base.id,
       });
-
-      setTxHash(hash);
-      setStatus('verifying');
-
-      // Confirm server-side: our API reads the receipt from our OWN Base node,
-      // so we don't depend on a public RPC client-side (viem's default http()
-      // endpoint would stall and time out even after the tx had confirmed).
-      // Retry while the tx propagates; a "not found / not yet confirmed" is
-      // transient, anything else is a real failure.
-      let confirmed = false;
-      let lastErr: unknown;
-      for (let attempt = 0; attempt < 20; attempt++) {
-        try {
-          await verify(hash);
-          confirmed = true;
-          break;
-        } catch (err) {
-          lastErr = err;
-          const code = err instanceof ApiError ? err.code : '';
-          const msg = err instanceof Error ? err.message : '';
-          const transient = code === 'TX_NOT_FOUND' || /not found|not yet confirmed/i.test(msg);
-          if (!transient) throw err;
-          await new Promise((r) => setTimeout(r, 3000));
-        }
-      }
-      if (!confirmed) {
-        throw lastErr instanceof Error
-          ? lastErr
-          : new Error('Payment sent — confirmation is taking longer than usual. It will be processed shortly.');
-      }
-
-      setStatus('success');
-      onSuccess?.();
+      onSent(hash);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Transaction failed';
-      // User rejected in wallet
-      if (msg.includes('User rejected') || msg.includes('user rejected')) {
-        setErrorMsg('Transaction cancelled');
-      } else {
-        setErrorMsg(msg.length > 120 ? msg.slice(0, 120) + '...' : msg);
-      }
-      setStatus('error');
-      setTxHash(undefined);
+      setErrorMsg(walletErrorMessage(err));
+    } finally {
+      inFlight.current = false;
+      setStep('idle');
     }
   }
 
-  const isProcessing = status !== 'idle' && status !== 'success' && status !== 'error';
-  const isComplete = status === 'success';
+  const busy = step !== 'idle';
+  const label =
+    step === 'switching-chain' ? 'Switching to Base…' : step === 'confirming' ? 'Confirm in your wallet…' : `Pay ${amountUsdc} USDC`;
 
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        onClick={handlePay}
-        disabled={disabled || isProcessing || isComplete || isWaiting}
-        className={
-          'flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed ' +
-          (isComplete
-            ? 'bg-accent-foreground text-background'
-            : status === 'error'
-              ? 'border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20'
-              : 'bg-accent-foreground text-background hover:bg-accent-foreground/90 hover:shadow-[0_0_20px_rgba(74,222,128,0.15)] disabled:opacity-60')
-        }
-      >
-        {isProcessing && (
-          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        )}
-        {isComplete && (
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-        {STATUS_LABELS[status]}
-        {status === 'idle' && ` — ${amountUsdc} USDC`}
+    <div className="brf-paybtn">
+      <button className="press-btn press-btn--full" type="button" onClick={handlePay} disabled={disabled || busy} aria-busy={busy}>
+        {busy && <span className="brf-spinner" aria-hidden="true" />}
+        {label}
       </button>
-      {errorMsg && (
-        <p className="text-center text-xs text-red-400">{errorMsg}</p>
-      )}
-      {txHash && status === 'success' && (
-        <a
-          href={`https://basescan.org/tx/${txHash}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-center text-xs text-accent-foreground hover:underline"
-        >
-          View on BaseScan
-        </a>
-      )}
+      {errorMsg && <div className="brf-error">{errorMsg}</div>}
     </div>
   );
 }

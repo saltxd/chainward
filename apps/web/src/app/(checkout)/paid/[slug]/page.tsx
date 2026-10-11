@@ -9,10 +9,18 @@ import { api, ApiError, type PaidFileMeta, type PaidFileLookup } from '@/lib/api
 import { track } from '@/lib/track';
 import { Masthead, PressDateline, Colophon } from '@/components/press';
 import { PayButton } from '@/components/payment/pay-button';
+import { PaymentStatus } from '@/components/payment/PaymentStatus';
+import { ClaimByHash } from '@/components/payment/ClaimByHash';
+import { usePaymentConfirmation } from '@/components/payment/usePaymentConfirmation';
+import { browserStorage, paymentKey, readDownload, saveDownload } from '@/lib/paymentStore';
 
 // Buy the full dataset behind a decode: pay the price in USDC on Base from any
 // wallet, the API verifies the transfer and hands back a 24h download link.
 // No account needed. x402 clients can pay GET /api/paid/<slug>/file instead.
+//
+// Once the wallet returns a hash it is saved in this browser and confirmed in
+// the background until the claim succeeds; a reload resumes it. Anyone who
+// paid some other way pastes the hash into the claim box.
 
 function formatBytes(n: number): string {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MB`;
@@ -31,6 +39,23 @@ export default function PaidFilePage() {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const { isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
+
+  const confirmation = usePaymentConfirmation({
+    storageKey: slug ? paymentKey('dataset', slug) : null,
+    product: 'dataset',
+    confirm: async (txHash) => (await api.claimPaidFile(slug, txHash)).data.downloadUrl,
+    onConfirmed: (url) => {
+      setDownloadUrl(url);
+      saveDownload(browserStorage(), slug, url);
+      track('paid_file_bought', { slug, price: file?.priceUsdc ?? 0 });
+    },
+  });
+
+  // A link claimed earlier in this browser is good for 24h; the API won't issue a second.
+  useEffect(() => {
+    const saved = readDownload(browserStorage(), slug);
+    if (saved) setDownloadUrl(saved);
+  }, [slug]);
 
   useEffect(() => {
     api
@@ -139,9 +164,9 @@ export default function PaidFilePage() {
 
               {!treasury && <div className="brf-notice">Payments are being configured — please check back shortly.</div>}
 
-              {!downloadUrl && (
+              {!downloadUrl && confirmation.phase === 'idle' && (
                 <div className="brf-form">
-                  <div className="brf-step">Step 1 — connect a wallet on Base</div>
+                  <div className="brf-step">Step 1 · connect a wallet on Base</div>
                   {!isConnected ? (
                     <button className="press-btn press-btn--full" type="button" onClick={() => openConnectModal?.()}>
                       Connect wallet
@@ -149,23 +174,43 @@ export default function PaidFilePage() {
                   ) : (
                     <p className="brf-offer-fine">Wallet connected.</p>
                   )}
-                  <div className="brf-step">Step 2 — pay {priceLabel}</div>
+                  <div className="brf-step">Step 2 · pay {priceLabel}</div>
                   <PayButton
                     amountUsdc={file.priceUsdc}
                     treasuryAddress={treasury}
                     disabled={!treasury || !isConnected}
-                    verify={async (txHash) => {
-                      const res = await api.claimPaidFile(file.slug, txHash);
-                      setDownloadUrl(res.data.downloadUrl);
-                    }}
-                    onSuccess={() => track('paid_file_bought', { slug: file.slug, price: file.priceUsdc })}
+                    onSent={confirmation.start}
                   />
                 </div>
               )}
 
+              {!downloadUrl && (
+                <PaymentStatus
+                  phase={confirmation.phase}
+                  txHash={confirmation.txHash}
+                  message={confirmation.message}
+                  onCheckAgain={confirmation.checkAgain}
+                  onStartOver={confirmation.startOver}
+                />
+              )}
+
+              {!downloadUrl && (confirmation.phase === 'idle' || confirmation.phase === 'failed') && (
+                <ClaimByHash
+                  summary="Already paid? Paste your transaction hash"
+                  hint={
+                    <>
+                      Paid from another wallet or app, or lost this page after paying? Paste the transaction hash and
+                      we&apos;ll check it on Base. It counts if it sent at least {priceLabel} on Base to{' '}
+                      {treasury ? <span className="brf-hash">{treasury}</span> : 'the ChainWard treasury'}.
+                    </>
+                  }
+                  onSubmit={confirmation.start}
+                />
+              )}
+
               {downloadUrl && (
                 <div className="brf-form">
-                  <div className="brf-step">Paid — your download is ready</div>
+                  <div className="brf-step">Paid · your download is ready</div>
                   <a className="press-btn press-btn--full" href={downloadUrl} download={file.filename}>
                     Download {file.filename}
                   </a>

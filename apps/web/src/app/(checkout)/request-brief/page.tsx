@@ -11,7 +11,13 @@ import { contactMethodFor, orderDeliveryState, type BriefDelivery } from '@/lib/
 import { track } from '@/lib/track';
 import { Masthead, PressDateline, Colophon, NodeClaim } from '@/components/press';
 import { PayButton } from '@/components/payment/pay-button';
+import { PaymentStatus } from '@/components/payment/PaymentStatus';
+import { ClaimByHash } from '@/components/payment/ClaimByHash';
+import { usePaymentConfirmation } from '@/components/payment/usePaymentConfirmation';
+import { browserStorage, clearPendingPayment, listPendingPayments, paymentKey, type PendingPayment } from '@/lib/paymentStore';
+import { CHAINS } from '@/lib/chains';
 import { useToast } from '@/components/ui/toast';
+import { PendingOrderPayment } from './PendingOrderPayment';
 
 // A real Intel Brief delivered as a public @chainwardai thread (2026-06-16).
 const SAMPLE_BRIEF_URL = 'https://x.com/chainwardai/status/2066738827100622921';
@@ -29,6 +35,10 @@ const WHAT_YOU_GET: ReactNode[] = [
 
 function shortAddr(a: string): string {
   return a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
+}
+
+function shortHash(h: string): string {
+  return `${h.slice(0, 10)}…${h.slice(-6)}`;
 }
 
 export default function RequestBriefPage() {
@@ -57,6 +67,8 @@ export default function RequestBriefPage() {
   const [paid, setPaid] = useState(false);
 
   const [myOrders, setMyOrders] = useState<BriefOrder[]>([]);
+  // Payments this browser saw a wallet send for brief orders, not yet confirmed.
+  const [storedPayments, setStoredPayments] = useState<Array<{ id: string; payment: PendingPayment }>>([]);
 
   const user = session?.user ?? null;
   // Price is ALWAYS runtime config — never hardcoded. Null until loaded.
@@ -71,11 +83,24 @@ export default function RequestBriefPage() {
       .catch((err) => setConfigError(err instanceof Error ? err.message : 'Could not load pricing'));
   }, []);
 
+  useEffect(() => {
+    setStoredPayments(listPendingPayments(browserStorage(), 'brief'));
+  }, []);
+
   const loadMyOrders = useCallback(() => {
     if (!user) return;
     api
       .getMyBriefOrders()
-      .then((res) => setMyOrders(res.orders))
+      .then((res) => {
+        setMyOrders(res.orders);
+        // A stored payment for an order that is already paid has nothing left to confirm.
+        const storage = browserStorage();
+        for (const { id } of listPendingPayments(storage, 'brief')) {
+          const o = res.orders.find((x) => x.id === id);
+          if (o && o.status !== 'pending') clearPendingPayment(storage, paymentKey('brief', id));
+        }
+        setStoredPayments(listPendingPayments(storage, 'brief'));
+      })
       .catch(() => {/* non-fatal */});
   }, [user]);
 
@@ -114,6 +139,40 @@ export default function RequestBriefPage() {
     await handleCreateOrder();
   }
 
+  /** Sign in again mid-payment (session lapsed, or came back later). */
+  async function signInToFinish(): Promise<boolean> {
+    if (!isConnected) {
+      openConnectModal?.();
+      return false;
+    }
+    return handleSignIn();
+  }
+
+  function handleOrderPaid(updated: BriefOrder) {
+    setOrder(updated);
+    setPaid(true);
+    track('brief_paid', {
+      price: updated.amountUsdc / 1e6,
+      delivery: updated.contactMethod === 'x' ? 'public' : 'private',
+    });
+    toast('Payment confirmed. Your brief is queued.', 'success');
+    loadMyOrders();
+  }
+
+  // The order on screen: its payment is saved per order and confirmed in the
+  // background until the API accepts it, surviving a refresh (the order then
+  // resumes under "Your requests").
+  const activeOrderId = order?.id ?? null;
+  const confirmation = usePaymentConfirmation({
+    storageKey: activeOrderId ? paymentKey('brief', activeOrderId) : null,
+    product: 'brief',
+    confirm: async (txHash) => {
+      if (!activeOrderId) throw new ApiError('Order not found', 'ORDER_NOT_FOUND');
+      return (await api.payBriefOrder(activeOrderId, txHash)).order;
+    },
+    onConfirmed: handleOrderPaid,
+  });
+
   async function handleCreateOrder() {
     setCreateError('');
     setCreating(true);
@@ -136,6 +195,7 @@ export default function RequestBriefPage() {
   }
 
   const paymentsUnavailable = config !== null && !config.available;
+  const waitingPayments = storedPayments.filter(({ payment }) => !payment.failed);
 
   return (
     <>
@@ -283,11 +343,35 @@ export default function RequestBriefPage() {
               </form>
             )}
 
+            {/* A payment from an earlier visit, waiting for the buyer to sign in. */}
+            {!user && !order && waitingPayments.length > 0 && (
+              <div className="brf-notice brf-resume">
+                <p>
+                  A payment from this browser is still waiting to be confirmed. Sign in with the wallet you paid from
+                  and we&apos;ll finish confirming it.
+                </p>
+                {waitingPayments.map(({ id, payment }) => (
+                  <a
+                    key={id}
+                    className="press-link"
+                    href={CHAINS.base.explorerTxUrl(payment.txHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {shortHash(payment.txHash)} on BaseScan →
+                  </a>
+                ))}
+                <button className="press-btn press-btn--full" type="button" onClick={signInToFinish} disabled={signing}>
+                  {signing ? 'Signing…' : isConnected ? 'Sign in to finish' : 'Connect wallet to finish'}
+                </button>
+              </div>
+            )}
+
             {/* 4 — pay */}
-            {user && order && !paid && (
+            {order && !paid && (
               <div className="brf-pay">
                 <div className="brf-step">
-                  Step 2 — pay {order.amountUsdc / 1e6} USDC to confirm
+                  Step 2 · pay {order.amountUsdc / 1e6} USDC to confirm
                 </div>
                 <div className="brf-summary">
                   <div>
@@ -303,32 +387,42 @@ export default function RequestBriefPage() {
                     <code>{order.id.slice(0, 8)}</code>
                   </div>
                 </div>
-                <PayButton
-                  amountUsdc={order.amountUsdc / 1e6}
-                  treasuryAddress={config?.treasuryAddress}
-                  disabled={paymentsUnavailable}
-                  verify={async (txHash) => {
-                    const res = await api.payBriefOrder(order.id, txHash);
-                    setOrder(res.order);
-                  }}
-                  onSuccess={() => {
-                    setPaid(true);
-                    track('brief_paid', {
-                      price: order.amountUsdc / 1e6,
-                      delivery: order.contactMethod === 'x' ? 'public' : 'private',
-                    });
-                    toast('Payment confirmed — your brief is queued', 'success');
-                    loadMyOrders();
+                {confirmation.phase === 'idle' && (
+                  <PayButton
+                    amountUsdc={order.amountUsdc / 1e6}
+                    treasuryAddress={config?.treasuryAddress}
+                    disabled={paymentsUnavailable}
+                    onSent={confirmation.start}
+                  />
+                )}
+                <PaymentStatus
+                  phase={confirmation.phase}
+                  txHash={confirmation.txHash}
+                  message={confirmation.message}
+                  onCheckAgain={confirmation.checkAgain}
+                  onStartOver={confirmation.startOver}
+                  onSignIn={async () => {
+                    if (await signInToFinish()) confirmation.checkAgain();
                   }}
                 />
-                <button className="brf-link-btn" onClick={() => setOrder(null)} type="button">
-                  ← change details
-                </button>
+                {(confirmation.phase === 'idle' || confirmation.phase === 'failed') && (
+                  <ClaimByHash
+                    summary="Already paid? Paste your transaction hash"
+                    hint={`Sent the payment but lost track of it? Paste the transaction hash. It must send ${order.amountUsdc / 1e6} USDC on Base to ChainWard from the wallet you're signed in with.`}
+                    onSubmit={confirmation.start}
+                  />
+                )}
+                {/* No way back to the form while a sent payment is still being confirmed. */}
+                {confirmation.phase === 'idle' && (
+                  <button className="brf-link-btn" onClick={() => setOrder(null)} type="button">
+                    ← change details
+                  </button>
+                )}
               </div>
             )}
 
             {/* 5 — done */}
-            {user && order && paid && (
+            {order && paid && (
               <div className="brf-done">
                 <div className="brf-done-check" aria-hidden>✓</div>
                 <h3 className="press-display">Brief ordered</h3>
@@ -433,6 +527,14 @@ export default function RequestBriefPage() {
                         )}
                       </p>
                     )
+                  )}
+                  {o.status === 'pending' && o.id !== order?.id && (
+                    <PendingOrderPayment
+                      orderId={o.id}
+                      amountUsdc={o.amountUsdc / 1e6}
+                      onPaid={handleOrderPaid}
+                      onSignIn={signInToFinish}
+                    />
                   )}
                 </div>
               );
