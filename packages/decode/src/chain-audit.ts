@@ -18,6 +18,8 @@ const DAY_MS = 24 * HOUR_MS;
 export function computeActivity(
   transfersRaw: BlockscoutTransfer[],
   now: Date,
+  /** The wallet being checked: it is never its own counterparty. */
+  self?: string,
 ): QuickDecodeResultData['activity'] {
   const transfers = filterSpamTransfers(transfersRaw);
 
@@ -42,10 +44,15 @@ export function computeActivity(
   const within = (windowMs: number) =>
     transfers.filter((t) => now.getTime() - new Date(t.timestamp).getTime() <= windowMs).length;
 
+  // Explorers return checksummed hashes, so compare lowercased.
+  const selfLower = self?.toLowerCase();
   const counterparties30d = new Set(
     transfers
       .filter((t) => now.getTime() - new Date(t.timestamp).getTime() <= 30 * DAY_MS)
-      .flatMap((t) => [t.from.hash, t.to?.hash].filter((h): h is string => Boolean(h))),
+      .flatMap((t) => [t.from.hash, t.to?.hash])
+      .filter((h): h is string => Boolean(h))
+      .map((h) => h.toLowerCase())
+      .filter((h) => h !== selfLower),
   );
 
   return {

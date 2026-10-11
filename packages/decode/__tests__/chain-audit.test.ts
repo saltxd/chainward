@@ -82,3 +82,21 @@ describe('computeBalances', () => {
     expect(balances.usdc.usd).toBeCloseTo(1234.56, 2);
   });
 });
+
+describe('computeActivity counterparties', () => {
+  it('does not count the wallet itself as one of its counterparties', () => {
+    const self = '0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa';
+    const now = new Date('2026-10-11T12:00:00Z');
+    const t = (from: string, to: string) => ({ from: { hash: from }, to: { hash: to }, timestamp: '2026-10-10T12:00:00Z' });
+    const activity = computeActivity(
+      [
+        t(self, '0x1111111111111111111111111111111111111111'),
+        t('0x2222222222222222222222222222222222222222', self.toLowerCase()),
+        t(self, '0x1111111111111111111111111111111111111111'),
+      ],
+      now,
+      self,
+    );
+    expect(activity.unique_counterparties_30d).toBe(2);
+  });
+});

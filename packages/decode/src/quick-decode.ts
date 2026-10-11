@@ -100,7 +100,7 @@ export function computeQuickDecodeData(input: QuickDecodeInput): QuickDecodeData
   // Every transfer source failed: the list is unknown, not empty.
   const unavailable: string | undefined =
     typeof transfers.unavailable === 'string' && transfers.unavailable.length > 0 ? transfers.unavailable : undefined;
-  const activity = computeActivity(transferItems, now);
+  const activity = computeActivity(transferItems, now, input.wallet_address);
   const ds = input.fixtures.data_source;
   const win = input.fixtures.window;
   const fetch_meta: QuickDecodeResultData['fetch_meta'] = {
