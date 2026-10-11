@@ -9,6 +9,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "og:render": "tsx --tsconfig scripts/tsconfig.json scripts/render-og.tsx",
     "clean": "rm -rf .next dist"
   },
   "dependencies": {
