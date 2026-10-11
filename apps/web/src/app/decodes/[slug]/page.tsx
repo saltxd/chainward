@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { PressShell, Masthead, PressDateline, Colophon, BriefOffer } from '@/components/press';
-import { getAllDecodes, getDecodeBySlug } from '@/lib/decodes';
+import { getAllDecodes, getDecodeBySlug, plainCallout } from '@/lib/decodes';
 
 // Some scrapers (notably X/Twitter) reliably fetch static OG assets but
 // silently fail on the @vercel/og dynamic Edge route. If a decode has a
@@ -74,6 +74,7 @@ export default async function DecodePage({ params }: PageProps) {
   if (!decode) notFound();
 
   const { meta, content } = decode;
+  const plain = plainCallout(meta);
 
   return (
     <PressShell>
@@ -97,6 +98,16 @@ export default async function DecodePage({ params }: PageProps) {
               <span>Verified against on-chain data</span>
             </div>
           </header>
+
+          {plain && (
+            <aside className="da-plain press-measure" aria-label="In plain English">
+              <span className="da-plain-label">In plain English</span>
+              <p className="da-plain-text">{plain.text}</p>
+              <Link href={plain.href} className="da-plain-cta">
+                {plain.cta}
+              </Link>
+            </aside>
+          )}
 
           <div className="da-body press-measure">
             <div className="decode-prose">
@@ -166,6 +177,34 @@ export default async function DecodePage({ params }: PageProps) {
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: var(--ink-faint);
+        }
+        .da-plain {
+          margin: -12px 0 40px;
+          padding: 20px 22px;
+          border: 1px solid var(--rule-strong);
+          border-left: 4px solid var(--seal);
+          background: var(--paper-2);
+        }
+        .da-plain-label {
+          display: block;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+        }
+        .da-plain-text {
+          margin: 10px 0 14px;
+          font-size: clamp(18px, 2.4vw, 21px);
+          line-height: 1.45;
+          color: var(--ink);
+        }
+        .da-plain-cta {
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 13px;
+          color: var(--seal);
+          text-decoration: underline;
+          text-underline-offset: 3px;
         }
         .da-offer {
           margin-top: 56px;

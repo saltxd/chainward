@@ -1,6 +1,7 @@
 ---
 title: "The #2 x402 Seller on Base Funded Its Own Buyers"
 subtitle: "One week of x402 on Base (Sep 15–21): $128,977 settled. At least $56,268 of it looped back through the seller or a closed ring, and $30,000 more was a round trip. The #2 seller had 715 buyers; at least 675 were funded from its own revenue."
+plain: "The second-biggest seller on x402 (pay-per-request payments between programs) on Base was paying for its own customers. At least 44% of a week's x402 money on Base went around in a loop."
 date: "2026-09-27"
 slug: "x402-on-base"
 seoTitle: "x402 on Base, One Week On-Chain: Seller-Funded Buyers, Cashback Rings and Round Trips (Sep 15–21)"

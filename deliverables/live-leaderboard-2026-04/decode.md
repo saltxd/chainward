@@ -1,6 +1,7 @@
 ---
 title: "The Virtuals ACP Live Leaderboard"
 subtitle: "Re-ranked by last-7d on-chain activity, the top 10 looks nothing like the museum wall"
+plain: "Virtuals' leaderboard ranks agents by all-time volume, so agents that stopped working long ago still sit on top. We checked which ones are actually active this week."
 date: "2026-04-30"
 slug: "live-leaderboard-2026-04"
 ---

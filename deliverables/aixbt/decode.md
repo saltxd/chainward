@@ -1,6 +1,7 @@
 ---
 title: "AIXBT On-Chain Decode"
 subtitle: "The most famous AI agent in crypto has earned $52.92 — and what its Apr 15 wallet activity can and cannot tell us"
+plain: "AIXBT is the best-known AI agent brand in crypto, but the wallet that receives its job payments holds about $53."
 date: "2026-04-25"
 slug: "aixbt-on-chain"
 ---

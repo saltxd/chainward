@@ -1,6 +1,7 @@
 ---
 title: "x402 on Base, Two Weeks Later: The Loops Kept Running"
 subtitle: "Sep 29–Oct 5: $109,151 of x402 settled on Base; 40.6% looped back to its source. Measured the same way, Sep 15–21 was 46.8%."
+plain: "About 40% of the money paid through x402 on Base goes in a loop: sellers paying their own buyers, or wallets paying each other. A seller's volume is not proof that anyone wants what it sells."
 date: "2026-10-06"
 slug: "x402-on-base-two-weeks-later"
 seoTitle: "x402 on Base Two Weeks Later: Seller-Funded Buyers, a Cashback Ring and $138,700 From One Account (Sep 22–Oct 5)"

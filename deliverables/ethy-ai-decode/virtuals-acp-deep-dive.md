@@ -1,6 +1,7 @@
 ---
 title: "Ethy AI On-Chain Decode"
 subtitle: "What the #1 Virtuals Agent Looks Like On-Chain"
+plain: "Ethy AI tops Virtuals' leaderboard with $218M of \"agentic GDP\", but that counts all the trading it passes through. What it actually earned in fees is $572.8K. The one token flow we traced from its owner was a sale, not a burn."
 date: "2026-04-05"
 slug: "ethy-ai"
 ---

@@ -1,6 +1,7 @@
 ---
 title: "Every Base MCP Transaction Ends in bmcp_blue"
 subtitle: "We found Base MCP's on-chain tag, and it isn't the one we predicted. 12,691 tagged operations from 332 wallets since the May 26 launch; 89% of them came from 229 wallets running the same seven-protocol routine, mostly for a few cents."
+plain: "Every transaction made through Coinbase's Base MCP (the tool that lets AI assistants prepare wallet transactions) ends in the same hidden tag, so anyone can count how much it is really used."
 date: "2026-09-28"
 slug: "base-mcp-find-the-tag"
 seoTitle: "Base MCP On-Chain: The bmcp_blue Tag, 12,691 Operations and Who Uses It (May–Sep 2026)"

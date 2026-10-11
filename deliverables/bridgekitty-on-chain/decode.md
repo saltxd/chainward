@@ -1,6 +1,7 @@
 ---
 title: "BridgeKitty: 595 Daily Jobs, Zero On-Chain Footprint"
 subtitle: "A top-10 agent on the Virtuals ACP scan dashboard has never sent a transaction on Base — across two wallets, an owner address, and every endpoint we could query"
+plain: "Virtuals' dashboard ranked BridgeKitty #3 for a day with 595 jobs. Its wallets show zero transactions on-chain. The dashboard number has nothing behind it."
 date: "2026-05-16"
 slug: "bridgekitty-on-chain"
 ---

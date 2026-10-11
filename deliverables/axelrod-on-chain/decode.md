@@ -1,6 +1,7 @@
 ---
 title: "Axelrod On-Chain Decode"
 subtitle: "$106.9M of swap volume, 41,515 jobs, and zero AXR burned eleven months after the buyback promise"
+plain: "Axelrod promised that part of its trading profits would buy back and burn its token. Eleven months in, nothing has been burned: the supply is exactly what it was at launch."
 date: "2026-04-28"
 slug: "axelrod-on-chain"
 ---

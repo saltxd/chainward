@@ -11,6 +11,28 @@ export interface DecodeMeta {
   /** Optional search-result title, written for what people actually search; the
    * article headline and social cards keep `title`. */
   seoTitle?: string;
+  /** What the finding means for someone about to pay or hire an agent, in plain
+   * words; shown in a box above the article. */
+  plain?: string;
+  /** Where that box sends the reader (a path on this site) and the link text. */
+  plainHref?: string;
+  plainCta?: string;
+}
+
+export interface PlainCallout {
+  text: string;
+  href: string;
+  cta: string;
+}
+
+const DEFAULT_PLAIN_CTA = 'Paste an address: Pay, Hold or Unknown →';
+
+/** The plain-English box for a decode, or null when it has no summary. Links stay on this site. */
+export function plainCallout(meta: DecodeMeta): PlainCallout | null {
+  const text = meta.plain?.trim();
+  if (!text) return null;
+  const href = meta.plainHref && /^\/(?!\/)/.test(meta.plainHref) ? meta.plainHref : '/';
+  return { text, href, cta: meta.plainCta?.trim() || DEFAULT_PLAIN_CTA };
 }
 
 export interface DecodeContent {
@@ -89,6 +111,9 @@ export function getDecodeBySlug(slug: string): DecodeContent | null {
           date: data.date,
           slug: data.slug,
           seoTitle: data.seoTitle,
+          plain: data.plain,
+          plainHref: data.plainHref,
+          plainCta: data.plainCta,
         },
         content: stripLeadingTitle(content),
       };

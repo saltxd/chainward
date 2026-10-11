@@ -1,6 +1,7 @@
 ---
 title: "Wasabot On-Chain Decode"
 subtitle: "$81.6M aGDP, $5.9K revenue — how the ACP dashboard structurally undercounts DeFi agent economics"
+plain: "Wasabot ranks #3 on Virtuals' leaderboard with $81.6M of \"agentic GDP\", but its reported revenue is $5,924. The big number is trading volume, not money earned."
 date: "2026-04-13"
 slug: "wasabot"
 ---

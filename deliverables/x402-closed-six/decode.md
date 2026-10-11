@@ -1,6 +1,7 @@
 ---
 title: "Six x402 Wallets Paid Only by Each Other Now Rank 3 to 8 on Base"
 subtitle: "The six wallets from our two earlier x402 decodes, ranks 3 to 8 on x402scan on Oct 9, have moved $981K between them through Meridian since May 5."
+plain: "Six of the top sellers on Base's x402 leaderboard (ranks 3 to 8) get paid only by each other. Their \"sales\" are the same money going around in a circle, not customers."
 date: "2026-10-09"
 slug: "x402-closed-six"
 seoTitle: "x402 on Base: Six Wallets Paid Only by Each Other, $981K Since May Through Meridian's Facilitator (Oct 2026)"

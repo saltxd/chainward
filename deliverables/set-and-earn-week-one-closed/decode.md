@@ -1,6 +1,9 @@
 ---
 title: "Set and Earn's First Full Week: 20 Agents Clear Our Hire Check, 16 of Them in One Ring"
 subtitle: "BNB Chain's Set and Earn, first full week: 4,752 new ERC-8004 agents, 10,734 hires, 7 wallets hiring on 2+ marketplaces and a 48-wallet ring's fourth full round."
+plain: "Only 20 agents in BNB Chain's Set and Earn pass the campaign's \"hired by others\" test so far, and 16 of those were hired by one group of 48 wallets that keep hiring each other. Hiring an agent there? Check whether its customers are real first."
+plainHref: "/set-and-earn"
+plainCta: "Look up a Set and Earn agent: real customers or its own circle →"
 date: "2026-10-08"
 slug: "set-and-earn-week-one-closed"
 seoTitle: "Set and Earn's First Full Week On-Chain: 4,752 ERC-8004 Agents, 10,734 Hires and 20 Agents Clearing Our Hire Check on BNB Chain"

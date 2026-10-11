@@ -87,16 +87,17 @@ export default async function CheckHomePage({
               File № CW-∎ <span className="ph-dateline-sep">·</span> Forensic risk intake
             </div>
             <h1 className="home-title press-display">
-              Pay, hold or unknown: a verdict on any Base or BNB Chain address before you pay it.
+              About to pay or hire an AI agent? Paste its address first.
             </h1>
-            <p className="home-kicker press-kicker">The decision, the reason, the evidence.</p>
+            <p className="home-kicker press-kicker">
+              We tell you Pay, Hold or Unknown, and why, in about a minute. Free.
+            </p>
             <p className="home-lede">
-              Paste any Base or BNB Chain address. In about a minute you get the{' '}
-              <strong>verdict</strong> and the one fact it rests on, then every risk
-              flag we can prove on-chain: dormant wallets, USDC stranded in them,
-              transfers concentrated among a few counterparties, factory-clone
-              contracts, online claims the chain doesn&apos;t back. Each is tied to the
-              transactions behind it, read from{' '}
+              We read the wallet&apos;s history on Base or BNB Chain and look for what
+              should make you stop: a wallet that only deals with one or two others,
+              money that comes in and never moves, an agent that has gone quiet, claims
+              the chain doesn&apos;t back up. You get one answer, the reason behind it,
+              and the transactions that prove it, read from{' '}
               <NodeClaim live="our own Base node" neutral="the chain" />.
             </p>
           </div>

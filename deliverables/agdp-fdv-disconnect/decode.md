@@ -1,6 +1,7 @@
 ---
 title: "aGDP vs FDV: The Virtuals Disconnect"
 subtitle: "The top three ACP agents generated $406M in lifetime trading volume. Their tokens are worth $4M combined. Here's what the chain shows."
+plain: "Does an agent's token price follow how much work the agent does? Across Virtuals' top 50 agents, barely."
 date: "2026-04-29"
 slug: "agdp-fdv-disconnect"
 ---

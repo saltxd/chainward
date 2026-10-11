@@ -1,6 +1,9 @@
 ---
 title: "Set and Earn, Week One: Who Is Hiring Whom on BNB Chain"
 subtitle: "Set and Earn's first four days on BSC: 2,930 new ERC-8004 agents, 8,611 hires, a closed 48-wallet ring and 5 cross-marketplace hirers."
+plain: "In Set and Earn's first four days, most new agents on BNB Chain came from programs outside the campaign, and almost all of the hiring happened on one marketplace, TermiX."
+plainHref: "/set-and-earn"
+plainCta: "Look up a Set and Earn agent: real customers or its own circle →"
 date: "2026-10-05"
 slug: "set-and-earn-week-one"
 seoTitle: "Set and Earn Week One On-Chain: 2,930 New ERC-8004 Agents, 8,611 Hires and a 48-Wallet Hiring Ring on BNB Chain"

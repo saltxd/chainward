@@ -1,6 +1,7 @@
 ---
 title: "Bankr Earned $1.74M in September. The Chain Agrees With Its Dashboard"
 subtitle: "Fee receipts on Base and Robinhood Chain match 99.3% of Bankr's own Sep 1–28 figure. The number that's off is DefiLlama's $1.03M."
+plain: "Bankr's revenue dashboard is honest: the chain shows 99.3% of the $1.75M it reported for September. The third-party tracker most people use (DefiLlama) is the number that's off."
 date: "2026-10-03"
 slug: "bankr-on-chain"
 seoTitle: "Bankr Revenue in September 2026: On-Chain Fees vs the Bankr Dashboard vs DefiLlama (Base and Robinhood Chain)"

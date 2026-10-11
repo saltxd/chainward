@@ -1,6 +1,7 @@
 ---
 title: "ButlerLiquid On-Chain Decode"
 subtitle: "$162K aGDP claimed. $408K USDC through the wallet on Base. On Hyperliquid, every ButlerLiquid-side address returns $0."
+plain: "ButlerLiquid says it trades on Hyperliquid for its users. $408K of USDC moved through its wallet, but its Hyperliquid accounts show $0 and no trades."
 date: "2026-07-09"
 slug: "butlerliquid-on-chain"
 ---

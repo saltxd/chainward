@@ -1,6 +1,7 @@
 ---
 title: "The Honeypot Isn't in ClankerToken"
 subtitle: "The 'Clanker Hook' tokens people search for are real Clanker launches, and most never traded. The one working trap we found is a copycat whose verified source hides a mint inside an imported library."
+plain: "Worried a ClankerToken is a honeypot, a token you can buy but never sell? A genuine Clanker token can't be one. The trap we found was in a copycat that borrows the name."
 date: "2026-09-26"
 slug: "clankertoken-honeypot-check"
 seoTitle: "ClankerToken & \"Clanker Hook\" Tokens: Rug, Scam, or Honeypot? Checked On-Chain"

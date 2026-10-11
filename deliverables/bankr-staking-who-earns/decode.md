@@ -1,6 +1,7 @@
 ---
 title: "Bankr Staking: Who Earns the $100K"
 subtitle: "Bankr funded 246M BNKR ($99.8K) of staking rewards. Its 2/3 fee Safe is the largest staker and earns about 13% of them."
+plain: "Bankr's \"$100,000 paid to stakers in two weeks\" is real: two weekly top-ups from Bankr's fee wallet, and the 28.85% yield matched the chain when it was posted."
 date: "2026-10-06"
 slug: "bankr-staking-who-earns"
 seoTitle: "Bankr BNKR Staking On-Chain: Who Earns the $100K, Where the 28.85% APY Comes From, and Who the Largest Stakers Are"

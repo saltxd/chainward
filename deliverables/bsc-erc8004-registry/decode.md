@@ -1,6 +1,9 @@
 ---
 title: "BNB Chain's ERC-8004 Registry Count Says Little About Set and Earn"
 subtitle: "3,496 new BSC agents since Oct 1: 69% from EvoEvo, Quack Q402 and an Ave.ai-branded card, at late-September pace; none of those hired."
+plain: "BNB Chain's agent registry added thousands of agents during Set and Earn, but 69% came from three automated programs that have nothing to do with the campaign. The headline count says little about real activity."
+plainHref: "/set-and-earn"
+plainCta: "Look up a Set and Earn agent: real customers or its own circle →"
 date: "2026-10-06"
 slug: "bsc-erc8004-registry"
 seoTitle: "Where BNB Chain's New ERC-8004 Agents Come From: EvoEvo, Quack Q402 and an Ave.ai-Branded Template Card"

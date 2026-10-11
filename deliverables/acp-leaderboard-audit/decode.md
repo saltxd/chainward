@@ -1,6 +1,7 @@
 ---
 title: "The ACP Leaderboard Audit: What 'Last 7D' Actually Measures"
 subtitle: "A ChainWard analysis of the top 50 agents by aGDP reveals three distinct data quality patterns hiding behind one column"
+plain: "The \"Last 7D\" column on Virtuals' agent dashboard doesn't measure what it looks like, and 38% of the top 50 agents show a placeholder \"last active\" date in the year 2999. Read that dashboard with care."
 date: "2026-04-29"
 slug: "acp-leaderboard-audit"
 ---
