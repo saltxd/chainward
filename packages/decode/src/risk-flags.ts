@@ -2,6 +2,7 @@ import { RISK_CHAINS, riskChainAddressUrl } from '@chainward/common';
 import type { DecodeChain, QuickDecodeResultData, Discrepancy } from './types.js';
 import { CLASSIFIER_VERSION } from './types.js';
 import { formatWindowDays, formatWindowSpan } from './rpc-fixtures.js';
+import { OFAC_SEARCH_URL, isSanctioned } from './ofac.js';
 
 /**
  * Risk-Check v1 flag derivation.
@@ -16,7 +17,7 @@ import { formatWindowDays, formatWindowSpan } from './rpc-fixtures.js';
  *      not safe/risky. Zero flags => the neutral "no flags raised" copy, never "safe".
  *   2. not_assessed[] is required, non-empty, and hardcoded — the report can never
  *      imply it checked something it did not.
- *   3. Every flag carries `evidence` + a `source` URL (Blockscout / ACP / BaseScan).
+ *   3. Every flag carries `evidence` + a `source` URL (Blockscout / ACP / BaseScan / OFAC).
  *   4. Neutral lexicon only — no "scam / fake / rug / dirty" in any title or evidence
  *      (mirrors report-writer.ts voice discipline).
  *   5. Self-flag guard: a known-good allowlist suppresses flags for ChainWard's own
@@ -28,7 +29,7 @@ export type RiskBand = 'low-signal' | 'mixed' | 'elevated' | 'high-signal';
 export type RiskSeverity = 'info' | 'low' | 'medium' | 'high';
 
 export interface RiskFlag {
-  /** Stable machine id (see the 8 v1 flags). Used for dedupe + UI keys. */
+  /** Stable machine id (one per RISK_CHECKS entry). Used for dedupe + UI keys. */
   id: string;
   severity: RiskSeverity;
   /** Neutral, human-readable headline. No accusatory lexicon. */
@@ -113,6 +114,7 @@ function notAssessedForChain(chain: DecodeChain, fetchMeta: QuickDecodeResultDat
 }
 
 export type RiskCheckId =
+  | 'ofac_sanctioned'
   | 'claim_vs_chain_offline'
   | 'dormant_wallet'
   | 'stranded_value'
@@ -148,6 +150,13 @@ export interface RiskCheck {
  * as a list of things examined, not an absence. Neutral lexicon only.
  */
 export const RISK_CHECKS: readonly RiskCheck[] = [
+  {
+    // A list match, not a chain reading: needs no transfer or state read and
+    // runs on every chain (an EVM address is the same key everywhere).
+    id: 'ofac_sanctioned',
+    title: 'On the US sanctions list (OFAC)',
+    looks_for: 'The address appears on the US Treasury sanctions list',
+  },
   {
     id: 'claim_vs_chain_offline',
     title: 'ACP online claim not reflected on-chain',
@@ -277,6 +286,32 @@ function computeBand(flags: RiskFlag[]): RiskBand {
   return 'low-signal';
 }
 
+function signalDensity(flags: RiskFlag[]): number {
+  return flags.reduce((sum, f) => sum + SEVERITY_WEIGHT[f.severity], 0);
+}
+
+/**
+ * The assessment with the OFAC flag first when the address is on the sanctions
+ * list, band and density recomputed. Idempotent; an unlisted address gets the
+ * assessment back unchanged. deriveRiskFlags ends here, and the API applies it
+ * to stored reports on read, so a report filed before the address was listed
+ * still says so.
+ */
+export function withSanctionsFlag(assessment: RiskAssessment, address: string): RiskAssessment {
+  if (!isSanctioned(address) || assessment.flags.some((f) => f.id === 'ofac_sanctioned')) return assessment;
+  const flags: RiskFlag[] = [
+    {
+      id: 'ofac_sanctioned',
+      severity: 'high',
+      title: CHECK_TITLE.ofac_sanctioned,
+      evidence: 'This address is on the US Treasury OFAC SDN list. Paying it may be illegal for US persons.',
+      source: OFAC_SEARCH_URL,
+    },
+    ...assessment.flags,
+  ];
+  return { ...assessment, flags, band: computeBand(flags), signal_density: signalDensity(flags) };
+}
+
 function blockscoutAddressUrl(address: string): string {
   return `https://base.blockscout.com/address/${address}`;
 }
@@ -326,14 +361,18 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   const baseSources = chain === 'base';
 
   // Self-flag guard: ChainWard's own wallets + known infra never get flagged.
+  // A sanctions match is a government list, not our reading, so it still shows.
   if (isAllowlisted(address, allowlist)) {
-    return {
-      band: 'low-signal',
-      flags: [],
-      not_assessed,
-      classifier_version: CLASSIFIER_VERSION,
-      signal_density: 0,
-    };
+    return withSanctionsFlag(
+      {
+        band: 'low-signal',
+        flags: [],
+        not_assessed,
+        classifier_version: CLASSIFIER_VERSION,
+        signal_density: 0,
+      },
+      address,
+    );
   }
 
   const flags: RiskFlag[] = [];
@@ -465,13 +504,16 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
     });
   }
 
-  const signal_density = flags.reduce((sum, f) => sum + SEVERITY_WEIGHT[f.severity], 0);
-
-  return {
-    band: computeBand(flags),
-    flags,
-    not_assessed,
-    classifier_version: CLASSIFIER_VERSION,
-    signal_density,
-  };
+  // ofac_sanctioned (high), put first <- the address is on the OFAC SDN snapshot.
+  // Reads no transfers and no head, so it fires even when every source failed.
+  return withSanctionsFlag(
+    {
+      band: computeBand(flags),
+      flags,
+      not_assessed,
+      classifier_version: CLASSIFIER_VERSION,
+      signal_density: signalDensity(flags),
+    },
+    address,
+  );
 }

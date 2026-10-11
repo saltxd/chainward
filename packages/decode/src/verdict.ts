@@ -154,6 +154,7 @@ export interface CounterpartyActivity {
 }
 
 const COUNTERPARTY_LIMITS = 'On-chain behavior only. Absence of flags is not a clearance of the counterparty.';
+const SANCTIONS_LIMITS = 'Matched against the US Treasury OFAC SDN list only; other countries’ sanctions lists are not checked.';
 
 const SEVERITY_ORDER: Record<RiskFlag['severity'], number> = { high: 3, medium: 2, low: 1, info: 0 };
 
@@ -170,6 +171,12 @@ export function counterpartyVerdict(
   activity: CounterpartyActivity | null,
   opts: { transfersUnavailable?: boolean } = {},
 ): Verdict<CounterpartyVerdictLabel> {
+  // A sanctions match is a list lookup, not a chain reading: it holds even when
+  // the transfers could not be read or there is no activity to judge.
+  const sanctioned = assessment.flags.find((f) => f.id === 'ofac_sanctioned');
+  if (sanctioned) {
+    return { label: 'hold', text: 'Hold', reason: `${sanctioned.title}: ${sanctioned.evidence}`, limits: SANCTIONS_LIMITS };
+  }
   if (opts.transfersUnavailable) {
     return {
       label: 'unknown',

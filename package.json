@@ -16,6 +16,7 @@
     "db:studio": "pnpm --filter @chainward/db studio",
     "decode:candidates": "tsx scripts/decode-candidates.ts",
     "risk:seed": "tsx scripts/risk-seed.ts",
+    "ofac:update": "tsx scripts/update-ofac-list.ts",
     "decode:og-render": "tsx scripts/auto-decode/og-render.ts",
     "decode:auto": "tsx scripts/auto-decode/index.ts",
     "brief:fulfill": "tsx scripts/fulfill-briefs.ts",

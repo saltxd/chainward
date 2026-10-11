@@ -123,6 +123,10 @@ export function encodeAttestationData(r: AttestableReport): Hex {
  * move ETH, so it never goes on-chain by itself. */
 export const ABSENCE_FLAG_IDS: ReadonlySet<string> = new Set(['inactive_no_history', 'activity_truncated']);
 
+/** Flags that record a match on a published list, not observed behavior. A
+ * sanctions match rides along on an attestation but never triggers one. */
+export const LIST_MATCH_FLAG_IDS: ReadonlySet<string> = new Set(['ofac_sanctioned']);
+
 /** Only reports filed within this window are attested; older ones wait for a re-check. */
 export const ATTEST_MAX_REPORT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -140,5 +144,5 @@ export function isAttestable(
   // Reports filed before the freshness guard existed carry no head_stale at all.
   if (r.headStale !== false) return false;
   if (now - new Date(r.generatedAt).getTime() > ATTEST_MAX_REPORT_AGE_MS) return false;
-  return r.flagIds.some((id) => !ABSENCE_FLAG_IDS.has(id));
+  return r.flagIds.some((id) => !ABSENCE_FLAG_IDS.has(id) && !LIST_MATCH_FLAG_IDS.has(id));
 }

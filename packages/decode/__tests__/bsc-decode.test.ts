@@ -161,6 +161,7 @@ describe('riskChecksFor', () => {
     expect(riskChecksFor(undefined)).toBe(RISK_CHECKS);
     const bsc = riskChecksFor('bsc').map((c) => c.id);
     expect(bsc).toEqual([
+      'ofac_sanctioned',
       'dormant_wallet',
       'stranded_value',
       'counterparty_concentration',
