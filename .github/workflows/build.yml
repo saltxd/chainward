@@ -14,8 +14,8 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
-# a newer push to the same branch cancels an older run, so an older build can never bump after a newer one
-concurrency: { group: "${{ github.workflow }}-${{ github.ref }}", cancel-in-progress: true }
+# runs queue per branch (a third push replaces the pending one); the bump action deploys only the branch head
+concurrency: { group: "${{ github.workflow }}-${{ github.ref }}", cancel-in-progress: false }   # queue, never cancel: a 25-min pipeline under frequent pushes would otherwise never deploy; the bump only deploys the branch head
 jobs:
   check:
     name: Lint, Typecheck & Build
