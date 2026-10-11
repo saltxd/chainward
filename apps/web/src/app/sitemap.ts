@@ -3,6 +3,7 @@ import { reportPath } from '@/lib/risk';
 import { indexableReports } from '@/lib/indexableReports';
 import type { RiskLibraryResult } from '@/lib/api';
 import { getAllDecodes } from '@/lib/decodes';
+import { activeSitemapAgents, type SitemapAgent } from '@/lib/observatory';
 
 // Run per-request (with the inner fetch's cache) so the sitemap can reach the
 // internal API. Default behavior is to evaluate at build time, which can't see
@@ -21,7 +22,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE}/`, changeFrequency: 'daily', priority: 1.0 },
     { url: `${SITE}/reports`, changeFrequency: 'hourly', priority: 0.9 },
     { url: `${SITE}/base`, changeFrequency: 'hourly', priority: 0.9 },
-    { url: `${SITE}/hyperliquid`, changeFrequency: 'hourly', priority: 0.9 },
     { url: `${SITE}/decodes`, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE}/mcp`, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE}/attest`, changeFrequency: 'weekly', priority: 0.8 },
@@ -38,8 +38,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // Per-agent routes — every named observatory agent (unnamed placeholder
-  // slugs are too thin to index; the API filters them out).
+  // Per-agent routes: named observatory agents that moved money in the last
+  // 30 days. Placeholder-slug and month-idle agent pages are too thin to index;
+  // the API filters them out and the date check here backs that up.
   let agentRoutes: MetadataRoute.Sitemap = [];
   try {
     const res = await fetch(`${API_INTERNAL_URL}/api/observatory/sitemap`, {
@@ -47,12 +48,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
 
     if (res.ok) {
-      const json = (await res.json()) as {
-        data?: Array<{ slug: string; updatedAt: string }>;
-      };
-      agentRoutes = (json.data ?? []).map((a) => ({
+      const json = (await res.json()) as { data?: SitemapAgent[] };
+      agentRoutes = activeSitemapAgents(json.data ?? [], new Date()).map((a) => ({
         url: `${SITE}/base/${a.slug}`,
-        lastModified: new Date(a.updatedAt),
+        lastModified: a.lastActiveAt,
         changeFrequency: 'daily' as const,
         priority: 0.7,
       }));
