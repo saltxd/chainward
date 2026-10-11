@@ -116,3 +116,20 @@ export function decodeCard(meta: Pick<DecodeMeta, 'title' | 'subtitle' | 'date' 
     url: `chainward.ai/decodes/${meta.slug}`,
   };
 }
+
+const AGENT_NAME_MAX = 40;
+
+export interface AgentCardModel {
+  name: string;
+  short: string;
+  url: string;
+}
+
+/** An observatory agent's card: the question about it by name, its wallet, its page. */
+export function agentCard(agent: { name: string; walletAddress: string; slug: string }): AgentCardModel {
+  return {
+    name: typeset(clip(agent.name, AGENT_NAME_MAX)),
+    short: shortAddress(agent.walletAddress),
+    url: `chainward.ai/base/${agent.slug}`,
+  };
+}

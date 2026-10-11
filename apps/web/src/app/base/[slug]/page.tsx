@@ -35,14 +35,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const agent = outcome.agent;
 
   const name = agent.agentName ?? slug;
-  const score = agent.health?.score;
   // The root layout's title template appends " | ChainWard".
-  const title = score != null
-    ? `${name} — AI agent on Base, health ${score}/100`
-    : `${name} — AI agent on Base, on-chain activity`;
-  const description = agent.acp?.revenue
-    ? `${name} on Base. Revenue $${Math.round(agent.acp.revenue).toLocaleString()}, ${agent.acp.jobs} jobs, ${score ?? '—'}/100 health.`
-    : `${name} on Base. Live wallet activity, gas analytics, alerts.`;
+  const title = `Should you pay ${name}? AI agent on Base`;
+  const acp = agent.acp?.revenue
+    ? ` Virtuals reports ${agent.acp.jobs.toLocaleString('en-US')} jobs and $${Math.round(agent.acp.revenue).toLocaleString('en-US')} in revenue.`
+    : '';
+  const description = `${name} on Base: its wallet activity, read from the chain.${acp} Free check: Pay or Hold, and why.`;
 
   const canonical = `https://chainward.ai/base/${agent.slug ?? slug}`;
   return {

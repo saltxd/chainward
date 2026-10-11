@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { OG_FONT } from './fonts';
-import { stampLines, type CardTone, type DecodeCardModel, type ReportCardModel } from './model';
+import { stampLines, type AgentCardModel, type CardTone, type DecodeCardModel, type ReportCardModel } from './model';
 
 /**
  * The share cards, drawn for satori (@vercel/og): the public pages' paper look.
@@ -362,6 +362,29 @@ export function DecodeCard({ card }: { card: DecodeCardModel }) {
         )}
       </Body>
       <Footer left="Read from the chain" right={card.url} rightSize={22} />
+    </Frame>
+  );
+}
+
+/** An observatory agent's card: should you pay it, by name, and where to find out. */
+export function AgentCard({ card }: { card: AgentCardModel }) {
+  const size = card.name.length <= 18 ? 84 : card.name.length <= 28 ? 70 : 58;
+  return (
+    <Frame>
+      <Masthead label="Agent file · Base" />
+      <Body>
+        <span style={{ ...HEADLINE, fontSize: 52, lineHeight: 1.1, color: INK_SOFT }}>Should you pay</span>
+        <span style={{ ...HEADLINE, fontSize: size, lineHeight: 1.06, letterSpacing: -size / 80, textWrap: 'balance' }}>
+          {`${card.name}?`}
+        </span>
+        <span style={{ fontFamily: OG_FONT.mono, fontWeight: 500, fontSize: 26, color: INK_SOFT, marginTop: 18 }}>
+          {card.short}
+        </span>
+        <span style={{ ...HEADLINE, fontStyle: 'italic', fontSize: 42, color: OXBLOOD, marginTop: 30 }}>
+          Free check: Pay or Hold, and why.
+        </span>
+      </Body>
+      <Footer left="From its on-chain history" right={card.url} rightSize={22} />
     </Frame>
   );
 }

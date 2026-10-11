@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RiskReport } from '../api';
-import { clip, decodeCard, reportCard, shortAddress, stampLines, typeset } from '../og/model';
+import { agentCard, clip, decodeCard, reportCard, shortAddress, stampLines, typeset } from '../og/model';
 
 // What a share card says: the answer word as a stamp, the address, the one reason,
 // the chain. Too little to judge gets its own word, never a band label.
@@ -182,5 +182,20 @@ describe('decodeCard', () => {
     const c = decodeCard({ ...meta, subtitle: 'word '.repeat(80) });
     expect(c.subtitle.length).toBeLessThanOrEqual(190);
     expect(c.subtitle.endsWith('…')).toBe(true);
+  });
+});
+
+describe('agentCard', () => {
+  it('asks the question about the agent by name, with its short wallet and page URL', () => {
+    expect(agentCard({ name: 'Captain Dackie', walletAddress: ADDRESS, slug: 'captain-dackie' })).toEqual({
+      name: 'Captain Dackie',
+      short: '0x4baa…3bb2',
+      url: 'chainward.ai/base/captain-dackie',
+    });
+  });
+
+  it('clips a very long name so the headline fits', () => {
+    const card = agentCard({ name: 'A'.repeat(30) + ' ' + 'B'.repeat(30), walletAddress: ADDRESS, slug: 'x' });
+    expect(card.name.length).toBeLessThanOrEqual(40);
   });
 });

@@ -3,6 +3,7 @@ import type { RiskReport } from '@/lib/api';
 import { getAllDecodes } from '@/lib/decodes';
 import { GET as reportOg } from '../report/[address]/og/route';
 import { GET as decodeOg } from '../decodes/[slug]/og/route';
+import agentOg from '../../base/[slug]/opengraph-image';
 
 // The share-card routes: a PNG for a real address or decode, a 404 (not an
 // image) for anything else, and the card renders for every kind of report.
@@ -98,4 +99,23 @@ describe('decode share card route', () => {
     });
     await expectPng(res);
   }, 20_000);
+});
+
+describe('agent share card (/base/[slug])', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('renders a PNG for a known agent', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({ success: true, data: { slug: 'larry', agentName: 'Larry', walletAddress: ADDRESS, health: { score: 12 } } }),
+      ),
+    );
+    await expectPng(await agentOg({ params: Promise.resolve({ slug: 'larry' }) }));
+  });
+
+  it('still answers with an image when the agent is unknown', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not found', { status: 404 })));
+    await expectPng(await agentOg({ params: Promise.resolve({ slug: 'nobody-here' }) }));
+  });
 });

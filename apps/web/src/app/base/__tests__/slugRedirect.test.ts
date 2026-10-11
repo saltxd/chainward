@@ -60,6 +60,33 @@ describe('/base/[slug]', () => {
     expect(meta.alternates?.canonical).toBe('https://chainward.ai/base/larry');
   });
 
+  it('titles an agent page with the question, not a health score', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                slug: 'larry',
+                agentName: 'Larry',
+                health: { score: 72, uptimePct: 90, gasEfficiency: 1, failureRate: 0, consistency: 1 },
+                acp: { revenue: 1234.4, jobs: 56 },
+              },
+            }),
+          ),
+      ),
+    );
+    const { generateMetadata } = await import('../[slug]/page');
+    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'larry' }) });
+    expect(meta.title).toBe('Should you pay Larry? AI agent on Base');
+    expect(String(meta.description)).toContain('Pay or Hold');
+    for (const text of [String(meta.title), String(meta.description)]) {
+      expect(text).not.toMatch(/health|\/100|\u2014/i);
+    }
+  });
+
   it('is a 404, not a crash, when the API is down', async () => {
     vi.stubGlobal(
       'fetch',

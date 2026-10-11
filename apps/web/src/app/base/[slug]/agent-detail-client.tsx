@@ -58,12 +58,6 @@ function chartTooltip(palette: PressPalette) {
   };
 }
 
-function healthColor(score: number): string {
-  if (score >= 80) return 'var(--seal)';
-  if (score >= 50) return 'var(--sev-medium)';
-  return 'var(--oxblood)';
-}
-
 function formatChartDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
@@ -126,22 +120,11 @@ export function AgentDetailClient({ agent }: { agent: AgentDetail }) {
             )}
           </div>
           <Link href={reportPath(agent.walletAddress)} className="press-btn agd-check">
-            Run a risk check on this wallet →
+            Should you pay {name}? Check it free →
           </Link>
         </section>
 
         <div className="agd-stats">
-          {agent.health && (
-            <div className="agd-stat">
-              <span className="agd-stat-label">Health</span>
-              <span className="agd-stat-value mono" style={{ color: healthColor(agent.health.score) }}>
-                {agent.health.score}/100
-              </span>
-              <span className="agd-stat-note mono">
-                uptime {agent.health.uptimePct.toFixed(0)}% · fail {agent.health.failureRate.toFixed(1)}%
-              </span>
-            </div>
-          )}
           {agent.acp && (
             <>
               <div className="agd-stat">
