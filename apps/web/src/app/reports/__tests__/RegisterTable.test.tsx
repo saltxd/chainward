@@ -64,4 +64,33 @@ describe('RegisterTable', () => {
     const quiet = renderToStaticMarkup(<RegisterTable reports={[card({ verdict: { label: 'unknown', text: 'No track record' }, flag_count: 1 })]} />);
     expect(quiet).toContain('rel="nofollow"');
   });
+
+  it('does not headline the busy-wallet note as if it were a finding', () => {
+    const html = renderToStaticMarkup(
+      <RegisterTable
+        reports={[card({ verdict: { label: 'pay', text: 'Pay' }, flag_count: 1, top_severity: 'info', top_flags: [{ id: 'activity_truncated', severity: 'info', title: 'Transfer history truncated at fetch cap' }] })]}
+      />,
+    );
+    expect(html).not.toContain('truncated');
+    expect(html).toContain('Nothing flagged in the window checked');
+    expect(html).not.toContain('more');
+  });
+
+  it('counts the busy-wallet note out of "+N more"', () => {
+    const html = renderToStaticMarkup(
+      <RegisterTable
+        reports={[
+          card({
+            verdict: { label: 'hold', text: 'Hold' },
+            flag_count: 2,
+            top_severity: 'high',
+            top_flags: [{ id: 'stranded_value', severity: 'high', title: 'USDC balance held in a dormant wallet' }, { id: 'activity_truncated', severity: 'info', title: 'Transfer history truncated at fetch cap' }],
+          }),
+        ]}
+      />,
+    );
+    expect(html).toContain('USDC balance held in a dormant wallet');
+    expect(html).not.toContain('+1 more');
+  });
 });
+

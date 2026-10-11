@@ -54,4 +54,13 @@ describe('RecentRow', () => {
     const html = renderToStaticMarkup(<RecentRow card={card({ verdict: { label: 'unknown', text: 'No track record' } })} />);
     expect(html).toContain('NO TRACK RECORD');
   });
+
+  it('does not headline the busy-wallet note as if it were a finding', () => {
+    const html = renderToStaticMarkup(
+      <RecentRow card={card({ verdict: { label: 'pay', text: 'Pay' }, flag_count: 1, top_severity: 'info', top_flags: [{ id: 'activity_truncated', severity: 'info', title: 'Transfer history truncated at fetch cap' }] })} />,
+    );
+    expect(html).not.toContain('truncated');
+    expect(html).toContain('no flags raised in the window checked');
+  });
 });
+

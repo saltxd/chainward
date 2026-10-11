@@ -3,6 +3,7 @@ import { reportPath, isThinReport } from '@/lib/risk';
 import type { RiskReportCard, RiskSeverity } from '@/lib/api';
 import { chainMeta } from '@/lib/chains';
 import { VerdictStamp } from '@/components/press/VerdictStamp';
+import { cardHeadline } from '@/lib/cardFlag';
 
 // The register on /reports: one row per address on file, led by its answer.
 // The page around it (copy, layout, the .reg-* styles) lives in page.tsx.
@@ -25,10 +26,13 @@ function formatDate(iso: string): string {
 
 function RegisterRow({ card }: { card: RiskReportCard }) {
   const thin = isThinReport(card.verdict);
-  // The headline flag: the highest-severity one the API denormalised onto the card.
+  // The headline flag: the highest-severity finding the API denormalised onto the card.
+  const head = cardHeadline(card);
   const topFlag =
-    card.top_flags?.[0] ??
-    (card.top_severity ? { title: `${card.flag_count} flag${card.flag_count === 1 ? '' : 's'}`, severity: card.top_severity } : null);
+    head.flag ??
+    (!head.known && card.top_severity
+      ? { title: `${card.flag_count} flag${card.flag_count === 1 ? '' : 's'}`, severity: card.top_severity }
+      : null);
   return (
     <Link
       href={reportPath(card.address, card.chain)}
@@ -55,7 +59,7 @@ function RegisterRow({ card }: { card: RiskReportCard }) {
                 <span className="reg-sev-dot" style={{ background: SEV_VAR[topFlag.severity] }} aria-hidden="true" />
                 {topFlag.title}
               </span>
-              {card.flag_count > 1 && <span className="reg-found-meta mono">+{card.flag_count - 1} more</span>}
+              {head.flag && head.more > 0 && <span className="reg-found-meta mono">+{head.more} more</span>}
             </span>
           ) : (
             <span className="reg-found reg-found--none">Nothing flagged in the window checked</span>

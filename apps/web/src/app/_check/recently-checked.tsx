@@ -7,6 +7,7 @@ import { reportPath } from '@/lib/risk';
 import { VerdictStamp } from '@/components/press/VerdictStamp';
 import { chainMeta } from '@/lib/chains';
 import { isPlaceholderAddress } from '@/lib/params';
+import { cardHeadline } from '@/lib/cardFlag';
 
 function truncate(addr: string): string {
   if (!addr || addr.length < 12) return addr;
@@ -38,9 +39,10 @@ const SEV_VAR: Record<RiskSeverity, string> = {
  * stays out of the list: the answer is what a visitor acts on.
  */
 export function RecentRow({ card }: { card: RiskReportCard }) {
-  const topFlag = card.top_flags?.[0] ?? null;
-  const sevColor = card.top_severity ? SEV_VAR[card.top_severity] : 'var(--ink-faint)';
-  const more = topFlag && card.flag_count > 1 ? ` +${card.flag_count - 1} more` : '';
+  const head = cardHeadline(card);
+  const topFlag = head.flag;
+  const sevColor = topFlag ? SEV_VAR[topFlag.severity] : 'var(--ink-faint)';
+  const more = topFlag && head.more > 0 ? ` +${head.more} more` : '';
   return (
     <li className="recent-row">
       <Link href={reportPath(card.address, card.chain)} className="recent-link">
@@ -59,7 +61,7 @@ export function RecentRow({ card }: { card: RiskReportCard }) {
                 {topFlag.title}
                 {more && <span className="recent-more mono">{more}</span>}
               </>
-            ) : card.flag_count === 0 ? (
+            ) : card.flag_count === 0 || head.known ? (
               // Only claim "no flags" when the count says so — an older
               // API payload without top_flags must not read as a clearance.
               <span className="recent-noflag">no flags raised in the window checked</span>
