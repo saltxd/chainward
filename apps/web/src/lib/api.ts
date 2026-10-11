@@ -656,5 +656,5 @@ export interface PaidFileMeta {
 export interface PaidFileLookup {
   address: string;
   found: boolean;
-  matches: Array<{ chain: string; tier: string; fields: Record<string, string | number | boolean | null> }>;
+  matches: Array<{ chain: string; tier: string }>;
 }

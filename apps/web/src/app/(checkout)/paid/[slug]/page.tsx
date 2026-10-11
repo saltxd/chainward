@@ -141,17 +141,18 @@ export default function PaidFilePage() {
                 {lookup && (
                   <div className="brf-summary">
                     {lookup.found ? (
-                      lookup.matches.map((m) => (
-                        <div key={m.chain}>
-                          <span>{m.chain}</span>
-                          <code>
-                            tier {m.tier}
-                            {Object.entries(m.fields)
-                              .map(([k, v]) => ` · ${k.replace(/_/g, ' ')} ${v}`)
-                              .join('')}
-                          </code>
-                        </div>
-                      ))
+                      <>
+                        {lookup.matches.map((m) => (
+                          <div key={m.chain}>
+                            <span>{m.chain}</span>
+                            <code>tier {m.tier}</code>
+                          </div>
+                        ))}
+                        <p className="brf-offer-fine">
+                          The row behind the tier is in the full file, or one wallet at a time over x402 at{' '}
+                          <code className="mono">GET /api/paid/{file.slug}/check?address=</code>
+                        </p>
+                      </>
                     ) : (
                       <div>
                         <span>result</span>

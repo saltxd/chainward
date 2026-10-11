@@ -115,7 +115,7 @@ paid.get('/:slug', async (c) => {
 paid.get('/:slug/file', async (c) => sendFile(c, slugParam(c)));
 
 // Paid single-wallet check (x402, priced under every default client spend cap, so
-// sweep buyers can take it). The same rows as the free lookup below, verdict first.
+// sweep buyers can take it). The rows the free lookup below finds, with their fields, verdict first.
 // app.ts checks the slug and the address before the payment middleware; a 400 or
 // 404 here is never charged.
 paid.get('/:slug/check', async (c) => {
@@ -145,18 +145,19 @@ paid.get('/:slug/check', async (c) => {
   });
 });
 
-// Free single-wallet check against the dataset: tier plus a few public fields.
-// The full file is the paid product; this is the reason to come look.
+// Free single-wallet check against the dataset: listed or not, and the tier.
+// The row's fields are what the paid check above sells, so they stay out of here.
 paid.get('/:slug/lookup/:address', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:paid-lookup' }), async (c) => {
   const slug = slugParam(c);
   const address = (c.req.param('address') ?? '').toLowerCase();
   if (!ADDRESS_RE.test(address)) throw new AppError(400, 'INVALID_ADDRESS', 'Invalid wallet address');
   await fileMeta(slug);
   const rows = await getDb()
-    .select({ chain: datasetLookup.chain, tier: datasetLookup.tier, fields: datasetLookup.fields })
+    .select({ chain: datasetLookup.chain, tier: datasetLookup.tier })
     .from(datasetLookup)
     .where(and(eq(datasetLookup.slug, slug), eq(datasetLookup.address, address)));
-  return c.json({ success: true, data: { address, found: rows.length > 0, matches: rows } });
+  const matches = rows.map(({ chain, tier }) => ({ chain, tier }));
+  return c.json({ success: true, data: { address, found: matches.length > 0, matches } });
 });
 
 const claimSchema = z.object({ txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/) });
