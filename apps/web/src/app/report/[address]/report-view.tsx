@@ -40,6 +40,7 @@ import {
   HonestDisclaimer,
   NotAssessed,
   ProvenanceLine,
+  WatchWallet,
 } from './_components';
 import { plainAnswer } from '@/lib/plainAnswer';
 import { isTransient } from '@/lib/checkProgress';
@@ -545,6 +546,12 @@ function FullReport({
       <div className="rr-block">
         <CoverageBlock coverage={report.coverage} />
       </div>
+
+      {chain === 'base' && (
+        <div className="rr-block">
+          <WatchWallet address={report.address} chain={chain} />
+        </div>
+      )}
 
       {/* The single, serious upsell — a document artifact, not a pricing card. */}
       <div className="rr-block">
@@ -1177,6 +1184,19 @@ function ReportStyles() {
         color: var(--ink);
         font-variant-numeric: tabular-nums;
       }
+      .rr-watch {
+        border-top: 1px solid var(--rule);
+        padding-top: 18px;
+      }
+      .rr-watch-copy {
+        margin: 8px 0 14px;
+        font-family: var(--font-text);
+        font-size: 16.5px;
+        line-height: 1.55;
+        color: var(--ink-soft);
+        max-width: 640px;
+      }
+
       .rr-classifier {
         margin-top: 14px;
         font-size: 11px;

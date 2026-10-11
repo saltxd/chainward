@@ -11,6 +11,7 @@ import {
   type FleetOverview,
 } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
+import { registerPrefill } from '@/lib/watch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import {
@@ -96,8 +97,10 @@ function AgentsContent() {
     refetch,
   } = useApi<Agent[]>(() => api.getAgents(), []);
 
-  const [showRegister, setShowRegister] = useState(searchParams.get('register') === 'true');
-  const [form, setForm] = useState({ chain: 'base', walletAddress: '', agentName: '' });
+  // "Watch this wallet" links arrive with ?register=true&address=0x…
+  const prefill = registerPrefill(searchParams);
+  const [showRegister, setShowRegister] = useState(prefill.open);
+  const [form, setForm] = useState({ chain: 'base', walletAddress: prefill.address, agentName: '' });
   const [registering, setRegistering] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);

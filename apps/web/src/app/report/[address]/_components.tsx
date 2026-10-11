@@ -23,6 +23,7 @@ import { CHECK_STEPS, progressStep } from '@/lib/checkProgress';
 import { chainMeta } from '@/lib/chains';
 import { counterpartyCheckUrl, PAID_CHECK_PRICE } from '@/lib/paidChecks';
 import { PayCheckButton } from '@/components/pay/PayCheckButton';
+import { watchWalletHref } from '@/lib/watch';
 
 function shortSource(url: string): string {
   try {
@@ -395,6 +396,26 @@ export function FreshPaidCheck({ address, chain }: { address: string; chain: 'ba
         label={`Counterparty check for ${address.slice(0, 6)}…${address.slice(-4)}`}
         price={PAID_CHECK_PRICE.counterparty}
       />
+    </div>
+  );
+}
+
+/**
+ * For the reader who runs or pays this wallet: free watching on the dashboard,
+ * the address already filled in. Base only; BNB Chain wallets can't be watched.
+ */
+export function WatchWallet({ address, chain }: { address: string; chain: 'base' | 'bsc' }) {
+  if (chain !== 'base') return null;
+  return (
+    <div className="rr-watch">
+      <span className="press-label">Watch it</span>
+      <p className="rr-watch-copy">
+        Is this your agent, or one you pay often? Watch it free: get a Discord or webhook ping when it
+        goes quiet, a transaction fails, or its balance drops.
+      </p>
+      <a href={watchWalletHref(address)} className="press-link">
+        Watch this wallet →
+      </a>
     </div>
   );
 }

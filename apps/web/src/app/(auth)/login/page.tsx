@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useSignMessage } from 'wagmi';
 import { siweSignIn } from '@/lib/auth-client';
+import { postLoginPath } from '@/lib/nextPath';
+import { LOGIN_PITCH } from '@/lib/watch';
 import { Masthead, Colophon } from '@/components/press';
 
 export default function LoginPage() {
@@ -22,7 +24,8 @@ export default function LoginPage() {
 
     try {
       await siweSignIn(address, chainId, signMessageAsync);
-      router.push('/overview');
+      // Read at click time, not via useSearchParams, so the page needs no Suspense boundary.
+      router.push(postLoginPath(new URLSearchParams(window.location.search).get('next')));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed');
     } finally {
@@ -50,10 +53,7 @@ export default function LoginPage() {
             <h1 id="auth-title" className="press-display auth-title">
               Connect your wallet
             </h1>
-            <p className="auth-lede">
-              Connect a wallet to sign in. No email, no password — you prove
-              ownership with a single off-chain signature.
-            </p>
+            <p className="auth-lede">{LOGIN_PITCH}</p>
 
             {/* The notary block — a signature line, not a terminal prompt. */}
             <div className="auth-notary">
