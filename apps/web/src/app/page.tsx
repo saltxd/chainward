@@ -16,6 +16,7 @@ import {
   NodeClaim,
 } from '@/components/press';
 import { getAllDecodes } from '@/lib/decodes';
+import { watchWalletHref } from '@/lib/watch';
 import { CheckForm } from './_check/check-form';
 import { RecentlyChecked } from './_check/recently-checked';
 
@@ -215,6 +216,10 @@ export default async function CheckHomePage({
             <Link href="/reports" className="press-link">
               The public record →
             </Link>
+            {/* Signed-out visitors go through /login and come back to the form. */}
+            <a href={watchWalletHref()} className="press-link">
+              Run an agent? Watch it free →
+            </a>
           </div>
         </section>
 
