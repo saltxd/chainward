@@ -16,3 +16,4 @@ export * from './riskReports';
 export * from './briefOrders';
 export * from './paidFiles';
 export * from './x402Settlements';
+export * from './tierPayments';
