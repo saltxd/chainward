@@ -326,7 +326,7 @@ function x402OpenApiBase() {
           operationId: 'counterpartyCheck',
           summary: 'Pay, Hold or Unknown for a Base or BNB Chain address, with the reason and the full report, paid per call over x402',
           description:
-            'Returns a report no older than 24h, running a fresh check when needed: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Not charged if the check fails.',
+            'Returns a report no older than 24h, running a fresh check when needed: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Screens the US Treasury OFAC sanctions list; a listed address always answers Hold. Not charged if the check fails.',
           parameters: [
             {
               name: 'address',

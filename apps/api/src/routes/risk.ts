@@ -19,6 +19,8 @@ import {
   sellerDemandRpcUrl,
   HireCheckError,
   runHireCheck,
+  isSanctioned,
+  withSanctionsFlag,
   type RiskAssessment,
 } from '@chainward/decode';
 import {
@@ -191,7 +193,9 @@ function computeTtlState(row: RiskReportRow): 'fresh' | 'stale' {
 const NO_HISTORY_VERDICT: Verdict<CounterpartyVerdictLabel> = counterpartyVerdict({ band: 'low-signal', flags: [] }, null);
 
 function rowToReport(row: RiskReportRow): ReportPayload {
-  const assessment = row.riskAssessment as RiskAssessment;
+  // The sanctions list is checked on read too, so a report filed before the
+  // address was listed still carries the flag and the Hold.
+  const assessment = withSanctionsFlag(row.riskAssessment as RiskAssessment, row.walletAddress);
   return {
     address: row.walletAddress,
     chain: row.chain,
@@ -522,10 +526,12 @@ risk.post(
     // Gate on history BEFORE enqueue.
     // Chains without Blockscout / a lookup provider (BSC) gate on one cached RPC
     // fixture fetch — nonce, balances, code, and the bounded transfer window.
+    // A sanctioned address is checked even with no history: the answer is Hold either way.
+    const sanctioned = isSanctioned(address);
     let rpcFixtures: RpcFixtures | undefined;
     if (chain !== CHAIN) {
       const pre = await rpcChainPrecheck(chain, address);
-      if (!pre.history) {
+      if (!pre.history && !sanctioned) {
         return c.json({ success: true, data: { status: 'no_history' } });
       }
       rpcFixtures = pre.fixtures;
@@ -540,7 +546,7 @@ risk.post(
       ? { transactions_count: parseInt(rpcFixtures.sentinel_nonce.result, 16) || 0, token_transfers_count: 1 }
       : await checkHistory(address);
     let prefetchedLookup: Awaited<ReturnType<WalletLookupService['lookup']>> | undefined;
-    if (!rpcFixtures && history.transactions_count === 0 && history.token_transfers_count === 0) {
+    if (!rpcFixtures && !sanctioned && history.transactions_count === 0 && history.token_transfers_count === 0) {
       prefetchedLookup = await new WalletLookupService(getRedis()).lookup(address);
       const hasNodeActivity =
         prefetchedLookup.transactions.length > 0 ||
@@ -748,7 +754,8 @@ risk.get(
       success: true,
       data: {
         address,
-        verdict: reportVerdict(assessment, row.reportData),
+        // The verdict follows today's sanctions list; the attested fields below stay as published.
+        verdict: reportVerdict(withSanctionsFlag(assessment, address), row.reportData),
         band: assessment.band,
         flag_ids: assessment.flags.map((f) => f.id),
         as_of_block: row.asOfBlock,
@@ -775,19 +782,23 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   // ?chain=bsc checks a BNB Chain address; payment is still USDC on Base.
   const { address, chain } = parseCounterpartyInput(rawAddress, c.req.query('chain'));
 
+  // A sanctioned address is answered Hold from the list alone: unread sources or
+  // no history on the chain never turn that into "not charged" or no_history.
+  const sanctioned = isSanctioned(address);
+
   const cached = await latestReport(address, chain);
   // A cached report whose transfer list could not be read is never resold; the
   // sources may be back, so it gets a fresh decode like a stale one.
-  if (cached && computeTtlState(cached) === 'fresh' && !sourcesUnavailable(cached.reportData)) {
+  if (cached && computeTtlState(cached) === 'fresh' && (sanctioned || !sourcesUnavailable(cached.reportData))) {
     return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
   }
 
   if (chain !== CHAIN) {
     const pre = await rpcChainPrecheck(chain, address);
-    if (!pre.history) {
+    if (!pre.history && !sanctioned) {
       return c.json({ success: true, data: { status: 'no_history', address, chain, verdict: NO_HISTORY_VERDICT, disclaimer: DISCLAIMER } });
     }
-  } else {
+  } else if (!sanctioned) {
     const history = await checkHistory(address);
     if (history.transactions_count === 0 && history.token_transfers_count === 0) {
       const lookup = await new WalletLookupService(getRedis()).lookup(address);
@@ -814,7 +825,7 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
       const fresh = await latestReport(address, chain);
       if (fresh && new Date(fresh.generatedAt).getTime() >= started - 5_000) {
         const unread = sourcesUnavailable(fresh.reportData);
-        if (unread) {
+        if (unread && !sanctioned) {
           // Activity, survival and the absence checks were not assessed. x402 settles
           // on any 2xx, so answer 503: the buyer is not charged for a report that could
           // not read the chain. The free route still shows it, with its coverage block.

@@ -61,6 +61,21 @@ describe('reportVerdict', () => {
     expect(v.reason).toMatch(/43 transactions sent in its lifetime/);
   });
 
+  it('holds a sanctioned address even when the transfers or the USDC balance could not be read', () => {
+    const ofac = {
+      id: 'ofac_sanctioned',
+      severity: 'high' as const,
+      title: 'On the US sanctions list (OFAC)',
+      evidence: 'This address is on the US Treasury OFAC SDN list. Paying it may be illegal for US persons.',
+      source: 'https://sanctionssearch.ofac.treas.gov/',
+    };
+    for (const fetch_meta of [{ transfers_unavailable: 'every source failed' }, { state_unavailable: ['usdc_balance'] }]) {
+      const v = reportVerdict({ band: 'high-signal', flags: [ofac] }, { ...active, fetch_meta });
+      expect(v).toMatchObject({ label: 'hold', text: 'Hold' });
+      expect(v.reason).toMatch(/US sanctions list \(OFAC\)/);
+    }
+  });
+
   it("says Couldn't check when the USDC balance could not be read", () => {
     const v = reportVerdict({ band: 'low-signal', flags: [] }, { ...active, fetch_meta: { state_unavailable: ['usdc_balance'] } });
     expect(v.text).toBe("Couldn't check");

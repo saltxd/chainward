@@ -85,6 +85,16 @@ describe('buildCoverage when every transfer source failed', () => {
     expect(transfersUnavailable(degraded)).toBe(REASON);
   });
 
+  it('still assesses the OFAC check: a list match reads no transfers', () => {
+    expect(buildCoverage(degraded, [])!.checks.find((c) => c.id === 'ofac_sanctioned')).toMatchObject({ status: 'not_raised', raised: false });
+    expect(buildCoverage(degraded, [{ id: 'ofac_sanctioned' }])!.checks.find((c) => c.id === 'ofac_sanctioned')).toMatchObject({
+      status: 'raised',
+      raised: true,
+      title: 'On the US sanctions list (OFAC)',
+      looks_for: 'The address appears on the US Treasury sanctions list',
+    });
+  });
+
   it('reports raised / not_raised on a report whose transfer list was read', () => {
     const cov = buildCoverage(reportData, [{ id: 'dormant_wallet' }])!;
     expect(cov.checks.find((c) => c.id === 'dormant_wallet')).toMatchObject({ status: 'raised', raised: true });
@@ -131,6 +141,10 @@ describe('buildCoverage on BNB Chain', () => {
     expect(text).not.toMatch(/30|roughly/);
     expect(cov.checks.find((c) => c.id === 'counterparty_concentration')!.looks_for).toContain('14 days scanned');
     expect(cov.checks.find((c) => c.id === 'inactive_no_history')!.looks_for).toContain('14-day window');
+  });
+
+  it('lists the OFAC check, which runs on every chain', () => {
+    expect(buildCoverage(bscData, [])!.checks[0]!.id).toBe('ofac_sanctioned');
   });
 
   it('leaves the Base report wording alone', () => {

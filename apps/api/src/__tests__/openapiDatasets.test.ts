@@ -21,3 +21,11 @@ describe('OpenAPI dataset paths', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe('OpenAPI counterparty check', () => {
+  it('tells buyers it screens the US sanctions list and that a match answers Hold', () => {
+    const doc = x402OpenApiDocument() as { paths: Record<string, { get: { description: string } }> };
+    expect(doc.paths['/api/risk/x402']!.get.description).toMatch(/OFAC/);
+    expect(doc.paths['/api/risk/x402']!.get.description).toMatch(/Hold/);
+  });
+});
