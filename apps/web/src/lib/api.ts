@@ -565,6 +565,8 @@ export interface RiskReportCard {
   /** Optional for API skew: absent means base. */
   chain?: string;
   agent_name?: string;
+  /** The answer the report opens with (Pay, Hold, or the third answer by case). Optional for API skew. */
+  verdict?: Pick<RiskVerdict, 'label' | 'text'>;
   band: RiskBand;
   flag_count: number;
   top_severity: RiskSeverity | null;

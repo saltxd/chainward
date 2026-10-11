@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useApi } from '@/hooks/use-api';
-import { publicApi, type RiskLibraryResult, type RiskSeverity } from '@/lib/api';
-import { BAND_LABEL, reportPath } from '@/lib/risk';
+import { publicApi, type RiskLibraryResult, type RiskReportCard, type RiskSeverity } from '@/lib/api';
+import { reportPath } from '@/lib/risk';
+import { VerdictStamp } from '@/components/press/VerdictStamp';
 import { chainMeta } from '@/lib/chains';
 import { isPlaceholderAddress } from '@/lib/params';
 
@@ -32,11 +33,60 @@ const SEV_VAR: Record<RiskSeverity, string> = {
 };
 
 /**
+ * One filed case in brief: the answer first (PAY / HOLD / the third answer by
+ * case), then who, the top flag surfaced, and when it was filed. The signal band
+ * stays out of the list: the answer is what a visitor acts on.
+ */
+export function RecentRow({ card }: { card: RiskReportCard }) {
+  const topFlag = card.top_flags?.[0] ?? null;
+  const sevColor = card.top_severity ? SEV_VAR[card.top_severity] : 'var(--ink-faint)';
+  const more = topFlag && card.flag_count > 1 ? ` +${card.flag_count - 1} more` : '';
+  return (
+    <li className="recent-row">
+      <Link href={reportPath(card.address, card.chain)} className="recent-link">
+        <span className="recent-verdict">
+          <VerdictStamp verdict={card.verdict} />
+        </span>
+        <span className="recent-main">
+          <span className="recent-subject mono">
+            {card.agent_name ?? truncate(card.address)}
+            <span className="recent-chain">{chainMeta(card.chain).shortName}</span>
+          </span>
+          <span className="recent-finding">
+            {topFlag ? (
+              <>
+                <span className="recent-sev-mark" style={{ background: sevColor }} aria-hidden />
+                {topFlag.title}
+                {more && <span className="recent-more mono">{more}</span>}
+              </>
+            ) : card.flag_count === 0 ? (
+              // Only claim "no flags" when the count says so — an older
+              // API payload without top_flags must not read as a clearance.
+              <span className="recent-noflag">no flags raised in the window checked</span>
+            ) : (
+              <span className="recent-noflag">open the file for detail</span>
+            )}
+          </span>
+        </span>
+        <span className="recent-meta">
+          <span className="recent-when mono">
+            {timeAgo(card.as_of_date)}
+            {card.view_count > 1 ? ` · ${card.view_count} views` : ''}
+          </span>
+        </span>
+        <span className="recent-go" aria-hidden>
+          →
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/**
  * "Recently filed" — the latest public reports, one per address
- * (distinct=address server-side so re-checks don't duplicate rows). Each row
- * carries the case in brief: who, the top flag surfaced, how many flags, the
- * band, and when it was filed. Social proof, not a critical path: renders
- * nothing while loading or on error so the hero never shows a broken state.
+ * (distinct=address server-side so re-checks don't duplicate rows), each row
+ * led by its answer. Social proof, not a critical path: renders nothing while
+ * loading or on error so the hero never shows a broken state.
  */
 export function RecentlyChecked() {
   const { data, loading, error } = useApi<RiskLibraryResult>(
@@ -58,59 +108,9 @@ export function RecentlyChecked() {
         </Link>
       </div>
       <ul className="recent-list">
-        {reports.map((card) => {
-          const topFlag = card.top_flags?.[0] ?? null;
-          const sevColor = card.top_severity
-            ? SEV_VAR[card.top_severity]
-            : 'var(--ink-faint)';
-          return (
-            <li key={`${card.chain ?? 'base'}:${card.address}`} className="recent-row">
-              <Link href={reportPath(card.address, card.chain)} className="recent-link">
-                <span className="recent-main">
-                  <span className="recent-subject mono">
-                    {card.agent_name ?? truncate(card.address)}
-                    <span className="recent-chain">{chainMeta(card.chain).shortName}</span>
-                  </span>
-                  <span className="recent-finding">
-                    {topFlag ? (
-                      <>
-                        <span
-                          className="recent-sev-mark"
-                          style={{ background: sevColor }}
-                          aria-hidden
-                        />
-                        {topFlag.title}
-                      </>
-                    ) : card.flag_count === 0 ? (
-                      // Only claim "no flags" when the count says so — an older
-                      // API payload without top_flags must not read as a clearance.
-                      <span className="recent-noflag">
-                        no flags raised in the window checked
-                      </span>
-                    ) : (
-                      <span className="recent-noflag">open the file for detail</span>
-                    )}
-                  </span>
-                </span>
-                <span className="recent-meta">
-                  <span className="recent-flags mono" style={{ color: sevColor }}>
-                    {card.flag_count > 0
-                      ? `${card.flag_count} flag${card.flag_count === 1 ? '' : 's'}`
-                      : '0 flags'}
-                  </span>
-                  <span className="recent-band">{BAND_LABEL[card.band]}</span>
-                  <span className="recent-when mono">
-                    {timeAgo(card.as_of_date)}
-                    {card.view_count > 1 ? ` · ${card.view_count} views` : ''}
-                  </span>
-                </span>
-                <span className="recent-go" aria-hidden>
-                  →
-                </span>
-              </Link>
-            </li>
-          );
-        })}
+        {reports.map((card) => (
+          <RecentRow key={`${card.chain ?? 'base'}:${card.address}`} card={card} />
+        ))}
       </ul>
 
       <style>{`
@@ -136,7 +136,7 @@ export function RecentlyChecked() {
         }
         .recent-link {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) auto 18px;
+          grid-template-columns: 9.5em minmax(0, 1fr) auto 18px;
           align-items: center;
           gap: 18px;
           padding: 12px 0;
@@ -195,15 +195,12 @@ export function RecentlyChecked() {
           text-align: right;
           flex-shrink: 0;
         }
-        .recent-flags {
-          font-size: 12px;
-          letter-spacing: 0.02em;
+        .recent-verdict {
+          display: flex;
+          align-items: center;
         }
-        .recent-band {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 10px;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
+        .recent-more {
+          font-size: 11px;
           color: var(--ink-faint);
         }
         .recent-when {

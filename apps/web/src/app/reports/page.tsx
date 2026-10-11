@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
-import { reportPath, isThinReport } from '@/lib/risk';
-import type { RiskLibraryResult, RiskReportCard, RiskSeverity } from '@/lib/api';
-import { chainMeta } from '@/lib/chains';
+import type { RiskLibraryResult } from '@/lib/api';
+import { RegisterTable } from './register-table';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 const PAGE_SIZE = 60;
@@ -34,13 +33,6 @@ export const metadata: Metadata = {
   },
 };
 
-const SEV_VAR: Record<RiskSeverity, string> = {
-  high: 'var(--sev-high)',
-  medium: 'var(--sev-medium)',
-  low: 'var(--sev-low)',
-  info: 'var(--sev-info)',
-};
-
 async function fetchLibrary(): Promise<RiskLibraryResult | null> {
   try {
     // distinct=address → one row per address (its latest filing). Re-checks
@@ -58,75 +50,6 @@ async function fetchLibrary(): Promise<RiskLibraryResult | null> {
   } catch {
     return null;
   }
-}
-
-function truncate(addr: string): string {
-  if (!addr || addr.length < 12) return addr;
-  return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
-}
-
-function RegisterRow({ card }: { card: RiskReportCard }) {
-  const thin = isThinReport(card.flag_count, card.band);
-  // The headline flag: the highest-severity one the API denormalised onto the card.
-  const topFlag =
-    card.top_flags?.[0] ??
-    (card.top_severity ? { title: `${card.flag_count} flag${card.flag_count === 1 ? '' : 's'}`, severity: card.top_severity } : null);
-  return (
-    <Link
-      href={reportPath(card.address, card.chain)}
-      className="reg-row"
-      // Thin entries (empty/quiet wallets, zero flags) are deindexed at the
-      // page level; nofollow so crawlers don't follow into them.
-      rel={thin ? 'nofollow' : undefined}
-    >
-      <span className="reg-cell reg-subject">
-        <span className="reg-cell-label">Address</span>
-        <span className="reg-subject-name mono">
-          {card.agent_name ?? truncate(card.address)}
-          <span className="reg-chain">{chainMeta(card.chain).shortName}</span>
-        </span>
-        {card.agent_name && (
-          <span className="reg-subject-addr mono">{truncate(card.address)}</span>
-        )}
-      </span>
-      <span className="reg-cell reg-flags">
-        <span className="reg-cell-label">What we found</span>
-        {topFlag ? (
-          <span className="reg-found">
-            <span className="reg-found-title">
-              <span className="reg-sev-dot" style={{ background: SEV_VAR[topFlag.severity] }} aria-hidden="true" />
-              {topFlag.title}
-            </span>
-            <span className="reg-found-meta mono">
-              {topFlag.severity}
-              {card.flag_count > 1 ? ` · +${card.flag_count - 1} more` : ''}
-            </span>
-          </span>
-        ) : (
-          <span className="reg-found reg-found--none">Nothing flagged in the window checked</span>
-        )}
-      </span>
-      <span className="reg-cell reg-filed">
-        <span className="reg-cell-label">Last checked</span>
-        <span className="reg-filed-val">
-          <time className="mono" dateTime={card.as_of_date}>
-            {formatDate(card.as_of_date)}
-          </time>
-          {(card.report_count ?? 1) > 1 && (
-            <span className="reg-filed-count mono">re-checked {(card.report_count ?? 1) - 1}×</span>
-          )}
-        </span>
-      </span>
-      <span className="reg-cell reg-views mono">
-        <span className="reg-cell-label">Views</span>
-        {card.view_count}
-      </span>
-    </Link>
-  );
 }
 
 export default async function ReportsLibraryPage() {
@@ -167,17 +90,7 @@ export default async function ReportsLibraryPage() {
             <div className="reg-count press-label">
               {total} address{total === 1 ? '' : 'es'} on file
             </div>
-            <div className="reg-table">
-              <div className="reg-head">
-                <span>Address</span>
-                <span>What we found</span>
-                <span>Last checked</span>
-                <span>Views</span>
-              </div>
-              {reports.map((card) => (
-                <RegisterRow key={card.address} card={card} />
-              ))}
-            </div>
+            <RegisterTable reports={reports} />
           </>
         )}
 
