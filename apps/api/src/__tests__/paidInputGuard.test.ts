@@ -155,6 +155,18 @@ describe('paid routes: input checked before the 402 challenge', () => {
     },
   );
 
+  // Only published datasets have their own route entry; any other row in paid_files
+  // must still be paid for, not served free because no route matched.
+  it.each([`/api/paid/unlisted-set/check?address=${ADDR}`, '/api/paid/unlisted-set/file'])(
+    'GET %s (a dataset on file but not published) still answers 402',
+    async (path) => {
+      db.rows = (params) => (params.includes('unlisted-set') ? [{ ...datasetRow, slug: 'unlisted-set' }] : []);
+      const res = await app.request(path);
+      expect(res.status).toBe(402);
+      expect(res.headers.get('payment-required')).toBeTruthy();
+    },
+  );
+
   it.each([
     `/api/risk/x402?address=${ADDR}`,
     `/api/risk/x402?address=${ADDR}&chain=bsc`,

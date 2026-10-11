@@ -92,6 +92,17 @@ describe('published datasets as catalog rows', () => {
     }
   });
 
+  it('prices the single-wallet check on any other dataset slug too, after the published ones', () => {
+    const routes = x402PaidRoutes('0x000000000000000000000000000000000000dEaD') as Record<string, any>;
+    const keys = Object.keys(routes);
+    const r = routes['GET /api/paid/:slug/check'];
+    expect(r).toBeDefined();
+    expect(r.accepts.price).toBe('$0.25');
+    for (const d of PUBLISHED_DATASETS) {
+      expect(keys.indexOf(`GET /api/paid/${d.slug}/check`)).toBeLessThan(keys.indexOf('GET /api/paid/:slug/check'));
+    }
+  });
+
   // Stock x402 clients refuse any payment over $1 unless configured otherwise, so
   // the $10 files are invisible to sweep buyers; a sub-dollar single-wallet check is not.
   it('sells a $0.25 single-wallet check on each dataset, with its own concrete catalog row', () => {

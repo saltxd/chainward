@@ -825,6 +825,21 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
         output: { example: { contentType: 'text/csv' } },
       }),
     ),
+    // Any other dataset on file: without this, its check matched no route and was served free.
+    'GET /api/paid/:slug/check': route(
+      {
+        price: x402LookupPrice(),
+        serviceName: 'ChainWard dataset check',
+        description: 'Listed or Not listed: is one wallet in a ChainWard dataset (slug from GET /api/paid), with the tier as the reason. JSON.',
+        tags: ['base', 'dataset', 'wallet', 'address'],
+        whatYouGet: 'listed / not_listed for one address, the tier and fields behind it, and the limit of what the dataset covers.',
+      },
+      declareDiscoveryExtension({
+        input: { address: example },
+        inputSchema: addressSchema,
+        output: { example: DATASET_CHECK_OUTPUT_EXAMPLE },
+      }),
+    ),
     [SELLER_DEMAND_ROUTE]: {
       ...route(
         sellerDemand,
