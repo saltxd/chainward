@@ -108,7 +108,8 @@ describe('plainAnswer', () => {
         chain: 'bsc',
         verdict: { label: 'hold', text: 'Hold', reason: 'x', limits: 'x' },
         flags: [{ id: 'dormant_wallet', severity: 'medium', title: 't', evidence: 'e', source: '' }],
-        window: { days: 14, transfers_30d: 7, unique_counterparties_30d: 8, latest_transfer_at: '2026-10-02T17:00:00Z' },
+        // Checked 2026-10-08T18:00Z, nine days after its last transfer.
+        window: { days: 14, transfers_30d: 7, unique_counterparties_30d: 8, latest_transfer_at: '2026-09-29T17:00:00Z' },
       }),
       NOW,
     );

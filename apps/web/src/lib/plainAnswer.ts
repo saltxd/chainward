@@ -46,6 +46,8 @@ function limitFor(label: PlainAnswer['label'], span: string): string {
 }
 
 const SEVERITY_ORDER: Record<RiskFlag['severity'], number> = { high: 3, medium: 2, low: 1, info: 0 };
+/** Silence after which the check calls a wallet dormant (7 days). */
+const DORMANT_AFTER_MS = 7 * 24 * 3_600_000;
 
 function int(n: number): string {
   return Math.round(n).toLocaleString('en-US');
@@ -111,12 +113,17 @@ function holdWhy(
   flag: RiskFlag | undefined,
   w: NonNullable<RiskReport['coverage']>['window'] | undefined,
   days: string,
-  now: Date,
+  checkedAt: Date,
 ): string | null {
   if (!flag) return null;
-  // Dormant is a week of silence, so a dormant wallet can still have transfers in
-  // the window: then say how long it has been quiet, not "in the last 14 days".
-  const quiet = w?.latest_transfer_at ? `in ${ago(w.latest_transfer_at, now).replace(/ ago$/, '')}` : `in the last ${days}`;
+  // Dormant is over a week of silence, so a dormant wallet can still have
+  // transfers in the window: then say how long it had been quiet when checked,
+  // not "in the last 14 days".
+  const latest = w?.latest_transfer_at ? new Date(w.latest_transfer_at) : null;
+  const quiet =
+    latest && checkedAt.getTime() - latest.getTime() > DORMANT_AFTER_MS
+      ? `in ${ago(latest.toISOString(), checkedAt).replace(/ ago$/, '')}`
+      : `in the last ${days}`;
   switch (flag.id) {
     case 'ofac_sanctioned':
       return 'This address is on the US Treasury sanctions list. Paying it may be illegal for US persons.';
@@ -162,7 +169,7 @@ export function plainAnswer(report: RiskReport, now: Date = new Date()): PlainAn
     const top =
       report.flags.find((f) => f.id === 'ofac_sanctioned') ??
       [...report.flags].sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity])[0];
-    why = holdWhy(top, w, days, now);
+    why = holdWhy(top, w, days, new Date(report.freshness.generated_at));
   }
 
   let word = v.text;
