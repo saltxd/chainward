@@ -2,29 +2,29 @@ import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
 
 export const metadata = {
-  title: 'ChainWard MCP — read-side intel for your AI assistant',
+  title: 'ChainWard MCP: check an address before your AI assistant pays it',
   description:
-    'Pair ChainWard with any MCP-compatible AI assistant (Claude Desktop, Cursor, Claude Code, Codex). Tools your agent can call before it pays or signs anything on Base.',
+    'Add ChainWard to any MCP-compatible AI assistant (Claude Desktop, Cursor, Claude Code, Codex). Before it pays an address on Base or BNB Chain, it can ask: Pay or Hold, and why. Plus lookups on known AI agents.',
   alternates: { canonical: 'https://chainward.ai/mcp' },
   openGraph: {
-    title: 'ChainWard MCP — read-side intel for your AI assistant',
+    title: 'ChainWard MCP: check an address before your AI assistant pays it',
     description:
-      'npx -y chainward-mcp-server — labeled agent wallets, ACP economics, Decodes corpus, queryable from any MCP client.',
+      'npx -y chainward-mcp-server: before paying an address, your assistant gets Pay or Hold and the reason. Plus known-agent lookups and ChainWard’s decodes.',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ChainWard MCP — read-side intel for your AI assistant',
-    description: 'npx -y chainward-mcp-server — labeled agent wallets, ACP economics, Decodes corpus, queryable from any MCP client.',
+    title: 'ChainWard MCP: check an address before your AI assistant pays it',
+    description: 'npx -y chainward-mcp-server: before paying an address, your assistant gets Pay or Hold and the reason. Plus known-agent lookups and ChainWard’s decodes.',
     images: ['/chainward-og-card.png'],
   },
 };
 
 const TOOLS = [
-  { name: 'check_counterparty', desc: "Before paying 0x…: its risk flags, plus the EAS attestation on Base when ChainWard has published one. Since 0.2.2, chain: 'bsc' checks a BNB Chain address. Never a safety verdict." },
-  { name: 'lookup_agent', desc: 'Is 0x… a known AI agent? Returns label, framework, ACP profile, related Decodes. Cheap.' },
-  { name: 'get_agent_profile', desc: '24h/7d stats, hourly balance history, daily gas, 20 most recent transactions, matching Decodes.' },
-  { name: 'get_agent_economics', desc: 'Lifetime ACP revenue, aGDP, jobs and success rate; 30-day on-chain revenue, gas, P&L and gas efficiency.' },
+  { name: 'check_counterparty', desc: "Before paying 0x…: Pay or Hold with the one reason, the flags behind it, and the EAS attestation on Base when ChainWard has published one. When there is too little to judge it says Inactive, No track record or Couldn't check. Since 0.2.3, chain: 'bsc' checks a BNB Chain address. On-chain behavior only; Pay isn't a guarantee." },
+  { name: 'lookup_agent', desc: 'Is 0x… a known AI agent? Returns its label, framework, its ACP profile (its listing on Virtuals’ agent marketplace) and related decodes. Fast.' },
+  { name: 'get_agent_profile', desc: '24h/7d stats, hourly balance history, daily gas, 20 most recent transactions, matching decodes.' },
+  { name: 'get_agent_economics', desc: 'Lifetime ACP revenue, aGDP (Virtuals’ total of the value that passed through an agent’s jobs, trading volume included), jobs and success rate; 30-day on-chain revenue, gas, profit and loss, and gas efficiency.' },
   { name: 'get_observatory_overview', desc: 'Ecosystem-wide stats: agents tracked, gas burned, portfolio value, recent volume.' },
   { name: 'get_top_agents', desc: 'Leaderboard by activity. Who is doing what on Base, ranked.' },
   { name: 'get_activity_feed', desc: 'Live feed of labeled-agent transactions across the ecosystem.' },
@@ -56,12 +56,12 @@ export default function McpPage() {
             Your AI assistant can now ask who&apos;s on the other side.
           </h1>
           <p className="mcp-lede">
-            <strong>chainward-mcp-server</strong> is the read-side intelligence
-            layer for the AI agent economy on Base. Install it once and any
-            MCP-compatible assistant — Claude Desktop, Cursor, Claude Code, Codex —
-            can check an address before paying it, look up labeled agent wallets
-            and ACP economics, and search our Decodes corpus before you sign a
-            single transaction.
+            <strong>chainward-mcp-server</strong> puts ChainWard&apos;s check inside
+            your AI assistant. MCP (Model Context Protocol) is how assistants such as
+            Claude Desktop, Cursor, Claude Code and Codex call outside tools. Install
+            it once and your assistant can check an address on Base or BNB Chain
+            before paying it, look up known AI agent wallets, and search our decodes,
+            before you sign a single transaction.
           </p>
           <pre className="mcp-install mono">
             <code>{`$ npx -y chainward-mcp-server`}</code>
@@ -75,21 +75,26 @@ export default function McpPage() {
 
         <hr className="press-rule" />
 
-        {/* The gap */}
+        {/* What it does */}
         <section className="mcp-section">
-          <span className="press-label">The gap</span>
+          <span className="press-label">What it does</span>
           <h2 className="mcp-h2 press-display">
-            Base MCP shipped 7 day-one plugins. All of them answer{' '}
-            <em>&quot;how do I act?&quot;</em>
+            Your assistant asks <em>before</em> it pays.
           </h2>
           <p className="mcp-p">
-            Morpho, Bankr, Moonwell, Avantis, Aerodrome, Virtuals, Uniswap. Every
-            one is a write-side tool — swap, lend, launch, send. None of them
-            answer the question that comes a step earlier:{' '}
-            <em>who&apos;s the deployer of this token, what does their wallet
-            history look like, and is this an agent ChainWard has investigated?</em>
+            When your assistant is about to pay an address, it calls{' '}
+            <code className="mcp-inline mono">check_counterparty</code> and gets one
+            answer: Pay or Hold, with the reason behind it. When there isn&apos;t
+            enough history to judge, it says so (Inactive, No track record or
+            Couldn&apos;t check) instead of guessing. The check reads on-chain
+            behavior only, so Pay means nothing turned up against paying, not a
+            guarantee.
           </p>
-          <p className="mcp-p">We shipped that one.</p>
+          <p className="mcp-p">
+            The other tools answer the questions around a payment: is this address a
+            known AI agent, what has it been doing lately, and has ChainWard written
+            about it?
+          </p>
         </section>
 
         <hr className="press-rule" />
@@ -121,11 +126,10 @@ export default function McpPage() {
             Pair it with Base MCP. Read before you write.
           </h2>
           <p className="mcp-p">
-            ChainWard reads. Base MCP writes. Different namespaces, different
-            concerns. Your assistant sees both and composes naturally — look up
-            the deployer with ChainWard, then build the unsigned swap with Base
-            MCP. The user signs in their own Base Account. ChainWard never sees
-            the key.
+            ChainWard reads. Base MCP writes. Your assistant sees both and uses
+            them together: check the address with ChainWard, then build the
+            unsigned payment with Base MCP. You sign in your own Base Account.
+            ChainWard never sees the key.
           </p>
           <pre className="mcp-config mono">
             <code>{`// claude_desktop_config.json or .cursor/mcp.json
@@ -180,10 +184,10 @@ export default function McpPage() {
         {/* Closing */}
         <section className="mcp-close">
           <h2 className="mcp-close-title press-display">
-            The agent economy needs a read step before every write step.
+            Check before every payment.
           </h2>
           <p className="mcp-close-sub">
-            ChainWard is the read step. Install it next to whatever signs.
+            ChainWard is that check. Install it next to whatever signs.
           </p>
           <div className="mcp-close-ctas">
             <a

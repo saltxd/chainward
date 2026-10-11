@@ -24,7 +24,7 @@
     {
       "name": "MCP",
       "endpoint": "https://chainward.ai/mcp",
-      "version": "0.2.2"
+      "version": "0.2.3"
     },
     {
       "name": "Set and Earn board",

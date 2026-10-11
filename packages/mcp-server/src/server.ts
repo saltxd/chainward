@@ -62,7 +62,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
 
   const server = new McpServer({
     name: 'chainward',
-    version: '0.2.2',
+    version: '0.2.3',
   });
 
   // ── Tool 1: lookup_agent ────────────────────────────────────────────────────
@@ -188,7 +188,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
   // ── Tool: check_counterparty ────────────────────────────────────────────────
   server.tool(
     'check_counterparty',
-    "Before paying or trusting an address on Base or BNB Chain, get ChainWard's verdict on it: Pay, Hold or Unknown, with the one reason it rests on (the `verdict` field), then the signal band and flags as evidence. Pass chain: 'bsc' for a BNB Chain address (default 'base'). On Base, also the EAS attestation (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain (BNB Chain reports are not attested yet). Read from on-chain behavior only: Pay means nothing was found against paying, not that the address is safe. If the address has no report yet, say so and point to the free check at https://chainward.ai (https://chainward.ai/?chain=bsc for BNB Chain).",
+    "Before paying or trusting an address on Base or BNB Chain, get ChainWard's verdict on it (the `verdict` field): a machine label pay / hold / unknown, a human text (Pay, Hold, Inactive, No track record or Couldn't check), the one reason it rests on, and its limits. The flags under it are the evidence. Pass chain: 'bsc' for a BNB Chain address (default 'base'). On Base, also the EAS attestation (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain (BNB Chain reports are not attested yet). Read from on-chain behavior only: Pay means nothing was found against paying, not a guarantee. If the address has no report yet, say so and point to the free check at https://chainward.ai (https://chainward.ai/?chain=bsc for BNB Chain).",
     { wallet: walletSchema, chain: chainSchema },
     async ({ wallet, chain }) => {
       // Attestations are Base-only (EAS on Base); other chains go straight to the report.
@@ -209,7 +209,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
         if (err instanceof ChainWardApiError && err.status === 404) {
           return asTextContent(
             chain === 'base'
-              ? `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public, and one that flags observed behavior is attested on Base shortly after.`
+              ? `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public, and a fresh one that flags observed behavior can be attested on Base.`
               : `ChainWard has no BNB Chain report for ${wallet} yet. Run a free check at https://chainward.ai/?chain=bsc (paste the address); the report is public.`,
           );
         }

@@ -81,3 +81,21 @@ describe('check_counterparty chain argument', () => {
     assert.deepEqual(calls, []);
   });
 });
+
+describe('check_counterparty description', () => {
+  it('names the machine labels and the texts a buyer sees, not the old three-word framing', async () => {
+    const server = createServer({ baseUrl: API });
+    const client = new Client({ name: 'test', version: '0.0.0' });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const { tools } = await client.listTools();
+      const desc = tools.find((t) => t.name === 'check_counterparty')?.description ?? '';
+      assert.match(desc, /pay \/ hold \/ unknown/);
+      assert.match(desc, /Pay, Hold, Inactive, No track record or Couldn't check/);
+      assert.doesNotMatch(desc, /Pay, Hold or Unknown|signal band|\bsafe\b|—/);
+    } finally {
+      await client.close();
+    }
+  });
+});
