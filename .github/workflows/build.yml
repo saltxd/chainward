@@ -179,6 +179,8 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ steps.sha.outputs.short }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          build-args: |
+            GIT_SHA=${{ steps.sha.outputs.short }}
 
   # Deploy = GitOps: commit the new tag for all five images into saltxd/homelab-k3s apps/chainward/helmrelease.yaml;
   # Flux runs the chart's pre-upgrade migration hook, then rolls api/web/indexer/acp-decoder. Rollback = revert that
@@ -201,3 +203,37 @@ jobs:
           file: apps/chainward/helmrelease.yaml
           kind: helm-values
           deploy-key: ${{ secrets.HOMELAB_K3S_DEPLOY_KEY }}
+
+  # Sign in to production the way real users do, once Flux has rolled this commit's api: an EOA and an
+  # undeployed Coinbase Smart Wallet (smart-wallet sign-in was broken for months while only EOAs were tested).
+  # deploy.sh used to run this after every rollout; Flux replaced deploy.sh, so it runs here now.
+  login-smoke:
+    name: Login smoke (production)
+    needs: bump
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Wait for this commit's api to be live
+        env:
+          WANT: ${{ steps.sha.outputs.short }}
+        run: |
+          for _ in $(seq 1 60); do
+            live=$(curl -fsS https://api.chainward.ai/api/health | jq -r '.version // empty' || true)
+            if [ "$live" = "$WANT" ]; then echo "api live at $live"; exit 0; fi
+            echo "live: ${live:-unknown}, waiting for $WANT"
+            sleep 15
+          done
+          echo "::error::api never reported $WANT within 15 minutes; check the Flux HelmRelease"
+          exit 1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Sign in with an EOA and a smart wallet
+        run: pnpm --filter @chainward/api exec tsx scripts/login-smoke.mts
+

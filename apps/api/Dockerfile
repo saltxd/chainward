@@ -31,6 +31,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build --chown=node:node /prod .
 USER node
+# Last, so a new commit only changes this layer. /api/health reports it.
+ARG GIT_SHA=""
+ENV GIT_SHA=$GIT_SHA
 
 EXPOSE 8000
 CMD ["node", "dist/index.js"]

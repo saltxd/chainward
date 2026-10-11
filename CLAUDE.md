@@ -37,26 +37,17 @@ mostly raw-`sql` row casts) — errors fail CI, warnings don't.
 
 ## Deployment
 
-K3s cluster, namespace `chainward`. **Always use the deploy script** — never run `kubectl set image` manually:
+K3s cluster, namespace `chainward`, **managed by Flux** (`saltxd/homelab-k3s`, `apps/chainward/helmrelease.yaml`) since 2026-10-11. To ship, push to `main`:
 
-```bash
-./deploy/deploy.sh                    # deploy current HEAD (migrate + rollout + verify)
-./deploy/deploy.sh --tag abc1234      # deploy specific tag
-./deploy/deploy.sh --migrate-only     # apply pending DB migrations only
-./deploy/deploy.sh --skip-migrate     # skip migrations, just roll out images
-./deploy/deploy.sh --dry-run          # preview what would happen
-```
+1. CI "Build & Push" runs lint, typecheck, tests, a secret scan and an image smoke boot, then builds all five images (api, web, indexer, acp-decoder, migrate) into GHCR
+2. Its `bump` job commits the new tag into `homelab-k3s`
+3. Flux upgrades the release: the chart's pre-upgrade hook runs pending migrations, then api, web, indexer and acp-decoder roll
 
-The deploy script:
-1. Verifies all 3 images exist in GHCR
-2. Creates ConfigMaps from migration SQL files in the repo
-3. Runs a K8s migration Job (tracked via `schema_migrations` table)
-4. Rolls out api, web, indexer deployments
-5. Waits for rollouts and verifies health endpoints
+**Never roll images by hand** (`deploy/deploy.sh` without flags, `kubectl set image`): Flux drift detection reverts it. Verify a deploy by the live image tag (`kubectl -n chainward get deploy web -o jsonpath='{..image}'`), not by CI going green. Only one CI run waits per branch: a newer push cancels the pending one, and the bump deploys the branch head. Rollback = revert the bump commit in `homelab-k3s`. `./deploy/deploy.sh --migrate-only` still works for an emergency out-of-band migration.
 
-**DB migrations:** Add new `.sql` files to `packages/db/src/migrations/` with numeric prefix (e.g., `0007_description.sql`). The migration runner applies them in order and tracks completion. Use `IF NOT EXISTS` / `IF EXISTS` for idempotency.
+**DB migrations:** Add new `.sql` files to `packages/db/src/migrations/` with numeric prefix (e.g., `0007_description.sql`). The migration runner (`deploy/run-migrations.sh`, run by the chart's pre-upgrade hook with `psql -f`, no wrapping transaction) applies them in order and tracks completion in `schema_migrations`. Use `IF NOT EXISTS` / `IF EXISTS` for idempotency.
 
-**Deploy ALL THREE when shared packages (db, common) change.** The indexer especially must stay in sync with the DB schema — a stale indexer will crash on missing columns.
+**Every image ships together** through the bump, so api, web and indexer can't drift apart. The indexer must stay in sync with the DB schema: a stale indexer crashes on missing columns.
 
 ## Architecture
 
@@ -112,8 +103,7 @@ Curated data (agent labels, protocol registry) is separated from the open-source
 - `TELEGRAM_BOT_TOKEN` env var needed for Telegram delivery
 - elizaOS plugin uses `@elizaos/core@1.7.2` — Action handlers return `ActionResult`, examples use `name` (not `user`), `actions` array (not `action` string)
 - **API proxy body forwarding** — `apps/web/src/app/api/[...path]/route.ts` only forwards request body for POST/PUT/PATCH. Do NOT forward body for DELETE/GET/HEAD — sending `body: ""` with `Content-Type: application/json` on DELETE causes upstream issues
-- **Deploy script waits for GHCR** — `deploy.sh` polls for images before rolling out (15s intervals, 10 min timeout). If CI hasn't pushed images yet, the deploy blocks instead of creating ImagePullBackOff pods
-- **Sign-in must work for smart wallets** — `apps/api/src/lib/siweVerify.ts` checks EOA (ecrecover) then ERC-1271/ERC-6492 on Base via viem `verifyMessage`. `siwe`'s own `verify()` without a provider only accepts EOAs (Coinbase Smart Wallet / Safe users could not log in for months, and a bad signature was a 500). `deploy.sh` runs `apps/api/scripts/login-smoke.mts` after every api rollout: EOA + undeployed smart wallet sign in, tampered messages refused. Any QA pass must log in with a smart wallet, not just an EOA
+- **Sign-in must work for smart wallets** — `apps/api/src/lib/siweVerify.ts` checks EOA (ecrecover) then ERC-1271/ERC-6492 on Base via viem `verifyMessage`. `siwe`'s own `verify()` without a provider only accepts EOAs (Coinbase Smart Wallet / Safe users could not log in for months, and a bad signature was a 500). CI's "Login smoke (production)" job runs `apps/api/scripts/login-smoke.mts` after every deploy, once `/api/health` reports the new commit: EOA + undeployed smart wallet sign in, tampered messages refused. Any QA pass must log in with a smart wallet, not just an EOA
 - **Dockerfile deps stages list package.jsons explicitly** — api/indexer/acp-decoder Dockerfiles COPY each workspace package.json by hand. A new workspace package, or a new cross-package import into a source-bundled package (e.g. packages/decode), MUST be added to the `deps` + `build` stages of every consuming Dockerfile or the image build fails with esbuild "Could not resolve" even though local builds pass (CI run 28991942523)
 
 ## Decodes

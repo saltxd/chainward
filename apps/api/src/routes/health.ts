@@ -23,8 +23,12 @@ health.get('/', async (c) => {
 
   const allHealthy = dbOk && redisOk;
 
+  // The commit this image was built from (CI build arg), so a deploy can be
+  // confirmed live before the post-deploy login smoke runs.
+  const version = process.env.GIT_SHA || null;
+
   return c.json(
-    { status: allHealthy ? 'healthy' : 'degraded' },
+    { status: allHealthy ? 'healthy' : 'degraded', version },
     allHealthy ? 200 : 503,
   );
 });
