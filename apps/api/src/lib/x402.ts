@@ -680,6 +680,21 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
         output: { example: OUTPUT_EXAMPLE },
       }),
     ),
+    // One route per published dataset, before the :slug pattern (the server takes the
+    // first match). PayAI folds any route with pathParams into a single templated
+    // catalog row (".../:slug/file"), which no buyer can pay; these rows are concrete.
+    ...Object.fromEntries(
+      PUBLISHED_DATASETS.map((d) => [
+        `GET /api/paid/${d.slug}/file`,
+        {
+          ...route(
+            { ...paidFile, description: `${d.title}. CSV, one row per wallet.` },
+            declareDiscoveryExtension({ output: { example: { contentType: 'text/csv' } } }),
+          ),
+          resource: `https://api.chainward.ai/api/paid/${d.slug}/file`,
+        },
+      ]),
+    ),
     [PAID_FILE_ROUTE]: route(
       paidFile,
       declareDiscoveryExtension({

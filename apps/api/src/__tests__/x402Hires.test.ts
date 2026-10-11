@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   HIRES_ROUTE,
   PAID_FILE_ROUTE,
+  PUBLISHED_DATASETS,
   SELLER_DEMAND_ROUTE,
   X402_CHECK_ROUTES,
   x402CheckPrice,
@@ -67,5 +68,26 @@ describe('x402 hire check', () => {
     expect(routes[X402_CHECK_ROUTES[0]].accepts.price).toBe('$0.05');
     expect(routes[SELLER_DEMAND_ROUTE].accepts.price).toBe('$0.10');
     expect(routes[PAID_FILE_ROUTE].accepts.price).toBe('$10');
+  });
+});
+
+// PayAI's catalog folds any route whose discovery info has pathParams into one
+// templated row (".../api/paid/:slug/file"), which is not a URL a buyer can pay.
+describe('published datasets as catalog rows', () => {
+  it('gives each published dataset its own route with a concrete resource URL and no path params', () => {
+    const routes = x402PaidRoutes('0x000000000000000000000000000000000000dEaD') as Record<string, any>;
+    const keys = Object.keys(routes);
+    expect(PUBLISHED_DATASETS.length).toBeGreaterThan(0);
+    for (const d of PUBLISHED_DATASETS) {
+      const key = `GET /api/paid/${d.slug}/file`;
+      const r = routes[key];
+      expect(r, key).toBeDefined();
+      expect(r.resource).toBe(`https://api.chainward.ai/api/paid/${d.slug}/file`);
+      expect(r.accepts.price).toBe('$10');
+      expect(r.description).toContain(d.title);
+      expect(r.extensions.bazaar.info.input.pathParams).toBeUndefined();
+      // The server takes the first matching route, so the explicit one must come before the :slug pattern.
+      expect(keys.indexOf(key)).toBeLessThan(keys.indexOf(PAID_FILE_ROUTE));
+    }
   });
 });
