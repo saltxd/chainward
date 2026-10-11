@@ -8,7 +8,7 @@
  *   - signal_density is never surfaced.
  */
 
-import type { RiskBand, RiskCoverage, RiskSeverity } from './api';
+import type { RiskBand, RiskCoverage, RiskSeverity, RiskVerdict } from './api';
 import { chainQuery } from './chains';
 
 export const DISCLAIMER =
@@ -138,4 +138,41 @@ export function topSeverity(
     }
   }
   return top;
+}
+
+/** What a report page shows in search results and link previews: the answer
+ * first, in plain words, for someone about to pay or hire the address. */
+export function reportSearchCopy(input: {
+  short: string;
+  chainName: string;
+  /** null when no report exists yet. */
+  flagCount: number | null;
+  verdict?: RiskVerdict;
+}): { title: string; description: string } {
+  const { short, chainName, flagCount, verdict } = input;
+  const ask = `Should you pay ${short}?`;
+  const tail = `Free check of ${short} on ${chainName} before you pay or hire it.`;
+  if (verdict && (verdict.label === 'pay' || verdict.label === 'hold' || verdict.label === 'unknown')) {
+    const reason = verdict.reason.trim();
+    const sentence = /[.!?]$/.test(reason) ? reason : `${reason}.`;
+    const head = (reason.split(':')[0] ?? reason).replace(/\.$/, '').slice(0, 70).trim();
+    // Lower-case a leading word ("Not enough history"), keep acronyms ("USDC balance").
+    const headInline = /^[A-Z][a-z]/.test(head) ? head[0]!.toLowerCase() + head.slice(1) : head;
+    const title =
+      verdict.label === 'pay'
+        ? `${ask} Pay: nothing found against it`
+        : `${ask} ${verdict.text}: ${verdict.label === 'hold' ? head : headInline}`;
+    return { title, description: `${verdict.text}. ${sentence} ${tail}` };
+  }
+  if (flagCount === null) {
+    return {
+      title: `${ask} Free check`,
+      description: `Run a free check of ${short} on ${chainName} before you pay or hire it: Pay, Hold or Unknown, with the reason and the evidence.`,
+    };
+  }
+  const found = flagCount === 0 ? 'No risk flags found' : `${flagCount} risk flag${flagCount === 1 ? '' : 's'} found`;
+  return {
+    title: `${ask} ${found}`,
+    description: `${found} for ${short} on ${chainName}, each with the transactions behind it. ${tail}`,
+  };
 }

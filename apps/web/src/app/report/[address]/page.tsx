@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ReportView } from './report-view';
-import { isThinReport } from '@/lib/risk';
-import type { RiskBand, RiskReport } from '@/lib/api';
+import { isThinReport, reportSearchCopy } from '@/lib/risk';
+import type { RiskReport } from '@/lib/api';
 import { isAddress } from '@/lib/params';
 import { chainMeta, chainQuery, parseChainParam, type RiskChainParam } from '@/lib/chains';
 
@@ -12,13 +12,6 @@ function truncateAddress(addr: string): string {
   if (!addr || addr.length < 10) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
-
-const BAND_WORD: Record<RiskBand, string> = {
-  'low-signal': 'low-signal',
-  mixed: 'mixed-signal',
-  elevated: 'elevated-signal',
-  'high-signal': 'high-signal',
-};
 
 /** Server-side fetch of the cached report for metadata. Does NOT increment
  * view_count concerns here — the GET route bumps on the client read; the
@@ -56,7 +49,7 @@ export async function generateMetadata({
 
   if (!isAddress(address) || !chain) {
     return {
-      title: 'Risk Check — Invalid Address',
+      title: 'Risk check: invalid address',
       robots: { index: false, follow: false },
     };
   }
@@ -70,14 +63,12 @@ export async function generateMetadata({
   const thin =
     !report || isThinReport(report.flags.length, report.band);
 
-  const flagCount = report?.flags.length ?? 0;
-  const bandWord = report ? BAND_WORD[report.band] : 'pending';
-  const title = report
-    ? `Risk flags for ${truncated} — ${flagCount} flag${flagCount === 1 ? '' : 's'} · ${bandWord}`
-    : `Risk check — ${truncated}`;
-  const description = report
-    ? `${flagCount} on-chain risk flag${flagCount === 1 ? '' : 's'} for ${truncated} on ${chainName}, with evidence. Risk flags from on-chain behavior only — not a safety verdict.`
-    : `Run a free on-chain check for ${truncated} on ${chainName}: pay, hold or unknown, with the reason and the evidence.`;
+  const { title, description } = reportSearchCopy({
+    short: truncated,
+    chainName,
+    flagCount: report ? report.flags.length : null,
+    verdict: report?.verdict,
+  });
 
   return {
     title,
