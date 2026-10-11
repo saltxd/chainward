@@ -24,7 +24,7 @@ function formatDate(iso: string): string {
 }
 
 function RegisterRow({ card }: { card: RiskReportCard }) {
-  const thin = isThinReport(card.flag_count, card.band);
+  const thin = isThinReport(card.verdict);
   // The headline flag: the highest-severity one the API denormalised onto the card.
   const topFlag =
     card.top_flags?.[0] ??
@@ -33,8 +33,8 @@ function RegisterRow({ card }: { card: RiskReportCard }) {
     <Link
       href={reportPath(card.address, card.chain)}
       className="reg-row"
-      // Thin entries are deindexed at the page level; nofollow so crawlers
-      // don't follow into them.
+      // The third answer is deindexed at the page level; nofollow so crawlers
+      // don't follow into it.
       rel={thin ? 'nofollow' : undefined}
     >
       <span className="reg-cell reg-subject">

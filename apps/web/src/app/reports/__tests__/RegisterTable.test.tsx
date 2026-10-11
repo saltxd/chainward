@@ -57,4 +57,11 @@ describe('RegisterTable', () => {
     expect(html).toContain('INACTIVE');
     expect(html).toContain('var(--ink-soft)');
   });
+
+  it('marks only the noindexed (third answer) rows nofollow', () => {
+    const pay = renderToStaticMarkup(<RegisterTable reports={[card({ verdict: { label: 'pay', text: 'Pay' }, band: 'low-signal' })]} />);
+    expect(pay).not.toContain('nofollow');
+    const quiet = renderToStaticMarkup(<RegisterTable reports={[card({ verdict: { label: 'unknown', text: 'No track record' }, flag_count: 1 })]} />);
+    expect(quiet).toContain('rel="nofollow"');
+  });
 });

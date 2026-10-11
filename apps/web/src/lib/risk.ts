@@ -129,10 +129,12 @@ export function reportPath(address: string, chain?: string): string {
   return `/report/${address.toLowerCase()}${chainQuery(chain)}`;
 }
 
-/** A report is "thin" (noindex) when it has zero flags AND low signal — i.e. an
- * empty/quiet wallet with nothing to index. */
-export function isThinReport(flagCount: number, band: RiskBand): boolean {
-  return flagCount === 0 && band === 'low-signal';
+/** A report page is "thin" (noindex) unless it answers Pay or Hold: the third
+ * answer (no track record, inactive, couldn't check) has nothing to act on, and
+ * no report or no verdict has nothing at all. A Pay with zero flags is the most
+ * useful page there is, so it is indexed. */
+export function isThinReport(verdict: Pick<RiskVerdict, 'label'> | null | undefined): boolean {
+  return !verdict || (verdict.label !== 'pay' && verdict.label !== 'hold');
 }
 
 export function topSeverity(

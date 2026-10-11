@@ -60,9 +60,8 @@ export async function generateMetadata({
   const canonical = `https://chainward.ai/report/${lowered}${chainQuery(chain)}`;
   const ogImageUrl = `https://chainward.ai/api/report/${lowered}/og${chainQuery(chain)}`;
 
-  // No report yet (teaser/no_history) or a thin/empty-wallet report → noindex.
-  const thin =
-    !report || isThinReport(report.flags.length, report.band);
+  // No report yet (teaser/no_history), or an answer that is neither Pay nor Hold → noindex.
+  const thin = isThinReport(report?.verdict);
 
   // Same copy the client puts in the tab after a re-check (report-view.tsx).
   const { title, description } = reportPageCopy({ report, short: truncated, chainName });

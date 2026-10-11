@@ -1,11 +1,11 @@
 import { isThinReport } from './risk';
-import type { RiskBand } from './api';
+import type { RiskVerdict } from './api';
 
 export interface LibraryRow {
   address: string;
   chain?: string | null;
-  band: string;
-  flag_count: number;
+  /** Absent on cards from an API older than the verdict: treated as thin. */
+  verdict?: Pick<RiskVerdict, 'label'>;
   as_of_date: string;
 }
 
@@ -22,7 +22,7 @@ export function indexableReports<T extends LibraryRow>(rows: T[]): T[] {
     const key = `${r.chain ?? 'base'}:${r.address.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    if (isThinReport(r.flag_count, r.band as RiskBand)) continue;
+    if (isThinReport(r.verdict)) continue;
     out.push(r);
   }
   return out;
