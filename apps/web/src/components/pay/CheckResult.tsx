@@ -197,7 +197,7 @@ function CounterpartyResult({ d }: { d: CounterpartyData }) {
         Band: <strong>{BAND_LABEL[r.band] ?? r.band}</strong> · {r.flags.length} flag{r.flags.length === 1 ? '' : 's'}
       </p>
       {r.flags.length === 0 ? (
-        <p className="pay-sub">No flags surfaced in the window checked. Not a safety verdict.</p>
+        <p className="pay-sub">Nothing came up in the window we checked. That is not a guarantee.</p>
       ) : (
         <ul className="pay-list">
           {r.flags.map((f) => (

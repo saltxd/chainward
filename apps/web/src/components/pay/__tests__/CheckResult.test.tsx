@@ -107,7 +107,7 @@ describe('CheckResult: counterparty check', () => {
     const html = renderToStaticMarkup(
       <CheckResult kind="counterparty" data={{ ...COUNTERPARTY, report: { ...COUNTERPARTY.report, band: 'low-signal', flags: [] } }} />,
     );
-    expect(text(html)).toContain('No flags surfaced in the window checked. Not a safety verdict.');
+    expect(text(html)).toContain('Nothing came up in the window we checked. That is not a guarantee.');
   });
 });
 
