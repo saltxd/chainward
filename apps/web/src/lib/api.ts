@@ -142,7 +142,7 @@ export const api = {
       body: JSON.stringify({ txHash }),
     }),
 
-  // Intel Brief (paid forensic decode) — treasury + price come from /config at
+  // Intel Brief (paid investigation): treasury + price come from /config at
   // runtime (NEXT_PUBLIC_* is baked at build time, so we never rely on it).
   getBriefConfig: () => fetchApi<BriefConfig>('/api/brief/config'),
   createBriefOrder: (body: CreateBriefOrderBody) =>
@@ -348,7 +348,7 @@ export interface CreateApiKeyBody {
   expiresAt?: string;
 }
 
-// ── Intel Brief (paid forensic decode) ──────────────────────────────────────
+// ── Intel Brief (paid investigation) ────────────────────────────────────────
 
 export type BriefContactMethod = 'email' | 'telegram' | 'x' | 'discord' | 'other';
 

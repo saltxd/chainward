@@ -5,7 +5,7 @@ import { DEFAULT_OG_IMAGE } from '@/lib/siteCopy';
 // copy: prices are runtime config (GET /api/brief/config), never hardcoded.
 const title = 'Intel Brief: a written on-chain investigation of any Base wallet';
 const description =
-  'Point ChainWard at any Base agent or wallet: a full on-chain investigation, fund flows traced and public claims tested against the chain, delivered as a written brief within 48 hours. Paid in USDC on Base.';
+  'Send ChainWard any Base agent or wallet. We trace where its money goes, check its public claims against the chain, and deliver a written brief within 48 hours. Paid in USDC on Base.';
 const url = 'https://chainward.ai/request-brief';
 
 export const metadata: Metadata = {

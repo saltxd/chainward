@@ -7,7 +7,7 @@ import { NodeClaim } from './NodeClaim';
 
 /**
  * The paid-brief offer, styled as a case-file artifact. Price is ALWAYS runtime
- * config (GET /api/brief/config), never hardcoded — falls back to price-agnostic
+ * config (GET /api/brief/config), never hardcoded; it falls back to price-agnostic
  * copy when config is unavailable. Each page frames it for its own reader
  * (a free report, a finished decode, the landing page) via `title`/`lede`, and
  * `placement` tags the CTA click in analytics.
@@ -45,19 +45,19 @@ export function BriefOffer({
       <p className="brief-doc-lede">{lede}</p>
       <ul className="brief-doc-list">
         <li>
-          Full forensic decode, read from{' '}
+          The full investigation of one wallet, read from{' '}
           <NodeClaim live="our own Base node" neutral="the chain" />
         </li>
-        <li>Fund-flow &amp; counterparty trace — where the money really goes</li>
-        <li>Claim-vs-reality check, every flag sourced to the chain</li>
-        <li>Delivered privately within 48h — or as a public @chainwardai thread, if you prefer</li>
+        <li>Where the money goes: who funds the wallet and who it pays</li>
+        <li>Each public claim checked against what the chain shows</li>
+        <li>Delivered privately within 48 hours, or as a public @chainwardai thread if you prefer</li>
       </ul>
       <div className="brief-doc-foot">
         <BriefCtaLink placement={placement} className="press-btn">
           Commission the brief →
         </BriefCtaLink>
         <span className="brief-doc-fine">
-          Same engine behind our published decodes. Your request stays private.
+          Same method as our published decodes. Your request stays private.
         </span>
       </div>
 

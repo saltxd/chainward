@@ -21,4 +21,11 @@ describe('web copy', () => {
     const hits = sourceFiles(SRC).filter((f) => /during beta/i.test(readFileSync(f, 'utf8')));
     expect(hits.map((f) => f.slice(SRC.length))).toEqual([]);
   });
+
+  // The brief is "an investigation" in plain words, and the commissioned tier
+  // has no price on the list, so the page must not invent one.
+  it('never says "forensic decode" or prices the commissioned investigation', () => {
+    const hits = sourceFiles(SRC).filter((f) => /forensic decode|from 250 USDC/i.test(readFileSync(f, 'utf8')));
+    expect(hits.map((f) => f.slice(SRC.length))).toEqual([]);
+  });
 });

@@ -24,13 +24,13 @@ const SAMPLE_BRIEF_URL = 'https://x.com/chainwardai/status/2066738827100622921';
 
 const WHAT_YOU_GET: ReactNode[] = [
   <>
-    Full on-chain forensic decode, read from{' '}
+    The full investigation of one wallet, read from{' '}
     <NodeClaim live="our own Base node" neutral="the chain" />
   </>,
-  'Fund-flow + counterparty trace (where the money really goes)',
-  'Claim-vs-reality check against on-chain evidence',
-  'Every flag sourced to the chain',
-  'Delivered privately within 48h — or as a public @chainwardai thread, if you prefer',
+  'Where the money goes: who funds the wallet and who it pays',
+  'Each public claim checked against what the chain shows',
+  'Every finding linked to the transactions behind it',
+  'Delivered privately within 48 hours, or as a public @chainwardai thread if you prefer',
 ];
 
 function shortAddr(a: string): string {
@@ -71,7 +71,7 @@ export default function RequestBriefPage() {
   const [storedPayments, setStoredPayments] = useState<Array<{ id: string; payment: PendingPayment }>>([]);
 
   const user = session?.user ?? null;
-  // Price is ALWAYS runtime config — never hardcoded. Null until loaded.
+  // Price is ALWAYS runtime config, never hardcoded. Null until loaded.
   const priceUsdc = config?.priceUsdc ?? null;
   const priceLabel = priceUsdc != null ? `${priceUsdc} USDC` : 'Priced in USDC on Base';
 
@@ -205,29 +205,30 @@ export default function RequestBriefPage() {
 
         <section className="brf-lead">
           <span className="press-label">Intel Brief · one wallet, fully decoded</span>
-          <h1 className="brf-title press-display">Order a forensic decode.</h1>
+          <h1 className="brf-title press-display">Have one wallet fully investigated.</h1>
           <p className="brf-lede">
-            Point us at any Base agent or wallet. We run the full on-chain
-            investigation and file a written brief — delivered privately to you
-            within 48 hours, or as a public thread if you prefer.
+            Send us any Base agent or wallet. We trace where its money comes from
+            and where it goes, check its public claims against the chain, and write
+            it up in plain language. You get the brief privately within 48 hours,
+            or as a public thread if you prefer.
           </p>
         </section>
 
         <div className="brf-grid">
-          {/* The offer — a case-file artifact */}
+          {/* The offer, as a case-file artifact */}
           <aside className="brf-offer">
             <div className="brf-offer-head">
               <span className="press-label">The brief</span>
               <span className="brf-offer-price mono">{priceLabel}</span>
             </div>
-            <p className="brf-offer-terms mono">One-time · on Base · delivered within 48h</p>
+            <p className="brf-offer-terms mono">One-time payment · USDC on Base · delivered within 48 hours</p>
             <ul className="brf-offer-list">
               {WHAT_YOU_GET.map((f, i) => (
                 <li key={i}>{f}</li>
               ))}
             </ul>
             <p className="brf-offer-fine">
-              Same engine behind our public{' '}
+              Same method as our public{' '}
               <Link href="/decodes" className="press-link">decodes</Link>. Your
               request stays private.
             </p>
@@ -246,16 +247,17 @@ export default function RequestBriefPage() {
             {configError && <div className="brf-error">Error: {configError}</div>}
             {paymentsUnavailable && (
               <div className="brf-notice">
-                Payments are being configured — please check back shortly.
+                Ordering is paused right now. Please check back shortly, or email
+                hello@chainward.ai.
               </div>
             )}
 
-            {/* 1 — request form (wallet + sign-in happen on submit) */}
+            {/* 1: request form (wallet + sign-in happen on submit) */}
             {!order && (
               <form className="brf-form" onSubmit={handleSubmit}>
-                <div className="brf-step">Step 1 — what should we decode?</div>
+                <div className="brf-step">Step 1: which wallet should we look into?</div>
                 <label>
-                  <span>Target — address or handle</span>
+                  <span>Its address or handle</span>
                   <input
                     value={form.target}
                     onChange={(e) => setForm({ ...form, target: e.target.value })}
@@ -276,7 +278,7 @@ export default function RequestBriefPage() {
                       onChange={() => setForm({ ...form, delivery: 'private' })}
                     />
                     <span>
-                      Private — to your Telegram or email
+                      Private: to your Telegram or email
                       <small>Nothing about your request is published.</small>
                     </span>
                   </label>
@@ -289,7 +291,7 @@ export default function RequestBriefPage() {
                       onChange={() => setForm({ ...form, delivery: 'public' })}
                     />
                     <span>
-                      Public — an @chainwardai thread on X, tagging you
+                      Public: an @chainwardai thread on X that tags you
                       <small>The brief becomes part of the public record.</small>
                     </span>
                   </label>
@@ -297,8 +299,8 @@ export default function RequestBriefPage() {
                 <label>
                   <span>
                     {form.delivery === 'public'
-                      ? 'Your X handle — we deliver as a public @chainwardai thread tagging you'
-                      : 'Your Telegram handle or email — we deliver there, privately'}
+                      ? 'Your X handle (we post the brief as a public @chainwardai thread tagging you)'
+                      : 'Your Telegram handle or email (we send the brief there, privately)'}
                   </span>
                   <input
                     value={form.contact}
@@ -314,7 +316,7 @@ export default function RequestBriefPage() {
                   <textarea
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    placeholder="e.g. verify their burn claims; trace the treasury outflows"
+                    placeholder="e.g. check their token burn claims; follow the money leaving the treasury"
                     rows={3}
                   />
                 </label>
@@ -333,11 +335,11 @@ export default function RequestBriefPage() {
                         ? 'Connect wallet to continue →'
                         : !user
                           ? 'Sign in & continue →'
-                          : `Continue to payment${priceUsdc != null ? ` — ${priceUsdc} USDC` : ''} →`}
+                          : `Continue to payment${priceUsdc != null ? ` (${priceUsdc} USDC)` : ''} →`}
                 </button>
                 <p className="brf-hint">
                   {!user
-                    ? 'You pay in USDC on Base from your own wallet. Signing in is one free signature, no gas.'
+                    ? 'You pay in USDC on Base from your own wallet. Signing in costs nothing: one signature in your wallet, no fee.'
                     : <>Signed in as <span className="mono">{address && shortAddr(address)}</span>.</>}
                 </p>
               </form>
@@ -367,11 +369,11 @@ export default function RequestBriefPage() {
               </div>
             )}
 
-            {/* 4 — pay */}
+            {/* 2: pay */}
             {order && !paid && (
               <div className="brf-pay">
                 <div className="brf-step">
-                  Step 2 · pay {order.amountUsdc / 1e6} USDC to confirm
+                  Step 2: pay {order.amountUsdc / 1e6} USDC to confirm
                 </div>
                 <div className="brf-summary">
                   <div>
@@ -421,13 +423,13 @@ export default function RequestBriefPage() {
               </div>
             )}
 
-            {/* 5 — done */}
+            {/* 3: done */}
             {order && paid && (
               <div className="brf-done">
                 <div className="brf-done-check" aria-hidden>✓</div>
                 <h3 className="press-display">Brief ordered</h3>
                 <p>
-                  We&apos;re decoding{' '}
+                  We&apos;re investigating{' '}
                   <strong>{order.targetKind === 'address' ? shortAddr(order.target) : order.target}</strong>.{' '}
                   {order.contactMethod === 'x' ? (
                     <>
@@ -438,7 +440,7 @@ export default function RequestBriefPage() {
                   ) : (
                     <>
                       Your written brief appears on this page under <em>Your requests</em> within
-                      48 hours — sign in with the same wallet to read it. We&apos;ll also ping{' '}
+                      48 hours. Sign in with the same wallet to read it. We&apos;ll also message{' '}
                       <strong>{order.contact}</strong> when it lands.
                     </>
                   )}
@@ -452,20 +454,21 @@ export default function RequestBriefPage() {
           </div>
         </div>
 
-        {/* Secondary tier — scoped by hand, not a checkout */}
+        {/* Secondary tier: scoped by hand, not a checkout */}
         <section className="brf-bespoke" aria-label="Commissioned investigation">
           <div className="brf-bespoke-head">
             <span className="press-label--ox brf-bespoke-mark">Commissioned investigation</span>
-            <span className="brf-bespoke-price mono">from 250 USDC</span>
+            <span className="brf-bespoke-price mono">Price on request</span>
           </div>
           <h2 className="brf-bespoke-title press-display">
-            More than one wallet? We&apos;ll run the whole case.
+            More than one wallet? We&apos;ll look into the whole thing.
           </h2>
           <p className="brf-bespoke-copy">
-            For teams, funds, and launchpads doing diligence on an agent or a
-            project: multi-wallet fund-flow reconstruction, claims checked
-            against the chain, and a full written investigation, published or
-            kept private.
+            For teams, funds and launchpads checking out an agent or a project
+            before they commit: we follow the money across all of its wallets,
+            check its claims against the chain, and write up the full
+            investigation, published or kept private. Tell us what you need and
+            we&apos;ll quote a price.
           </p>
           <div className="brf-bespoke-foot">
             <a
@@ -474,8 +477,14 @@ export default function RequestBriefPage() {
               rel="noopener noreferrer"
               className="press-btn press-btn--ghost"
             >
-              Scope it with @chainwardai on X →
+              Message @chainwardai on X →
             </a>
+            <span className="brf-bespoke-email">
+              or email{' '}
+              <a className="press-link" href="mailto:hello@chainward.ai">
+                hello@chainward.ai
+              </a>
+            </span>
             <Link href="/decodes" className="press-link">
               Read the published investigations
             </Link>
