@@ -8,6 +8,7 @@ import { getDb } from '../lib/db.js';
 import { getEnv } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { verifyUsdcPayment } from '../lib/verifyUsdcPayment.js';
+import { parseDatasetAddress } from '../lib/paidInput.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
@@ -112,6 +113,37 @@ paid.get('/:slug', async (c) => {
 // x402-paid download. index.ts puts the payment middleware in front of this
 // path; settlement happens only after this handler succeeds, so a 404 never charges.
 paid.get('/:slug/file', async (c) => sendFile(c, slugParam(c)));
+
+// Paid single-wallet check (x402, priced under every default client spend cap, so
+// sweep buyers can take it). The same rows as the free lookup below, verdict first.
+// app.ts checks the slug and the address before the payment middleware; a 400 or
+// 404 here is never charged.
+paid.get('/:slug/check', async (c) => {
+  const slug = slugParam(c);
+  const address = parseDatasetAddress(c.req.query('address'));
+  const meta = await fileMeta(slug);
+  const matches = await getDb()
+    .select({ chain: datasetLookup.chain, tier: datasetLookup.tier, fields: datasetLookup.fields })
+    .from(datasetLookup)
+    .where(and(eq(datasetLookup.slug, slug), eq(datasetLookup.address, address)))
+    .limit(20);
+  const listed = matches.length > 0;
+  const asOf = (meta.createdAt instanceof Date ? meta.createdAt.toISOString() : String(meta.createdAt)).slice(0, 10);
+  return c.json({
+    success: true,
+    data: {
+      verdict: listed ? 'listed' : 'not_listed',
+      reason: listed ? `${matches.map((m) => `${m.tier} (${m.chain})`).join(', ')} in ${meta.title}` : `No row for this address in ${meta.title}`,
+      limit: `${meta.title} covers only its own window (built ${asOf}); not listed means not seen there, nothing more.`,
+      slug,
+      address,
+      dataset: meta.title,
+      as_of: asOf,
+      matches,
+      full_dataset: `https://api.chainward.ai/api/paid/${slug}/file`,
+    },
+  });
+});
 
 // Free single-wallet check against the dataset: tier plus a few public fields.
 // The full file is the paid product; this is the reason to come look.

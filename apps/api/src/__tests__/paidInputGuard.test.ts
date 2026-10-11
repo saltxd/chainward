@@ -122,6 +122,8 @@ describe('paid routes: input checked before the 402 challenge', () => {
     '/api/risk/hires?agent=<5000 digits>',
     '/api/risk/hires?agent=1234567890123',
     '/api/paid/NOPE/file',
+    '/api/paid/termix-wallets/check?address=0xzz',
+    `/api/paid/NOPE/check?address=${ADDR}`,
   ])('GET %s answers 400 with no payment challenge', async (path) => {
     const res = await app.request(path.replace('<5000 digits>', tooLongAgent));
     expect(res.status).toBe(400);
@@ -135,7 +137,7 @@ describe('paid routes: input checked before the 402 challenge', () => {
   // resource URL to learn the price and the input from the 402. Nobody is charged
   // for it: a paid request with no target still ends in the handler's 400, and
   // the middleware does not settle a response of 400 or above.
-  it.each(['/api/risk/x402', '/api/risk/seller-demand', '/api/risk/hires', '/api/risk/hires?chain=bsc'])(
+  it.each(['/api/risk/x402', '/api/risk/seller-demand', '/api/risk/hires', '/api/risk/hires?chain=bsc', '/api/paid/termix-wallets/check'])(
     'GET %s (bare resource, no target) answers 402 so catalogs can read the challenge',
     async (path) => {
       const res = await app.request(path);
@@ -144,11 +146,14 @@ describe('paid routes: input checked before the 402 challenge', () => {
     },
   );
 
-  it('answers 404 with no payment challenge for a dataset that does not exist', async () => {
-    const res = await app.request('/api/paid/no-such-dataset/file');
-    expect(res.status).toBe(404);
-    expect(res.headers.get('payment-required')).toBeNull();
-  });
+  it.each(['/api/paid/no-such-dataset/file', `/api/paid/no-such-dataset/check?address=${ADDR}`])(
+    'GET %s answers 404 with no payment challenge for a dataset that does not exist',
+    async (path) => {
+      const res = await app.request(path);
+      expect(res.status).toBe(404);
+      expect(res.headers.get('payment-required')).toBeNull();
+    },
+  );
 
   it.each([
     `/api/risk/x402?address=${ADDR}`,
@@ -158,6 +163,7 @@ describe('paid routes: input checked before the 402 challenge', () => {
     '/api/risk/hires?agent=352475&chain=bsc',
     `/api/risk/hires?agent=${ADDR}`,
     '/api/paid/termix-wallets/file',
+    `/api/paid/termix-wallets/check?address=${ADDR}`,
   ])('GET %s (valid, unpaid) still answers 402 with the challenge', async (path) => {
     const res = await app.request(path);
     expect(res.status).toBe(402);
@@ -203,5 +209,36 @@ describe('paid routes: payment middleware runs once per request', () => {
     // Twice would verify and settle the same payment twice: the inner run settles,
     // the outer one then fails to settle and replaces the report with an error.
     expect(calls).toBe(1);
+  });
+});
+
+// The paid single-wallet check opens with a verdict a buyer can act on.
+describe('dataset check: verdict first', () => {
+  const lookupRow = { chain: 'base', tier: 'A1', fields: { cluster: 'B0004', jobs_as_buyer: 103 } };
+  const passthrough: MiddlewareHandler = async (_c, next) => {
+    await next();
+  };
+
+  it('answers listed, with the tier as the reason, when the wallet is in the dataset', async () => {
+    db.rows = (params) => (params.includes(ADDR) ? [lookupRow] : params.includes('termix-wallets') ? [datasetRow] : []);
+    const app = createApp({ corsOrigins: ['https://chainward.ai'], x402Check: passthrough });
+    const res = await app.request(`/api/paid/termix-wallets/check?address=${ADDR.replace('0x4b', '0x4B')}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: Record<string, unknown> };
+    expect(body.data).toMatchObject({ verdict: 'listed', slug: 'termix-wallets', address: ADDR, dataset: 'TermiX wallets' });
+    expect(body.data.reason).toMatch(/A1/);
+    expect(body.data.limit).toMatch(/2026-10-01/);
+    expect(body.data.matches).toEqual([lookupRow]);
+    expect(body.data.full_dataset).toBe('https://api.chainward.ai/api/paid/termix-wallets/file');
+  });
+
+  it('answers not_listed with no matches when no row has the wallet', async () => {
+    db.rows = (params) => (params.includes('termix-wallets') && !params.includes(ADDR) ? [datasetRow] : []);
+    const app = createApp({ corsOrigins: ['https://chainward.ai'], x402Check: passthrough });
+    const res = await app.request(`/api/paid/termix-wallets/check?address=${ADDR}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: Record<string, unknown> };
+    expect(body.data).toMatchObject({ verdict: 'not_listed', matches: [] });
+    expect(body.data.reason).toMatch(/TermiX wallets/);
   });
 });

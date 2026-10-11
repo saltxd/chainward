@@ -27,7 +27,7 @@ import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
 import { apiHomePage, x402DiscoveryDocument, x402OpenApiDocument, x402PublicUrl } from './lib/x402.js';
-import { checkPaidInput, parseCounterpartyInput, parseHireInput, parseSellerInput } from './lib/paidInput.js';
+import { checkPaidInput, parseCounterpartyInput, parseDatasetAddress, parseHireInput, parseSellerInput } from './lib/paidInput.js';
 
 export interface AppOptions {
   /** Origins allowed to make credentialed cross-origin requests. */
@@ -131,6 +131,13 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
       ['/api/risk/seller-demand', checkPaidInput((c) => parseSellerInput(c.req.query('address'), c.req.query('chain')))],
       ['/api/risk/hires', checkPaidInput((c) => parseHireInput(c.req.query('agent'), c.req.query('chain')))],
       ['/api/paid/:slug/file', checkPaidInput((c) => requireKnownSlug(c.req.param('slug')))],
+      [
+        '/api/paid/:slug/check',
+        checkPaidInput(async (c) => {
+          await requireKnownSlug(c.req.param('slug'));
+          parseDatasetAddress(c.req.query('address'));
+        }),
+      ],
     ];
     for (const [path, checkInput] of paidPaths) {
       app.use(path, paidGetOnly);

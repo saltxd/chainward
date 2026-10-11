@@ -152,6 +152,13 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
             <td>10 USDC</td>
             <td>The full dataset behind a decode, as CSV.</td>
           </tr>
+          <tr>
+            <td>
+              <code>GET /api/paid/:slug/check?address=</code>
+            </td>
+            <td>0.25 USDC</td>
+            <td>Is one wallet in a dataset, and at what tier: listed or not, with the reason and the limit.</td>
+          </tr>
         </tbody>
       </table>
       <p>
@@ -170,8 +177,11 @@ curl https://api.chainward.ai/api/risk/attestation/0x4baadba26c3c0bdef9e8faf1739
         <code>{`# what's for sale
 curl https://api.chainward.ai/api/paid
 
-# free: is one wallet in a dataset, and in which tier?
-curl https://api.chainward.ai/api/paid/termix-wallets/lookup/0xb709860b8a1ce20019f3786d6982f773912bd286`}</code>
+# free (rate-limited): is one wallet in a dataset, and in which tier?
+curl https://api.chainward.ai/api/paid/termix-wallets/lookup/0xb709860b8a1ce20019f3786d6982f773912bd286
+
+# the same, for agents: 0.25 USDC over x402, no rate limit, verdict first
+curl https://api.chainward.ai/api/paid/termix-wallets/check?address=0xb709860b8a1ce20019f3786d6982f773912bd286`}</code>
       </pre>
       <p>
         People can buy a dataset from any wallet at{' '}

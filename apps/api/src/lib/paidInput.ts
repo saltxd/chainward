@@ -43,6 +43,11 @@ export function parseCounterpartyInput(
   return { address, chain: chain as RiskChainId };
 }
 
+/** GET /api/paid/:slug/check: the wallet to look up in the dataset. */
+export function parseDatasetAddress(rawAddress: string | undefined): string {
+  return parseAddress(rawAddress);
+}
+
 /** GET /api/risk/seller-demand: the seller's payTo, on base (default) or bsc. */
 export function parseSellerInput(
   rawAddress: string | undefined,

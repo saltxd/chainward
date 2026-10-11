@@ -81,6 +81,13 @@ export function x402FilePrice(): string {
   return process.env.X402_FILE_PRICE ?? '$10';
 }
 
+// Paid single-wallet check against a dataset (GET /api/paid/<slug>/check?address=).
+// Priced under $1 on purpose: stock x402 clients refuse larger payments unless
+// configured, so the $10 files never sell to sweep buyers; this can.
+export function x402LookupPrice(): string {
+  return process.env.X402_LOOKUP_PRICE ?? '$0.25';
+}
+
 // The #2 seller from chainward.ai/decodes/x402-on-base, as the check reported it.
 const SELLER_OUTPUT_EXAMPLE = {
   success: true,
@@ -177,9 +184,11 @@ export function x402DiscoveryDocument() {
       'https://api.chainward.ai/api/risk/x402',
       'https://api.chainward.ai/api/risk/seller-demand',
       'https://api.chainward.ai/api/risk/hires',
-      // One concrete dataset URL so crawlers can probe the route; GET /api/paid lists them all.
-      'https://api.chainward.ai/api/paid/termix-wallets/file',
-      'https://api.chainward.ai/api/paid/set-and-earn-week-one/file',
+      // Concrete dataset URLs so crawlers can probe each route; GET /api/paid lists them all.
+      ...PUBLISHED_DATASETS.flatMap((d) => [
+        `https://api.chainward.ai/api/paid/${d.slug}/file`,
+        `https://api.chainward.ai/api/paid/${d.slug}/check`,
+      ]),
     ],
     docs: 'https://chainward.ai/docs',
   };
@@ -218,6 +227,7 @@ export function apiHomePage(): string {
 <li><code>GET /api/risk/x402?address=0x…</code> (add <code>&amp;chain=bsc</code> for BNB Chain): a risk report no older than 24h, every flag tied to its transactions.</li>
 <li><code>GET /api/risk/seller-demand?address=0x…</code> (add <code>&amp;chain=bsc</code>): how much of a seller's revenue traces back to the seller itself.</li>
 <li><code>GET /api/risk/hires?agent=&lt;ERC-8004 id or owner 0x…&gt;&amp;chain=bsc</code> (${x402HiresPrice()}): who hired a BNB Chain agent in the last ${HIRE_WINDOW_DAYS} days, and whether each hirer is the owner, funded by it, or shares a funder with it (Set and Earn).</li>
+<li><code>GET /api/paid/{slug}/check?address=</code>: is one wallet in a dataset, and at what tier (${x402LookupPrice()}).</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
 <p>A report is a list of flags, never a safety verdict. Discovery: <a href="/.well-known/x402">/.well-known/x402</a> and <a href="/openapi.json">/openapi.json</a>. Docs: <a href="https://chainward.ai/docs">chainward.ai/docs</a>. Free reports: <a href="https://chainward.ai">chainward.ai</a>.</p>
@@ -231,21 +241,63 @@ export function apiHomePage(): string {
  * first. Lists only the paid operation; its 402 challenge stays authoritative.
  */
 /** Published datasets, each also listed under its own concrete path (catalogs can't probe {slug}). */
-export const PUBLISHED_DATASETS: ReadonlyArray<{ slug: string; title: string }> = [
-  { slug: 'termix-wallets', title: 'TermiX escrow: every wallet that settled a job through Sep 29, tiered' },
-  { slug: 'set-and-earn-week-one', title: "Set and Earn week one: every wallet that hired an agent, Oct 1 to 8, with tier and groups" },
+export const PUBLISHED_DATASETS: ReadonlyArray<{ slug: string; title: string; example: string }> = [
+  // `example` is a wallet that is in the list, for the catalog's input example.
+  {
+    slug: 'termix-wallets',
+    title: 'TermiX escrow: every wallet that settled a job through Sep 29, tiered',
+    example: '0x00048bfe5972a462c5ca6adc2e373f2b49c4874d',
+  },
+  {
+    slug: 'set-and-earn-week-one',
+    title: "Set and Earn week one: every wallet that hired an agent, Oct 1 to 8, with tier and groups",
+    example: '0x03a92db75947be1653c069d252f3d36a990bb61c',
+  },
 ];
+
+// What the paid dataset check answers, as the TermiX example wallet reads today.
+const DATASET_CHECK_OUTPUT_EXAMPLE = {
+  success: true,
+  data: {
+    verdict: 'listed',
+    reason: 'A1 (base) in TermiX escrow: every wallet that settled a job through Sep 29, tiered',
+    limit:
+      'TermiX escrow: every wallet that settled a job through Sep 29, tiered covers only its own window (built 2026-10-03); not listed means not seen there, nothing more.',
+    slug: 'termix-wallets',
+    address: '0x00048bfe5972a462c5ca6adc2e373f2b49c4874d',
+    dataset: 'TermiX escrow: every wallet that settled a job through Sep 29, tiered',
+    as_of: '2026-10-03',
+    matches: [
+      {
+        chain: 'base',
+        tier: 'A1',
+        fields: { cluster: 'B0004', first_seen: '2026-08-10', fees_paid_usd: 93.0, jobs_as_buyer: 103, jobs_as_seller: 104, exchange_withdrawal_burst: null },
+      },
+    ],
+    full_dataset: 'https://api.chainward.ai/api/paid/termix-wallets/file',
+  },
+};
 
 export function x402OpenApiDocument() {
   const doc = x402OpenApiBase();
   const template = doc.paths['/api/paid/{slug}/file'].get;
+  const checkTemplate = doc.paths['/api/paid/{slug}/check'].get;
   for (const d of PUBLISHED_DATASETS) {
-    (doc.paths as Record<string, unknown>)[`/api/paid/${d.slug}/file`] = {
+    const paths = doc.paths as Record<string, unknown>;
+    paths[`/api/paid/${d.slug}/file`] = {
       get: {
         ...template,
         operationId: `datasetFile_${d.slug.replace(/-/g, '_')}`,
         summary: `${d.title}, as CSV, paid over x402`,
         parameters: [],
+      },
+    };
+    paths[`/api/paid/${d.slug}/check`] = {
+      get: {
+        ...checkTemplate,
+        operationId: `datasetCheck_${d.slug.replace(/-/g, '_')}`,
+        summary: `Is one wallet in "${d.title}", and at what tier, paid per call over x402`,
+        parameters: checkTemplate.parameters.filter((q) => q.name === 'address'),
       },
     };
   }
@@ -257,6 +309,7 @@ function x402OpenApiBase() {
   const sellerUsd = (x402SellerPrice().match(/[\d.]+/) ?? ['0.10'])[0];
   const hiresUsd = (x402HiresPrice().match(/[\d.]+/) ?? ['0.10'])[0];
   const fileUsd = (x402FilePrice().match(/[\d.]+/) ?? ['10'])[0];
+  const lookupUsd = (x402LookupPrice().match(/[\d.]+/) ?? ['0.25'])[0];
   return {
     openapi: '3.1.0',
     info: {
@@ -370,6 +423,43 @@ function x402OpenApiBase() {
             '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
             '404': { description: 'No ERC-8004 agent with that id on BNB Chain; not charged' },
             '504': { description: 'Check did not finish in time; not charged' },
+          },
+        },
+      },
+      '/api/paid/{slug}/check': {
+        get: {
+          operationId: 'datasetCheck',
+          summary: 'Is one wallet in a published dataset, and at what tier, paid per call over x402',
+          description:
+            "Listed or Not listed for one address against the dataset named by the slug, with the tier and the row's own fields as the reason and the dataset's window as the limit. The same rows the web lookup shows, without its rate limit. Not charged if the address is malformed or the dataset does not exist.",
+          parameters: [
+            {
+              name: 'slug',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,59}$', example: 'termix-wallets' },
+              description: 'Dataset slug from GET /api/paid',
+            },
+            {
+              name: 'address',
+              in: 'query',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+              description: 'Wallet to look up',
+            },
+          ],
+          'x-payment-info': {
+            price: { mode: 'fixed', currency: 'USD', amount: lookupUsd },
+            protocols: [{ x402: {} }],
+          },
+          responses: {
+            '200': {
+              description: 'listed or not_listed, with the reason, the limit and every matching row',
+              content: { 'application/json': { example: DATASET_CHECK_OUTPUT_EXAMPLE } },
+            },
+            '400': { description: 'Malformed address; not charged' },
+            '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+            '404': { description: 'No dataset with that slug; not charged' },
           },
         },
       },
@@ -679,6 +769,34 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
         pathParamsSchema: addressSchema,
         output: { example: OUTPUT_EXAMPLE },
       }),
+    ),
+    // The sub-dollar single-wallet check on each dataset, one concrete catalog row each.
+    ...Object.fromEntries(
+      PUBLISHED_DATASETS.map((d) => [
+        `GET /api/paid/${d.slug}/check`,
+        {
+          ...route(
+            {
+              price: x402LookupPrice(),
+              serviceName: 'ChainWard dataset check',
+              description: `Listed or Not listed: is one wallet in "${d.title}", with the tier and the row's own fields as the reason and the dataset's window as the limit. JSON.`,
+              tags: ['base', 'bsc', 'dataset', 'wallet', 'address', 'sybil', 'airdrop', 'points', 'agents'],
+              whatYouGet:
+                'listed / not_listed for one address, the tier and fields behind it, and the limit of what the dataset covers. Not charged if the address is malformed.',
+            },
+            declareDiscoveryExtension({
+              input: { address: d.example },
+              inputSchema: {
+                type: 'object',
+                properties: { address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', description: 'Wallet to look up' } },
+                required: ['address'],
+              },
+              output: { example: DATASET_CHECK_OUTPUT_EXAMPLE },
+            }),
+          ),
+          resource: `https://api.chainward.ai/api/paid/${d.slug}/check`,
+        },
+      ]),
     ),
     // One route per published dataset, before the :slug pattern (the server takes the
     // first match). PayAI folds any route with pathParams into a single templated
