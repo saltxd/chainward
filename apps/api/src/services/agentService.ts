@@ -7,6 +7,12 @@ import type { Tier } from '@chainward/common';
 import type { Database } from '@chainward/db';
 import { AppError } from '../middleware/errorHandler.js';
 
+/** There is no paid plan to sell, so the limit message names the number and who to ask. */
+function agentLimitMessage(tier: Tier, limit: number): string {
+  const who = tier === 'free' ? 'Free accounts watch' : `The ${tier} plan watches`;
+  return `${who} up to ${limit} wallets. Need more? Email hello@chainward.ai.`;
+}
+
 export class AgentService {
   constructor(private db: Database) {}
 
@@ -25,11 +31,7 @@ export class AgentService {
         .from(agentRegistry)
         .where(eq(agentRegistry.userId, userId));
       if (result && result.total >= limits.agentLimit) {
-        throw new AppError(
-          403,
-          'AGENT_LIMIT_REACHED',
-          `Your ${tier} plan allows ${limits.agentLimit} agents. Upgrade to add more.`,
-        );
+        throw new AppError(403, 'AGENT_LIMIT_REACHED', agentLimitMessage(tier, limits.agentLimit));
       }
     }
 
