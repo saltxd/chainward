@@ -43,6 +43,7 @@ import {
   WatchWallet,
 } from './_components';
 import { plainAnswer } from '@/lib/plainAnswer';
+import { reportPageCopy } from '@/lib/reportPageCopy';
 import { isTransient } from '@/lib/checkProgress';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -65,13 +66,6 @@ function fmtNum(n: number, maxFrac = 4): string {
   if (n > 0 && n < 0.0001) return '< 0.0001';
   return n.toLocaleString(undefined, { maximumFractionDigits: maxFrac });
 }
-
-const TITLE_BAND: Record<string, string> = {
-  'low-signal': 'low-signal',
-  mixed: 'mixed-signal',
-  elevated: 'elevated-signal',
-  'high-signal': 'high-signal',
-};
 
 export function ReportView({ address, chain = 'base' }: { address: string; chain?: RiskChainParam }) {
   const lowered = address.toLowerCase();
@@ -299,9 +293,12 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
   // replaces the report client-side, so keep the tab title in step with it.
   useEffect(() => {
     if (state.kind !== 'ready' && state.kind !== 'stale') return;
-    const n = state.report.flags.length;
-    const band = TITLE_BAND[state.report.band] ?? state.report.band;
-    document.title = `Risk flags for ${lowered.slice(0, 6)}…${lowered.slice(-4)} — ${n} flag${n === 1 ? '' : 's'} · ${band} | ChainWard`;
+    const { title } = reportPageCopy({
+      report: state.report,
+      short: `${address.slice(0, 6)}…${address.slice(-4)}`,
+      chainName: meta.name,
+    });
+    document.title = `${title} | ChainWard`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcomeKey]);
 

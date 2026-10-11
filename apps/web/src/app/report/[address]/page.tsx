@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ReportView } from './report-view';
-import { isThinReport, reportSearchCopy } from '@/lib/risk';
-import { plainAnswer } from '@/lib/plainAnswer';
+import { isThinReport } from '@/lib/risk';
+import { reportPageCopy } from '@/lib/reportPageCopy';
 import type { RiskReport } from '@/lib/api';
 import { isAddress } from '@/lib/params';
 import { chainMeta, chainQuery, parseChainParam, type RiskChainParam } from '@/lib/chains';
@@ -64,18 +64,8 @@ export async function generateMetadata({
   const thin =
     !report || isThinReport(report.flags.length, report.band);
 
-  // The third answer is named by case (Inactive, No track record, Couldn't check), as on the page.
-  const answer = report ? plainAnswer(report) : null;
-  const verdict =
-    report?.verdict && answer && answer.label === 'unknown'
-      ? { ...report.verdict, text: answer.word, reason: answer.why }
-      : report?.verdict;
-  const { title, description } = reportSearchCopy({
-    short: truncated,
-    chainName,
-    flagCount: report ? report.flags.length : null,
-    verdict,
-  });
+  // Same copy the client puts in the tab after a re-check (report-view.tsx).
+  const { title, description } = reportPageCopy({ report, short: truncated, chainName });
 
   return {
     title,
