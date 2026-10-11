@@ -101,7 +101,8 @@ jobs:
           env_args=(-e NODE_ENV=production -e DATABASE_URL=postgres://smoke:smoke@127.0.0.1:5432/smoke -e REDIS_URL=redis://127.0.0.1:6379
                     -e "JWT_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" -e BASE_RPC_URL=http://127.0.0.1:9 -e ALCHEMY_WEBHOOK_SIGNING_KEY=smoke)
           docker run -d --name api --network host -e PORT=8000 "${env_args[@]}" smoke/api:ci
-          docker run -d --name web --network host -e PORT=3000 -e API_INTERNAL_URL=http://127.0.0.1:8000 smoke/web:ci
+          # HOSTNAME=0.0.0.0: Next.js standalone binds to $HOSTNAME, and with --network host the runner's hostname leaks in.
+          docker run -d --name web --network host -e PORT=3000 -e HOSTNAME=0.0.0.0 -e API_INTERNAL_URL=http://127.0.0.1:8000 smoke/web:ci
           docker run -d --name indexer --network host "${env_args[@]}" smoke/indexer:ci
           wait_for() { # name, check-command
             for i in $(seq 1 30); do if eval "$2" >/dev/null 2>&1; then echo "$1: up after ${i}x2s"; return 0; fi; sleep 2; done
