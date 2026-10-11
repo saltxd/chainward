@@ -25,6 +25,7 @@ import { setAndEarnBoard } from './routes/setAndEarnBoard.js';
 import { paid, requireKnownSlug } from './routes/paid.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
+import { x402InFlightLock } from './middleware/x402InFlight.js';
 import { logger } from './lib/logger.js';
 import { apiHomePage, x402DiscoveryDocument, x402OpenApiDocument, x402PublicUrl } from './lib/x402.js';
 import { checkPaidInput, parseCounterpartyInput, parseDatasetAddress, parseHireInput, parseSellerInput } from './lib/paidInput.js';
@@ -145,6 +146,9 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
       app.use(path, paidGetOnly);
       app.use(path, checkInput);
       app.use(path, x402PublicUrl);
+      // One request per signed payment at a time: the payment middleware settles
+      // only after the handler, so concurrent copies of one payment all ran it.
+      app.use(path, x402InFlightLock);
       app.use(path, x402Check);
     }
   }
