@@ -9,6 +9,7 @@ import {
   type GasBucket,
 } from '@/lib/api';
 import { useApi } from '@/hooks/use-api';
+import { FREE_WALLET_LIMIT } from '@/lib/watch';
 import { BalanceChart, getBalanceSummary } from '@/components/charts/balance-chart';
 import { GasChart } from '@/components/charts/gas-chart';
 import {
@@ -401,7 +402,7 @@ export default function PublicAgentPage({
                 </h3>
                 <p className="v2-pa-cta-sub">
                   Track transactions, balances, and gas for your AI agent wallets on
-                  Base. Alerts via Discord, Telegram, or webhooks. Free during beta.
+                  Base. Alerts via Discord or webhook. Free for up to {FREE_WALLET_LIMIT} wallets.
                 </p>
                 <div style={{ marginTop: 24 }}>
                   <Button href="/login">./start-monitoring →</Button>

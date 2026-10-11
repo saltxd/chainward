@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ObservatoryPage } from './observatory-page';
+import { FREE_WALLET_LIMIT } from '@/lib/watch';
 
 export const metadata: Metadata = {
   title: 'Base Agent Observatory — Live AI Agent Activity on Base',
@@ -66,7 +67,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I monitor my own agents?',
-    a: 'Yes. ChainWard offers private monitoring with real-time alerts for your own agent wallets. Set up failed-transaction, gas-spike, balance-drop, and inactivity alerts delivered to Discord, Telegram, or webhooks. Free during beta.',
+    a: `Yes. ChainWard offers private monitoring with real-time alerts for your own agent wallets. Set up failed-transaction, gas-spike, balance-drop, and inactivity alerts delivered to Discord or webhooks. Free for up to ${FREE_WALLET_LIMIT} wallets.`,
   },
 ];
 
