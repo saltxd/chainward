@@ -7,14 +7,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  PressShell,
-  Masthead,
-  PressDateline,
-  Colophon,
-  BriefOffer,
-  NodeClaim,
-} from '@/components/press';
+import { PressShell, Masthead, PressDateline, Colophon, BriefOffer, NodeClaim, OnTheRecord } from '@/components/press';
 import { getAllDecodes } from '@/lib/decodes';
 import { watchWalletHref } from '@/lib/watch';
 import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from '@/lib/siteCopy';
@@ -230,6 +223,8 @@ export default async function CheckHomePage({
               ))}
             </ol>
           )}
+
+          <OnTheRecord />
 
           <div className="home-casebook-links">
             <Link href="/decodes" className="press-link">

@@ -7,3 +7,4 @@ export { BriefOffer } from './BriefOffer';
 export { BriefCtaLink } from './BriefCtaLink';
 export { NodeClaim, NodeSyncNote } from './NodeClaim';
 export { CodeBlock } from './CodeBlock';
+export { OnTheRecord } from './OnTheRecord';
