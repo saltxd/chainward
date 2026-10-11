@@ -12,7 +12,7 @@ backup:
 images:
   api: ghcr.io/saltxd/chainward-api:latest
   web: ghcr.io/saltxd/chainward-web:latest
-  indexer: ghcr.io/saltxd/chainward-indexer:latest
+  indexer: ghcr.io/saltxd/chainward-indexer:3ef7cc3
   acpDecoder: ghcr.io/saltxd/chainward-acp-decoder:latest
 
 imagePullSecrets:
