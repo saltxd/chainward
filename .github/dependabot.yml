@@ -1,0 +1,12 @@
+# Dependabot: one grouped PR per ecosystem per week (grouping keeps the noise to a single PR instead of one per action/package).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly, day: monday }
+    groups: { actions: { patterns: ["*"] } }
+  - package-ecosystem: npm
+    directory: "/"
+    schedule: { interval: weekly, day: monday }
+    groups: { node: { patterns: ["*"] } }
+    open-pull-requests-limit: 3
