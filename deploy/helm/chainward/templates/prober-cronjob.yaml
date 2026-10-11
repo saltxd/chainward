@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: prober
 spec:
   schedule: "*/5 * * * *"
+  timeZone: America/Denver
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
@@ -17,6 +18,7 @@ spec:
       # prober command below) fits alongside normal work inside a single */5
       # window. 240 < 300s schedule and concurrencyPolicy=Forbid prevents overlap.
       activeDeadlineSeconds: 240
+      ttlSecondsAfterFinished: 600
       # Kept at 0 deliberately: the in-script DB-readiness gate handles transient
       # postgres blips. A pod-level retry would re-run `apk add` from scratch and
       # risk blowing the deadline; in-script retry is cheaper and more precise.

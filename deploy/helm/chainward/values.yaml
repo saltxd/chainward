@@ -9,7 +9,23 @@ backup:
   nfsServer: ""
   nfsPath: ""
 
+# Pull policy for api / web / indexer. Tags are immutable SHAs set by CI (GitOps bump), so IfNotPresent would be
+# correct too; Always matches what has run since the :latest era and costs one manifest HEAD per pod start.
+imagePullPolicy: Always
+
+# Internal topology and wallet lists stay out of this public file: set them in the private values overlay
+# (in the cluster: the SOPS Secret behind the HelmRelease's valuesFrom). Empty = the env var is not rendered.
+sentinelRpc: ""             # our own Base node, e.g. http://<host>:8545 (api + indexer SENTINEL_RPC)
+riskSelfFlagAllowlist: ""   # comma-separated addresses the risk check never self-flags (api + indexer)
+
+# Pre-upgrade migration hook: runs deploy/run-migrations.sh (idempotent, schema_migrations-tracked) from the
+# chainward-migrate image built by CI at the same commit as the app images. A failed migration fails the upgrade
+# before any Deployment changes (the same contract deploy.sh had).
+migrations:
+  enabled: true
+
 images:
+  migrate: ghcr.io/saltxd/chainward-migrate:latest
   api: ghcr.io/saltxd/chainward-api:latest
   web: ghcr.io/saltxd/chainward-web:latest
   indexer: ghcr.io/saltxd/chainward-indexer:3ef7cc3
@@ -60,6 +76,9 @@ web:
       memory: 512Mi
 
 indexer:
+  # Public RPCs for the indexer's own reads (the api reads the Alchemy URL from the secret).
+  baseRpcUrl: https://base-rpc.publicnode.com
+  baseRpcFallbackUrl: https://base.drpc.org
   replicas: 1
   resources:
     requests:
@@ -80,6 +99,7 @@ termixProvider:
   rpcUrl: https://bsc-dataseed.bnbchain.org
 
 acpDecoder:
+  alchemyLogLevel: ""   # e.g. DEBUG; empty = unset
   enabled: false  # opt-in; flip after first acp-decoder setup completes
   replicas: 1
   resources:

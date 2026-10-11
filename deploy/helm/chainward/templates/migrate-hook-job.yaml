@@ -1,0 +1,45 @@
+{{- if .Values.migrations.enabled }}
+# Pre-upgrade migrations. Same runner and tracking table as deploy/deploy.sh (schema_migrations), but the SQL ships
+# inside the chainward-migrate image built from this commit, so the migrations that run are the ones this release
+# was tested with. A failure fails the helm upgrade before any workload is touched.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: chainward-migrate
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "chainward.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ .Values.images.migrate }}
+          command: ["bash", "/scripts/run-migrations.sh"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: DATABASE_URL
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+{{- end }}

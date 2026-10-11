@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: decode-scout
 spec:
   schedule: "0 8 * * 1"            # Mon 08:00 — away from the 04-05/10:00 cron cluster
+  timeZone: America/Denver
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 200
   successfulJobsHistoryLimit: 1

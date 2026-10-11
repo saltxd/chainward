@@ -33,6 +33,7 @@ spec:
       containers:
         - name: api
           image: {{ .Values.images.api }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           {{- include "chainward.containerSecurity" . | nindent 10 }}
           ports:
             - containerPort: {{ .Values.api.port }}
@@ -60,6 +61,14 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.externalSecret }}
                   key: BASE_RPC_URL
+            {{- with .Values.riskSelfFlagAllowlist }}
+            - name: RISK_SELF_FLAG_ALLOWLIST
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.sentinelRpc }}
+            - name: SENTINEL_RPC
+              value: {{ . | quote }}
+            {{- end }}
             - name: BASE_RPC_FALLBACK_URL
               valueFrom:
                 secretKeyRef:

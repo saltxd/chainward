@@ -55,14 +55,16 @@ spec:
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "{{ .Values.postgres.user }}"]
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 60
+            periodSeconds: 10
             timeoutSeconds: 10
             failureThreshold: 6
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", "{{ .Values.postgres.user }}"]
-            initialDelaySeconds: 30
+            # 600 s: TimescaleDB WAL replay after an unclean stop takes minutes; a 30 s delay
+            # killed it mid-recovery in a loop (live-tuned, folded into the chart 2026-10-11).
+            initialDelaySeconds: 600
             periodSeconds: 10
             # timeoutSeconds default is 1s — too tight when wt-k3s-worker is CPU-starved
             # by the co-located media stack (~04:00-05:00 spikes). 10s timeout + 6 failures

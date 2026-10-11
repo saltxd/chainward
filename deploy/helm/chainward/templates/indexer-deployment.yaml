@@ -27,6 +27,7 @@ spec:
       containers:
         - name: indexer
           image: {{ .Values.images.indexer }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           {{- include "chainward.containerSecurity" . | nindent 10 }}
           envFrom:
             - configMapRef:
@@ -42,11 +43,44 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.externalSecret }}
                   key: ALCHEMY_API_KEY
+            # Public Base RPC for the indexer's own reads (the api keeps the Alchemy URL from the secret).
             - name: BASE_RPC_URL
+              value: {{ .Values.indexer.baseRpcUrl | quote }}
+            - name: TELEGRAM_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.externalSecret }}
-                  key: BASE_RPC_URL
+                  key: TELEGRAM_BOT_TOKEN
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: JWT_SECRET
+            - name: ALCHEMY_WEBHOOK_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: ALCHEMY_WEBHOOK_SIGNING_KEY
+            - name: ALCHEMY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: ALCHEMY_AUTH_TOKEN
+            - name: ALCHEMY_WEBHOOK_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: ALCHEMY_WEBHOOK_ID
+            - name: BASE_RPC_FALLBACK_URL
+              value: {{ .Values.indexer.baseRpcFallbackUrl | quote }}
+            {{- with .Values.riskSelfFlagAllowlist }}
+            - name: RISK_SELF_FLAG_ALLOWLIST
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.sentinelRpc }}
+            - name: SENTINEL_RPC
+              value: {{ . | quote }}
+            {{- end }}
             # ChainWard Attest signer (workers/riskAttest.ts). Absent = attesting off.
             - name: ATTEST_SIGNER_PRIVATE_KEY
               valueFrom:
@@ -61,46 +95,19 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: BASE_RPC_URL
                   optional: true
-            # Set and Earn board: the hire check's Alchemy BNB URL. Unset, it is
-            # derived from SELLER_DEMAND_RPC_URL (base-mainnet -> bnb-mainnet), as in the api.
-            - name: SELLER_DEMAND_BSC_RPC_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.externalSecret }}
-                  key: SELLER_DEMAND_BSC_RPC_URL
-                  optional: true
             # TermiX provider (workers/termixProvider.ts, docs/termix-provider.md). Runs only
             # with the flag on AND the key present; the key must own ERC-8004 agent 365669
             # on BSC (today the treasury EOA) and pays the gas for accept / deliver / claim.
+            - name: TERMIX_PROVIDER_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: TERMIX_PROVIDER_PRIVATE_KEY
             - name: TERMIX_PROVIDER_ENABLED
               value: {{ .Values.termixProvider.enabled | quote }}
             - name: TERMIX_MAX_JOBS_PER_RUN
               value: {{ .Values.termixProvider.maxJobsPerRun | quote }}
             - name: TERMIX_BSC_RPC_URL
               value: {{ .Values.termixProvider.rpcUrl | quote }}
-            - name: TERMIX_PROVIDER_PRIVATE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.externalSecret }}
-                  key: TERMIX_PROVIDER_PRIVATE_KEY
-                  optional: true
-            - name: BASE_RPC_FALLBACK_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.externalSecret }}
-                  key: BASE_RPC_FALLBACK_URL
-                  optional: true
-            - name: CHAIN_PROVIDER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.externalSecret }}
-                  key: CHAIN_PROVIDER
-                  optional: true
-            - name: TELEGRAM_BOT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.externalSecret }}
-                  key: TELEGRAM_BOT_TOKEN
-                  optional: true
           resources:
             {{- toYaml .Values.indexer.resources | nindent 12 }}

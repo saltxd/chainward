@@ -10,6 +10,7 @@ metadata:
 spec:
   # 03:30 MDT (09:30 UTC). Staggered away from other cluster backup jobs.
   schedule: "30 9 * * *"
+  timeZone: America/Denver
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3

@@ -27,6 +27,7 @@ spec:
       containers:
         - name: web
           image: {{ .Values.images.web }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           {{- include "chainward.containerSecurity" . | nindent 10 }}
           ports:
             - containerPort: {{ .Values.web.port }}
