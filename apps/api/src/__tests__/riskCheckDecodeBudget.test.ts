@@ -152,6 +152,19 @@ describe('POST /api/risk/check decode budget (8 an hour per IP)', () => {
     expect(riskCheck.add).toHaveBeenCalledTimes(8);
   });
 
+  it('gives one IPv6 /64 one budget, whichever address in it asks', async () => {
+    const a = app();
+    const fromV6 = (i: number) =>
+      a.request('/api/risk/check', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'cf-connecting-ip': `2001:db8:abcd:12::${i.toString(16)}` },
+        body: JSON.stringify({ target: addr(i), force_recheck: true }),
+      });
+    for (let i = 1; i <= 8; i++) expect((await fromV6(i)).status).toBe(202);
+    expect((await fromV6(9)).status).toBe(429);
+    expect(riskCheck.add).toHaveBeenCalledTimes(8);
+  });
+
   it('does not count answers served from a cached report', async () => {
     const a = app();
     for (let i = 0; i < 12; i++) {

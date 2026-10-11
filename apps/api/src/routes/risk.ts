@@ -469,6 +469,13 @@ const risk = new Hono();
 // budget. Only a request that enqueues one spends it: cached reports, decodes
 // already queued, no_history answers and rejected input are free.
 const decodeBudget = budget({ max: 8, windowSec: 3600, prefix: 'rl:risk-decode' });
+// Per-client budgets don't bound the total: this caps free decodes across everyone.
+const globalDecodeBudget = budget({
+  max: parseInt(process.env.FREE_DECODES_PER_HOUR_GLOBAL ?? '', 10) || 300,
+  windowSec: 3600,
+  prefix: 'rl:risk-decode',
+  scope: 'global',
+});
 
 // POST /api/risk/check — submit a target for a (free) risk check.
 risk.post(
@@ -522,6 +529,7 @@ risk.post(
     // 2. No usable cached report (or a forced re-check): this one needs a decode.
     // Refuse early if the budget is gone, before spending calls on the history gate.
     await decodeBudget.ensureAvailable(c);
+    await globalDecodeBudget.ensureAvailable(c);
 
     // Gate on history BEFORE enqueue.
     // Chains without Blockscout / a lookup provider (BSC) gate on one cached RPC
@@ -557,7 +565,13 @@ risk.post(
     }
 
     // 3. Enqueue the full (free) decode. The worker caches a public report.
-    await decodeBudget.spend(c);
+    const refundClient = await decodeBudget.spend(c);
+    try {
+      await globalDecodeBudget.spend(c);
+    } catch (err) {
+      await refundClient();
+      throw err;
+    }
     const { riskCheck } = getQueues();
     const job = await riskCheck.add(
       'risk-check',

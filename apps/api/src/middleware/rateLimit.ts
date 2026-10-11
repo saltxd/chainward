@@ -1,3 +1,4 @@
+import { isIPv4, isIPv6 } from 'node:net';
 import type { Context, Next } from 'hono';
 import { getRedis } from '../lib/redis.js';
 import { AppError } from './errorHandler.js';
@@ -11,8 +12,52 @@ interface RateLimitOptions {
   prefix?: string;
 }
 
+interface BudgetOptions extends RateLimitOptions {
+  /** 'client' (default): one allowance per client. 'global': one allowance shared by every caller. */
+  scope?: 'client' | 'global';
+}
+
 /** In-cluster callers (the web server's own SSR/OG fetches) get this many times the limit. */
 const INTERNAL_MULTIPLIER = 10;
+
+/** The eight 16-bit groups of a valid IPv6 address. */
+function ipv6Groups(ip: string): number[] {
+  let s = ip.toLowerCase();
+  const zone = s.indexOf('%');
+  if (zone >= 0) s = s.slice(0, zone);
+  // A trailing dotted IPv4 (e.g. ::ffff:203.0.113.7) is the last two groups.
+  const lastColon = s.lastIndexOf(':');
+  const tail = s.slice(lastColon + 1);
+  if (tail.includes('.')) {
+    const [a = 0, b = 0, c = 0, d = 0] = tail.split('.').map(Number);
+    s = `${s.slice(0, lastColon + 1)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const [head = '', rest] = s.split('::');
+  const left = head ? head.split(':') : [];
+  const right = rest ? rest.split(':') : [];
+  const fill = rest === undefined ? [] : Array<string>(8 - left.length - right.length).fill('0');
+  return [...left, ...fill, ...right].map((g) => parseInt(g, 16));
+}
+
+/**
+ * The address a client is counted as. One IPv6 client usually holds a whole /64,
+ * so keying on its full address handed it 2^64 buckets: IPv6 counts per /64, and
+ * IPv4-mapped IPv6 (::ffff:a.b.c.d) as the IPv4 address. Anything that isn't an
+ * IP is kept as it is.
+ */
+export function clientIpBucket(raw: string): string {
+  const ip = raw.trim();
+  if (isIPv4(ip) || !isIPv6(ip)) return ip;
+  const g = ipv6Groups(ip);
+  if (g.slice(0, 5).every((x) => x === 0) && g[5] === 0xffff) {
+    const [hi = 0, lo = 0] = g.slice(6);
+    return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+  }
+  return `${g
+    .slice(0, 4)
+    .map((x) => x.toString(16))
+    .join(':')}::/64`;
+}
 
 /**
  * Who the request counts against.
@@ -32,7 +77,7 @@ export function clientIdentity(c: Context): { id: string; internal: boolean } {
   if (user?.id) return { id: `user:${user.id}`, internal: false };
 
   const cfIp = c.req.header('cf-connecting-ip');
-  if (cfIp) return { id: `ip:${cfIp}`, internal: false };
+  if (cfIp) return { id: `ip:${clientIpBucket(cfIp)}`, internal: false };
 
   const xffIp = c.req.header('x-forwarded-for')?.split(',').pop()?.trim();
   return { id: `internal:${xffIp || 'cluster'}`, internal: true };
@@ -81,11 +126,13 @@ export function rateLimit(options: RateLimitOptions) {
  * A per-client allowance the handler spends explicitly, for a cost only some
  * requests incur (e.g. enqueuing a fresh decode). Same sliding window, identity
  * and internal multiplier as rateLimit(); nothing is counted until spend().
+ * With scope 'global', one allowance is shared by every caller.
  */
-export function budget(options: RateLimitOptions) {
-  const { windowSec, prefix = 'rl' } = options;
+export function budget(options: BudgetOptions) {
+  const { windowSec, prefix = 'rl', scope = 'client' } = options;
 
   function bucket(c: Context): { key: string; max: number } {
+    if (scope === 'global') return { key: `${prefix}:global`, max: options.max };
     const identity = clientIdentity(c);
     return {
       key: `${prefix}:${identity.id}`,
@@ -109,8 +156,11 @@ export function budget(options: RateLimitOptions) {
       if (((results?.[1]?.[1] as number) ?? 0) >= max) throw exhausted();
     },
 
-    /** Spends one unit, or answers 429 (spending nothing) if none is left. */
-    async spend(c: Context): Promise<void> {
+    /**
+     * Spends one unit, or answers 429 (spending nothing) if none is left.
+     * Resolves to a refund, for when a later check refuses the request.
+     */
+    async spend(c: Context): Promise<() => Promise<void>> {
       const { key, max } = bucket(c);
       const redis = getRedis();
       const now = Date.now();
@@ -122,10 +172,14 @@ export function budget(options: RateLimitOptions) {
         .zadd(key, now, member)
         .expire(key, windowSec)
         .exec();
-      if (((results?.[1]?.[1] as number) ?? 0) >= max) {
+      const refund = async () => {
         await redis.zrem(key, member);
+      };
+      if (((results?.[1]?.[1] as number) ?? 0) >= max) {
+        await refund();
         throw exhausted();
       }
+      return refund;
     },
   };
 }
