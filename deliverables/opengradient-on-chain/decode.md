@@ -1,6 +1,6 @@
 ---
 title: "OpenGradient On-Chain Decode"
-subtitle: "$285M trending market cap, 12 days since launch, zero ACP jobs — where does the valuation come from?"
+subtitle: "$285M trending market cap, 12 days since launch, zero ACP jobs. Where does the valuation come from?"
 plain: "OpenGradient's token was valued near $300M with zero recorded agent jobs, about $0.8M of real trading liquidity, and most of its supply locked. A big price on a thin market."
 date: "2026-05-03"
 slug: "opengradient-on-chain"
@@ -9,13 +9,13 @@ seoTitle: "OpenGradient ($OPG) On-Chain: $285M Market Cap, Thin Liquidity, Zero 
 
 ## TLDR
 
-OpenGradient ($OPG) is the highest-trending agent token on the Virtuals dashboard right now, with a quoted market cap of about $285M and a fully-diluted valuation around $300M. The token is 12 days old (public launch 2026-04-21) and the project has zero recorded jobs in Virtuals' Agent Commerce Protocol (ACP) — its agent record carries `acpAgentId: null` and a name/wallet search of the ACP API returns no results.
+OpenGradient ($OPG) is the highest-trending agent token on the Virtuals dashboard right now, with a quoted market cap of about $285M and a fully-diluted valuation around $300M. The token is 12 days old (public launch 2026-04-21) and the project has zero recorded jobs in Virtuals' Agent Commerce Protocol (ACP): its agent record carries `acpAgentId: null` and a name/wallet search of the ACP API returns no results.
 
 The chain shows two things at once:
 
-1. **The valuation is supported by very thin liquidity.** Roughly $0.8M sits in the Uniswap-style VIRTUAL/OPG pool — about 0.27% of FDV. Almost the entire 1B supply is locked in three MerkleVester contracts (70.65%) or pre-positioned in a LayerZero bridge (3.80%) and team Safes (~6.5%). Only ~0.13% of supply is in the trading pool itself.
+1. **The valuation is supported by very thin liquidity.** Roughly $0.8M sits in the Uniswap-style VIRTUAL/OPG pool, about 0.27% of FDV. Almost the entire 1B supply is locked in three MerkleVester contracts (70.65%) or pre-positioned in a LayerZero bridge (3.80%) and team Safes (~6.5%). Only ~0.13% of supply is in the trading pool itself.
 
-2. **Real product activity exists, but it isn't agent commerce.** The OpenGradient OFT (LayerZero) bridge is being used right now — small batches of OPG are flowing out of Base toward OpenGradient's own L1 every few minutes. That is product traction for an L1 bridge. It is not agent revenue, and it is not what the Virtuals dashboard is measuring when it ranks $OPG.
+2. **Real product activity exists, but it isn't agent commerce.** The OpenGradient OFT (LayerZero) bridge is being used right now: small batches of OPG are flowing out of Base toward OpenGradient's own L1 every few minutes. That is product traction for an L1 bridge. It is not agent revenue, and it is not what the Virtuals dashboard is measuring when it ranks $OPG.
 
 This decode walks through every wallet, where the supply went, and what's actually happening on-chain so you can decide what to make of the number.
 
@@ -25,7 +25,7 @@ This decode walks through every wallet, where the supply went, and what's actual
 
 ## What is OpenGradient?
 
-Per the project's own description on Virtuals, OpenGradient bills itself as a decentralized AI infrastructure network that runs and verifies model inference at scale across a network of TEEs and GPUs — the "Network for Open Intelligence." The token utility section lists five functions: inference payments via x402, model monetization, DPoS staking, app access, and governance.
+Per the project's own description on Virtuals, OpenGradient bills itself as a decentralized AI infrastructure network that runs and verifies model inference at scale across a network of TEEs and GPUs, the "Network for Open Intelligence." The token utility section lists five functions: inference payments via x402, model monetization, DPoS staking, app access, and governance.
 
 The roadmap (Q2 2026) calls for a token launch on April 6 with mainnet activation, DEX liquidity (Aerodrome/Uniswap), validator onboarding, and a permissionless validator set in June. Public TGE on Virtuals' Genesis flow happened **2026-04-21**.
 
@@ -42,11 +42,11 @@ Pulled from `https://api.virtuals.io/api/virtuals/72059` and verified on-chain a
 | Listed `walletAddress` | `0x70434389…44Fb` | EOA | 0 ETH, 0 OPG, nonce 0 | Never used. No txs, no transfers. |
 | `tokenAddress` | `0xFbC2051A…F5eB` | Verified ERC-20 | 1B supply, 18 dec | `OpenGradientToken`, deployed 2026-03-15-ish via factory by `0x4905…d2DC` |
 | `lpAddress` | `0x2b75b90f…ceeb` | Uniswap V3 pool, 1% fee | 1.35M OPG + 493K VIRTUAL | Created 2026-03-22 by `0x93CE…CB85` (factory). Pair is VIRTUAL/OPG, **not USDC** |
-| `migrateTokenAddress` | `0xFbC2051A…F5eB` | (same as token) | — | No separate migration target |
-| `sentientWalletAddress` | `null` | — | — | Not assigned |
-| `tbaAddress` | `null` | — | — | No agent token-bound account |
-| `daoAddress` | `null` | — | — | No DAO yet |
-| `acpAgentId` | `null` | — | — | Not registered as an ACP service agent |
+| `migrateTokenAddress` | `0xFbC2051A…F5eB` | (same as token) | n/a | No separate migration target |
+| `sentientWalletAddress` | `null` | n/a | n/a | Not assigned |
+| `tbaAddress` | `null` | n/a | n/a | No agent token-bound account |
+| `daoAddress` | `null` | n/a | n/a | No DAO yet |
+| `acpAgentId` | `null` | n/a | n/a | Not registered as an ACP service agent |
 | Initial mint recipient / "deployer Safe" | `0x5715907d…23cD` | Gnosis Safe (SafeL2 master copy) | 13.41M OPG (1.34%) | Received the 1B mint and fanned it out |
 | Top vester | `0xAaD47CE7…A9Ad` | `MerkleVester` contract | 460.50M OPG (46.05%) | Largest single concentration |
 | Vester #2 | `0x2f6ba6f4…30f6` | `MerkleVester` | 154.52M OPG (15.45%) | |
@@ -55,10 +55,10 @@ Pulled from `https://api.virtuals.io/api/virtuals/72059` and verified on-chain a
 | Team Safe A | `0x3EA10CB7…f74A` | Gnosis Safe (SafeL2) | 37.80M OPG (3.78%) | 0 outbound transfers as of decode |
 | Team Safe B | `0x2398e722…a5AF` | Gnosis Safe | 100M OPG | Received 100M from deployer Safe 2026-04-16 |
 | Team Safe C | `0x0Cc648DF…E6f3` | Gnosis Safe | 60M OPG | Received 60M from deployer Safe 2026-04-16 |
-| Notable EOA | `0x1157A207…4101` | EOA | 31.52M OPG (3.15%) | 1,132 txs total — high-activity wallet, not labeled |
-| OPG token deployer | `0x49050…d2DC` | EOA | 0 — single-purpose deployer | Sent the deploy tx `0xd714ef95…313f3`, then idle |
+| Notable EOA | `0x1157A207…4101` | EOA | 31.52M OPG (3.15%) | 1,132 txs total. High-activity wallet, not labeled |
+| OPG token deployer | `0x49050…d2DC` | EOA | 0 (single-purpose deployer) | Sent the deploy tx `0xd714ef95…313f3`, then idle |
 
-> "Listed `walletAddress`" being an unused EOA is normal for token-only Genesis launches. There is no agent process running here — there is a token and a project. The Virtuals dashboard schema reuses the same shape regardless.
+> "Listed `walletAddress`" being an unused EOA is normal for token-only Genesis launches. There is no agent process running here: there is a token and a project. The Virtuals dashboard schema reuses the same shape regardless.
 
 ---
 
@@ -82,7 +82,7 @@ Confirmed by `eth_call` to the token and pool at the decode block:
 | Uniswap V3 LP | 1,346,156 | 0.13% |
 | All other holders (~4,500 wallets) | ~11.4M | ~1.14% |
 
-Top-10 holder concentration per Virtuals API: **96.99%**. That number is fundamentally a vesting/team/bridge number — most of the top 10 are infrastructure contracts, not whales hoarding for themselves. But it is the mechanical input to "circulating supply" and therefore to mcap.
+Top-10 holder concentration per Virtuals API: **96.99%**. That number is fundamentally a vesting/team/bridge number: most of the top 10 are infrastructure contracts, not whales hoarding for themselves. But it is the mechanical input to "circulating supply" and therefore to mcap.
 
 ### How thin is the liquidity?
 
@@ -90,10 +90,10 @@ The trading pool is a Uniswap V3 1% fee tier with token0=VIRTUAL, token1=OPG. At
 
 - **OPG in pool:** 1,346,156 (~$408K at $0.30)
 - **VIRTUAL in pool:** 493,468 (~$386K at $0.78)
-- **Total LP value:** ~$795K (Virtuals API quotes `liquidityUsd: $818,860` — same number, slightly different timestamp)
+- **Total LP value:** ~$795K (Virtuals API quotes `liquidityUsd: $818,860`, same number, slightly different timestamp)
 - **LP / FDV ratio:** ~0.26%
 - **24h volume / FDV:** ~0.07% (`volume24h: $209,790`)
-- **24h *net* volume:** $28,782 — i.e., almost all 24h volume is round-trip churn
+- **24h *net* volume:** $28,782 (i.e., almost all 24h volume is round-trip churn)
 
 For comparison, a typical mature large-cap on Base might have 5–15% of FDV in liquidity. OPG sits at roughly one-fortieth of that. This is consistent with the supply distribution: 99.87% of supply is sitting in vesters, bridges, or team safes, not in the pool.
 
@@ -141,7 +141,7 @@ The headline 96.99% top-10 number deserves unpacking. Of the top 10:
 - 2 are EOAs (`0x1157…4101` with 31.5M, `0xBaeD3…439F` with 18.9M). The 31.5M wallet received its position in two main batches (50M from `0x47670fC…7F80C` on 2026-04-21 launch day, and 6M from `0x0D4419E…4f72` on 2026-04-20). It has spent some down to the current 31.5M.
 - 1 is the deployer Safe still holding 13.4M residual.
 
-So the right reading is "97% of supply is in vesting/bridge/team contracts" — which is *expected* for a 12-day-old launch with cliffs and lockups. It is also the reason circulating mcap ($57M) is so much lower than FDV ($300M): roughly 80% of supply is unvested.
+So the right reading is "97% of supply is in vesting/bridge/team contracts", which is *expected* for a 12-day-old launch with cliffs and lockups. It is also the reason circulating mcap ($57M) is so much lower than FDV ($300M): roughly 80% of supply is unvested.
 
 The relevant question for the next 6–18 months is the unlock schedule encoded in the three `MerkleVester` contracts. Decoding those vesting schemas (start/cliff/end timestamps, recipient leaves) is a follow-up; the contracts are not factory-verified at the proxy level on Blockscout.
 
@@ -163,7 +163,7 @@ The flow out of the original mint recipient `0x5715907d…23cD` (a Gnosis Safe),
 | 2026-04-17 | `0xAaD47CE7…A9Ad` | 460,500,000 | MerkleVester (largest bucket) |
 | 2026-04-20 | `0xc12D3c16…b81a` | 10,119,989 | Unlabeled, not a top-10 holder anymore |
 | 2026-04-20 | `0xB3C77edE…cC11` | 70,000,000 | Unlabeled contract (currently top-7 holder, 21.08M) |
-| 2026-04-21 | `0x93CEa69F…CB85` | 200 | LP-creator address — final test? |
+| 2026-04-21 | `0x93CEa69F…CB85` | 200 | LP-creator address. Final test? |
 
 This is the canonical "set up vesters, fund team safes, seed bridge, launch" pattern. Nothing about the flow itself looks anomalous for a Virtuals Genesis launch. What the chain *does* show is that the on-chain economics were finalized over a roughly five-day window (2026-04-16 → 2026-04-21), with the LP itself being created earlier on 2026-03-22.
 
@@ -171,7 +171,7 @@ This is the canonical "set up vesters, fund team safes, seed bridge, launch" pat
 
 ## Cross-Check: Squatter Listings
 
-A search of the Virtuals API for `symbol=OPG` returns **10 records**, of which one is the real `AVAILABLE` token (id 72059) and **9 are UNDERGRAD** records using the same name and symbol — each parked at the boilerplate $6,300 FDV. Examples: ids 71964, 72591, 72919 ("OpenGradiant by virtuals"), 72932, 73365, 73367, 73368, 73375, 73376.
+A search of the Virtuals API for `symbol=OPG` returns **10 records**, of which one is the real `AVAILABLE` token (id 72059) and **9 are UNDERGRAD** records using the same name and symbol, each parked at the boilerplate $6,300 FDV. Examples: ids 71964, 72591, 72919 ("OpenGradiant by virtuals"), 72932, 73365, 73367, 73368, 73375, 73376.
 
 If you're searching by name on Virtuals to buy $OPG, you'll see all of them. The real one is `id=72059`, status `AVAILABLE`, contract `0xFbC2051A…F5eB`. The decoy listings sit in the bonding-curve pre-graduation tier and would resolve to entirely separate tokens if bought.
 
@@ -181,15 +181,15 @@ If you're searching by name on Virtuals to buy $OPG, you'll see all of them. The
 
 A few framings, none of which are accusations:
 
-**1. The $285M number is a "market cap" in the textbook sense — price × supply — not a measurement of cash flow or product usage.** It is supported by ~$0.8M of two-sided liquidity. That ratio is not unusual for a freshly-vested launch where 80% of supply is still locked; it is unusual when compared against the implied dollar number.
+**1. The $285M number is a "market cap" in the textbook sense (price × supply), not a measurement of cash flow or product usage.** It is supported by ~$0.8M of two-sided liquidity. That ratio is not unusual for a freshly-vested launch where 80% of supply is still locked; it is unusual when compared against the implied dollar number.
 
-**2. Comparing $OPG against ACP-revenue agents is a category error.** OpenGradient does not sell agent services on ACP. It is an L1/infrastructure project that happens to have launched its token via Virtuals' Genesis platform. Its on-chain product activity, to the extent the chain shows any, is bridging — not agent commerce.
+**2. Comparing $OPG against ACP-revenue agents is a category error.** OpenGradient does not sell agent services on ACP. It is an L1/infrastructure project that happens to have launched its token via Virtuals' Genesis platform. Its on-chain product activity, to the extent the chain shows any, is bridging, not agent commerce.
 
 **3. The 12-day-old observation is real and worth holding.** Most of the supply hasn't started vesting linearly yet (the vesting math lives in the three MerkleVester contracts and is the highest-value follow-up). The ratio of FDV to circulating supply (~5.3×) means today's holders are price-sensitive to whatever the unlock schedule turns out to be.
 
 **4. Squatter listings exist.** Nine fake $OPG records on Virtuals dashboard with the same name. Worth knowing if you ever search by name rather than contract.
 
-If you want to own $OPG as a thesis on decentralized inference infrastructure, that's a coherent thesis. If you saw a "trending agent at $285M cap" and assumed it was generating proportional revenue, the chain disagrees with that read — but the chain doesn't claim the project is doing anything wrong. It's just a different shape of asset than aGDP-leaderboard agents.
+If you want to own $OPG as a thesis on decentralized inference infrastructure, that's a coherent thesis. If you saw a "trending agent at $285M cap" and assumed it was generating proportional revenue, the chain disagrees with that read, but the chain doesn't claim the project is doing anything wrong. It's just a different shape of asset than aGDP-leaderboard agents.
 
 We just audit. You decide.
 

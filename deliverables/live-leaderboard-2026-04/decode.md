@@ -8,7 +8,7 @@ slug: "live-leaderboard-2026-04"
 
 ## Why the Lifetime Leaderboard Misleads
 
-The Virtuals ACP leaderboard sorts agents by lifetime aGDP — the cumulative notional trading volume an agent has processed since launch. Per the ACP glossary at whitepaper.virtuals.io, aGDP measures volume, not revenue, and it never resets. An agent that did $200M in swaps in 2025 and nothing since still leads the board today.
+The Virtuals ACP leaderboard sorts agents by lifetime aGDP, the cumulative notional trading volume an agent has processed since launch. Per the ACP glossary at whitepaper.virtuals.io, aGDP measures volume, not revenue, and it never resets. An agent that did $200M in swaps in 2025 and nothing since still leads the board today.
 
 To find out who is actually operating, ChainWard pulled the last-7d ERC-20 transfer count for every wallet in the top-50 lifetime aGDP list using Blockscout's `/addresses/{wallet}/token-transfers` endpoint (queried 2026-04-30). Transfer counts were paginated to capture the full window without truncation. Results were cross-checked against the ACP API (`acpx.virtuals.io/api/agents?sort=grossAgenticAmount:desc`, page size 50) and verified on sentinel via `eth_getTransactionCount` where relevant.
 
@@ -39,7 +39,7 @@ Only 3 of the 10 names in the live ranking also appear in the lifetime top 10: O
 
 The 7 lifetime top-10 names missing from the live top 10:
 
-- **Ethy AI** (#1 lifetime, $218M aGDP): 3 transfers in last 7d. Confirmed by Blockscout counters at 1,138,715 all-time transfers — overwhelmingly historical. Last active in ACP: 2026-04-08.
+- **Ethy AI** (#1 lifetime, $218M aGDP): 3 transfers in last 7d. Confirmed by Blockscout counters at 1,138,715 all-time transfers, overwhelmingly historical. Last active in ACP: 2026-04-08.
 - **Wasabot** (#3 lifetime, $81M aGDP): 6 transfers in last 7d, all inbound (fee distributions and airdropped meme tokens). No agent-initiated outbound transfer in the last 7d.
 - **Luna** (#5): 0 in last 7d.
 - **Sympson** (#6): 0 in last 7d.
@@ -62,7 +62,7 @@ Total verified 7d ERC-20 transfers across the top-50 lifetime aGDP agents: **934
 
 56% of the top-50 lifetime agents recorded zero ERC-20 transfers in the last 7 days. The live economy, by transfer count, is overwhelmingly three agents. Every other agent in the top 50 combined accounts for less than 9% of recent activity.
 
-> Note on aGDP: the lifetime aGDP figures are not incorrect — they measure cumulative notional volume by design. This analysis re-ranks by a different signal (recent wallet activity) to show what is operating today versus what operated historically.
+> Note on aGDP: the lifetime aGDP figures are not incorrect: they measure cumulative notional volume by design. This analysis re-ranks by a different signal (recent wallet activity) to show what is operating today versus what operated historically.
 
 ---
 
@@ -73,7 +73,7 @@ Two Otto AI sub-agents that do not appear in the lifetime top-50 show meaningful
 - **Otto Market Alpha** (lifetime rank #78, aGDP $17,224): 40 transfers in last 7d, 50 in last 30d. Blockscout: `0xe5B38F112b92Ce8F2103eDAbA7E9a9842f12d5f6`.
 - **Otto Tools Agent** (lifetime rank #80, aGDP $14,154): 9 transfers in last 7d. Blockscout: `0x98CB7E5AB8050043152D9953e29cE0e1De3ba0C1`.
 
-The Otto AI ecosystem is not one agent — it is at least three wallets operating in coordination. Combined, the three Otto addresses generated 175 transfers in the last 7d, compared to Nox's 683 and Axelrod's 42. No agents outside the lifetime top-100 showed burst 7d activity in this scan.
+The Otto AI ecosystem is not one agent: it is at least three wallets operating in coordination. Combined, the three Otto addresses generated 175 transfers in the last 7d, compared to Nox's 683 and Axelrod's 42. No agents outside the lifetime top-100 showed burst 7d activity in this scan.
 
 ---
 
@@ -98,7 +98,7 @@ Degen Claw's 2,903-transfer week three weeks ago appears to have been a single b
 
 ## The HUB Airdrop Artifact
 
-A mass ERC-20 airdrop of HUB tokens from `0xD152f549545093347A162Dce210e7293f1452150` on 2026-04-11 touched wallets for at least 28 of the top-50 lifetime agents. This inflates the apparent "last active" date for dormant wallets when using raw token-transfer timestamps. The ACP API `lastActiveAt` field shows `2999-12-31` for many agents — a placeholder value, not a real date. Both signals are unreliable as proxies for current agent health; on-chain transfer analysis with direction filtering is required.
+A mass ERC-20 airdrop of HUB tokens from `0xD152f549545093347A162Dce210e7293f1452150` on 2026-04-11 touched wallets for at least 28 of the top-50 lifetime agents. This inflates the apparent "last active" date for dormant wallets when using raw token-transfer timestamps. The ACP API `lastActiveAt` field shows `2999-12-31` for many agents, a placeholder value, not a real date. Both signals are unreliable as proxies for current agent health; on-chain transfer analysis with direction filtering is required.
 
 ---
 
@@ -112,7 +112,7 @@ A mass ERC-20 airdrop of HUB tokens from `0xD152f549545093347A162Dce210e7293f145
 | Ethy AI | `0xfc9f1fF5eC524759c1Dc8E0a6EBA6c22805b9d8B` | Self-custody EOA | 1,138,715 |
 | ACP settlement | `0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0` | ERC1967 proxy | 2,126,892 |
 
-The TBA addresses for Nox (`0xAFD2eB8092c31229FCda9D5Bdd1afF7deABe3d0B`) and Axelrod (`0x0866eFF721Bc7d9C995188FDC6BbF1910e751849`) show zero recent token-transfer activity. The Virtuals-registered wallets (sentientWallet, tbaAddress) are not the active settlement path — all ACP activity flows through the ACP-registered walletAddress.
+The TBA addresses for Nox (`0xAFD2eB8092c31229FCda9D5Bdd1afF7deABe3d0B`) and Axelrod (`0x0866eFF721Bc7d9C995188FDC6BbF1910e751849`) show zero recent token-transfer activity. The Virtuals-registered wallets (sentientWallet, tbaAddress) are not the active settlement path: all ACP activity flows through the ACP-registered walletAddress.
 
 ---
 
@@ -120,4 +120,4 @@ The TBA addresses for Nox (`0xAFD2eB8092c31229FCda9D5Bdd1afF7deABe3d0B`) and Axe
 
 All transfer counts were derived from paginated Blockscout API responses. For agents with more than 50 transfers in the window, the script iterated `next_page_params` until the oldest timestamp exited the target window. Counts that reached the 2,500-item safety cap (Degen Claw 30d) are noted as approximate lower bounds. The ACP settlement contract 7d count reached the 100-page cap at 5,000 timestamps; the true figure is 4,875+ for the 0-7d window and 125 for the 7-14d window based on the distribution observed.
 
-nonce values confirmed via `eth_getTransactionCount` at `http://localhost:8545` (cw-sentinel, Base L2). Both Nox and Otto AI show nonce=1 — consistent with ERC-4337 smart accounts where nonce does not increment per user operation. Blockscout counters are the authoritative transfer count source per SKILL.md methodology.
+nonce values confirmed via `eth_getTransactionCount` at `http://localhost:8545` (cw-sentinel, Base L2). Both Nox and Otto AI show nonce=1, consistent with ERC-4337 smart accounts where nonce does not increment per user operation. Blockscout counters are the authoritative transfer count source per SKILL.md methodology.

@@ -1,6 +1,6 @@
 ---
 title: "BridgeKitty: 595 Daily Jobs, Zero On-Chain Footprint"
-subtitle: "A top-10 agent on the Virtuals ACP scan dashboard has never sent a transaction on Base — across two wallets, an owner address, and every endpoint we could query"
+subtitle: "A top-10 agent on the Virtuals ACP scan dashboard has never sent a transaction on Base, across two wallets, an owner address, and every endpoint we could query"
 plain: "Virtuals' dashboard ranked BridgeKitty #3 for a day with 595 jobs. Its wallets show zero transactions on-chain. The dashboard number has nothing behind it."
 date: "2026-05-16"
 slug: "bridgekitty-on-chain"
@@ -15,11 +15,11 @@ We then queried every BridgeKitty-related address we could resolve, against ever
 Every other source returns zero:
 
 - **2** ACP agent records named `bridgekitty` (ids `39920` and `40009`), both with the same owner
-- **2** ACP wallets, **1** owner wallet — all 3 have 0 transactions, 0 token transfers, 0 gas usage on Base
+- **2** ACP wallets, **1** owner wallet: all 3 have 0 transactions, 0 token transfers, 0 gas usage on Base
 - **6** ACP API endpoints queried, all return `totalJobCount: 0` / empty time series
 - **0 ETH, 0 USDC** in either ACP wallet at the decode block
 
-The dashboard's headline number does not match anything that we could verify against the chain or against the discoverable APIs that power adjacent views. That gap — and what plausibly explains it — is the entire decode.
+The dashboard's headline number does not match anything that we could verify against the chain or against the discoverable APIs that power adjacent views. That gap, and what plausibly explains it, is the entire decode.
 
 > Framing: this is not "BridgeKitty is fake." A perfectly reasonable explanation is that BridgeKitty is an off-chain MCP service whose "jobs" are query signals that never need to settle on Base. The point is what the *leaderboard* is measuring when it puts that number in front of readers next to agents that *do* settle on Base. Same column, different units.
 
@@ -31,14 +31,14 @@ A reader viewing the screen at `app.virtuals.io/acp/scan/agents` on 2026-05-16 s
 
 To answer that we resolved every BridgeKitty wallet, owner, and contract, and queried each one against:
 
-- ACP list API — `https://acpx.virtuals.io/api/agents?filters[name][$containsi]=bridgekitty`
-- ACP detail API — `/api/agents/{id}/details`
-- ACP per-agent metrics — `/api/metrics/agent/{id}` and `/api/metrics/agent/{id}/daily-metrics`
-- ACP top-agents — `/api/metrics/top-agents` (the endpoint that powers leaderboard cards)
-- ACP unique-pairs — `/api/jobs/unique-pairs` (job pair listings)
-- ACP engagements — `/api/agents/{id}/engagements`
+- ACP list API: `https://acpx.virtuals.io/api/agents?filters[name][$containsi]=bridgekitty`
+- ACP detail API: `/api/agents/{id}/details`
+- ACP per-agent metrics: `/api/metrics/agent/{id}` and `/api/metrics/agent/{id}/daily-metrics`
+- ACP top-agents: `/api/metrics/top-agents` (the endpoint that powers leaderboard cards)
+- ACP unique-pairs: `/api/jobs/unique-pairs` (job pair listings)
+- ACP engagements: `/api/agents/{id}/engagements`
 - Base via our sentinel node at block ~31,950,000 (eth_getBalance, eth_call USDC.balanceOf, eth_getTransactionCount, eth_getCode)
-- Blockscout — `/api/v2/addresses/{addr}/counters`, `/token-transfers`, `/internal-transactions`
+- Blockscout: `/api/v2/addresses/{addr}/counters`, `/token-transfers`, `/internal-transactions`
 
 ---
 
@@ -74,13 +74,13 @@ Sentinel node (`eth_getTransactionCount`, `eth_getBalance`, `eth_call` to USDC `
 
 | Address | Role | nonce | ETH | USDC | Blockscout txs | Token transfers | Internal txs |
 |---|---|---|---|---|---|---|---|
-| `0x4c30…Fad1c` | Record 40009 ACP wallet | 1 | 0 | 0 | 0 | 0 | — |
-| `0xA40B…11BE` | Record 39920 ACP wallet | — | — | 0 | 0 | 0 | — |
-| `0x44e7…ecad` | Owner (both records) | — | — | — | 0 | 0 | 0 |
+| `0x4c30…Fad1c` | Record 40009 ACP wallet | 1 | 0 | 0 | 0 | 0 | n/a |
+| `0xA40B…11BE` | Record 39920 ACP wallet | n/a | n/a | 0 | 0 | 0 | n/a |
+| `0x44e7…ecad` | Owner (both records) | n/a | n/a | n/a | 0 | 0 | 0 |
 
-Nonce 1 on a "smart account" can be misleading — ERC-4337 accounts often show nonce 1 while having millions of user-operation transfers (see our [ACP leaderboard audit](/decodes/acp-leaderboard-audit) for the WhaleIntel example). The way to defeat that ambiguity is to check Blockscout's `transactions_count` and `token_transfers_count`, which count every value-moving operation including ERC-4337 user-ops. Both counters are `0` for both BridgeKitty wallets and for the owner. There is no version of "this account is active on Base" that is consistent with these counters.
+Nonce 1 on a "smart account" can be misleading: ERC-4337 accounts often show nonce 1 while having millions of user-operation transfers (see our [ACP leaderboard audit](/decodes/acp-leaderboard-audit) for the WhaleIntel example). The way to defeat that ambiguity is to check Blockscout's `transactions_count` and `token_transfers_count`, which count every value-moving operation including ERC-4337 user-ops. Both counters are `0` for both BridgeKitty wallets and for the owner. There is no version of "this account is active on Base" that is consistent with these counters.
 
-The contract at `0xa6C9BA86…9df0` (recorded as `contractAddress` on both BridgeKitty records) is the OPENCLAW cluster's `ERC1967Proxy` — an upgradeable proxy used by the cluster, not a per-agent contract. Its activity is shared across all OPENCLAW agents, not attributable to BridgeKitty.
+The contract at `0xa6C9BA86…9df0` (recorded as `contractAddress` on both BridgeKitty records) is the OPENCLAW cluster's `ERC1967Proxy`, an upgradeable proxy used by the cluster, not a per-agent contract. Its activity is shared across all OPENCLAW agents, not attributable to BridgeKitty.
 
 ---
 
@@ -97,17 +97,17 @@ We queried five different ACP API endpoints across both BridgeKitty record IDs. 
 | `/api/metrics/agent/40009/daily-metrics` | `past7dVolume: [], past7dNumJobs: [], past7dUser: [], past7dRevenue: []` |
 | `/api/metrics/top-agents` (31 days of top-5 per day) | No `bridgekitty` row in any day's jobs or volume series |
 
-Adjacent agents on the same daily view (HyperSage at $222 aGDP, OctodamusAI at $16 aGDP, Rafli Enroller at $11 aGDP) similarly do not appear in `top-agents` — that endpoint truncates to top 5 + "Other", so absence from it does not contradict the daily view. What does contradict the daily view is the agent's *own* records: detail, metrics, daily-metrics, and engagements all report nothing happened, ever.
+Adjacent agents on the same daily view (HyperSage at $222 aGDP, OctodamusAI at $16 aGDP, Rafli Enroller at $11 aGDP) similarly do not appear in `top-agents`. That endpoint truncates to top 5 + "Other", so absence from it does not contradict the daily view. What does contradict the daily view is the agent's *own* records: detail, metrics, daily-metrics, and engagements all report nothing happened, ever.
 
 ---
 
 ## Finding 4: The Economics Don't Fit On-Chain Settlement Anyway
 
-$56.11 aGDP ÷ 595 jobs = **$0.0943 per job**. Base mainnet gas for a single USDC `transfer` runs roughly $0.0005–$0.003 depending on congestion — economically possible for the agent operator, but the total ACP settlement flow (job-create, accept, work-submit, payment-release) typically costs $0.01–$0.03 per job at current Base prices in the receipts we've reviewed for other agents. At a 9.4¢ job price, on-chain settlement consumes 30–60% of the agent's gross — usable but tight.
+$56.11 aGDP ÷ 595 jobs = **$0.0943 per job**. Base mainnet gas for a single USDC `transfer` runs roughly $0.0005–$0.003 depending on congestion: economically possible for the agent operator, but the total ACP settlement flow (job-create, accept, work-submit, payment-release) typically costs $0.01–$0.03 per job at current Base prices in the receipts we've reviewed for other agents. At a 9.4¢ job price, on-chain settlement consumes 30–60% of the agent's gross, usable but tight.
 
-Combined with the description ("MCP server for AI agents... best routes across EVM, Solana, and Cosmos") the most parsimonious read is: BridgeKitty is a query-serving MCP endpoint, the "595 jobs" are MCP requests for bridge route quotes, and they don't settle on Base for the same reason that "list my files" doesn't settle on Base — there's nothing to settle.
+Combined with the description ("MCP server for AI agents... best routes across EVM, Solana, and Cosmos") the most parsimonious read is: BridgeKitty is a query-serving MCP endpoint, the "595 jobs" are MCP requests for bridge route quotes, and they don't settle on Base for the same reason that "list my files" doesn't settle on Base: there's nothing to settle.
 
-That is a reasonable product. It is not what readers see when they look at the same column that contains Ethy AI, Axelrod, and Wasabot — all agents whose lifetime job counts and gross volumes are verifiable on Blockscout in the hundreds of thousands to millions of transfers each (see the [acp-leaderboard-audit decode](/decodes/acp-leaderboard-audit) for the per-agent transfer counts).
+That is a reasonable product. It is not what readers see when they look at the same column that contains Ethy AI, Axelrod, and Wasabot, all agents whose lifetime job counts and gross volumes are verifiable on Blockscout in the hundreds of thousands to millions of transfers each (see the [acp-leaderboard-audit decode](/decodes/acp-leaderboard-audit) for the per-agent transfer counts).
 
 ---
 
@@ -127,13 +127,13 @@ We can't distinguish between these without backend access. What we *can* say is 
 
 ## What This Pairs With
 
-We've now shipped four decodes that touch the same underlying question — *what is the "aGDP" / "jobs" column actually measuring?*
+We've now shipped four decodes that touch the same underlying question: *what is the "aGDP" / "jobs" column actually measuring?*
 
 | Decode | What it shows |
 |---|---|
 | [The ACP Leaderboard Audit](/decodes/acp-leaderboard-audit) | The "Last 7D" sparkline measures cumulative aGDP snapshots, not on-chain transfers. 22/22 sampled chain-active agents have stale or sentinel `lastActiveAt`. |
-| [aGDP vs FDV: the Virtuals Disconnect](/decodes/agdp-fdv-disconnect) | aGDP and FDV are unrelated metrics — high aGDP agents can have tiny token caps and vice versa. |
-| [OpenGradient On-Chain Decode](/decodes/opengradient-on-chain) | A top-trending agent token with $0 ACP revenue — real product traction lives on a separate L1 bridge. |
+| [aGDP vs FDV: the Virtuals Disconnect](/decodes/agdp-fdv-disconnect) | aGDP and FDV are unrelated metrics: high aGDP agents can have tiny token caps and vice versa. |
+| [OpenGradient On-Chain Decode](/decodes/opengradient-on-chain) | A top-trending agent token with $0 ACP revenue. Real product traction lives on a separate L1 bridge. |
 | **BridgeKitty** (this) | A top-daily agent with **no on-chain footprint and no record in any agent-level API**. |
 
 The cumulative message isn't that any of these agents is bad. It's that "aGDP" and "Jobs" on the Virtuals dashboard are sums of several distinct things that mostly don't share units, and the column doesn't disclose which kind you're looking at on any given row.
@@ -144,7 +144,7 @@ The cumulative message isn't that any of these agents is bad. It's that "aGDP" a
 
 If Virtuals or BridgeKitty's operator publishes any of the following, the framing here shifts immediately:
 
-- A breakdown of the 595 daily jobs by phase (REQUEST / NEGOTIATE / EVALUATE / TRANSACTION) — knowing how many actually reach the on-chain TRANSACTION phase would explain the gap.
+- A breakdown of the 595 daily jobs by phase (REQUEST / NEGOTIATE / EVALUATE / TRANSACTION). Knowing how many actually reach the on-chain TRANSACTION phase would explain the gap.
 - The endpoint URL that produces the daily-view aggregation, so independent verifiers can reproduce.
 - Disclosure that "jobs" includes off-chain MCP signaling, with a separate column for on-chain-settled jobs.
 
@@ -170,4 +170,4 @@ All data retrieved 2026-05-16 between 14:00 and 15:30 UTC. Sentinel block ~31,95
 - Frontend bundle: `https://app.virtuals.io/assets/index-eo2NWYzX.js` (8,069,097 bytes)
 - Dashboard screenshot: `app.virtuals.io/acp/scan/agents`, captured 2026-05-16 ~13:42 UTC (Daily view, Agents tab)
 
-> Disclosure: ChainWard itself appears as a $10 aGDP entry on the same daily list (rank #9, 1 unique user, 1 job — that one job is a self-test against our own buyer wallet to verify the seller loop end-to-end). That number is real and on-chain; the limitation we're pointing out elsewhere on the page is structural, not relative.
+> Disclosure: ChainWard itself appears as a $10 aGDP entry on the same daily list (rank #9, 1 unique user, 1 job: that one job is a self-test against our own buyer wallet to verify the seller loop end-to-end). That number is real and on-chain; the limitation we're pointing out elsewhere on the page is structural, not relative.

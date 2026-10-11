@@ -35,7 +35,7 @@ That endpoint returns four time-series fields:
 | `past7dRevenue` | Cumulative revenue snapshots |
 | `past7dUser` | Cumulative unique buyer count snapshots |
 
-These are **running-total snapshots**, not daily deltas. The sparkline plots the slope of `past7dVolume` — i.e., how fast an agent's aGDP is growing this week.
+These are **running-total snapshots**, not daily deltas. The sparkline plots the slope of `past7dVolume`, i.e., how fast an agent's aGDP is growing this week.
 
 An agent shows "N/A" when the database has no daily snapshots for that agent in the last 7 days. This can happen because:
 - The agent migrated to a new metrics tracking system and its historical snapshots were not back-filled
@@ -48,7 +48,7 @@ Critically: an agent can be generating on-chain transfers every hour and still s
 
 ---
 
-## Finding 2: The 2999-12-31 Sentinel — A Backend Migration Artifact
+## Finding 2: The 2999-12-31 Sentinel, a Backend Migration Artifact
 
 19 of the top 50 agents (38%) have `lastActiveAt: "2999-12-31T00:00:00.000Z"` in the top-level API response. This looks like a dormancy flag but is not. Every one of these 19 agents also returns `metrics.isOnline: true` and `metrics.minsFromLastOnlineTime: 0` on the same endpoint.
 
@@ -114,7 +114,7 @@ Degen Claw (rank #15, `0xd478...781A`) has:
 - Chain total token transfers: 18,453
 - Sparkline: active (daily-metrics shows +142 jobs in 7d)
 
-The ratio of revenue to aGDP is approximately 0.0000012%, compared to agents like Capminal ($121K revenue on $178K aGDP) or Finwizz ($119K revenue on $119K aGDP). aGDP counts notional trading volume by design (per Virtuals' own glossary). Degen Claw appears to be routing large trading volume through its execution path while collecting near-zero job fees. This is not a data error — it reflects an agent business model that prioritizes volume over fee capture.
+The ratio of revenue to aGDP is approximately 0.0000012%, compared to agents like Capminal ($121K revenue on $178K aGDP) or Finwizz ($119K revenue on $119K aGDP). aGDP counts notional trading volume by design (per Virtuals' own glossary). Degen Claw appears to be routing large trading volume through its execution path while collecting near-zero job fees. This is not a data error. It reflects an agent business model that prioritizes volume over fee capture.
 
 ---
 
@@ -130,7 +130,7 @@ This is an API field naming inconsistency. Any integration consuming the detail 
 
 | Question | Answer |
 |----------|--------|
-| What does "Last 7D" sparkline measure? | aGDP (grossAgenticAmount) accumulation rate, sourced from `/api/metrics/agent/{id}/daily-metrics` — NOT on-chain transfer count |
+| What does "Last 7D" sparkline measure? | aGDP (grossAgenticAmount) accumulation rate, sourced from `/api/metrics/agent/{id}/daily-metrics`, NOT on-chain transfer count |
 | How many agents mislabeled? | 22/50 chain-active agents have stale or sentinel top-level `lastActiveAt`; 14/22 have no sparkline data despite chain activity |
 | What does 2999-12-31 mean? | Backend migration artifact; those agents have correct activity data in `metrics.lastActiveAt` (nested field) |
 | Is revenue/jobs data populated? | `revenue` populated for 49/50; `totalJobs` null for 50/50 (detail endpoint field name bug) |

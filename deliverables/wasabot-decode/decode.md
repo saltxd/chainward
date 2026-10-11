@@ -1,6 +1,6 @@
 ---
 title: "Wasabot On-Chain Decode"
-subtitle: "$81.6M aGDP, $5.9K revenue — how the ACP dashboard structurally undercounts DeFi agent economics"
+subtitle: "$81.6M aGDP, $5.9K revenue: how the ACP dashboard structurally undercounts DeFi agent economics"
 plain: "Wasabot ranks #3 on Virtuals' leaderboard with $81.6M of \"agentic GDP\", but its reported revenue is $5,924. The big number is trading volume, not money earned."
 date: "2026-04-13"
 slug: "wasabot"
@@ -10,7 +10,7 @@ slug: "wasabot"
 
 Wasabot is the ACP-integrated trading agent for Wasabi Protocol, a leveraged perpetual exchange on Base. Users go long or short on majors, memes, and AI agent tokens at up to 10x leverage through the Virtuals Butler.
 
-On the Virtuals ACP leaderboard, Wasabot ranks #3 by aGDP at **$81.63M**. Its reported revenue is **$5,924**. That is a 13,779x gap — the largest of any top-10 agent.
+On the Virtuals ACP leaderboard, Wasabot ranks #3 by aGDP at **$81.63M**. Its reported revenue is **$5,924**. That is a 13,779x gap, the largest of any top-10 agent.
 
 This decode traces the on-chain mechanics behind those numbers.
 
@@ -18,7 +18,7 @@ This decode traces the on-chain mechanics behind those numbers.
 
 ## The Wallet
 
-Wasabot's ACP wallet (`0x5Dfc180212204Fff869d41FAA9f1b430D2036f5D`) is an ERC-4337 smart account with a nonce of 1, zero ETH, and ~$53.60 USDC. All gas is abstracted through a paymaster (`0x2cc0c7...`). The wallet has processed 7,471 token transfers — all ACP coordination micropayments.
+Wasabot's ACP wallet (`0x5Dfc180212204Fff869d41FAA9f1b430D2036f5D`) is an ERC-4337 smart account with a nonce of 1, zero ETH, and ~$53.60 USDC. All gas is abstracted through a paymaster (`0x2cc0c7...`). The wallet has processed 7,471 token transfers, all ACP coordination micropayments.
 
 ---
 
@@ -41,18 +41,18 @@ User 0xe12fa9... → Perp Contract → Three outputs:
                     $0.4985 → main payout
 ```
 
-Opens pass through cleanly. Closes extract a small fee (0.06%–0.10% across the 7 trades we verified) that goes directly to `0xE968...` — the Virtuals platform fee collector. Note: the $0.50 close had additional outputs beyond the fee and main payout — a small amount ($0.0012) routed to a third address we did not fully decompose. This pattern may vary by trade type.
+Opens pass through cleanly. Closes extract a small fee (0.06%–0.10% across the 7 trades we verified) that goes directly to `0xE968...`, the Virtuals platform fee collector. Note: the $0.50 close had additional outputs beyond the fee and main payout: a small amount ($0.0012) routed to a third address we did not fully decompose. This pattern may vary by trade type.
 
 ---
 
 ## The 80/20 Split Nobody Talks About
 
-Every ACP coordination fee on Virtuals — not just Wasabot's — is split at the PaymentManager contract (`0xEF4364...`):
+Every ACP coordination fee on Virtuals, not just Wasabot's, is split at the PaymentManager contract (`0xEF4364...`):
 
 - **20%** goes to `0xE968...` (Virtuals platform)
 - **80%** goes to the agent's wallet
 
-We sentinel-verified this across 5 transactions spanning 2 different agents. The ratio was exactly 4:1 in every case. The 80% recipients were distinct ERC-4337 smart accounts — neither was Wasabot — proving `0xE968...` is a platform-wide fee collector, not Wasabi-specific.
+We sentinel-verified this across 5 transactions spanning 2 different agents. The ratio was exactly 4:1 in every case. The 80% recipients were distinct ERC-4337 smart accounts (neither was Wasabot), proving `0xE968...` is a platform-wide fee collector, not Wasabi-specific.
 
 ---
 
@@ -74,7 +74,7 @@ This is micropayment revenue for coordination work. It has no relationship to th
 
 > **aGDP (Agentic Gross Domestic Product):** Per the Virtuals glossary, aGDP measures the total value of economic activity facilitated by an agent.
 
-For Wasabot, aGDP accumulates from PayableMemoExecuted events emitted by the PaymentManager. We sentinel-verified that these events fire on **both opens and closes** — meaning every round-trip trade stamps aGDP approximately twice.
+For Wasabot, aGDP accumulates from PayableMemoExecuted events emitted by the PaymentManager. We sentinel-verified that these events fire on **both opens and closes**, meaning every round-trip trade stamps aGDP approximately twice.
 
 A user opening a $60 position generates $60 in aGDP. Closing that position generates additional aGDP for whatever flows through on close. The metric structurally counts volume through the agent, not net economic activity.
 
