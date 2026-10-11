@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Hono } from 'hono';
 
 // The free lookup says whether a wallet is in a dataset and at what tier. The row's
-// fields are what the paid $0.25 check sells, so the free answer leaves them out.
+// fields are what the paid $0.05 check sells, so the free answer leaves them out.
 const redis = vi.hoisted(() => ({
   pipeline: vi.fn(() => {
     const p = {

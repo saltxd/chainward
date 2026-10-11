@@ -28,6 +28,8 @@ export const X402_CHECK_ROUTES = ['GET /api/risk/x402', 'GET /api/risk/x402/:add
 export const SELLER_DEMAND_ROUTE = 'GET /api/risk/seller-demand' as const;
 // Set and Earn hire check: who hired an ERC-8004 agent on BNB Chain, and how each hirer links to its owner.
 export const HIRES_ROUTE = 'GET /api/risk/hires' as const;
+// OFAC sanctions screen (lib/sanctionsCheck.ts): the cheapest call, made before every payment.
+export const SANCTIONS_ROUTE = 'GET /api/risk/sanctions' as const;
 const BASE_MAINNET = 'eip155:8453';
 // PayAI settles Base-mainnet `exact` payments without an API key (free tier).
 const DEFAULT_FACILITATOR = 'https://facilitator.payai.network';
@@ -88,10 +90,17 @@ export function x402FilePrice(): string {
 }
 
 // Paid single-wallet check against a dataset (GET /api/paid/<slug>/check?address=).
-// Priced under $1 on purpose: stock x402 clients refuse larger payments unless
-// configured, so the $10 files never sell to sweep buyers; this can.
+// Per-call routes stay at or under $0.10: the catalog sweep bot that paid 929
+// sellers on 2026-10-08 never paid more than that for one call, and stock x402
+// clients refuse anything over $1 unless configured. The $10 files are the exception.
 export function x402LookupPrice(): string {
-  return process.env.X402_LOOKUP_PRICE ?? '$0.25';
+  return process.env.X402_LOOKUP_PRICE ?? '$0.05';
+}
+
+// OFAC sanctions screen (GET /api/risk/sanctions?address=). A lookup in a bundled
+// list, so a cent covers it with room to spare.
+export function x402SanctionsPrice(): string {
+  return process.env.X402_SANCTIONS_PRICE ?? '$0.01';
 }
 
 // The #2 seller from chainward.ai/decodes/x402-on-base, as the check reported it.
@@ -190,6 +199,7 @@ export function x402DiscoveryDocument() {
       'https://api.chainward.ai/api/risk/x402',
       'https://api.chainward.ai/api/risk/seller-demand',
       'https://api.chainward.ai/api/risk/hires',
+      'https://api.chainward.ai/api/risk/sanctions',
       // Concrete dataset URLs so crawlers can probe each route; GET /api/paid lists them all.
       ...PUBLISHED_DATASETS.flatMap((d) => [
         `https://api.chainward.ai/api/paid/${d.slug}/file`,
@@ -210,7 +220,7 @@ export function apiHomePage(): string {
   const description =
     `Before your agent pays a Base or BNB Chain address: a verdict (pay / hold / unknown, shown as Pay, Hold, Inactive, No track record or Couldn't check) with the one reason (${x402CheckPrice()}). ` +
     `For a seller: real or self-funded demand (${x402SellerPrice()}). For a BNB Chain agent: hired by others or by its own circle (${x402HiresPrice()}). ` +
-    `Evidence and limits under every verdict. Paid in USDC on Base over x402; a check that fails is never charged.`;
+    `Before every payment: an OFAC sanctions screen (${x402SanctionsPrice()}). Evidence and limits under every verdict. Paid in USDC on Base over x402; a check that fails is never charged.`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -233,6 +243,7 @@ export function apiHomePage(): string {
 <li><code>GET /api/risk/x402?address=0x…</code> (add <code>&amp;chain=bsc</code> for BNB Chain): a risk report no older than 24h, every flag tied to its transactions.</li>
 <li><code>GET /api/risk/seller-demand?address=0x…</code> (add <code>&amp;chain=bsc</code>): how much of a seller's revenue traces back to the seller itself.</li>
 <li><code>GET /api/risk/hires?agent=&lt;ERC-8004 id or owner 0x…&gt;&amp;chain=bsc</code> (${x402HiresPrice()}): who hired a BNB Chain agent in the last ${HIRE_WINDOW_DAYS} days, and whether each hirer is the owner, funded by it, or shares a funder with it (Set and Earn).</li>
+<li><code>GET /api/risk/sanctions?address=0x…</code> (${x402SanctionsPrice()}): is the address on the US Treasury OFAC SDN list. Hold if it is; Not listed otherwise. Call it before every payment.</li>
 <li><code>GET /api/paid/{slug}/check?address=</code>: is one wallet in a dataset, and at what tier (${x402LookupPrice()}).</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
@@ -262,6 +273,28 @@ export const PUBLISHED_DATASETS: ReadonlyArray<{ slug: string; title: string; ex
 ];
 
 // What the paid dataset check answers, as the TermiX example wallet reads today.
+const SANCTIONS_OUTPUT_EXAMPLE = {
+  success: true,
+  data: {
+    address: '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2',
+    sanctioned: false,
+    verdict: {
+      label: 'not_listed',
+      text: 'Not listed',
+      reason: 'This exact address is not among the 124 EVM addresses OFAC has published.',
+    },
+    list: {
+      name: 'US Treasury OFAC SDN list, digital currency addresses (EVM)',
+      source: 'https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses',
+      fetched_at: '2026-10-11',
+      addresses: 124,
+    },
+    limit:
+      'Not listed is not a clearance: wallets that belong to or deal with a listed party, and addresses added after the snapshot date, are not covered. For behavior (activity, counterparties, flags) use the counterparty check.',
+    full_check: 'https://api.chainward.ai/api/risk/x402?address=0x4baadba26c3c0bdef9e8faf173925d463aa53bb2',
+  },
+};
+
 const DATASET_CHECK_OUTPUT_EXAMPLE = {
   success: true,
   data: {
@@ -315,7 +348,8 @@ function x402OpenApiBase() {
   const sellerUsd = (x402SellerPrice().match(/[\d.]+/) ?? ['0.10'])[0];
   const hiresUsd = (x402HiresPrice().match(/[\d.]+/) ?? ['0.10'])[0];
   const fileUsd = (x402FilePrice().match(/[\d.]+/) ?? ['10'])[0];
-  const lookupUsd = (x402LookupPrice().match(/[\d.]+/) ?? ['0.25'])[0];
+  const lookupUsd = (x402LookupPrice().match(/[\d.]+/) ?? ['0.05'])[0];
+  const sanctionsUsd = (x402SanctionsPrice().match(/[\d.]+/) ?? ['0.01'])[0];
   return {
     openapi: '3.1.0',
     info: {
@@ -432,12 +466,38 @@ function x402OpenApiBase() {
           },
         },
       },
+      '/api/risk/sanctions': {
+        get: {
+          operationId: 'sanctionsScreen',
+          summary: 'Is this address on the OFAC SDN list? One cent, before every payment',
+          description:
+            'Screens one address against the US Treasury OFAC SDN list of digital currency addresses (EVM, the same on every chain). sanctioned answers Hold; anything else answers Not listed, which is not a clearance: wallets linked to a listed party and addresses added after the snapshot date are not covered. Answers at once from a bundled list; the snapshot date is in the response.',
+          parameters: [
+            {
+              name: 'address',
+              in: 'query',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', example: '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2' },
+              description: 'EVM address to screen',
+            },
+          ],
+          'x-payment-info': {
+            price: { mode: 'fixed', currency: 'USD', amount: sanctionsUsd },
+            protocols: [{ x402: {} }],
+          },
+          responses: {
+            '200': { description: 'Sanctions screen', content: { 'application/json': { example: SANCTIONS_OUTPUT_EXAMPLE } } },
+            '400': { description: 'Malformed address; not charged' },
+            '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+          },
+        },
+      },
       '/api/paid/{slug}/check': {
         get: {
           operationId: 'datasetCheck',
           summary: 'Is one wallet in a published dataset, and at what tier, paid per call over x402',
           description:
-            "Listed or Not listed for one address against the dataset named by the slug, with the tier and the row's own fields as the reason and the dataset's window as the limit. The same rows the web lookup shows, without its rate limit. Not charged if the address is malformed or the dataset does not exist.",
+            "Listed or Not listed for one address against the dataset named by the slug, with the tier and the row's own fields as the reason and the dataset's window as the limit. The free web lookup only says listed and tier; this returns the row's own fields. Not charged if the address is malformed or the dataset does not exist.",
           parameters: [
             {
               name: 'slug',
@@ -867,6 +927,25 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
         }),
       ),
       resource: 'https://api.chainward.ai/api/risk/hires',
+    },
+    [SANCTIONS_ROUTE]: {
+      ...route(
+        {
+          price: x402SanctionsPrice(),
+          serviceName: 'ChainWard sanctions screen',
+          description:
+            'Is this address on the US Treasury OFAC SDN list? Hold if it is, Not listed otherwise, with the snapshot date. EVM addresses, any chain. One cent, meant to run before every payment an agent makes. Not listed is not a clearance.',
+          tags: ['ofac', 'sanctions', 'compliance', 'screening', 'address', 'wallet', 'counterparty', 'base', 'bsc', 'ethereum', 'agents', 'kyt'],
+          whatYouGet:
+            'sanctioned true/false, a verdict (sanctioned shown as Hold, or not_listed) with its reason, the list and its snapshot date, and the limit. Not charged if the address is malformed.',
+        },
+        declareDiscoveryExtension({
+          input: { address: example },
+          inputSchema: addressSchema,
+          output: { example: SANCTIONS_OUTPUT_EXAMPLE },
+        }),
+      ),
+      resource: 'https://api.chainward.ai/api/risk/sanctions',
     },
   };
 }

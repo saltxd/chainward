@@ -43,7 +43,8 @@ import { WalletLookupService } from '../services/walletLookupService.js';
 import { extractProvenance, type ReportProvenance } from '../lib/reportProvenance.js';
 import { buildCoverage, sourcesUnavailable, type ReportCoverage } from '../lib/reportCoverage.js';
 import { reportVerdict } from '../lib/reportVerdict.js';
-import { parseCounterpartyInput, parseHireInput, parseSellerInput } from '../lib/paidInput.js';
+import { parseCounterpartyInput, parseHireInput, parseSanctionsAddress, parseSellerInput } from '../lib/paidInput.js';
+import { sanctionsAnswer } from '../lib/sanctionsCheck.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1014,6 +1015,9 @@ risk.get('/hires', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:risk-hires' }
 const paidRateLimit = rateLimit({ max: 60, windowSec: 60, prefix: 'rl:risk-x402' });
 risk.get('/x402', paidRateLimit, (c) => paidCheck(c, c.req.query('address')));
 risk.get('/x402/:address', paidRateLimit, (c) => paidCheck(c, c.req.param('address')));
+// OFAC sanctions screen, $0.01 over x402 (app.ts mounts the payment middleware).
+// A bare request ends here in a 400, which the middleware never settles.
+risk.get('/sanctions', paidRateLimit, (c) => c.json({ success: true, data: sanctionsAnswer(parseSanctionsAddress(c.req.query('address'))) }));
 
 // GET /api/risk/library?sort=recent&limit=&offset= — the public, SEO-indexed library.
 risk.get(

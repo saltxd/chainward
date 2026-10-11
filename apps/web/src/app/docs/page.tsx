@@ -52,7 +52,7 @@ curl https://api.chainward.ai/api/paid
 # free (30 a minute): is one wallet in a dataset, and in which tier?
 curl https://api.chainward.ai/api/paid/termix-wallets/lookup/0xb709860b8a1ce20019f3786d6982f773912bd286
 
-# the row itself, verdict first, for agents: 0.25 USDC over x402 (answers 402 until paid)
+# the row itself, verdict first, for agents: 0.05 USDC over x402 (answers 402 until paid)
 curl 'https://api.chainward.ai/api/paid/termix-wallets/check?address=0xb709860b8a1ce20019f3786d6982f773912bd286'`;
 
 const mcpConfig = `{
@@ -78,7 +78,11 @@ export default function DocsPage() {
         Base URL: <code>https://api.chainward.ai</code>. The free endpoints also work
         under <code>https://chainward.ai/api/…</code>; send paid requests to{' '}
         <code>https://api.chainward.ai</code> directly. The machine-readable spec is at{' '}
-        <a href="/openapi.json">/openapi.json</a>.
+        <a href="/openapi.json">/openapi.json</a>. The counterparty check is{' '}
+        <a href="https://payapi.market/api/chainward-pay-hold-or-unknown-for-any-address">
+          verified on PayAPI Market
+        </a>
+        , with a settled payment behind the listing.
       </p>
 
       <h2>Reading a verdict</h2>
@@ -232,6 +236,18 @@ export default function DocsPage() {
           <tbody>
             <tr>
               <td>
+                <code>GET /api/risk/sanctions?address=</code>
+              </td>
+              <td>0.01 USDC</td>
+              <td>
+                <strong>Is the address on the US Treasury OFAC sanctions list?</strong>{' '}
+                Hold if it is, Not listed otherwise, with the list&apos;s snapshot date.
+                Any EVM chain. Cheap enough to run before every payment. Not listed is not
+                a clearance; the counterparty check below reads behavior too.
+              </td>
+            </tr>
+            <tr>
+              <td>
                 <code>GET /api/risk/x402?address=</code>
               </td>
               <td>0.05 USDC</td>
@@ -277,7 +293,7 @@ export default function DocsPage() {
               <td>
                 <code>GET /api/paid/:slug/check?address=</code>
               </td>
-              <td>0.25 USDC</td>
+              <td>0.05 USDC</td>
               <td>
                 Is one wallet in a dataset: <code>listed</code> or{' '}
                 <code>not_listed</code>, with the tier, the reason and the limit.
@@ -301,8 +317,8 @@ export default function DocsPage() {
       <CodeBlock>{probeCurl}</CodeBlock>
       <p>
         The <code>PAYMENT-REQUIRED</code> header is base64-encoded JSON. Its{' '}
-        <code>amount</code> is in USDC&apos;s smallest unit (6 decimals): 50000 is 0.05
-        USDC, 100000 is 0.10, 250000 is 0.25 and 10000000 is 10. The JSON body says the
+        <code>amount</code> is in USDC&apos;s smallest unit (6 decimals): 10000 is 0.01
+        USDC, 50000 is 0.05, 100000 is 0.10 and 10000000 is 10. The JSON body says the
         price in plain words. Discovery files for x402 clients:{' '}
         <a href="/.well-known/x402">/.well-known/x402</a> and{' '}
         <a href="/openapi.json">/openapi.json</a>.

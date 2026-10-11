@@ -43,6 +43,11 @@ export function parseCounterpartyInput(
   return { address, chain: chain as RiskChainId };
 }
 
+/** GET /api/risk/sanctions: the address to screen (EVM addresses are chain-agnostic). */
+export function parseSanctionsAddress(rawAddress: string | undefined): string {
+  return parseAddress(rawAddress);
+}
+
 /** GET /api/paid/:slug/check: the wallet to look up in the dataset. */
 export function parseDatasetAddress(rawAddress: string | undefined): string {
   return parseAddress(rawAddress);

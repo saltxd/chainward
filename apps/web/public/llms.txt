@@ -13,16 +13,18 @@
 
 Send paid requests to https://api.chainward.ai directly. The first request answers 402 with the payment requirements; any x402 client pays and retries.
 
+- Sanctions screen, 0.01 USDC: is the address on the US Treasury OFAC SDN list. Hold if it is, Not listed otherwise (not a clearance), with the snapshot date. Any EVM chain; meant to run before every payment. GET https://api.chainward.ai/api/risk/sanctions?address=<address>
 - Counterparty check, 0.05 USDC: the verdict (pay / hold / unknown), its reason and the full report, no older than 24 hours, run fresh if needed. GET https://api.chainward.ai/api/risk/x402?address=<address> (add &chain=bsc for BNB Chain)
 - x402 seller check, 0.10 USDC: where a seller's buyers get their stablecoins (seller-funded buyers, money sent back, common funders), on Base or BNB Chain. On Base it names the payers behind facilitator proxies (Meridian, Fluxa) from x402scan, confirmed on receipts; payers behind exchanges stay opaque. GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo> (add &chain=bsc)
 - Hire check, 0.10 USDC: who hired a BNB Chain ERC-8004 agent in the last 30 days, and whether each hirer is the owner, funded by it or shares a funder with it (BNB Chain's Set and Earn rule). GET https://api.chainward.ai/api/risk/hires?agent=<id or owner address>&chain=bsc
 - Discovery: https://api.chainward.ai/.well-known/x402 and https://api.chainward.ai/openapi.json
+- Verified listing (settled payment): https://payapi.market/api/chainward-pay-hold-or-unknown-for-any-address
 
 ## Datasets
 
 - The full data behind a decode, as CSV, 10 USDC each. What's for sale: GET https://api.chainward.ai/api/paid
 - Free single-wallet lookup in a dataset: GET https://api.chainward.ai/api/paid/termix-wallets/lookup/<address>
-- Dataset check over x402, 0.25 USDC: is one wallet in a dataset, and at what tier. GET https://api.chainward.ai/api/paid/<slug>/check?address=<address>
+- Dataset check over x402, 0.05 USDC: is one wallet in a dataset, and at what tier. GET https://api.chainward.ai/api/paid/<slug>/check?address=<address>
 - Buy from any wallet on the web: https://chainward.ai/paid/termix-wallets, or over x402: GET https://api.chainward.ai/api/paid/termix-wallets/file
 
 ## Boards (free)

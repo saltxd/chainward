@@ -97,7 +97,7 @@ describe('published datasets as catalog rows', () => {
     const keys = Object.keys(routes);
     const r = routes['GET /api/paid/:slug/check'];
     expect(r).toBeDefined();
-    expect(r.accepts.price).toBe('$0.25');
+    expect(r.accepts.price).toBe('$0.05');
     for (const d of PUBLISHED_DATASETS) {
       expect(keys.indexOf(`GET /api/paid/${d.slug}/check`)).toBeLessThan(keys.indexOf('GET /api/paid/:slug/check'));
     }
@@ -105,13 +105,13 @@ describe('published datasets as catalog rows', () => {
 
   // Stock x402 clients refuse any payment over $1 unless configured otherwise, so
   // the $10 files are invisible to sweep buyers; a sub-dollar single-wallet check is not.
-  it('sells a $0.25 single-wallet check on each dataset, with its own concrete catalog row', () => {
+  it('sells a $0.05 single-wallet check on each dataset, with its own concrete catalog row', () => {
     const routes = x402PaidRoutes('0x000000000000000000000000000000000000dEaD') as Record<string, any>;
     for (const d of PUBLISHED_DATASETS) {
       const key = `GET /api/paid/${d.slug}/check`;
       const r = routes[key];
       expect(r, key).toBeDefined();
-      expect(r.accepts.price).toBe('$0.25');
+      expect(r.accepts.price).toBe('$0.05');
       expect(r.resource).toBe(`https://api.chainward.ai/api/paid/${d.slug}/check`);
       expect(r.description).toContain(d.title);
       expect(r.extensions.bazaar.info.input.queryParams).toEqual({ address: d.example });
@@ -119,13 +119,13 @@ describe('published datasets as catalog rows', () => {
       expect(x402DiscoveryDocument().resources).toContain(`https://api.chainward.ai/api/paid/${d.slug}/check`);
       const op = (x402OpenApiDocument().paths as Record<string, any>)[`/api/paid/${d.slug}/check`].get;
       expect(op.parameters.map((q: { name: string }) => q.name)).toEqual(['address']);
-      expect(op['x-payment-info'].price.amount).toBe('0.25');
+      expect(op['x-payment-info'].price.amount).toBe('0.05');
       expect(op.responses['200'].content['application/json'].example.data.verdict).toBe('listed');
     }
   });
 
   it('prices the dataset check from X402_LOOKUP_PRICE', () => {
-    expect(x402LookupPrice()).toBe('$0.25');
+    expect(x402LookupPrice()).toBe('$0.05');
     vi.stubEnv('X402_LOOKUP_PRICE', '$0.10');
     expect(x402LookupPrice()).toBe('$0.10');
   });

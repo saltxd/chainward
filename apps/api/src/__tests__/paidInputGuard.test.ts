@@ -124,6 +124,8 @@ describe('paid routes: input checked before the 402 challenge', () => {
     '/api/paid/NOPE/file',
     '/api/paid/termix-wallets/check?address=0xzz',
     `/api/paid/NOPE/check?address=${ADDR}`,
+    '/api/risk/sanctions?address=0xzz',
+    '/api/risk/sanctions?address=',
   ])('GET %s answers 400 with no payment challenge', async (path) => {
     const res = await app.request(path.replace('<5000 digits>', tooLongAgent));
     expect(res.status).toBe(400);
@@ -137,7 +139,7 @@ describe('paid routes: input checked before the 402 challenge', () => {
   // resource URL to learn the price and the input from the 402. Nobody is charged
   // for it: a paid request with no target still ends in the handler's 400, and
   // the middleware does not settle a response of 400 or above.
-  it.each(['/api/risk/x402', '/api/risk/seller-demand', '/api/risk/hires', '/api/risk/hires?chain=bsc', '/api/paid/termix-wallets/check'])(
+  it.each(['/api/risk/x402', '/api/risk/seller-demand', '/api/risk/hires', '/api/risk/hires?chain=bsc', '/api/paid/termix-wallets/check', '/api/risk/sanctions'])(
     'GET %s (bare resource, no target) answers 402 so catalogs can read the challenge',
     async (path) => {
       const res = await app.request(path);
@@ -176,6 +178,7 @@ describe('paid routes: input checked before the 402 challenge', () => {
     `/api/risk/hires?agent=${ADDR}`,
     '/api/paid/termix-wallets/file',
     `/api/paid/termix-wallets/check?address=${ADDR}`,
+    `/api/risk/sanctions?address=${ADDR}`,
   ])('GET %s (valid, unpaid) still answers 402 with the challenge', async (path) => {
     const res = await app.request(path);
     expect(res.status).toBe(402);
