@@ -6,14 +6,12 @@ import { track } from '@/lib/track';
 import { CHAINS, CHAIN_IDS, chainQuery, parseChainParam, type RiskChainParam } from '@/lib/chains';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-const HANDLE_RE = /^@[A-Za-z0-9_]{1,15}$/;
 
 /**
- * The home-page checker — styled as a forensic case-intake document. Accepts an
- * address on Base or BNB Chain (chain toggle), or an @handle on Base. Addresses
- * route straight to the report page (lowercased, canonical; `?chain=bsc` for
- * BNB Chain). Handle resolution is server-side and not wired yet, so we nudge
- * toward an address. Data logic is unchanged from v1.
+ * The home-page checker, styled as a case-intake document. Accepts an address
+ * on Base or BNB Chain (chain toggle) and routes straight to the report page
+ * (lowercased, canonical; `?chain=bsc` for BNB Chain). Addresses only: handles
+ * are not resolved, so the form never asks for one.
  */
 export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
   const router = useRouter();
@@ -33,18 +31,10 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
       return;
     }
 
-    if (HANDLE_RE.test(trimmed)) {
-      track('check_submit', { kind: 'handle', chain });
-      setError(
-        chain === 'base'
-          ? 'Handle resolution is coming soon — paste the agent wallet address (0x…) for now.'
-          : `Handles resolve through Virtuals ACP on Base only — paste the ${meta.name} wallet address (0x…).`,
-      );
-      return;
-    }
-
-    track('check_submit', { kind: 'invalid', chain });
-    setError(`Paste a ${meta.name} address (0x followed by 40 hex characters)${chain === 'base' ? ' or an @handle' : ''}.`);
+    track('check_submit', { kind: trimmed.startsWith('@') ? 'handle' : 'invalid', chain });
+    setError(
+      `That isn't a ${meta.name} wallet address. Paste the address itself: it starts with 0x, followed by 40 letters and numbers.`,
+    );
   }
 
   return (
@@ -52,14 +42,14 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
       <div className="intake-head">
         <span className="intake-head-org">ChainWard · Forensic Intake</span>
         <span className="intake-head-file">
-          File № <b>— opened on submit</b>
+          File № <b>opened on submit</b>
         </span>
       </div>
 
       <div className="intake-body">
         <div className="intake-row">
           <label className="intake-field-label" htmlFor="intake-subject">
-            Subject — {meta.name} address
+            Subject: {meta.name} address
           </label>
           <div className="intake-chains" role="radiogroup" aria-label="Chain">
             {CHAIN_IDS.map((id) => (
@@ -94,10 +84,14 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
             autoCapitalize="off"
             autoCorrect="off"
             className="intake-input mono"
-            aria-label={`${meta.name} address${chain === 'base' ? ' or agent handle' : ''}`}
+            aria-label={`${meta.name} wallet address`}
+            aria-describedby="intake-subject-hint"
             aria-invalid={error ? true : undefined}
           />
         </div>
+        <p id="intake-subject-hint" className="intake-field-hint">
+          The wallet address you&apos;re about to pay or hire. It starts with 0x.
+        </p>
 
         {error && (
           <p className="intake-error" role="alert">
@@ -203,7 +197,14 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
           min-width: 0;
         }
         .intake-input::placeholder {
-          color: var(--rule-strong);
+          color: var(--ink-faint);
+        }
+        .intake-field-hint {
+          margin: 8px 0 0;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-size: 11px;
+          line-height: 1.5;
+          color: var(--ink-faint);
         }
         .intake-error {
           margin: 14px 0 0;
