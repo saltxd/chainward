@@ -7,6 +7,12 @@ updates:
     groups: { actions: { patterns: ["*"] } }
   - package-ecosystem: npm
     directory: "/"
+    ignore:
+      # TypeScript 7 is not supported by typescript-eslint yet; take that major deliberately
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # pnpm-patched (patches/); Dependabot cannot resolve it ("dependency_file_not_resolvable")
+      - dependency-name: "@virtuals-protocol/acp-node-v2"
     schedule: { interval: weekly, day: monday }
     groups: { node: { patterns: ["*"], update-types: ["minor", "patch"] } }   # majors arrive as their own PRs
     open-pull-requests-limit: 3
