@@ -14,6 +14,8 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
+# a newer push to the same branch cancels an older run, so an older build can never bump after a newer one
+concurrency: { group: "${{ github.workflow }}-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   check:
     name: Lint, Typecheck & Build
@@ -187,7 +189,7 @@ jobs:
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    concurrency: { group: bump-homelab-k3s, cancel-in-progress: false }
+    concurrency: { group: "bump-homelab-k3s-chainward", cancel-in-progress: false }
     steps:
       - uses: actions/checkout@v4
       - id: sha
