@@ -2,9 +2,10 @@
 
 /**
  * Presentation primitives for a risk report, filed on paper. INTEGRITY-critical:
- * these must never imply a safety verdict. There is no green "SAFE" tone for a
- * flag, no grade, no safety percentage, and signal_density is never rendered.
- * (Deep green is reserved for freshness/receipt marks only.)
+ * nothing here says "safe". The answer card carries the server's Pay / Hold /
+ * Unknown decision (Pay may wear the seal green: it means nothing was found
+ * against paying, and the card says so). A flag is never green, there is no
+ * grade or safety percentage, and signal_density is never rendered.
  */
 
 import type {
@@ -14,14 +15,8 @@ import type {
   RiskProvenance,
   RiskSeverity,
 } from '@/lib/api';
-import {
-  BAND_DESCRIPTION,
-  BAND_LABEL,
-  countBySeverity,
-  windowLabel,
-  zeroFlagsCopy,
-} from '@/lib/risk';
-import type { RiskBand, RiskVerdict } from '@/lib/api';
+import { windowLabel, zeroFlagsCopy } from '@/lib/risk';
+import { tidyNumbers, transferHistoryUrl, type PlainAnswer } from '@/lib/plainAnswer';
 import { chainMeta } from '@/lib/chains';
 import { counterpartyCheckUrl, PAID_CHECK_PRICE } from '@/lib/paidChecks';
 import { PayCheckButton } from '@/components/pay/PayCheckButton';
@@ -42,50 +37,53 @@ const SEVERITY_LABEL: Record<RiskSeverity, string> = {
   info: 'info',
 };
 
-/** One line a buyer can act on, above the band: the decision, its reason, its limit. */
-export function VerdictBlock({ verdict }: { verdict?: RiskVerdict | null }) {
-  if (!verdict) return null;
+/**
+ * The first thing on a report: the decision, big and in its color, what it means
+ * in plain words, the one reason, how much was checked, and the limit.
+ */
+export function AnswerCard({
+  answer,
+  onRecheck,
+  recheckLoading,
+}: {
+  answer: PlainAnswer;
+  onRecheck: () => void;
+  recheckLoading: boolean;
+}) {
+  const cameUp = answer.raised === 0 ? 'nothing came up' : `${answer.raised} came up`;
   return (
-    <div className={`rr-verdict rr-verdict--${verdict.label}`}>
-      <div className="rr-verdict-head">
-        <span className="press-label">Verdict</span>
-        <strong className="rr-verdict-text press-display">{verdict.text}</strong>
+    <section className={`rr-answer rr-answer--${answer.label}`} aria-label="The answer">
+      <div className="rr-answer-word press-display">{answer.word}</div>
+      <p className="rr-answer-headline">{answer.headline}</p>
+      <p className="rr-answer-why">
+        <span className="rr-answer-why-tag">Why:</span> {answer.why}
+      </p>
+      <p className="rr-answer-meta">
+        We checked {answer.checked} {answer.checked === 1 ? 'thing' : 'things'} · {cameUp} · details below
+      </p>
+      <p className="rr-answer-limit">{answer.limit}</p>
+      <div className="rr-answer-foot">
+        <span>Checked {answer.checkedAgo}</span>
+        {answer.stale && (
+          <button className="press-btn press-btn--ghost" onClick={onRecheck} disabled={recheckLoading}>
+            {recheckLoading ? 'Re-checking…' : 'Re-check (free) →'}
+          </button>
+        )}
       </div>
-      <p className="rr-verdict-reason">{verdict.reason}</p>
-      <p className="rr-verdict-limits">{verdict.limits}</p>
-    </div>
+    </section>
   );
 }
 
-/** Neutral band header + severity-count breakdown. Flag counts, never a score. */
-export function BandSummary({
-  band,
-  flags,
-}: {
-  band: RiskBand;
-  flags: RiskFlag[];
-}) {
-  const counts = countBySeverity(flags);
-  return (
-    <div className="rr-band">
-      <div className="rr-band-head">
-        <span className="rr-band-tag">Signal band</span>
-        <span className="rr-band-label">{BAND_LABEL[band]}</span>
-      </div>
-      <p className="rr-band-desc">{BAND_DESCRIPTION[band]}</p>
-      <div className="rr-counts">
-        {flags.length === 0 ? (
-          <span className="rr-count-zero">{flags.length} flags raised</span>
-        ) : (
-          counts.map(({ severity, count }) => (
-            <span key={severity} className={`rr-sev rr-sev--${severity}`}>
-              {count} {SEVERITY_LABEL[severity]}
-            </span>
-          ))
-        )}
-      </div>
-    </div>
-  );
+/** Plain wording for flags whose stored title is written for us, not for the reader. */
+function plainFlag(flag: RiskFlag): { title: string; evidence: string } {
+  if (flag.id === 'activity_truncated') {
+    const n = flag.evidence.match(/Fetched (\d+)/)?.[1];
+    return {
+      title: n ? `Busy wallet: we read its newest ${tidyNumbers(n)} transfers` : 'Busy wallet: we read its newest transfers',
+      evidence: 'It has more than that, so the activity counts here are a floor, not its lifetime total. Not a problem in itself.',
+    };
+  }
+  return { title: flag.title, evidence: tidyNumbers(flag.evidence) };
 }
 
 /** The flag list. Zero flags renders the neutral copy — NEVER "safe". */
@@ -113,30 +111,35 @@ export function FlagList({
 
   return (
     <ul className="rr-flags">
-      {flags.map((flag) => (
+      {flags.map((flag) => {
+        const plain = plainFlag(flag);
+        const href = flag.source ? transferHistoryUrl(flag.source) : '';
+        const showsTransfers = href !== flag.source;
+        return (
         <li key={flag.id} className={`rr-flag rr-flag--${flag.severity}`}>
           <div className="rr-flag-head">
             <span className={`rr-sev rr-sev--${flag.severity}`}>
               {SEVERITY_LABEL[flag.severity]}
             </span>
-            <span className="rr-flag-title">{flag.title}</span>
+            <span className="rr-flag-title">{plain.title}</span>
           </div>
-          <p className="rr-flag-evidence">{flag.evidence}</p>
+          <p className="rr-flag-evidence">{plain.evidence}</p>
           {flag.source && (
             <a
               className="rr-flag-source"
-              href={flag.source}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
             >
-              Source: {shortSource(flag.source)} →
+              {showsTransfers ? 'See the transfers on' : 'Source:'} {shortSource(flag.source)} →
             </a>
           )}
           <span className="rr-flag-id mono" aria-hidden>
             {flag.id}
           </span>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

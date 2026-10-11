@@ -32,8 +32,7 @@ import { DISCLAIMER } from '@/lib/risk';
 import { chainMeta, chainQuery, type RiskChainParam } from '@/lib/chains';
 import { track } from '@/lib/track';
 import {
-  BandSummary,
-  VerdictBlock,
+  AnswerCard,
   CoverageBlock,
   FlagList,
   FreshPaidCheck,
@@ -42,6 +41,7 @@ import {
   NotAssessed,
   ProvenanceLine,
 } from './_components';
+import { plainAnswer } from '@/lib/plainAnswer';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const POLL_INTERVAL_MS = 3000;
@@ -304,10 +304,13 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
           <div className="press-fileno">
             Case File <span className="ph-dateline-sep">·</span> On-chain risk check
           </div>
+          <h1 className="rr-question press-display">
+            Should you pay {valid ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'this address'}?
+          </h1>
           <div className="rr-subject mono">{address}</div>
           <div className="rr-hero-note">
             <span className="rr-chip" data-chain={chain}>{meta.name}</span>
-            <span>The verdict, its reason, the evidence, read from the chain.</span>
+            <span>Pay, Hold or Unknown, the reason, and the evidence, read from the chain.</span>
             {valid && (
               <a
                 className="press-link rr-explorer"
@@ -524,37 +527,31 @@ function FullReport({
   onRecheck: () => void;
 }) {
   const meta = chainMeta(chain);
+  const answer = plainAnswer(report);
   return (
     <>
-      {stale && (
+      {answer ? (
         <div className="rr-block">
-          <div className="rr-stale">
-            <div className="rr-stale-head">
-              <span className="rr-chip rr-chip--amber">Stale</span>
-              <span>
-                This report is past its freshness window. It is served as-is,
-                flagged stale — never presented as current.
-              </span>
-            </div>
-            <button
-              className="press-btn press-btn--ghost"
-              onClick={onRecheck}
-              disabled={recheckLoading}
-            >
-              {recheckLoading ? 'Re-checking…' : 'Re-check (free) →'}
-            </button>
-          </div>
+          <AnswerCard answer={answer} onRecheck={onRecheck} recheckLoading={recheckLoading} />
         </div>
+      ) : (
+        stale && (
+          <div className="rr-block">
+            <div className="rr-stale">
+              <div className="rr-stale-head">
+                <span>This report is a few days old.</span>
+              </div>
+              <button className="press-btn press-btn--ghost" onClick={onRecheck} disabled={recheckLoading}>
+                {recheckLoading ? 'Re-checking…' : 'Re-check (free) →'}
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       <div className="rr-block">
-        <VerdictBlock verdict={report.verdict} />
-        <BandSummary band={report.band} flags={report.flags} />
-      </div>
-
-      <div className="rr-block">
-        <span className="press-label">Exhibits</span>
-        <h2 className="rr-h2 press-display">On-chain signals</h2>
+        <span className="press-label">The details</span>
+        <h2 className="rr-h2 press-display">What came up</h2>
         <FlagList flags={report.flags} coverage={report.coverage} />
       </div>
 
@@ -810,6 +807,65 @@ function ReportStyles() {
       }
 
       /* Verdict: the decision, its reason, its limit */
+      .rr-question {
+        margin: 10px 0 6px;
+        font-size: clamp(30px, 5vw, 48px);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+      }
+      .rr-answer {
+        border: 1px solid var(--rule-strong);
+        border-left: 8px solid var(--ink-faint);
+        background: var(--paper-2);
+        padding: 22px 24px 18px;
+      }
+      .rr-answer--pay { border-left-color: var(--seal); }
+      .rr-answer--hold { border-left-color: var(--sev-medium); }
+      .rr-answer--unknown { border-left-color: var(--ink-faint); }
+      .rr-answer-word {
+        font-size: clamp(56px, 11vw, 96px);
+        line-height: 0.95;
+        letter-spacing: -0.02em;
+      }
+      .rr-answer--pay .rr-answer-word { color: var(--seal); }
+      .rr-answer--hold .rr-answer-word { color: var(--sev-medium); }
+      .rr-answer--unknown .rr-answer-word { color: var(--ink-soft); }
+      .rr-answer-headline {
+        margin: 10px 0 0;
+        font-size: clamp(20px, 2.8vw, 26px);
+        line-height: 1.3;
+        color: var(--ink);
+      }
+      .rr-answer-why {
+        margin: 14px 0 0;
+        font-size: 18px;
+        line-height: 1.5;
+        color: var(--ink);
+        max-width: 62ch;
+      }
+      .rr-answer-why-tag { font-weight: 600; }
+      .rr-answer-meta {
+        margin: 14px 0 0;
+        font-size: 15px;
+        color: var(--ink-soft);
+      }
+      .rr-answer-limit {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--ink-faint);
+      }
+      .rr-answer-foot {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid var(--rule);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        font-size: 14px;
+        color: var(--ink-faint);
+      }
       .rr-verdict {
         border: 1px solid var(--rule);
         border-left: 4px solid var(--ink-faint);
