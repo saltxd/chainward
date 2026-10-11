@@ -10,6 +10,7 @@ import { requireOpsKey } from '../middleware/opsKey.js';
 import { logger } from '../lib/logger.js';
 import { verifyUsdcPayment } from '../lib/verifyUsdcPayment.js';
 import { buildFulfillmentUpdate } from '../lib/briefFulfillment.js';
+import { paidOrderPayload, privateDeliveredPayload, type DiscordPayload } from '../lib/briefNotify.js';
 
 // Price for the paid "Intel Brief" (forensic on-chain decode), in micro-USDC
 // (6 decimals). Env-overridable so the price can be tuned WITHOUT a redeploy.
@@ -253,49 +254,27 @@ brief.post('/ops/orders/:id/status', requireOpsKey, async (c) => {
 
 type BriefOrderRow = typeof briefOrders.$inferSelect;
 
-async function notifyPaidOrder(order: BriefOrderRow): Promise<void> {
+async function postToOpsDiscord(body: DiscordPayload): Promise<Response | null> {
   const webhookUrl = process.env.DIGEST_DISCORD_WEBHOOK;
-  if (!webhookUrl) return;
-
-  const usdc = (Number(order.amountUsdc) / 1e6).toFixed(2);
-  const targetLine =
-    order.targetKind === 'address'
-      ? `\`${order.target}\` ([basescan](https://basescan.org/address/${order.target}))`
-      : `${order.target} (handle)`;
-  const lines = [
-    `💸 **New paid Intel Brief — ${usdc} USDC**`,
-    `**Target:** ${targetLine}`,
-    `**Deliver to:** ${order.contact} _(${order.contactMethod})_`,
-    `**Buyer:** \`${order.walletAddress}\``,
-    order.notes ? `**Notes:** ${order.notes}` : null,
-    `**Order:** \`${order.id}\``,
-    order.txHash ? `**Tx:** https://basescan.org/tx/${order.txHash}` : null,
-  ].filter(Boolean);
-
-  const res = await fetch(webhookUrl, {
+  if (!webhookUrl) return null;
+  return fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: lines.join('\n') }),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5_000),
   });
-  if (!res.ok) {
+}
+
+async function notifyPaidOrder(order: BriefOrderRow): Promise<void> {
+  const res = await postToOpsDiscord(paidOrderPayload(order));
+  if (res && !res.ok) {
     logger.warn({ status: res.status, orderId: order.id }, 'brief: Discord notify non-OK');
   }
 }
 
 async function notifyPrivateDelivered(order: BriefOrderRow): Promise<void> {
-  const webhookUrl = process.env.DIGEST_DISCORD_WEBHOOK;
-  if (!webhookUrl) return;
-  const lines = [
-    `📬 **Private brief delivered in-app** — order \`${order.id.slice(0, 8)}\``,
-    `**Ping:** ${order.contact} _(${order.contactMethod})_ → "Your ChainWard brief is ready: sign in at chainward.ai/request-brief with the wallet you paid from."`,
-    `**Target:** \`${order.target}\``,
-  ];
-  const res = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: lines.join('\n') }),
-  });
-  if (!res.ok) {
+  const res = await postToOpsDiscord(privateDeliveredPayload(order));
+  if (res && !res.ok) {
     logger.warn({ status: res.status, orderId: order.id }, 'brief: private-delivery Discord notify non-OK');
   }
 }
