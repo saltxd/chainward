@@ -448,10 +448,10 @@ export default function PublicAgentPage({
           font-family: var(--font-mono), ui-monospace, monospace;
           font-size: clamp(32px, 4vw, 44px);
           color: var(--fg);
-          letter-spacing: -0.03em;
+          letter-spacing: -0.01em;
           font-variant-numeric: tabular-nums;
           font-weight: 500;
-          line-height: 1;
+          line-height: 1.08;
         }
         .v2-pa-balance-delta {
           font-size: 13px;

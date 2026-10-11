@@ -230,14 +230,14 @@ export default async function CheckHomePage({
         }
         .home-title {
           margin: 18px 0 0;
-          font-size: clamp(40px, 6.4vw, 78px);
-          line-height: 0.98;
-          letter-spacing: -0.03em;
+          font-size: clamp(36px, 5.6vw, 68px);
+          line-height: 1.08;
+          letter-spacing: -0.01em;
         }
         .home-kicker {
           margin: 14px 0 0;
           font-size: clamp(22px, 3vw, 34px);
-          line-height: 1;
+          line-height: 1.15;
         }
         .home-lede {
           margin: 24px 0 0;
@@ -296,7 +296,6 @@ export default async function CheckHomePage({
           color: var(--ink);
           letter-spacing: -0.01em;
           transition: color 0.15s;
-          font-variation-settings: "opsz" 40, "SOFT" 0;
         }
         .home-rail-decode:hover .home-rail-decode-title { color: var(--oxblood); }
         .home-rail-decode-meta {
@@ -360,7 +359,6 @@ export default async function CheckHomePage({
           font-style: italic;
           font-size: 20px;
           color: var(--ink);
-          font-variation-settings: "opsz" 40, "SOFT" 40;
         }
         .home-principle-v {
           margin: 0;

@@ -837,7 +837,7 @@ function ReportStyles() {
         margin: 10px 0 6px;
         font-size: clamp(30px, 5vw, 48px);
         line-height: 1.05;
-        letter-spacing: -0.02em;
+        letter-spacing: -0.01em;
       }
       .rr-answer {
         border-top: 3px double var(--rule-strong);
@@ -980,7 +980,6 @@ function ReportStyles() {
         font-size: 22px;
         font-style: italic;
         color: var(--ink);
-        font-variation-settings: "opsz" 40, "SOFT" 40;
       }
       .rr-band-desc {
         margin: 16px 0 0;
@@ -1030,7 +1029,6 @@ function ReportStyles() {
         font-size: 19px;
         color: var(--ink);
         letter-spacing: -0.01em;
-        font-variation-settings: "opsz" 40, "SOFT" 0;
       }
       .rr-flag-evidence {
         margin: 12px 0 0;
@@ -1146,7 +1144,6 @@ function ReportStyles() {
         font-size: 22px;
         line-height: 1.3;
         color: var(--ink);
-        font-variation-settings: "opsz" 40, "SOFT" 0;
       }
       .rr-noflags-note {
         display: block;

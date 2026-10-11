@@ -208,8 +208,8 @@ export default function McpPage() {
         .mcp-title {
           margin: 16px 0 0;
           font-size: clamp(36px, 5.6vw, 66px);
-          line-height: 1;
-          letter-spacing: -0.03em;
+          line-height: 1.08;
+          letter-spacing: -0.01em;
           max-width: 900px;
         }
         .mcp-lede {
@@ -254,7 +254,6 @@ export default function McpPage() {
         .mcp-h2 em {
           font-style: italic;
           color: var(--oxblood);
-          font-variation-settings: "opsz" 60, "SOFT" 40;
         }
         .mcp-p {
           margin: 20px 0 0;

@@ -269,7 +269,7 @@ export default async function X402BoardPage() {
 
       <style>{`
         .xb-hero { padding: 44px 0 36px; }
-        .xb-title { margin: 16px 0 0; font-size: clamp(34px, 5.2vw, 62px); line-height: 1.02; letter-spacing: -0.03em; max-width: 900px; }
+        .xb-title { margin: 16px 0 0; font-size: clamp(34px, 5.2vw, 62px); line-height: 1.08; letter-spacing: -0.01em; max-width: 900px; }
         .xb-title em { font-style: italic; color: var(--oxblood); }
         .xb-lede { margin: 22px 0 0; font-family: var(--font-text); font-size: 19px; line-height: 1.55; color: var(--ink-soft); max-width: 700px; }
         .xb-meta { margin-top: 20px; display: flex; gap: 10px 22px; flex-wrap: wrap; font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }

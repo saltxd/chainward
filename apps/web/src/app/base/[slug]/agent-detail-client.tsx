@@ -257,8 +257,8 @@ export function AgentDetailClient({ agent }: { agent: AgentDetail }) {
         .agd-title {
           margin: 12px 0 0;
           font-size: clamp(34px, 6vw, 60px);
-          line-height: 1.02;
-          letter-spacing: -0.03em;
+          line-height: 1.08;
+          letter-spacing: -0.01em;
           overflow-wrap: anywhere;
         }
         .agd-wallet {

@@ -1095,7 +1095,7 @@ export function DigestClient({ initialData }: { initialData: DigestData | null }
           font-weight: 500;
           color: var(--fg);
           font-variant-numeric: tabular-nums;
-          letter-spacing: -0.02em;
+          letter-spacing: -0.01em;
         }
         .v2-digest-quickstat-sub {
           font-size: 11px;

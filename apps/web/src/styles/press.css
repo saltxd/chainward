@@ -21,7 +21,7 @@
 
   --ink: #1b1815;
   --ink-soft: #4a4238;
-  --ink-faint: #6b6152;
+  --ink-faint: #5f5647;
 
   --rule: #d8cfbe;
   --rule-strong: #bcb19b;
@@ -63,7 +63,7 @@ body:has(.press) {
 
     --ink: #e6ddcc;
     --ink-soft: #bdb3a1;
-    --ink-faint: #8c8271;
+    --ink-faint: #9a907e;
 
     --rule: #2f2a22;
     --rule-strong: #4a4336;
@@ -158,18 +158,17 @@ body:has(.press) {
 /* ── Display type ──────────────────────────────────────────────────────── */
 .press-display {
   font-family: var(--font-display), Georgia, serif;
-  font-weight: 460;
+  font-weight: 540;
   color: var(--ink);
-  letter-spacing: -0.02em;
-  line-height: 1.02;
-  font-variation-settings: "opsz" 120, "SOFT" 0, "WONK" 0;
+  letter-spacing: -0.01em;
+  line-height: 1.08;
+  text-wrap: balance;
 }
 .press-kicker {
   font-family: var(--font-display), Georgia, serif;
   font-style: italic;
   font-weight: 400;
   color: var(--oxblood);
-  font-variation-settings: "opsz" 40, "SOFT" 60, "WONK" 1;
 }
 
 /* ── Buttons ───────────────────────────────────────────────────────────── */
@@ -279,9 +278,8 @@ body:has(.press) {
   font-family: var(--font-display), Georgia, serif;
   font-weight: 500;
   font-size: 26px;
-  letter-spacing: -0.02em;
-  font-variation-settings: "opsz" 72, "SOFT" 0;
-  line-height: 1;
+  letter-spacing: -0.01em;
+  line-height: 1.08;
 }
 .ph-name .ph-name-tld {
   color: var(--oxblood);
@@ -446,8 +444,8 @@ body:has(.press) {
 
 /* ─────────────────────────────────────────────────────────────────────────
    Decode article prose — paper override of the dark `.decode-prose`.
-   Long-form investigations read as an ink-on-paper broadsheet: Fraunces
-   heads, Newsreader body, mono for chain data / code, oxblood footnote links.
+   Long-form investigations read as an ink-on-paper broadsheet: Newsreader
+   heads and body, mono for chain data / code, oxblood footnote links.
    ──────────────────────────────────────────────────────────────────────── */
 .press .decode-prose {
   font-family: var(--font-text);
@@ -460,10 +458,9 @@ body:has(.press) {
   font-family: var(--font-display), Georgia, serif;
   color: var(--ink);
   font-weight: 500;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   margin-top: 2.6rem;
   margin-bottom: 0.7rem;
-  font-variation-settings: "opsz" 96, "SOFT" 0;
 }
 .press .decode-prose h2 {
   padding-bottom: 0.4rem;
@@ -508,7 +505,6 @@ body:has(.press) {
   font-size: 1.35rem;
   line-height: 1.4;
   color: var(--ink);
-  font-variation-settings: "opsz" 48, "SOFT" 40;
 }
 .press .decode-prose blockquote p {
   color: inherit;
@@ -862,4 +858,9 @@ body:has(.press) {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* Long-form measure: about 72 characters per line (WCAG 1.4.8 caps it at 80). */
+.press .decode-prose > :is(p, ul, ol, blockquote) {
+  max-width: 34em;
 }

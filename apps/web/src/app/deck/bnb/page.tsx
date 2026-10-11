@@ -504,8 +504,8 @@ export default function BnbDeckPage() {
         }
 
         .deck-wordmark {
-          margin: 22px 0 0; font-size: clamp(56px, 9vw, 120px); line-height: 0.95;
-          letter-spacing: -0.035em; font-weight: 500;
+          margin: 22px 0 0; font-size: clamp(56px, 9vw, 120px); line-height: 1.08;
+          letter-spacing: -0.01em; font-weight: 500;
         }
         .deck-tld { color: var(--oxblood); font-style: italic; }
         .deck-tagline {
@@ -527,7 +527,6 @@ export default function BnbDeckPage() {
         .deck-h--big { font-size: clamp(30px, 4.4vw, 52px); }
         .deck-h em, .deck-tagline em {
           font-style: italic; color: var(--oxblood);
-          font-variation-settings: "opsz" 60, "SOFT" 40;
         }
 
         .deck-cols { display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; margin-top: 36px; align-items: start; }
@@ -551,7 +550,7 @@ export default function BnbDeckPage() {
 
         .deck-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 32px; margin-top: 30px; border-top: 3px double var(--rule-strong); }
         .deck-stat { display: flex; flex-direction: column; gap: 6px; padding: 18px 0 16px; border-bottom: 1px solid var(--rule); }
-        .deck-stat-n { font-size: 38px; line-height: 1; color: var(--ink); font-weight: 500; letter-spacing: -0.02em; }
+        .deck-stat-n { font-size: 38px; line-height: 1.08; color: var(--ink); font-weight: 500; letter-spacing: -0.01em; }
         .deck-stat-l { font-family: var(--font-text); font-size: 14.5px; line-height: 1.45; color: var(--ink-soft); }
         .deck-aside .deck-stat { border-bottom: 0; padding: 0; }
 

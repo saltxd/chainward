@@ -191,8 +191,8 @@ export default async function ReportsLibraryPage() {
         .reg-title {
           margin: 14px 0 0;
           font-size: clamp(34px, 5.4vw, 60px);
-          line-height: 1;
-          letter-spacing: -0.03em;
+          line-height: 1.08;
+          letter-spacing: -0.01em;
         }
         .reg-lede {
           margin: 20px 0 0;

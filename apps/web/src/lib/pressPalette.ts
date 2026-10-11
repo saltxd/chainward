@@ -18,7 +18,7 @@ export interface PressPalette {
 const LIGHT: PressPalette = {
   ink: '#1b1815',
   inkSoft: '#4a4238',
-  inkFaint: '#6b6152',
+  inkFaint: '#5f5647',
   paper2: '#e3dccd',
   ruleStrong: '#bcb19b',
 };
@@ -26,7 +26,7 @@ const LIGHT: PressPalette = {
 const DARK: PressPalette = {
   ink: '#e6ddcc',
   inkSoft: '#bdb3a1',
-  inkFaint: '#8c8271',
+  inkFaint: '#9a907e',
   paper2: '#1f1c16',
   ruleStrong: '#4a4336',
 };

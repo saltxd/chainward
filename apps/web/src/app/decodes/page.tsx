@@ -87,8 +87,8 @@ export default function DecodesPage() {
         .dx-title {
           margin: 14px 0 0;
           font-size: clamp(38px, 6vw, 68px);
-          line-height: 1;
-          letter-spacing: -0.03em;
+          line-height: 1.08;
+          letter-spacing: -0.01em;
         }
         .dx-lede {
           margin: 22px 0 0;

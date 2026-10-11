@@ -154,9 +154,9 @@ export default async function DecodePage({ params }: PageProps) {
         }
         .da-title {
           margin: 16px 0 0;
-          font-size: clamp(34px, 6vw, 62px);
-          line-height: 1.0;
-          letter-spacing: -0.03em;
+          font-size: clamp(30px, 5vw, 52px);
+          line-height: 1.08;
+          letter-spacing: -0.01em;
         }
         .da-sub {
           margin: 18px 0 0;
@@ -165,7 +165,6 @@ export default async function DecodePage({ params }: PageProps) {
           font-size: clamp(20px, 3vw, 27px);
           line-height: 1.3;
           color: var(--ink-soft);
-          font-variation-settings: "opsz" 48, "SOFT" 40;
         }
         .da-byline {
           margin-top: 22px;

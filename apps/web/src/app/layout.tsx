@@ -3,7 +3,6 @@ import {
   Inter,
   JetBrains_Mono,
   Instrument_Serif,
-  Fraunces,
   Newsreader,
 } from 'next/font/google';
 import './globals.css';
@@ -15,6 +14,8 @@ const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
+  // Dashboard only: don't preload it on every public page.
+  preload: false,
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -29,21 +30,16 @@ const instrumentSerif = Instrument_Serif({
   style: ['normal', 'italic'],
   variable: '--font-serif',
   display: 'swap',
+  preload: false,
 });
 
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  variable: '--font-display',
-  display: 'swap',
-  axes: ['SOFT', 'WONK', 'opsz'],
-});
-
-// Body/reading face for the public "dossier" surface — a screen-tuned news
-// serif for long-form decodes and reports. Paired with Fraunces (display) and
-// JetBrains Mono (chain data). Dashboard keeps Inter.
+// The public "dossier" surface's one serif: a screen-tuned news face for
+// headlines and long-form text alike (the opsz axis picks the display cut at
+// headline sizes), with JetBrains Mono for chain data. Dashboard keeps Inter.
 const newsreader = Newsreader({
   subsets: ['latin'],
   style: ['normal', 'italic'],
+  axes: ['opsz'],
   variable: '--font-reader',
   display: 'swap',
 });
@@ -112,7 +108,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   // a force-dynamic route that reads pod env per request — and injects the
   // tracker client-side. Pages stay static; config stays runtime-changeable.
   return (
-    <html lang="en" className={`dark scroll-smooth ${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} ${fraunces.variable} ${newsreader.variable}`}>
+    <html lang="en" className={`dark scroll-smooth ${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} ${newsreader.variable}`}>
       <body className="min-h-screen antialiased">
         {children}
         <Analytics />

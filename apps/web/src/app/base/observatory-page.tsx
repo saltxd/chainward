@@ -451,8 +451,8 @@ export function ObservatoryPage({ children }: { children?: ReactNode }) {
         .obs-title {
           margin: 14px 0 0;
           font-size: clamp(36px, 5.6vw, 64px);
-          line-height: 1;
-          letter-spacing: -0.03em;
+          line-height: 1.08;
+          letter-spacing: -0.01em;
         }
         .obs-lede {
           margin: 20px 0 0;
