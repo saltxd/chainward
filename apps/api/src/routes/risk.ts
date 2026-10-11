@@ -192,6 +192,14 @@ function computeTtlState(row: RiskReportRow): 'fresh' | 'stale' {
 /** A paid check on an address with no history on the chain: nothing to judge. */
 const NO_HISTORY_VERDICT: Verdict<CounterpartyVerdictLabel> = counterpartyVerdict({ band: 'low-signal', flags: [] }, null);
 
+/** The same answer on a public-RPC chain, naming the window its scan read (14 days on BNB Chain). */
+function noHistoryVerdict(windowDays: number): Verdict<CounterpartyVerdictLabel> {
+  return counterpartyVerdict(
+    { band: 'low-signal', flags: [] },
+    { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_age_hours: null, window_days: windowDays },
+  );
+}
+
 function rowToReport(row: RiskReportRow): ReportPayload {
   // The sanctions list is checked on read too, so a report filed before the
   // address was listed still carries the flag and the Hold.
@@ -810,7 +818,10 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   if (chain !== CHAIN) {
     const pre = await rpcChainPrecheck(chain, address);
     if (!pre.history && !sanctioned) {
-      return c.json({ success: true, data: { status: 'no_history', address, chain, verdict: NO_HISTORY_VERDICT, disclaimer: DISCLAIMER } });
+      return c.json({
+        success: true,
+        data: { status: 'no_history', address, chain, verdict: noHistoryVerdict(pre.fixtures.window.days), disclaimer: DISCLAIMER },
+      });
     }
   } else if (!sanctioned) {
     const history = await checkHistory(address);

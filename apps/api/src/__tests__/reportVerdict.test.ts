@@ -76,6 +76,20 @@ describe('reportVerdict', () => {
     }
   });
 
+  it('names the transfer window the report read (14 days on BNB Chain), not a fixed 30', () => {
+    const bsc = { ...active, fetch_meta: { window_days: 14 } };
+    expect(reportVerdict({ band: 'low-signal', flags: [] }, bsc).reason).toMatch(/in the last 14 days,/);
+    const quiet = {
+      activity: { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_age_hours: null },
+      wallet: { nonce: 43 },
+      fetch_meta: { window_days: 14 },
+    };
+    expect(reportVerdict({ band: 'low-signal', flags: [] }, quiet).reason).toBe(
+      'No transfers in the last 14 days on this chain; 43 transactions sent in its lifetime.',
+    );
+    expect(reportVerdict({ band: 'low-signal', flags: [] }, active).reason).toMatch(/in the last 30 days,/);
+  });
+
   it("says Couldn't check when the USDC balance could not be read", () => {
     const v = reportVerdict({ band: 'low-signal', flags: [] }, { ...active, fetch_meta: { state_unavailable: ['usdc_balance'] } });
     expect(v.text).toBe("Couldn't check");

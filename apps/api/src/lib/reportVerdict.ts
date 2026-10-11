@@ -20,10 +20,13 @@ function readActivity(reportData: unknown) {
   if (!a || typeof a !== 'object') return null;
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   const nonce = (reportData as { wallet?: { nonce?: unknown } }).wallet?.nonce;
+  // The window the transfers were read over: absent on Base (the full 30 days).
+  const windowDays = (reportData as { fetch_meta?: { window_days?: unknown } }).fetch_meta?.window_days;
   return {
     transfers_30d: num(a.transfers_30d),
     unique_counterparties_30d: num(a.unique_counterparties_30d),
     latest_transfer_age_hours: typeof a.latest_transfer_age_hours === 'number' ? a.latest_transfer_age_hours : null,
     ...(typeof nonce === 'number' && Number.isFinite(nonce) ? { sent_tx_count: nonce } : {}),
+    ...(typeof windowDays === 'number' && Number.isFinite(windowDays) && windowDays > 0 ? { window_days: windowDays } : {}),
   };
 }

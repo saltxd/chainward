@@ -160,4 +160,50 @@ describe('counterpartyVerdict', () => {
     expect(v.text).toBe("Couldn't check");
     expect(v.reason).toBe('The on-chain sources this check reads were unavailable, so activity could not be assessed.');
   });
+
+  // BNB Chain reads a 14-day transfer window (sometimes less, when the scan
+  // stops early); Base reads 30. The reason names the window actually read.
+  describe('names the transfer window the check read', () => {
+    it('in a Pay reason', () => {
+      const v = counterpartyVerdict({ band: 'low-signal', flags: [] }, { ...activity, window_days: 14 });
+      expect(v.reason).toBe('Active: 212 transfers with 41 counterparties in the last 14 days, last one 3 hours ago, no high-severity flag.');
+    });
+
+    it('in a Hold reason that counts medium flags', () => {
+      const v = counterpartyVerdict({ band: 'elevated', flags: [flag('medium', 'A'), flag('low', 'B')] }, { ...activity, window_days: 14 });
+      expect(v.reason).toBe('1 medium-severity flag in the last 14 days; the first is A.');
+    });
+
+    it('in the Inactive and No track record reasons', () => {
+      const quiet = { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_age_hours: null, window_days: 14 };
+      expect(counterpartyVerdict({ band: 'low-signal', flags: [] }, { ...quiet, sent_tx_count: 43 }).reason).toBe(
+        'No transfers in the last 14 days on this chain; 43 transactions sent in its lifetime.',
+      );
+      expect(counterpartyVerdict({ band: 'low-signal', flags: [] }, { ...quiet, sent_tx_count: 0 }).reason).toBe(
+        'No transfers in the last 14 days on this chain, and no transactions sent from it.',
+      );
+      expect(counterpartyVerdict({ band: 'low-signal', flags: [] }, quiet).reason).toBe('No transfers in the last 14 days on this chain.');
+    });
+
+    it('as a partial span when the scan stopped early', () => {
+      const v = counterpartyVerdict({ band: 'low-signal', flags: [] }, { ...activity, window_days: 4.62 });
+      expect(v.reason).toMatch(/in the last 4\.6 days,/);
+    });
+
+    it('defaults to 30 days when the window is not given', () => {
+      expect(counterpartyVerdict({ band: 'low-signal', flags: [] }, activity).reason).toMatch(/in the last 30 days,/);
+    });
+  });
+
+  // A wallet whose last transfer is more than 7 days old is classified dormant
+  // (a medium flag). One medium flag still answers Pay, but the reason must not
+  // call it active next to a "Wallet is dormant" flag.
+  it('does not call a wallet active when its last transfer is over a week old', () => {
+    const v = counterpartyVerdict(
+      { band: 'mixed', flags: [flag('medium', 'Wallet is dormant', 'no transfers in last 7 days; last activity 9 days ago')] },
+      { transfers_30d: 7, unique_counterparties_30d: 8, latest_transfer_age_hours: 9 * 24 + 3, window_days: 14 },
+    );
+    expect(v.label).toBe('pay');
+    expect(v.reason).toBe('7 transfers with 8 counterparties in the last 14 days, last one 9 days ago, no high-severity flag.');
+  });
 });

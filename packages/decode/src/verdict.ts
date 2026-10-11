@@ -1,5 +1,6 @@
 import type { HireSummary } from './hire-check.js';
 import type { RiskBand, RiskFlag } from './risk-flags.js';
+import { formatWindowSpan } from './rpc-fixtures.js';
 
 // One line a buyer can act on, on top of each check. The evidence sits under it
 // and the limits one line below, so the verdict never claims more than the
@@ -151,12 +152,19 @@ export interface CounterpartyActivity {
   latest_transfer_age_hours: number | null;
   /** Lifetime transactions sent (the nonce), when read: tells a quiet wallet from a new one. */
   sent_tx_count?: number;
+  /**
+   * Days of transfers the check read (fetch_meta.window_days): 30 on Base, 14 on
+   * BNB Chain's public-RPC scan, less when that scan stopped early. Default 30.
+   */
+  window_days?: number;
 }
 
 const COUNTERPARTY_LIMITS = 'On-chain behavior only. Absence of flags is not a clearance of the counterparty.';
 const SANCTIONS_LIMITS = 'Matched against the US Treasury OFAC SDN list only; other countries’ sanctions lists are not checked.';
 
 const SEVERITY_ORDER: Record<RiskFlag['severity'], number> = { high: 3, medium: 2, low: 1, info: 0 };
+/** Silence past which survival classifies a wallet dormant (survival.ts). */
+const DORMANT_AFTER_HOURS = 168;
 
 function ago(hours: number | null): string {
   if (hours === null) return 'unknown';
@@ -185,6 +193,7 @@ export function counterpartyVerdict(
       limits: COUNTERPARTY_LIMITS,
     };
   }
+  const window = formatWindowSpan(activity?.window_days ?? 30);
   const flags = [...assessment.flags].sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity]);
   const top = flags[0];
   if (top && top.severity === 'high') {
@@ -197,7 +206,7 @@ export function counterpartyVerdict(
       label: 'hold',
       text: 'Hold',
       reason: first
-        ? `${mediums.length || flags.length} ${first.severity}-severity flag${(mediums.length || flags.length) === 1 ? '' : 's'} in the last 30 days; the first is ${first.title}.`
+        ? `${mediums.length || flags.length} ${first.severity}-severity flag${(mediums.length || flags.length) === 1 ? '' : 's'} in the last ${window}; the first is ${first.title}.`
         : 'The report carries an elevated signal band.',
       limits: COUNTERPARTY_LIMITS,
     };
@@ -209,7 +218,7 @@ export function counterpartyVerdict(
       return {
         label: 'unknown',
         text: 'Inactive',
-        reason: `No transfers in the last 30 days on this chain; ${sent} transaction${sent === 1 ? '' : 's'} sent in its lifetime.`,
+        reason: `No transfers in the last ${window} on this chain; ${sent} transaction${sent === 1 ? '' : 's'} sent in its lifetime.`,
         limits: COUNTERPARTY_LIMITS,
       };
     }
@@ -218,15 +227,19 @@ export function counterpartyVerdict(
       text: 'No track record',
       reason:
         sent === 0
-          ? 'No transfers in the last 30 days on this chain, and no transactions sent from it.'
-          : 'No transfers in the last 30 days on this chain.',
+          ? `No transfers in the last ${window} on this chain, and no transactions sent from it.`
+          : `No transfers in the last ${window} on this chain.`,
       limits: COUNTERPARTY_LIMITS,
     };
   }
+  // Over a week since the last transfer is what the dormancy check flags: still
+  // Pay on one medium flag, but not "Active" next to "Wallet is dormant".
+  const age = activity.latest_transfer_age_hours;
+  const lead = age !== null && age > DORMANT_AFTER_HOURS ? '' : 'Active: ';
   return {
     label: 'pay',
     text: 'Pay',
-    reason: `Active: ${activity.transfers_30d} transfers with ${activity.unique_counterparties_30d} counterparties in the last 30 days, last one ${ago(activity.latest_transfer_age_hours)}, no high-severity flag.`,
+    reason: `${lead}${activity.transfers_30d} transfers with ${activity.unique_counterparties_30d} counterparties in the last ${window}, last one ${ago(age)}, no high-severity flag.`,
     limits: COUNTERPARTY_LIMITS,
   };
 }
