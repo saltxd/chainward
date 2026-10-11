@@ -1,6 +1,6 @@
 {
   "name": "@chainward/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "ChainWard CLI — monitor agent wallets from the terminal",
   "type": "module",
   "bin": {
@@ -13,6 +13,7 @@
     "build": "tsup",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -26,7 +27,8 @@
     "@types/node": "^22.0.0",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
   },
   "keywords": [
     "chainward",

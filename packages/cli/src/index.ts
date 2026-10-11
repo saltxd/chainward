@@ -11,7 +11,7 @@ const program = new Command();
 program
   .name('chainward')
   .description('Monitor agent wallets on Base')
-  .version('0.1.0');
+  .version('0.1.2');
 
 program
   .command('login')

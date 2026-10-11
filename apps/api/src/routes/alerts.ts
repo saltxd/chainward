@@ -1,6 +1,4 @@
 import { Hono } from 'hono';
-import { z } from 'zod';
-import { ALERT_TYPES, DELIVERY_CHANNELS } from '@chainward/common';
 import type { AppVariables } from '../types.js';
 import { eq, and } from 'drizzle-orm';
 import { alertEvents, agentRegistry } from '@chainward/db';
@@ -11,46 +9,15 @@ import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { safeInt } from '../lib/queryParams.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { validateWebhookUrl } from '../lib/validateUrl.js';
+import { parseCreateAlert, updateAlertSchema } from '../lib/alertInput.js';
 
 const alerts = new Hono<{ Variables: AppVariables }>();
 alerts.use('*', requireApiKeyOrSession());
 
-const safeWebhookUrl = z.string().url().refine(
-  (url) => validateWebhookUrl(url) === null,
-  { message: 'Webhook URL must be HTTPS and point to a public domain' },
-);
-
-const createAlertSchema = z.object({
-  walletAddress: z.string().min(1),
-  chain: z.enum(['base', 'solana']),
-  alertType: z.enum(ALERT_TYPES),
-  thresholdValue: z.string().optional(),
-  thresholdUnit: z.enum(['usd', 'native', 'percentage']).optional(),
-  lookbackWindow: z.string().optional(),
-  channels: z.array(z.enum(DELIVERY_CHANNELS)).min(1),
-  webhookUrl: safeWebhookUrl.optional(),
-  telegramChatId: z.string().optional(),
-  discordWebhook: safeWebhookUrl.optional(),
-  cooldown: z.string().optional(),
-});
-
-const updateAlertSchema = z.object({
-  thresholdValue: z.string().optional(),
-  thresholdUnit: z.enum(['usd', 'native', 'percentage']).optional(),
-  lookbackWindow: z.string().optional(),
-  channels: z.array(z.enum(DELIVERY_CHANNELS)).optional(),
-  webhookUrl: safeWebhookUrl.optional(),
-  telegramChatId: z.string().optional(),
-  discordWebhook: safeWebhookUrl.optional(),
-  enabled: z.boolean().optional(),
-  cooldown: z.string().optional(),
-});
-
 alerts.post('/', async (c) => {
   const user = c.get('user');
   const body = await c.req.json();
-  const input = createAlertSchema.parse(body);
+  const input = parseCreateAlert(body);
 
   const service = new AlertService(getDb());
   const alert = await service.create(user.id, input);

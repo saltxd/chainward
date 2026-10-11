@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { api, handleError } from '../client.js';
 import { createTable, shortAddr, statusBadge, brand } from '../format.js';
+import { alertParams } from '../alertParams.js';
 
 interface AlertConfig {
   id: number;
@@ -46,9 +47,12 @@ export async function listAlerts() {
     const table = createTable(['Agent', 'Type', 'Threshold', 'Channels', 'Status']);
 
     for (const alert of alerts) {
+      // An inactivity alert has no threshold: its lookback window is the quiet time.
       const threshold = alert.thresholdValue
         ? `${alert.thresholdValue} ${alert.thresholdUnit ?? ''}`
-        : chalk.dim('—');
+        : alert.alertType === 'inactivity' && alert.lookbackWindow
+          ? `${alert.lookbackWindow} quiet`
+          : chalk.dim('—');
 
       table.push([
         shortAddr(alert.walletAddress),
@@ -95,25 +99,22 @@ export async function createAlert() {
     });
 
     // 3. Threshold / params
-    let thresholdValue: string | undefined;
-    let thresholdUnit: string | undefined;
-    let lookbackWindow: string | undefined;
+    let value: string | undefined;
+    let window: string | undefined;
 
     if (alertType === 'large_transfer' || alertType === 'gas_spike') {
-      thresholdValue = await input({
+      value = await input({
         message: 'Threshold (USD)',
         default: alertType === 'large_transfer' ? '100' : '5',
         validate: (v) => (isNaN(parseFloat(v)) ? 'Enter a number' : true),
       });
-      thresholdUnit = 'usd';
     } else if (alertType === 'balance_drop') {
-      thresholdValue = await input({
+      value = await input({
         message: 'Drop percentage (%)',
         default: '20',
         validate: (v) => (isNaN(parseFloat(v)) ? 'Enter a number' : true),
       });
-      thresholdUnit = 'percentage';
-      lookbackWindow = await select({
+      window = await select({
         message: 'Lookback window',
         choices: [
           { name: '1 hour', value: '1 hour' },
@@ -122,20 +123,18 @@ export async function createAlert() {
         ],
       });
     } else if (alertType === 'inactivity') {
-      thresholdValue = await input({
+      value = await input({
         message: 'Inactive hours',
         default: '24',
-        validate: (v) => (isNaN(parseFloat(v)) ? 'Enter a number' : true),
+        validate: (v) => (parseFloat(v) > 0 ? true : 'Enter a number of hours above 0'),
       });
-      thresholdUnit = 'hours';
     } else if (alertType === 'idle_balance') {
-      thresholdValue = await input({
+      value = await input({
         message: 'Min balance (USD)',
         default: '50',
         validate: (v) => (isNaN(parseFloat(v)) ? 'Enter a number' : true),
       });
-      thresholdUnit = 'usd';
-      lookbackWindow = await select({
+      window = await select({
         message: 'Idle duration (no outgoing tx)',
         choices: [
           { name: '6 hours', value: '6 hours' },
@@ -165,9 +164,9 @@ export async function createAlert() {
       channels: [channel],
     };
 
-    if (thresholdValue) payload.thresholdValue = thresholdValue;
-    if (thresholdUnit) payload.thresholdUnit = thresholdUnit;
-    if (lookbackWindow) payload.lookbackWindow = lookbackWindow;
+    for (const [key, v] of Object.entries(alertParams(alertType, { value, window }))) {
+      if (v) payload[key] = v;
+    }
 
     if (channel === 'discord') {
       payload.discordWebhook = await input({
