@@ -20,7 +20,7 @@ imagePullSecrets:
 
 postgres:
   image: timescale/timescaledb:2.25.1-pg16
-  storage: 40Gi
+  storage: 10Gi  # live PVC (immutable); was 40Gi in the chart but never applied
   user: chainward
   database: chainward
 
@@ -56,7 +56,7 @@ web:
       cpu: 100m
       memory: 256Mi
     limits:
-      cpu: 500m
+      cpu: "1"
       memory: 512Mi
 
 indexer:

@@ -67,6 +67,7 @@ spec:
         name: redisdata
       spec:
         accessModes: ["ReadWriteOnce"]
+        storageClassName: longhorn
         resources:
           requests:
             storage: {{ .Values.redis.storage }}
