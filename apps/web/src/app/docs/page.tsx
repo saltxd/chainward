@@ -52,7 +52,7 @@ curl https://api.chainward.ai/api/paid
 # free (30 a minute): is one wallet in a dataset, and in which tier?
 curl https://api.chainward.ai/api/paid/termix-wallets/lookup/0xb709860b8a1ce20019f3786d6982f773912bd286
 
-# the same for agents, verdict first: 0.25 USDC over x402 (answers 402 until paid)
+# the row itself, verdict first, for agents: 0.25 USDC over x402 (answers 402 until paid)
 curl 'https://api.chainward.ai/api/paid/termix-wallets/check?address=0xb709860b8a1ce20019f3786d6982f773912bd286'`;
 
 const mcpConfig = `{

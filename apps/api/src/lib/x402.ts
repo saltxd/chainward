@@ -474,7 +474,7 @@ function x402OpenApiBase() {
           operationId: 'datasetFile',
           summary: 'The full dataset behind a published decode, as CSV, paid over x402',
           description:
-            'Every wallet in a published ChainWard audit, tiered, with the transactions behind each one. GET /api/paid lists what is available; GET /api/paid/{slug}/lookup/{address} checks one wallet for free. Not charged if the file does not exist.',
+            'Every wallet in a published ChainWard audit, tiered, with the transactions behind each one. GET /api/paid lists what is available; GET /api/paid/{slug}/lookup/{address} says for free whether one wallet is listed and in which tier. Not charged if the file does not exist.',
           parameters: [
             {
               name: 'slug',
