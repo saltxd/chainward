@@ -10,7 +10,7 @@ import { PressShell } from '@/components/press';
  * deliverables/termix-on-chain/decode.md, README.md or docs/STATUS.md. Add nothing new.
  */
 export const metadata: Metadata = {
-  title: 'ChainWard — BNB Chain Builder Grant deck',
+  title: 'BNB Chain Builder Grant deck',
   description:
     'Points-integrity infrastructure for BNB Chain’s agent economy. ChainWard’s application deck for the BNB Chain Builder Grant, October 2026.',
   robots: { index: false, follow: false },
@@ -62,7 +62,7 @@ const BUDGET = [
 const SHIPPED = [
   {
     name: 'Free risk check, Base + BNB Chain',
-    body: 'Any address, every flag tied to the transactions behind it. Neutral signals, never a verdict. Live on BNB Chain since 3 Oct 2026 (14-day window, public RPCs).',
+    body: 'Any address: Pay or Hold with the one reason, every flag tied to the transactions behind it. On-chain behavior only; Pay is not a guarantee. Live on BNB Chain since 3 Oct 2026 (14-day window, public RPCs).',
   },
   {
     name: '17 published decodes',
@@ -545,7 +545,7 @@ export default function BnbDeckPage() {
         .deck-points--tight li { padding: 10px 0 10px 40px; }
         .deck-points--tight li::before { top: 13px; }
 
-        .deck-aside { border-left: 3px solid var(--oxblood); padding-left: 22px; }
+        .deck-aside { border-top: 1px solid var(--rule-strong); padding-top: 18px; }
         .deck-aside-p { margin: 14px 0 0; font-family: var(--font-display), Georgia, serif; font-style: italic; font-size: 19px; line-height: 1.4; color: var(--ink); }
 
         .deck-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 32px; margin-top: 30px; border-top: 3px double var(--rule-strong); }
@@ -589,7 +589,7 @@ export default function BnbDeckPage() {
         .deck-ms-code { display: block; font-size: 15px; color: var(--oxblood); }
         .deck-ms-weeks { display: block; font-family: var(--font-mono), ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-top: 4px; }
         .deck-ms-title { display: block; color: var(--ink); font-weight: 640; margin-top: 6px; }
-        .deck-budget { border-left: 3px solid var(--oxblood); padding-left: 20px; }
+        .deck-budget { border-top: 1px solid var(--rule-strong); padding-top: 16px; }
         .deck-budget-list { list-style: none; margin: 12px 0 0; padding: 0; font-family: var(--font-text); font-size: 14.5px; color: var(--ink-soft); }
         .deck-budget-list li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--rule); }
         .deck-budget-list .mono { color: var(--ink); }

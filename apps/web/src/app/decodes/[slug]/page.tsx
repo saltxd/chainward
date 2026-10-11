@@ -181,7 +181,6 @@ export default async function DecodePage({ params }: PageProps) {
           margin: -12px 0 40px;
           padding: 20px 22px;
           border: 1px solid var(--rule-strong);
-          border-left: 4px solid var(--seal);
           background: var(--paper-2);
         }
         .da-plain-label {
