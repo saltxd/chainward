@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readCappedBody } from '@/lib/readCappedBody';
 import { upstreamTimeoutMs } from './upstreamTimeout';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
@@ -40,31 +41,6 @@ function hasBody(method: string) {
   return method === 'POST' || method === 'PUT' || method === 'PATCH';
 }
 
-/** Reads the request body, or returns null once it passes MAX_BODY_BYTES. */
-async function readCappedBody(req: NextRequest): Promise<Uint8Array<ArrayBuffer> | null> {
-  if (!req.body) return new Uint8Array(new ArrayBuffer(0));
-  const reader = req.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_BODY_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  const body = new Uint8Array(new ArrayBuffer(total));
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return body;
-}
-
 function tooLarge() {
   return NextResponse.json(
     { success: false, error: { code: 'PAYLOAD_TOO_LARGE', message: 'Request body exceeds 1 MB' } },
@@ -86,7 +62,7 @@ async function proxy(req: NextRequest) {
   if (hasBody(req.method)) {
     const declared = Number(req.headers.get('content-length') ?? 0);
     if (declared > MAX_BODY_BYTES) return tooLarge();
-    const capped = await readCappedBody(req);
+    const capped = await readCappedBody(req.body, MAX_BODY_BYTES);
     if (capped === null) return tooLarge();
     body = capped;
   }

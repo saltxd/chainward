@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readCappedBody } from '@/lib/readCappedBody';
 
 /**
  * First-party Umami proxy. Umami is cluster-internal only — public visitors
@@ -21,6 +22,9 @@ import { NextRequest, NextResponse } from 'next/server';
 const UMAMI_URL = process.env.UMAMI_INTERNAL_URL;
 
 const ALLOWED_PATHS = new Set(['/script.js', '/api/send']);
+
+// A beacon is a few hundred bytes; nothing larger is buffered or forwarded.
+const MAX_BEACON_BYTES = 64 * 1024;
 
 function clientIp(req: NextRequest): string | null {
   // Behind Cloudflare, cf-connecting-ip is the single real client IP;
@@ -49,6 +53,14 @@ async function proxy(req: NextRequest) {
 
   const upstream = `${UMAMI_URL}${path}${url.search}`;
 
+  let requestBody: Uint8Array<ArrayBuffer> | undefined;
+  if (req.method === 'POST') {
+    const declared = Number(req.headers.get('content-length') ?? 0);
+    const capped = declared > MAX_BEACON_BYTES ? null : await readCappedBody(req.body, MAX_BEACON_BYTES);
+    if (capped === null) return new NextResponse(null, { status: 413 });
+    requestBody = capped;
+  }
+
   // Forward the headers Umami needs to identify the visitor. The session hash
   // is derived from IP + User-Agent + website id, so both must be the client's.
   const headers = new Headers();
@@ -75,7 +87,7 @@ async function proxy(req: NextRequest) {
     res = await fetch(upstream, {
       method: req.method,
       headers,
-      body: req.method === 'POST' ? await req.text() : undefined,
+      body: requestBody,
     });
   } catch {
     // Never surface analytics failures to the visitor.
