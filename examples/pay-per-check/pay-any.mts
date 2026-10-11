@@ -4,6 +4,7 @@
  *   BUYER_PRIVATE_KEY=0x… npx tsx pay-any.mts "https://api.chainward.ai/api/risk/hires?agent=352475&chain=bsc"
  *
  * Works for every paid route in /.well-known/x402 (counterparty check, seller check, hire check, datasets).
+ * Payments over $1 need MAX_PAYMENT, e.g. MAX_PAYMENT='$10' for a dataset.
  * The facilitator pays the gas; the wallet only needs USDC on Base. Not charged if the check fails.
  */
 import { decodePaymentResponseHeader, wrapFetchWithPaymentFromConfig } from '@x402/fetch';
@@ -13,7 +14,11 @@ const raw = (process.env.BUYER_PRIVATE_KEY ?? '').replace(/[\s'"]/g, '').replace
 if (!/^[0-9a-fA-F]{64}$/.test(raw)) throw new Error('BUYER_PRIVATE_KEY missing');
 const account = privateKeyToAccount(`0x${raw}`);
 const url = process.argv[2];
-const pay = wrapFetchWithPaymentFromConfig(fetch, { schemes: [{ network: 'eip155:8453', client: new ExactEvmScheme(account) }] });
+// The client refuses anything over $1 per payment unless told otherwise; the datasets cost $10.
+const pay = wrapFetchWithPaymentFromConfig(fetch, {
+  schemes: [{ network: 'eip155:8453', client: new ExactEvmScheme(account) }],
+  spendControls: { maxAmountPerPayment: process.env.MAX_PAYMENT ?? '$1' },
+});
 const t0 = Date.now();
 const res = await pay(url);
 const body = await res.text();
