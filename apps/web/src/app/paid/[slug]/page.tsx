@@ -96,7 +96,8 @@ export default function PaidFilePage() {
                 <li>Pay from any wallet; no account, no sign-in.</li>
                 <li>Download link valid for 24 hours after payment.</li>
                 <li>
-                  Agents: pay per request over x402 at{' '}
+                  Agents: pay per request over x402 (a way for one program to pay another in USDC,
+                  per request) at{' '}
                   <code className="mono">GET /api/paid/{file.slug}/file</code>.
                 </li>
               </ul>
@@ -123,7 +124,7 @@ export default function PaidFilePage() {
                   }
                 }}
               >
-                <div className="brf-step">Free — check one wallet against this list</div>
+                <div className="brf-step">Free: check one wallet against this list</div>
                 <label>
                   <span>Wallet address</span>
                   <input
@@ -163,7 +164,11 @@ export default function PaidFilePage() {
                 )}
               </form>
 
-              {!treasury && <div className="brf-notice">Payments are being configured — please check back shortly.</div>}
+              {!treasury && (
+                <div className="brf-notice">
+                  Payments are paused right now. Please check back shortly, or email hello@chainward.ai.
+                </div>
+              )}
 
               {!downloadUrl && confirmation.phase === 'idle' && (
                 <div className="brf-form">

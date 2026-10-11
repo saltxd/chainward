@@ -24,7 +24,7 @@ const PUBLIC_PAGES = [
   'hyperliquid/page.tsx',
   'base/page.tsx',
   'docs/page.tsx',
-  '(checkout)/paid/[slug]/layout.tsx',
+  'paid/[slug]/layout.tsx',
   '(checkout)/request-brief/layout.tsx',
 ];
 
