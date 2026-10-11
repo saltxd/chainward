@@ -60,6 +60,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# 2026-10-11: chainward is a Flux HelmRelease (homelab-k3s apps/chainward). Image rollouts happen by pushing to main
+# (CI bumps the HelmRelease); rollback = revert that bump commit in homelab-k3s. Flux drift detection reverts any
+# `kubectl set image` or chart apply from here within minutes, so those paths are disabled.
+if ! $MIGRATE_ONLY && ! $DRY_RUN; then
+  echo "deploy.sh no longer rolls images: push to main (CI -> bump -> Flux), or revert the bump commit in" >&2
+  echo "saltxd/homelab-k3s apps/chainward/helmrelease.yaml to roll back. Allowed here: --migrate-only, --dry-run." >&2
+  exit 1
+fi
+
 # Resolve services to operate on
 if [ -n "$ONLY" ]; then
   IFS=',' read -r -a SERVICES <<< "$ONLY"

@@ -58,19 +58,9 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           if $ALL_OK; then
-            echo "### Deploy Commands" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Images verified" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "All images verified. Run from a machine with kubectl access:" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo '```bash' >> "$GITHUB_STEP_SUMMARY"
-            echo "cd $(pwd) && ./deploy/deploy.sh --tag $TAG" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Or migrate only:" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo '```bash' >> "$GITHUB_STEP_SUMMARY"
-            echo "./deploy/deploy.sh --migrate-only" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "Deploys are automatic: a push to main bumps saltxd/homelab-k3s apps/chainward/helmrelease.yaml and Flux upgrades the release (pre-upgrade migration hook first). Roll back by reverting that bump commit. Never helm rollback (revision 1 pins :latest)." >> "$GITHUB_STEP_SUMMARY"
           else
             echo ":warning: **Some images are missing.** Wait for the Build & Push workflow to complete." >> "$GITHUB_STEP_SUMMARY"
             exit 1

@@ -5,7 +5,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: chainward-migrate
+  name: chainward-migrate-hook   # deploy.sh --migrate-only owns the Job name chainward-migrate
   namespace: {{ .Values.namespace }}
   labels:
     {{- include "chainward.labels" . | nindent 4 }}
@@ -16,7 +16,7 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 2
-  activeDeadlineSeconds: 600
+  activeDeadlineSeconds: 420     # well inside the HelmRelease timeout (10m) so a slow migration still fails cleanly
   template:
     metadata:
       labels:
