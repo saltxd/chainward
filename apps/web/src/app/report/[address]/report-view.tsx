@@ -358,14 +358,14 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
         {/* ── loading ─────────────────────────────────────────────────── */}
         {state.kind === 'loading' && (
           <div className="rr-block">
-            <CheckProgress startedAt={startedAtRef.current} />
+            <CheckProgress startedAt={startedAtRef.current} chain={chain} />
           </div>
         )}
 
         {/* ── pending (decode queued) ─────────────────────────────────── */}
         {state.kind === 'pending' && (
           <div className="rr-block">
-            <CheckProgress startedAt={startedAtRef.current} />
+            <CheckProgress startedAt={startedAtRef.current} chain={chain} />
           </div>
         )}
 
@@ -419,7 +419,7 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
             <div className="rr-block">
               <span className="press-label">Checking now</span>
               <h2 className="rr-h2 press-display">This wallet has history. Checking it now.</h2>
-              <CheckProgress startedAt={startedAtRef.current} />
+              <CheckProgress startedAt={startedAtRef.current} chain={chain} />
               <p className="rr-lede">
                 While that runs, here&apos;s a quick snapshot of the wallet. The answer
                 replaces this when the check finishes.

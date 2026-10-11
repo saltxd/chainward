@@ -108,6 +108,8 @@ function usdc(evidence: string): string | null {
 function holdWhy(flag: RiskFlag | undefined, w: NonNullable<RiskReport['coverage']>['window'] | undefined, days: number): string | null {
   if (!flag) return null;
   switch (flag.id) {
+    case 'ofac_sanctioned':
+      return 'This address is on the US Treasury sanctions list. Paying it may be illegal for US persons.';
     case 'stranded_value': {
       const amount = usdc(flag.evidence);
       return amount
@@ -145,7 +147,10 @@ export function plainAnswer(report: RiskReport, now: Date = new Date()): PlainAn
     const last = w.latest_transfer_at ? `, the last one ${ago(w.latest_transfer_at, now)}` : '';
     why = `${int(w.transfers_30d)}${w.transfers_truncated ? '+' : ''} transfers with ${int(w.unique_counterparties_30d)} different wallet${w.unique_counterparties_30d === 1 ? '' : 's'} in the last ${days} days${last}.`;
   } else if (label === 'hold') {
-    const top = [...report.flags].sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity])[0];
+    // A sanctions match is the reason whenever it is there, as on the server.
+    const top =
+      report.flags.find((f) => f.id === 'ofac_sanctioned') ??
+      [...report.flags].sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity])[0];
     why = holdWhy(top, w, days);
   }
 

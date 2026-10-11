@@ -19,8 +19,8 @@ import type {
 } from '@/lib/api';
 import { windowLabel, zeroFlagsCopy } from '@/lib/risk';
 import { tidyNumbers, transferHistoryUrl, type PlainAnswer } from '@/lib/plainAnswer';
-import { CHECK_STEPS, progressStep } from '@/lib/checkProgress';
-import { chainMeta } from '@/lib/chains';
+import { checkSteps, progressStep } from '@/lib/checkProgress';
+import { chainMeta, type RiskChainParam } from '@/lib/chains';
 import { counterpartyCheckUrl, PAID_CHECK_PRICE } from '@/lib/paidChecks';
 import { PayCheckButton } from '@/components/pay/PayCheckButton';
 import { watchWalletHref } from '@/lib/watch';
@@ -91,7 +91,7 @@ export function AnswerCard({
  * What a running check is doing, one step at a time, like a status line: the
  * steps done, the one running, the ones to come, and the seconds so far.
  */
-export function CheckProgress({ startedAt }: { startedAt: number }) {
+export function CheckProgress({ startedAt, chain = 'base' }: { startedAt: number; chain?: RiskChainParam }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -102,7 +102,7 @@ export function CheckProgress({ startedAt }: { startedAt: number }) {
   return (
     <div className="rr-progress" role="status" aria-live="polite">
       <ol className="rr-progress-steps">
-        {CHECK_STEPS.map((step, i) => {
+        {checkSteps(chain).map((step, i) => {
           const state = i < current ? 'done' : i === current ? 'now' : 'next';
           return (
             <li key={step} className={`rr-progress-step rr-progress-step--${state}`}>

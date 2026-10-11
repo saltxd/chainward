@@ -124,6 +124,28 @@ describe('plainAnswer', () => {
     expect(down!.advice).toBe('Re-check in a minute.');
   });
 
+  it('Hold on the US sanctions list: says so plainly, even next to another high flag and with no activity', () => {
+    const ofac = {
+      id: 'ofac_sanctioned',
+      severity: 'high' as const,
+      title: 'On the US sanctions list (OFAC)',
+      evidence: 'This address is on the US Treasury OFAC SDN list. Paying it may be illegal for US persons.',
+      source: 'https://sanctionssearch.ofac.treas.gov/',
+    };
+    const stranded = { id: 'stranded_value', severity: 'high' as const, title: 'USDC balance held in a dormant wallet', evidence: 'Holds 12 USDC', source: '' };
+    const a = plainAnswer(
+      report({
+        band: 'high-signal',
+        verdict: { label: 'hold', text: 'Hold', reason: 'On the US sanctions list (OFAC): …', limits: 'x' },
+        flags: [stranded, ofac],
+        window: { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_at: null, transfers_unavailable: 'every source failed' },
+      }),
+      NOW,
+    );
+    expect(a!.word).toBe('Hold');
+    expect(a!.why).toBe('This address is on the US Treasury sanctions list. Paying it may be illegal for US persons.');
+  });
+
   it('falls back to the server reason for an unmapped Hold flag', () => {
     const odd = plainAnswer(
       report({ verdict: { label: 'hold', text: 'Hold', reason: 'Something new: 12 events.', limits: 'x' }, flags: [{ id: 'brand_new_check', severity: 'high', title: 't', evidence: 'e', source: '' }] }),

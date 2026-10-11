@@ -1,18 +1,23 @@
 import { ApiError } from './api';
+import { CHECKS_RUN } from './checkCount';
 
 /**
  * What a running check is doing, said in plain words, one step at a time. The
  * steps are the order the check really works in; the page advances them on a
  * timer because the server reports only queued / ready, and holds on the last.
  */
-export const CHECK_STEPS = [
-  'Looking up the wallet',
-  'Reading its last 30 days of transfers',
-  'Counting who it deals with',
-  'Checking what it holds',
-  'Running 8 checks against what we found',
-  'Writing up the answer',
-] as const;
+export function checkSteps(chain: keyof typeof CHECKS_RUN = 'base'): readonly string[] {
+  return [
+    'Looking up the wallet',
+    'Reading its last 30 days of transfers',
+    'Counting who it deals with',
+    'Checking what it holds',
+    `Running ${CHECKS_RUN[chain]} checks against what we found`,
+    'Writing up the answer',
+  ];
+}
+
+export const CHECK_STEPS = checkSteps('base');
 
 const STEP_MS = 4_000;
 
