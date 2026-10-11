@@ -40,6 +40,12 @@ const OUTPUT_EXAMPLE = {
     report: {
       address: '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2',
       chain: 'base',
+      verdict: {
+        label: 'hold',
+        text: 'Hold',
+        reason: 'USDC balance held in a dormant wallet: Holds 5451.386272 USDC while classified dormant.',
+        limits: 'On-chain behavior only. Absence of flags is not a clearance of the counterparty.',
+      },
       band: 'high-signal',
       flags: [
         {
@@ -177,7 +183,7 @@ export function x402DiscoveryDocument() {
     x402Version: 2,
     name: 'ChainWard',
     description:
-      'On-chain risk reports for Base and BNB Chain addresses: check a counterparty before you pay it. Also sells the datasets behind published decodes. Never a safety verdict.',
+      "Check a Base or BNB Chain address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check), the reason, and the evidence. Also sells the datasets behind published decodes. On-chain behavior only.",
     contact: 'https://chainward.ai',
     contactEmail: 'hello@chainward.ai',
     resources: [
@@ -200,9 +206,9 @@ export function x402DiscoveryDocument() {
  * free web check. Static apart from the prices; no request data is rendered.
  */
 export function apiHomePage(): string {
-  const title = 'ChainWard API: pay, hold or unknown for any address, per call';
+  const title = 'ChainWard API: check an address before you pay it, per call';
   const description =
-    `Before your agent pays a Base or BNB Chain address: Pay, Hold or Unknown with the one reason (${x402CheckPrice()}). ` +
+    `Before your agent pays a Base or BNB Chain address: a verdict (pay / hold / unknown, shown as Pay, Hold, Inactive, No track record or Couldn't check) with the one reason (${x402CheckPrice()}). ` +
     `For a seller: real or self-funded demand (${x402SellerPrice()}). For a BNB Chain agent: hired by others or by its own circle (${x402HiresPrice()}). ` +
     `Evidence and limits under every verdict. Paid in USDC on Base over x402; a check that fails is never charged.`;
   return `<!doctype html>
@@ -230,7 +236,7 @@ export function apiHomePage(): string {
 <li><code>GET /api/paid/{slug}/check?address=</code>: is one wallet in a dataset, and at what tier (${x402LookupPrice()}).</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
-<p>A report is a list of flags, never a safety verdict. Discovery: <a href="/.well-known/x402">/.well-known/x402</a> and <a href="/openapi.json">/openapi.json</a>. Docs: <a href="https://chainward.ai/docs">chainward.ai/docs</a>. Free reports: <a href="https://chainward.ai">chainward.ai</a>.</p>
+<p>Every verdict reads on-chain behavior only: Pay means nothing was found against paying, not a guarantee. Discovery: <a href="/.well-known/x402">/.well-known/x402</a> and <a href="/openapi.json">/openapi.json</a>. Docs: <a href="https://chainward.ai/docs">chainward.ai/docs</a>. Free reports: <a href="https://chainward.ai">chainward.ai</a>.</p>
 </body>
 </html>
 `;
@@ -316,7 +322,7 @@ function x402OpenApiBase() {
       title: 'ChainWard',
       version: '1.0.0',
       description:
-        'On-chain risk reports for Base and BNB Chain addresses: check a counterparty before you pay it. Also sells the datasets behind published decodes. Never a safety verdict.',
+        "Check a Base or BNB Chain address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check), the reason, and the evidence. Also sells the datasets behind published decodes. On-chain behavior only.",
       contact: { url: 'https://chainward.ai' },
     },
     servers: [{ url: 'https://api.chainward.ai' }],
@@ -324,9 +330,9 @@ function x402OpenApiBase() {
       '/api/risk/x402': {
         get: {
           operationId: 'counterpartyCheck',
-          summary: 'Pay, Hold or Unknown for a Base or BNB Chain address, with the reason and the full report, paid per call over x402',
+          summary: 'Verdict label pay / hold / unknown for a Base or BNB Chain address, with a human text, the reason and the full report, paid per call over x402',
           description:
-            'Returns a report no older than 24h, running a fresh check when needed: neutral signal band, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. Screens the US Treasury OFAC sanctions list; a listed address always answers Hold. Not charged if the check fails.',
+            "Returns a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check), the reason, and the evidence: a report no older than 24h (a fresh check runs when needed) with every flag, its evidence and source, what was not assessed, and the EAS attestation if one exists. Screens the US Treasury OFAC sanctions list; a listed address always answers Hold. Not charged if the check fails.",
           parameters: [
             {
               name: 'address',
@@ -675,7 +681,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402CheckPrice(),
     serviceName: 'ChainWard counterparty check',
     description:
-      'Pay, Hold or Unknown for a Base or BNB Chain (?chain=bsc) address before you pay it, with the one reason: active with real counterparties, or a high-severity flag named. Under it, every flag with its evidence and source, what was not assessed, and the EAS attestation if one exists. On-chain behavior only.',
+      "Check a Base or BNB Chain (?chain=bsc) address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check) and the one reason, such as active with real counterparties or a high-severity flag named. Under it, the evidence: every flag with its source, what was not assessed, and the EAS attestation if one exists. On-chain behavior only.",
     tags: ['base', 'bsc', 'bnb', 'risk', 'counterparty', 'wallet', 'address', 'reputation', 'trust', 'due-diligence', 'agents', 'eas', 'attestation'],
     whatYouGet:
       'A verdict (pay / hold / unknown) with its reason, then the full risk report no older than 24h (a fresh check runs if needed), JSON. Base by default; add ?chain=bsc for a BNB Chain address. Not charged if the check fails.',

@@ -1,6 +1,6 @@
 # ChainWard
 
-> On-chain forensics for AI agents on Base and BNB Chain. ChainWard reads the chain and files a public report for any Base or BNB Chain address that opens with a verdict (Pay, Hold or Unknown) and the one fact it rests on, then a neutral signal band (low-signal, mixed, elevated, high-signal) and every flag it can prove on-chain, each tied to the transactions behind it. For a seller: Real demand or Self-funded demand. For a BNB Chain agent: Hired by others or Hired by its own circle. Verdicts are read from on-chain behavior only: Pay means nothing was found against paying in the window checked, not that the address is safe.
+> Check an address before you pay or hire an AI agent, on Base and BNB Chain. ChainWard reads the chain and files a public report for any Base or BNB Chain address. Each report opens with a verdict: a machine label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check), the one fact it rests on, and the evidence under it: every flag it can prove on-chain, each tied to the transactions behind it. For a seller: Real demand or Self-funded demand. For a BNB Chain agent: Hired by others or Hired by its own circle. Verdicts are read from on-chain behavior only: Pay means nothing was found against paying in the window checked, not a guarantee.
 
 ## Check an address (free)
 
@@ -13,7 +13,7 @@
 
 Send paid requests to https://api.chainward.ai directly. The first request answers 402 with the payment requirements; any x402 client pays and retries.
 
-- Counterparty check, 0.05 USDC: a risk report no older than 24 hours, run fresh if needed. GET https://api.chainward.ai/api/risk/x402?address=<address> (add &chain=bsc for BNB Chain)
+- Counterparty check, 0.05 USDC: the verdict (pay / hold / unknown), its reason and the full report, no older than 24 hours, run fresh if needed. GET https://api.chainward.ai/api/risk/x402?address=<address> (add &chain=bsc for BNB Chain)
 - x402 seller check, 0.10 USDC: where a seller's buyers get their stablecoins (seller-funded buyers, money sent back, common funders), on Base or BNB Chain. On Base it names the payers behind facilitator proxies (Meridian, Fluxa) from x402scan, confirmed on receipts; payers behind exchanges stay opaque. GET https://api.chainward.ai/api/risk/seller-demand?address=<payTo> (add &chain=bsc)
 - Hire check, 0.10 USDC: who hired a BNB Chain ERC-8004 agent in the last 30 days, and whether each hirer is the owner, funded by it or shares a funder with it (BNB Chain's Set and Earn rule). GET https://api.chainward.ai/api/risk/hires?agent=<id or owner address>&chain=bsc
 - Discovery: https://api.chainward.ai/.well-known/x402 and https://api.chainward.ai/openapi.json
@@ -22,6 +22,7 @@ Send paid requests to https://api.chainward.ai directly. The first request answe
 
 - The full data behind a decode, as CSV, 10 USDC each. What's for sale: GET https://api.chainward.ai/api/paid
 - Free single-wallet lookup in a dataset: GET https://api.chainward.ai/api/paid/termix-wallets/lookup/<address>
+- Dataset check over x402, 0.25 USDC: is one wallet in a dataset, and at what tier. GET https://api.chainward.ai/api/paid/<slug>/check?address=<address>
 - Buy from any wallet on the web: https://chainward.ai/paid/termix-wallets, or over x402: GET https://api.chainward.ai/api/paid/termix-wallets/file
 
 ## Boards (free)
@@ -31,7 +32,7 @@ Send paid requests to https://api.chainward.ai directly. The first request answe
 
 ## ChainWard Attest (EAS on Base)
 
-- Every Base report that flags observed behavior is attested on Base with the Ethereum Attestation Service. Recipient = the checked address. BNB Chain reports are not attested yet.
+- A Base report is attested on Base with the Ethereum Attestation Service when it was filed in the last 7 days from an up-to-date chain head and carries at least one flag based on observed behavior; missing activity or a sanctions-list match alone does not count (at most 50 a day). Recipient = the checked address. BNB Chain reports are not attested yet.
 - Schema UID: 0x09573690adba41164227b57600aa02061b0ce79dc0655e4c8b36bfe95bb41552
 - Attester (only trust this one): 0x5edc6276B89CC185aC8D6A7eCfdE076e1ACf50DF
 - Overview: https://chainward.ai/attest
