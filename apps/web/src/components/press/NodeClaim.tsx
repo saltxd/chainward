@@ -40,12 +40,12 @@ export function NodeSyncNoteText({
   lag: number | null;
 }) {
   if (status === 'syncing') {
-    const behind = lag != null ? `, ${lag.toLocaleString()} blocks behind` : '';
+    const behind = lag != null ? ` (${lag.toLocaleString()} blocks behind)` : '';
     return (
       <>
         {' '}
-        Readings come from a public Base RPC at head; our own node is resyncing{behind}
-        and is not used for any figure until it catches up.
+        Our own node is resyncing{behind}, so for now readings come from a public Base RPC at
+        head. None of our figures use the node until it catches up.
       </>
     );
   }

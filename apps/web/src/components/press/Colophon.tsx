@@ -11,7 +11,8 @@ export function Colophon() {
       <div className="ph-colophon-row">
         <p className="ph-colophon-note">
           ChainWard reads Base <NodeClaim live="from its own node" neutral="directly" /> and
-          files what the chain shows — flags, never a safety verdict. Free &amp; public.
+          tells you what the chain shows: the answer, the reason, and the evidence. On-chain
+          behavior only, so it can&apos;t see promises made off-chain. Free and public.
           <NodeSyncNote />
         </p>
         <nav className="ph-colophon-links" aria-label="Footer">

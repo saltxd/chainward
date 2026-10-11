@@ -12,6 +12,8 @@ describe('NodeSyncNoteText', () => {
     const html = renderToStaticMarkup(<NodeSyncNoteText status="syncing" lag={444_658} />);
     expect(html).toContain('resyncing');
     expect(html).toContain('444,658 blocks behind');
+    // The JSX line break after the count used to swallow the space: "behindand".
+    expect(html).not.toMatch(/behind[a-z]/);
     expect(html).toContain('public Base RPC');
   });
 
