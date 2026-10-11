@@ -1,9 +1,8 @@
 /**
  * Home = the Risk-Check intake, filed like a forensic dossier. The intake form
- * is the hero (paste a Base address or @handle), framed by the honest
- * positioning (a verdict with its reason), a "recently filed" strip, a quiet paid
- * Intel Brief offer, and featured /decodes as proof. Free-first: no safety
- * verdict — just flags with evidence.
+ * is the hero (paste a Base or BNB Chain address), framed by the honest
+ * positioning (Pay or Hold with its reason), a "recently filed" strip, a quiet
+ * paid Intel Brief offer, and featured /decodes as proof. Free-first.
  */
 
 import type { Metadata } from 'next';
@@ -107,7 +106,7 @@ export default async function CheckHomePage({
       <div className="press-wrap">
         <Masthead />
 
-        {/* Hero — the intake document */}
+        {/* Hero: the intake document */}
         <section className="home-hero">
           <div className="home-hero-lead">
             <div className="press-fileno">
@@ -178,7 +177,7 @@ export default async function CheckHomePage({
 
         <hr className="press-rule" />
 
-        {/* Statement of method — the honest framing, as an editorial policy */}
+        {/* Statement of method: the honest framing, as an editorial policy */}
         <section className="home-policy">
           <div className="home-policy-head">
             <h2 className="home-h2 press-display">How to read a report</h2>
@@ -200,13 +199,13 @@ export default async function CheckHomePage({
 
         <hr className="press-rule" />
 
-        {/* Proof — featured decodes as a casebook */}
+        {/* Proof: featured decodes as a casebook */}
         <section className="home-casebook">
           <div className="home-casebook-head">
             <h2 className="home-h2 press-display">From the casebook</h2>
             <p className="home-casebook-lede">
-              We&apos;ve been checking the chain by hand — claims against receipts,
-              fund flows, the gap between the pitch and the ledger. Now that method
+              We&apos;ve been checking the chain by hand: claims against receipts,
+              where the money went, the gap between the pitch and the ledger. Now that method
               runs on a button. Read a few filings to see how we work.
             </p>
           </div>

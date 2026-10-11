@@ -3,14 +3,14 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Connect Wallet',
   description:
-    'Connect your wallet to ChainWard. Monitor your AI agent wallets on Base with real-time alerts — no email, no password.',
+    'Sign in to ChainWard with your wallet, no email or password. Watch your AI agent wallets on Base, with alerts.',
   robots: { index: false, follow: false },
 };
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* Server-rendered fallback for users with JS disabled — React 19 strips
+      {/* Server-rendered fallback for users with JS disabled: React 19 strips
           <noscript> from inside client components, so it must live here.
           Styled on paper tokens to match the press login surface. */}
       <noscript>
@@ -28,8 +28,8 @@ export default function LoginLayout({ children }: { children: React.ReactNode })
           }}
         >
           <strong style={{ color: 'var(--ink)' }}>JavaScript required.</strong>{' '}
-          ChainWard verifies you with your Ethereum wallet (SIWE) — that flow
-          needs JS enabled and a wallet extension installed.{' '}
+          ChainWard signs you in with your wallet (no email or password), and
+          that needs JavaScript enabled and a wallet extension installed.{' '}
           <a href="/docs" style={{ color: 'var(--oxblood)', textDecoration: 'underline' }}>
             Read the docs
           </a>{' '}

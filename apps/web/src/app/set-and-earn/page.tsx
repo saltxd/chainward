@@ -9,9 +9,9 @@ const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000'
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Set and Earn Board — who hired the agents built for BNB Chain’s Set and Earn',
+  title: 'Set and Earn Board: who hired the agents built for BNB Chain’s Set and Earn',
   description:
-    'Every ERC-8004 agent hired on BNB Chain since Set and Earn opened, and whether 3 of its hirers are wallets its owner neither is nor funded. Updated daily from on-chain data.',
+    'Every registered AI agent hired on BNB Chain since Set and Earn opened, and whether 3 of its hirers are wallets its owner neither is nor funded. Updated daily from on-chain data. It follows money only, so “no link found” is not proof of independence.',
   alternates: { canonical: 'https://chainward.ai/set-and-earn' },
   openGraph: {
     title: 'Set and Earn Board',
@@ -65,8 +65,9 @@ export default async function SetAndEarnPage() {
           <p className="se-lede">
             BNB Chain’s Set and Earn rule for the agent you build: “At least 3 completed hires from 3
             distinct wallets that are not yours and not funded by yours”. Every day, this board lists each
-            ERC-8004 agent hired on BSC since Oct 1, whenever it was registered, and runs ChainWard’s hire
-            check on those with 3 or more distinct hirers.
+            agent in ERC-8004 (the on-chain registry where AI agents get a public ID) hired on BNB Chain
+            since Oct 1, whenever it was registered, and runs ChainWard’s hire check on those with 3 or
+            more distinct hirers.
           </p>
           {board && (
             <div className="se-meta">
@@ -120,9 +121,10 @@ export default async function SetAndEarnPage() {
               those limits; it is not proven independence.{' '}
             <strong>Hired by others</strong>: 3 or more of them, whether or not their hires have completed yet.{' '}
             <strong>Hired by its own circle</strong>: the hirers that trace back to the owner or share its funder
-            outnumber the rest. Hires are
-            TermiX escrow orders and jobs on the shared ERC-8183 contract; completed means the order settled or
-            the job completed. The method and worked
+            outnumber the rest. Hires are orders on TermiX (a marketplace where agents hire other agents,
+            holding the payment in escrow until the order settles) and jobs on the shared ERC-8183 contract
+            (a standard contract where a client posts a paid job for an agent and the payment is held until
+            the job completes); completed means the order settled or the job completed. The method and worked
             cases are in{' '}
             <Link className="press-link" href="/decodes/set-and-earn-week-one">
               Set and Earn, week one
@@ -142,9 +144,9 @@ export default async function SetAndEarnPage() {
         <section className="se-section">
           <span className="press-label">Check one agent</span>
           <p className="se-p">
-            Every hirer, its verdict and the funding trail behind it, for any agent id: 0.10 USDC over x402,
-            not charged if the check fails. For an agent on the board, the button on its row runs it from your
-            wallet.
+            Every hirer, its verdict and the funding trail behind it, for any agent id: 0.10 USDC over x402
+            (a way for one program to pay another a few cents per request in USDC), not charged if the check
+            fails. For an agent on the board, the button on its row runs it from your wallet.
           </p>
           <pre className="se-code mono">
             <code>{hireCheckCurl()}</code>

@@ -4,7 +4,7 @@ import { PressShell, Masthead, PressDateline, Colophon } from '@/components/pres
 import { getAllDecodes } from '@/lib/decodes';
 
 export const metadata: Metadata = {
-  title: 'On-Chain Decodes — AI Agent Investigations',
+  title: 'Decodes: investigations of AI agents on-chain',
   description:
     'Deep dives into AI agent on-chain activity. We check the chain so you don\'t have to.',
   alternates: { canonical: 'https://chainward.ai/decodes' },
@@ -42,9 +42,9 @@ export default function DecodesPage() {
             On-chain investigations.
           </h1>
           <p className="dx-lede">
-            We trace wallets, verify claims, and document what the chain actually
-            shows — no marketing copy, no cope, just receipts. Each decode is filed
-            and dated below.
+            We follow an agent&apos;s wallets, check its claims, and write down what
+            the chain actually shows: no marketing copy, just receipts. Each decode
+            is filed and dated below.
           </p>
         </section>
 

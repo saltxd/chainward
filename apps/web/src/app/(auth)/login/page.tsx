@@ -55,7 +55,7 @@ export default function LoginPage() {
             </h1>
             <p className="auth-lede">{LOGIN_PITCH}</p>
 
-            {/* The notary block — a signature line, not a terminal prompt. */}
+            {/* The notary block: a signature line, not a terminal prompt. */}
             <div className="auth-notary">
               <div className="auth-notary-head">
                 <span className="press-label">Signatory of record</span>
@@ -73,12 +73,12 @@ export default function LoginPage() {
                     {address?.slice(0, 6)}…{address?.slice(-4)}
                   </span>
                 ) : (
-                  <span className="auth-sigline-blank">— not yet connected —</span>
+                  <span className="auth-sigline-blank">not yet connected</span>
                 )}
               </div>
               <div className="auth-sig-cap">
                 {isConnected
-                  ? 'Connected address — sign below to open a session'
+                  ? 'Connected address: sign below to open a session'
                   : 'Connect a wallet to sign as the address of record'}
               </div>
             </div>
@@ -89,7 +89,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Action — flow logic preserved exactly. */}
+            {/* Action: flow logic preserved exactly. */}
             {!isConnected && (
               <button
                 type="button"
@@ -111,8 +111,9 @@ export default function LoginPage() {
             )}
 
             <p className="auth-fine">
-              A SIWE signature — gasless, off-chain, and revocable. Nothing is
-              written to the chain; it only proves you hold the key.
+              Sign in with your wallet, no email or password. It takes one
+              signature (SIWE, Sign-In With Ethereum) that costs nothing and
+              writes nothing to the chain. It only proves the wallet is yours.
             </p>
           </div>
         </section>

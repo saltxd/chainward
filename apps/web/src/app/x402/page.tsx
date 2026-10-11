@@ -10,7 +10,7 @@ const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000'
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'x402 Seller Board — where Base’s top x402 sellers’ buyers get their USDC',
+  title: 'x402 Seller Board: where Base’s top x402 sellers’ buyers get their USDC',
   description:
     'Every week, Base’s largest x402 sellers by volume, each with a verdict on its demand (real, self-funded, mixed or not enough data) and the money trail behind it: how much traces back to the seller, how much it pays back, whether one wallet funds most buyers. Read from the chain.',
   alternates: { canonical: 'https://chainward.ai/x402' },
@@ -69,11 +69,11 @@ async function getBoard(): Promise<Board | null> {
 }
 
 const usd = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-const pct = (n: number | null | undefined) => (n == null ? '—' : `${Math.round(n * 100)}%`);
+const pct = (n: number | null | undefined) => (n == null ? 'n/a' : `${Math.round(n * 100)}%`);
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 function traced(r: Report): string {
-  if (r.buyers_checked === 0) return '—';
+  if (r.buyers_checked === 0) return 'none checked';
   const hops = Object.keys(r.seller_funded.hops).map(Number);
   const lo = Math.min(...hops);
   const hi = Math.max(...hops);
@@ -96,7 +96,8 @@ export default async function X402BoardPage() {
             Where do their buyers get <em>their USDC?</em>
           </h1>
           <p className="xb-lede">
-            Base’s largest x402 sellers by 7-day volume (x402scan’s ranking), each run through
+            x402 lets one program pay another a few cents per request in USDC. This board takes
+            Base’s largest x402 sellers by 7-day volume (x402scan’s ranking) and runs each through
             ChainWard’s seller check: for its top 30 buyers, we follow each one’s largest funder back up
             to four hops and see whether the trail reaches the seller. Volume and buyer counts say how
             much moved. This says whose money it was.
@@ -190,7 +191,7 @@ export default async function X402BoardPage() {
                           <td>
                             {row.report.common_first_funder
                               ? `${pct(row.report.common_first_funder.buyer_share)} of buyers`
-                              : '—'}
+                              : 'none'}
                           </td>
                           <td>
                             {row.report.signals.length === 0 ? (
@@ -225,7 +226,8 @@ export default async function X402BoardPage() {
             <strong>Top buyers tracing back to seller</strong>: of the seller’s 30 largest buyers in the
             last 30 days, how many reach the seller’s own address by following their largest funder (at
             most four hops, stopping at exchanges and other high-throughput hubs; a busy wallet that got
-            most of its money from the seller, such as its second payTo, counts as the seller’s). A
+            most of its money from the seller, such as a second payTo (the address a seller tells x402
+            buyers to pay), counts as the seller’s). A
             seller whose revenue funds its buyers can show any buyer count; this column shows how much of
             it does. Payments delivered by a facilitator proxy (Meridian, Fluxa) count as their real
             payer’s: x402scan names the payer and the chain confirms it on a sample of receipts. Payments
@@ -286,11 +288,9 @@ export default async function X402BoardPage() {
         .xb-addr:hover { color: var(--oxblood); }
         .xb-sub { color: var(--ink-faint); font-size: 11px; margin-top: 2px; }
         .xb-chip { display: inline-block; margin: 0 4px 4px 0; padding: 2px 6px; border: 1px solid var(--rule-strong); font-size: 11px; color: var(--ink); cursor: help; }
-        .xb-verdict { display: block; font-weight: 640; color: var(--ink); border-left: 3px solid var(--ink-faint); padding-left: 6px; }
+        .xb-verdict { display: block; font-weight: 640; color: var(--ink); }
         .xb-verdict .xb-sub { display: block; font-weight: 400; margin-top: 2px; }
-        .xb-verdict--real_demand { border-left-color: var(--sev-low); }
-        .xb-verdict--self_funded_demand { border-left-color: var(--sev-high); }
-        .xb-verdict--mixed { border-left-color: var(--sev-medium); }
+        .xb-verdict--self_funded_demand { color: var(--oxblood); }
         .xb-none { color: var(--ink-faint); }
       `}</style>
     </PressShell>

@@ -13,14 +13,14 @@ const PAGE_SIZE = 60;
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Report Library: Pay or Hold for Base addresses',
+  title: 'Report Library: Pay or Hold for Base and BNB Chain addresses',
   description:
-    'A free, public library of checks on Base addresses: Pay or Hold for each, the reason, and the on-chain evidence behind it.',
+    'A free, public library of ChainWard checks on Base and BNB Chain addresses. Each report says Pay or Hold, the reason, and the on-chain evidence. On-chain behavior only; Pay isn’t a guarantee.',
   alternates: { canonical: 'https://chainward.ai/reports' },
   openGraph: {
     title: 'Risk Report Library | ChainWard',
     description:
-      'Public on-chain risk reports for Base addresses: a verdict, its reason and the evidence.',
+      'Public reports on Base and BNB Chain addresses: Pay or Hold, the reason and the evidence.',
     url: 'https://chainward.ai/reports',
     type: 'website',
     images: [{ url: '/chainward-og-card.png', width: 1200, height: 630 }],
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     site: '@chainwardai',
     title: 'Risk Report Library | ChainWard',
-    description: 'Public on-chain risk reports for Base addresses.',
+    description: 'Public reports on Base and BNB Chain addresses: Pay or Hold, the reason and the evidence.',
     images: ['/chainward-og-card.png'],
   },
 };
@@ -145,8 +145,9 @@ export default async function ReportsLibraryPage() {
           <h1 className="reg-title press-display">Every address we&apos;ve checked.</h1>
           <p className="reg-lede">
             The first time an address is checked, its report is filed here as a
-            public, shareable record — free, forever. Flags from on-chain behavior,
-            with evidence. Never a safety verdict.
+            public record you can share, free. Each one says Pay or Hold and why,
+            with the on-chain evidence. It reads on-chain behavior only, so Pay
+            isn&apos;t a guarantee.
           </p>
           <p className="reg-legend mono">
             A flag is one observation with the transactions behind it, ranked info → low → medium → high.
@@ -156,7 +157,7 @@ export default async function ReportsLibraryPage() {
 
         {reports.length === 0 ? (
           <div className="reg-empty">
-            No reports filed yet. Be the first —{' '}
+            No reports filed yet. Be the first:{' '}
             <Link href="/" className="press-link">
               run a check →
             </Link>
