@@ -228,12 +228,12 @@ export default function AgentDetailPage({
               <>
                 Live at{' '}
                 <a
-                  href={`/agent/${agent.walletAddress}`}
+                  href={`/report/${agent.walletAddress.toLowerCase()}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: 'var(--phosphor)', textDecoration: 'none' }}
                 >
-                  chainward.ai/agent/{agent.walletAddress.slice(0, 8)}…
+                  chainward.ai/report/{agent.walletAddress.slice(0, 8).toLowerCase()}…
                 </a>
               </>
             ) : (

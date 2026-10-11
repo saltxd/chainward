@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PageShell, NavBar, SectionHead, StatTile, Badge } from '@/components/v2';
 import { getArenaAudit, type AuditRow } from '@/lib/hyperliquid-audit';
+import { isAddress } from '@/lib/params';
 
 export const revalidate = 60;
 
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
   title: 'Hyperliquid Agent Audit — Live Arena Truth Check',
   description:
     "Independent audit of Virtuals' Arena leaderboard against Hyperliquid's public API. Side-by-side display of what the dashboard claims vs what the chain actually shows.",
-  alternates: { canonical: 'https://chainward.ai/hyperliquid' },
+  // Retired from search (not in the sitemap); the route keeps working for old links.
+  robots: { index: false, follow: true },
   openGraph: {
     title: 'Hyperliquid Agent Audit | ChainWard',
     description:
@@ -68,14 +70,19 @@ function AuditRowDisplay({ row }: { row: AuditRow }) {
         <div style={{ fontSize: 14, color: 'var(--fg)', fontWeight: 500 }}>{row.name}</div>
         <div style={{ fontSize: 11, color: 'var(--fg-dim)', fontFamily: 'var(--font-mono, ui-monospace)' }}>
           ${row.tokenSymbol}{' '}
-          <a
-            href={`https://app.hyperliquid.xyz/explorer/address/${row.agentAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: 'var(--fg-dim)', textDecoration: 'none' }}
-          >
-            {row.agentAddress.slice(0, 6)}…{row.agentAddress.slice(-4)} ↗
-          </a>
+          {/* Some Arena rows publish no agent address; an explorer link with an empty address opens a blank page. */}
+          {isAddress(row.agentAddress) ? (
+            <a
+              href={`https://app.hyperliquid.xyz/explorer/address/${row.agentAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--fg-dim)', textDecoration: 'none' }}
+            >
+              {row.agentAddress.slice(0, 6)}…{row.agentAddress.slice(-4)} ↗
+            </a>
+          ) : (
+            <span>no agent address published</span>
+          )}
         </div>
       </td>
       <td

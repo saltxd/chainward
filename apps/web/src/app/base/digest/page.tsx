@@ -54,7 +54,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Weekly Agent Economy Digest — ChainWard',
     description,
-    alternates: { canonical: 'https://chainward.ai/base/digest' },
+    // Retired from search: nothing links here any more, but the route keeps working.
+    robots: { index: false, follow: true },
     keywords: [
       'AI agent economy',
       'Base agent digest',
