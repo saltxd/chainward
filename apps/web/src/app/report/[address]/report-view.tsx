@@ -25,7 +25,6 @@ import {
   PressDateline,
   Colophon,
   BriefOffer,
-  NodeClaim,
 } from '@/components/press';
 import { ApiError, publicApi, type RiskReport, type RiskTeaser } from '@/lib/api';
 import { DISCLAIMER } from '@/lib/risk';
@@ -33,6 +32,7 @@ import { chainMeta, chainQuery, type RiskChainParam } from '@/lib/chains';
 import { track } from '@/lib/track';
 import {
   AnswerCard,
+  CheckProgress,
   CoverageBlock,
   FlagList,
   FreshPaidCheck,
@@ -42,6 +42,7 @@ import {
   ProvenanceLine,
 } from './_components';
 import { plainAnswer } from '@/lib/plainAnswer';
+import { isTransient } from '@/lib/checkProgress';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const POLL_INTERVAL_MS = 3000;
@@ -75,20 +76,14 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
   const lowered = address.toLowerCase();
   const valid = ADDRESS_RE.test(address);
   const meta = chainMeta(chain);
-  // Only Base may ever claim our own node; other chains read a public RPC and say so.
-  const nodeClaim =
-    chain === 'base' ? (
-      <NodeClaim live="our own Base node" neutral="the chain" />
-    ) : (
-      <>{meta.readsFrom}</>
-    );
-
   const [state, setState] = useState<ViewState>(
     valid ? { kind: 'loading' } : { kind: 'invalid' },
   );
   const [checkLoading, setCheckLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attemptsRef = useRef(0);
+  // When the visible check started, so the step-by-step status survives state changes.
+  const startedAtRef = useRef(Date.now());
 
   const clearPoll = useCallback(() => {
     if (pollRef.current) {
@@ -126,6 +121,11 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
           }
           pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
         } catch (err) {
+          // A network hiccup mid-check: the check keeps running server-side, so keep waiting.
+          if (isTransient(err) && attemptsRef.current < POLL_MAX_ATTEMPTS) {
+            pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+            return;
+          }
           clearPoll();
           setState({
             kind: 'error',
@@ -155,16 +155,21 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
               : { kind: 'ready', report },
           );
         } catch (err) {
-          // 404 = decode still running → keep waiting up to the ceiling.
+          // 404 = check still running; a network hiccup = try again. Keep waiting up to the ceiling.
           if (
-            err instanceof ApiError &&
-            err.code === 'NOT_FOUND' &&
+            ((err instanceof ApiError && err.code === 'NOT_FOUND') || isTransient(err)) &&
             attemptsRef.current < POLL_MAX_ATTEMPTS
           ) {
             pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
             return;
           }
-          clearPoll(); // give up quietly — the teaser preview stays visible
+          clearPoll();
+          // A teaser preview stays visible; a bare "checking" screen gets a plain way out.
+          setState((s) =>
+            s.kind === 'pending'
+              ? { kind: 'error', message: 'This is taking longer than usual. Refresh in a minute and the report will be here.' }
+              : s,
+          );
         }
       };
       pollRef.current = setTimeout(tick, POLL_INTERVAL_MS);
@@ -179,6 +184,7 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
       return;
     }
     setState({ kind: 'loading' });
+    startedAtRef.current = Date.now();
     try {
       const res = await publicApi.getReport(lowered, chain);
       const report = res.data.report;
@@ -197,6 +203,10 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
         setState({ kind: 'rate_limited' });
         return;
       }
+      if (isTransient(err)) {
+        await runCheck(false);
+        return;
+      }
       setState({
         kind: 'error',
         message: err instanceof Error ? err.message : 'Failed to load report.',
@@ -210,6 +220,7 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
     async (forceRecheck: boolean) => {
       clearPoll();
       attemptsRef.current = 0;
+      if (forceRecheck) startedAtRef.current = Date.now();
       setCheckLoading(true);
       try {
         const res = await publicApi.checkAddress(lowered, forceRecheck, chain);
@@ -241,6 +252,11 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
           setState({ kind: 'rate_limited' });
         } else if (err instanceof ApiError && err.code === 'INVALID_TARGET') {
           setState({ kind: 'invalid' });
+        } else if (isTransient(err)) {
+          // The request may have reached us and queued the check; wait for the report.
+          setState({ kind: 'pending' });
+          attemptsRef.current = 0;
+          pollReport(lowered);
         } else {
           setState({
             kind: 'error',
@@ -340,26 +356,15 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
 
         {/* ── loading ─────────────────────────────────────────────────── */}
         {state.kind === 'loading' && (
-          <div className="rr-loading">
-            <span className="rr-loading-pulse" aria-hidden /> Reading the chain…
+          <div className="rr-block">
+            <CheckProgress startedAt={startedAtRef.current} />
           </div>
         )}
 
         {/* ── pending (decode queued) ─────────────────────────────────── */}
         {state.kind === 'pending' && (
-          <div className="rr-notice">
-            <div className="rr-notice-tag">
-              <span className="rr-loading-pulse" aria-hidden /> Decode running
-            </div>
-            <p>
-              Running the forensic decode against {nodeClaim}. This usually
-              takes under a minute — flags will appear here automatically.
-            </p>
-            <div className="rr-steps">
-              <span>Fetching transfers</span>
-              <span>Classifying behavior</span>
-              <span>Deriving flags</span>
-            </div>
+          <div className="rr-block">
+            <CheckProgress startedAt={startedAtRef.current} />
           </div>
         )}
 
@@ -411,13 +416,12 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
         {state.kind === 'teaser' && (
           <>
             <div className="rr-block">
-              <span className="press-label">Public stats</span>
-              <h2 className="rr-h2 press-display">Has history. Decoding now.</h2>
+              <span className="press-label">Checking now</span>
+              <h2 className="rr-h2 press-display">This wallet has history. Checking it now.</h2>
+              <CheckProgress startedAt={startedAtRef.current} />
               <p className="rr-lede">
-                The full forensic decode is running against {nodeClaim} — flags
-                appear below automatically when it finishes. Here is the cheap
-                public snapshot meanwhile. No flags are shown until the decode
-                completes.
+                While that runs, here&apos;s a quick snapshot of the wallet. The answer
+                (Pay, Hold or Unknown) replaces this when the check finishes.
               </p>
               <div className="rr-stats">
                 <Stat label="sent txs" value={fmtNum(state.teaser.public_stats.tx_count, 0)} unit="from this wallet" />
@@ -440,23 +444,6 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
                     unit="virtuals acp"
                   />
                 )}
-              </div>
-            </div>
-
-            <div className="rr-block">
-              <div className="rr-notice">
-                <div className="rr-notice-tag">
-                  <span className="rr-loading-pulse" aria-hidden /> Decode running
-                </div>
-                <p>
-                  Running the full forensic decode against {nodeClaim} now —
-                  reading transfers, classifying behavior, deriving flags with
-                  on-chain evidence. Flags appear here automatically, usually under
-                  a minute. The result becomes a free, public, shareable report.
-                </p>
-                <button className="press-btn press-btn--ghost" onClick={() => load()}>
-                  ↻ Refresh
-                </button>
               </div>
             </div>
 
@@ -807,6 +794,45 @@ function ReportStyles() {
       }
 
       /* Verdict: the decision, its reason, its limit */
+      .rr-progress {
+        border: 1px solid var(--rule);
+        background: var(--paper-2);
+        padding: 18px 20px 14px;
+        margin: 4px 0 18px;
+      }
+      .rr-progress-steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+        font-size: 17px;
+      }
+      .rr-progress-step { display: flex; align-items: center; gap: 10px; color: var(--ink-faint); }
+      .rr-progress-step--done { color: var(--ink-soft); }
+      .rr-progress-step--now { color: var(--ink); font-weight: 600; }
+      .rr-progress-mark {
+        width: 18px;
+        display: inline-flex;
+        justify-content: center;
+        color: var(--seal);
+      }
+      .rr-progress-step--now .rr-progress-mark::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--oxblood, var(--sev-high));
+        animation: rr-progress-pulse 1.1s ease-in-out infinite;
+      }
+      @keyframes rr-progress-pulse {
+        0%, 100% { opacity: 0.25; transform: scale(0.8); }
+        50% { opacity: 1; transform: scale(1.15); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .rr-progress-step--now .rr-progress-mark::before { animation: none; }
+      }
+      .rr-progress-time { margin: 12px 0 0; font-size: 14px; color: var(--ink-faint); }
       .rr-question {
         margin: 10px 0 6px;
         font-size: clamp(30px, 5vw, 48px);

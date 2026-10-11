@@ -19,9 +19,20 @@ async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
 
-  const data = await response.json();
+  // A web page instead of data (an edge error page, a proxy hiccup) is a network
+  // problem, not something to show the reader as a parser error.
+  const text = await response.text();
+  let data: { error?: { code?: string; message?: string } | string } & Record<string, unknown>;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new ApiError("We couldn't reach our server just now.", 'BAD_RESPONSE');
+  }
 
   if (!response.ok) {
+    if (typeof data.error === 'string') {
+      throw new ApiError("We couldn't reach our server just now.", 'UPSTREAM');
+    }
     const code = data.error?.code ?? 'UNKNOWN';
     const message = data.error?.message ?? 'Request failed';
     throw new ApiError(message, code);

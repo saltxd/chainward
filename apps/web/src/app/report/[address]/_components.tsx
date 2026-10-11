@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 /**
  * Presentation primitives for a risk report, filed on paper. INTEGRITY-critical:
  * nothing here says "safe". The answer card carries the server's Pay / Hold /
@@ -17,6 +19,7 @@ import type {
 } from '@/lib/api';
 import { windowLabel, zeroFlagsCopy } from '@/lib/risk';
 import { tidyNumbers, transferHistoryUrl, type PlainAnswer } from '@/lib/plainAnswer';
+import { CHECK_STEPS, progressStep } from '@/lib/checkProgress';
 import { chainMeta } from '@/lib/chains';
 import { counterpartyCheckUrl, PAID_CHECK_PRICE } from '@/lib/paidChecks';
 import { PayCheckButton } from '@/components/pay/PayCheckButton';
@@ -71,6 +74,41 @@ export function AnswerCard({
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * What a running check is doing, one step at a time, like a status line: the
+ * steps done, the one running, the ones to come, and the seconds so far.
+ */
+export function CheckProgress({ startedAt }: { startedAt: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const elapsed = Math.max(0, now - startedAt);
+  const current = progressStep(elapsed);
+  return (
+    <div className="rr-progress" role="status" aria-live="polite">
+      <ol className="rr-progress-steps">
+        {CHECK_STEPS.map((step, i) => {
+          const state = i < current ? 'done' : i === current ? 'now' : 'next';
+          return (
+            <li key={step} className={`rr-progress-step rr-progress-step--${state}`}>
+              <span className="rr-progress-mark" aria-hidden>
+                {state === 'done' ? '✓' : state === 'now' ? '' : '·'}
+              </span>
+              {step}
+              {state === 'now' ? '…' : ''}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="rr-progress-time">
+        {Math.floor(elapsed / 1000)}s · usually under a minute. The answer appears here by itself.
+      </p>
+    </div>
   );
 }
 

@@ -75,3 +75,15 @@ describe('FlagList, readable', () => {
     expect(html).not.toContain('fetch cap');
   });
 });
+
+describe('CheckProgress', () => {
+  it('shows the steps done, the one running, and the ones to come, with the time so far', async () => {
+    const { CheckProgress } = await import('../_components');
+    const html = renderToStaticMarkup(<CheckProgress startedAt={Date.now() - 9_000} />);
+    expect(html).toContain('Looking up the wallet');
+    expect(html).toContain('rr-progress-step--done');
+    expect(html).toContain('rr-progress-step--now');
+    expect(html).toContain('rr-progress-step--next');
+    expect(html).toMatch(/9s|10s/);
+  });
+});
