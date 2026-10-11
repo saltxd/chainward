@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { useToast } from '@/components/ui/toast';
 import { AlertCard } from '@/components/dashboard/alert-card';
+import { deliveryChannelOptions } from '@/lib/alertChannels';
 import {
   SectionHead,
   Button,
@@ -393,7 +394,7 @@ function AlertsContent() {
               Triggers <span className="serif">you&apos;ve armed.</span>
             </>
           }
-          lede="Watch agents for anomalies — reverts, gas spikes, silence. Deliver to Discord, Telegram, or a webhook."
+          lede="Watch agents for anomalies: reverts, gas spikes, silence. Deliver to Discord or a webhook."
         />
         <Button onClick={() => setShowCreate(!showCreate)}>
           {showCreate ? 'cancel' : '+ create alert'}
@@ -532,7 +533,7 @@ function AlertsContent() {
           <div className="v2-alerts-channels">
             <span className="v2-alerts-label">delivery channels</span>
             <div className="v2-alerts-channel-row">
-              {(['webhook', 'telegram', 'discord'] as const).map((channel) => (
+              {deliveryChannelOptions().map((channel) => (
                 <label key={channel} className="v2-alerts-channel-check">
                   <input
                     type="checkbox"

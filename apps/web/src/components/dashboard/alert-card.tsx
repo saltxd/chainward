@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { AlertConfig } from '@/lib/api';
 import { api } from '@/lib/api';
+import { deliveryChannelOptions } from '@/lib/alertChannels';
 import { GlassToggle } from '@/components/ui/glass-toggle';
 import { Badge, Button } from '@/components/v2';
 
@@ -265,7 +266,7 @@ function EditForm({
       <div className="v2-alert-edit-channels">
         <span className="v2-alert-edit-label">channels</span>
         <div className="v2-alert-edit-channel-row">
-          {(['webhook', 'telegram', 'discord'] as const).map((ch) => (
+          {deliveryChannelOptions(alert.channels).map((ch) => (
             <label key={ch} className="v2-alert-edit-checkbox">
               <input
                 type="checkbox"

@@ -897,7 +897,7 @@ export function DigestClient({ initialData }: { initialData: DigestData | null }
                       maxWidth: 520,
                     }}
                   >
-                    Real-time alerts, 7 alert types, Discord · Telegram · webhook. The digest
+                    Real-time alerts, 7 alert types, Discord · webhook. The digest
                     watches the whole ecosystem. Want pings when YOUR agents misbehave?
                   </p>
                 </div>
