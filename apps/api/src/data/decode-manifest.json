@@ -409,7 +409,7 @@
     {
       "slug": "bankr-hack-trace",
       "title": "Bankr's 14-Wallet Hack: Decoded On-Chain",
-      "subtitle": "Two AI-mediated drains in 15 days, same root cause, no smart contract bug — when the 'wallet' is actually a service, social engineering the service drains every wallet at once.",
+      "subtitle": "Two AI-mediated drains in 15 days, same root cause, no smart contract bug. When the 'wallet' is actually a service, social engineering the service drains every wallet at once.",
       "date": "2026-05-21",
       "url": "https://chainward.ai/decodes/bankr-hack-trace",
       "addresses": [
@@ -428,7 +428,7 @@
     {
       "slug": "bridgekitty-on-chain",
       "title": "BridgeKitty: 595 Daily Jobs, Zero On-Chain Footprint",
-      "subtitle": "A top-10 agent on the Virtuals ACP scan dashboard has never sent a transaction on Base — across two wallets, an owner address, and every endpoint we could query",
+      "subtitle": "A top-10 agent on the Virtuals ACP scan dashboard has never sent a transaction on Base, across two wallets, an owner address, and every endpoint we could query",
       "date": "2026-05-16",
       "url": "https://chainward.ai/decodes/bridgekitty-on-chain",
       "addresses": [
@@ -442,7 +442,7 @@
     {
       "slug": "opengradient-on-chain",
       "title": "OpenGradient On-Chain Decode",
-      "subtitle": "$285M trending market cap, 12 days since launch, zero ACP jobs — where does the valuation come from?",
+      "subtitle": "$285M trending market cap, 12 days since launch, zero ACP jobs. Where does the valuation come from?",
       "date": "2026-05-03",
       "url": "https://chainward.ai/decodes/opengradient-on-chain",
       "addresses": [
@@ -526,7 +526,7 @@
     {
       "slug": "aixbt-on-chain",
       "title": "AIXBT On-Chain Decode",
-      "subtitle": "The most famous AI agent in crypto has earned $52.92 — and what its Apr 15 wallet activity can and cannot tell us",
+      "subtitle": "The most famous AI agent in crypto has earned $52.92, and what its Apr 15 wallet activity can and cannot tell us",
       "date": "2026-04-25",
       "url": "https://chainward.ai/decodes/aixbt-on-chain",
       "addresses": []
@@ -534,7 +534,7 @@
     {
       "slug": "wasabot",
       "title": "Wasabot On-Chain Decode",
-      "subtitle": "$81.6M aGDP, $5.9K revenue — how the ACP dashboard structurally undercounts DeFi agent economics",
+      "subtitle": "$81.6M aGDP, $5.9K revenue: how the ACP dashboard structurally undercounts DeFi agent economics",
       "date": "2026-04-13",
       "url": "https://chainward.ai/decodes/wasabot",
       "addresses": [
