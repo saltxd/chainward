@@ -94,10 +94,11 @@ export default async function CheckHomePage({
             </p>
             <p className="home-lede">
               We read the wallet&apos;s history on Base or BNB Chain and look for what
-              should make you stop: a wallet that only deals with one or two others,
-              money that comes in and never moves, an agent that has gone quiet, claims
-              the chain doesn&apos;t back up. You get one answer, the reason behind it,
-              and the transactions that prove it, read from{' '}
+              should make you stop: a wallet that only deals with one or two others, a
+              wallet that has gone quiet, USDC left sitting in a dormant wallet, or an
+              agent listed as online that the chain shows idle. You get one answer, the
+              reason behind it, and a link to the on-chain record so you can check it
+              yourself, read from{' '}
               <NodeClaim live="our own Base node" neutral="the chain" />.
             </p>
           </div>
