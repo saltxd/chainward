@@ -1,6 +1,6 @@
 {
   "name": "@chainward/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "ChainWard TypeScript SDK — programmatic access to agent monitoring & alerts on Base",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,11 +17,13 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
     "tsup": "^8.3.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
   },
   "keywords": [
     "chainward",

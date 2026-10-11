@@ -78,7 +78,7 @@ export interface CreateAlertInput {
   type: string;
   threshold?: number;
   thresholdUnit?: string;
-  /** Postgres interval string ("7 days", "24 hours") for balance_drop/idle_balance alerts. */
+  /** Postgres interval string ("7 days", "24 hours"): the window for balance_drop and inactivity, the idle time for idle_balance. */
   lookbackWindow?: string;
   channels: string[];
   webhookUrl?: string;
@@ -210,6 +210,7 @@ class AlertsResource {
       alertType: input.type,
       thresholdValue: input.threshold?.toString(),
       thresholdUnit: input.thresholdUnit ?? 'usd',
+      lookbackWindow: input.lookbackWindow,
       channels: input.channels,
       webhookUrl: input.webhookUrl,
       telegramChatId: input.telegramChatId,
