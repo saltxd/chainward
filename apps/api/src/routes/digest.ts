@@ -1,9 +1,10 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
+import { extractSessionToken, verifyJwt } from '../lib/auth.js';
 import type { AppVariables } from '../types.js';
 
 const digest = new Hono<{ Variables: AppVariables }>();
@@ -11,11 +12,23 @@ const digest = new Hono<{ Variables: AppVariables }>();
 // Public endpoints — 60 req/min per IP, no auth required
 digest.use('*', rateLimit({ max: 60, windowSec: 60, prefix: 'rl:digest' }));
 
+/**
+ * The digest as the caller may see it. Social snippets are behind sign-in
+ * (/latest/snippets), so signed-out callers get the digest without them. A
+ * signed-in session keeps them: the snippets dashboard reads /latest.
+ */
+async function forCaller(c: Context, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const token = extractSessionToken(c);
+  if (token && (await verifyJwt(token))) return data;
+  const { social_snippets: _snippets, ...rest } = data;
+  return rest;
+}
+
 // GET /api/digest/latest — most recent weekly digest full payload
 digest.get('/latest', async (c) => {
   const redis = getRedis();
   const cached = await redis.get('digest:latest');
-  if (cached) return c.json({ success: true, data: JSON.parse(cached) });
+  if (cached) return c.json({ success: true, data: await forCaller(c, JSON.parse(cached) as Record<string, unknown>) });
 
   const db = getDb();
   const rows = await db.execute(sql`
@@ -25,8 +38,9 @@ digest.get('/latest', async (c) => {
   const data = (rows as unknown as Array<Record<string, unknown>>)[0] ?? null;
   if (!data) return c.json({ success: true, data: null });
 
+  // The cache keeps the full row; /latest/snippets reads it too.
   await redis.set('digest:latest', JSON.stringify(data), 'EX', 300); // 5 min cache
-  return c.json({ success: true, data });
+  return c.json({ success: true, data: await forCaller(c, data) });
 });
 
 // GET /api/digest/latest/snippets — auth required (internal content dashboard)
@@ -81,7 +95,7 @@ digest.get('/:weekStart', async (c) => {
   const data = (rows as unknown as Array<Record<string, unknown>>)[0] ?? null;
   if (!data) return c.json({ success: false, error: 'Digest not found for this week' }, 404);
 
-  return c.json({ success: true, data });
+  return c.json({ success: true, data: await forCaller(c, data) });
 });
 
 export { digest };
