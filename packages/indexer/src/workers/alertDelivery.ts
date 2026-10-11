@@ -12,6 +12,7 @@ import {
   validateDeliveryUrl,
   type DeliveryRequest,
 } from '../lib/deliveryGuard.js';
+import { buildWebhookPayload, withConfigTrigger, type TriggerUnit } from '../lib/alertTrigger.js';
 
 interface DeliveryJobData {
   alertConfigId: number;
@@ -21,6 +22,9 @@ interface DeliveryJobData {
   description: string | null;
   triggerValue: number | null;
   triggerTxHash: string | null;
+  /** What triggerValue measures and the threshold it crossed. Absent on jobs queued before they were recorded. */
+  triggerUnit?: TriggerUnit | null;
+  triggerThreshold?: number | null;
   eventTimestamp: string;
   agent: {
     name: string | null;
@@ -217,7 +221,20 @@ async function deliverAlert(data: DeliveryJobData) {
 /** Deliver via generic webhook (POST JSON) with retry */
 async function deliverWebhook(data: DeliveryJobData, url: string) {
   validateDeliveryUrl(url);
-  const payload = buildPayload(data);
+  const payload = buildWebhookPayload(
+    await withConfigTrigger(data, async () => {
+      const [config] = await getDb()
+        .select({
+          alertType: alertConfigs.alertType,
+          thresholdValue: alertConfigs.thresholdValue,
+          lookbackWindow: alertConfigs.lookbackWindow,
+        })
+        .from(alertConfigs)
+        .where(eq(alertConfigs.id, data.alertConfigId))
+        .limit(1);
+      return config;
+    }),
+  );
 
   await retryFetch(url, {
     method: 'POST',
@@ -361,27 +378,6 @@ function formatTriggerValue(alertType: string, value: number): string {
 function triggerFieldName(alertType: string): string {
   if (alertType === 'idle_balance') return 'Balance';
   return 'Value';
-}
-
-/** Build the standard alert payload for webhook delivery */
-function buildPayload(data: DeliveryJobData) {
-  return {
-    type: data.alertType,
-    severity: data.severity,
-    agent: {
-      name: data.agent.name,
-      wallet: data.agent.wallet,
-      chain: data.agent.chain,
-    },
-    trigger: {
-      value: data.triggerValue,
-      unit: 'usd',
-      threshold: null,
-      tx_hash: data.triggerTxHash,
-    },
-    timestamp: data.timestamp,
-    dashboard_url: `https://chainward.ai/agents`,
-  };
 }
 
 /** Error text for logs and alert_events.delivery_error. undici reports

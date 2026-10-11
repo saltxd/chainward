@@ -5,6 +5,7 @@ import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { parsePgInterval } from '../lib/interval.js';
+import { triggerThreshold, triggerUnit } from '../lib/alertTrigger.js';
 
 interface TxAlertJobData {
   type: 'tx-triggered';
@@ -571,6 +572,8 @@ async function fireAlert(
     description: result.description,
     triggerValue: result.triggerValue,
     triggerTxHash: result.triggerTxHash,
+    triggerUnit: triggerUnit(config.alertType),
+    triggerThreshold: triggerThreshold(config),
     eventTimestamp: claimed.eventTimestamp,
     agent: {
       name: agents[0]?.agentName ?? null,
