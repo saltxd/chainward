@@ -13,3 +13,15 @@ describe('GET /.well-known/402index-verify.txt', () => {
     expect(await res.text()).toBe('9ed1abee6b118a2073cf0ffc377486c2ef20dc86e12c5ac125a9dd64eae18183');
   });
 });
+
+// x402-list.com proves ownership of a listing's domain the same way before a
+// listing update is reviewed: the token it issued, on its own line.
+describe('GET /.well-known/x402list.txt', () => {
+  it('serves the x402-list ownership token on its own line, as plain text', async () => {
+    const app = createApp({ corsOrigins: ['https://chainward.ai'], x402Check: null });
+    const res = await app.request('/.well-known/x402list.txt');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/^text\/plain/);
+    expect((await res.text()).split('\n')).toContain('x402list-verify-uDXyA03gPZK-Op9QDLyA6u0zuakvq4DckwYTY-c-imY');
+  });
+});

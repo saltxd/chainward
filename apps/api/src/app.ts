@@ -39,6 +39,8 @@ export interface AppOptions {
 
 /** The API's Hono app: every middleware and route, with no server, env or process hooks. */
 const INDEX402_VERIFY_HASH = '9ed1abee6b118a2073cf0ffc377486c2ef20dc86e12c5ac125a9dd64eae18183';
+// x402-list.com listing-update ownership proof (one line per issued token; public by design).
+const X402LIST_TOKENS = ['x402list-verify-uDXyA03gPZK-Op9QDLyA6u0zuakvq4DckwYTY-c-imY'];
 
 export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
   const app = new Hono();
@@ -162,6 +164,7 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
   // 402index.io domain claim for api.chainward.ai (public hash; the token that edits
   // our listings is in chainward-secrets as INDEX402_VERIFICATION_TOKEN).
   app.get('/.well-known/402index-verify.txt', (c) => c.text(INDEX402_VERIFY_HASH));
+  app.get('/.well-known/x402list.txt', (c) => c.text(`${X402LIST_TOKENS.join('\n')}\n`));
   app.get('/openapi.json', (c) => c.json(x402OpenApiDocument()));
 
   // Routes
