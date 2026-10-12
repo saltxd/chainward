@@ -20,6 +20,43 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          initContainers:
+          # kube-router programs a new pod's ipsets a beat after the pod starts, so the
+          # first connection to the database can fail and burn a restart every night.
+          # Wait (max 60s, never blocking the backup) until the DB port answers.
+          - name: wait-for-deps
+            image: busybox:1.36
+            imagePullPolicy: IfNotPresent
+            command:
+            - sh
+            - -c
+            args:
+            - 'end=$(( $(date +%s) + 60 )); n=0; until nc -z -w1 "$WAIT_HOST" "$WAIT_PORT";
+              do n=$((n+1)); if [ "$(date +%s)" -ge "$end" ]; then echo "wait-for-deps:
+              $WAIT_HOST:$WAIT_PORT unreachable after 60s ($n tries), starting anyway";
+              exit 0; fi; sleep 1; done; echo "wait-for-deps: $WAIT_HOST:$WAIT_PORT
+              reachable after $n failed tries"'
+            env:
+            - name: WAIT_HOST
+              value: postgres
+            - name: WAIT_PORT
+              value: '5432'
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                cpu: 50m
+                memory: 32Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              runAsNonRoot: true
+              runAsUser: 65534
+              seccompProfile:
+                type: RuntimeDefault
           containers:
             - name: pg-backup
               # pg16 client matches the TimescaleDB server (timescale/timescaledb:2.25.1-pg16).
