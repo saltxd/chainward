@@ -270,6 +270,11 @@ export const PUBLISHED_DATASETS: ReadonlyArray<{ slug: string; title: string; ex
     title: "Set and Earn week one: every wallet that hired an agent, Oct 1 to 8, with tier and groups",
     example: '0x03a92db75947be1653c069d252f3d36a990bb61c',
   },
+  {
+    slug: 'x402-sellers-base',
+    title: 'x402 sellers on Base, Sep 15 to Oct 5: settlements, payers and loop tier per seller per week',
+    example: '0x68396bd35874695ad86cd29410bd80a550991a2b',
+  },
 ];
 
 // What the paid dataset check answers, as the TermiX example wallet reads today.

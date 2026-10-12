@@ -124,6 +124,8 @@ ChainWard's paid seller check is `GET api.chainward.ai/api/risk/seller-demand?ad
 
 It can't see past facilitator proxies or trees of x402 payments yet. On the ring, the seventh seller and botpay's tree, 69.6% of the latest week's loop dollars, it gives no flag; our free board's Oct 5 snapshot shows each ring wallet at 98% "via an intermediary" and nothing else. In the Sep 15–21 window it also stopped at clusterprotocol's hub, because sub-cent inflows made the hub look like an exchange wallet. We traced all of those by hand. The weekly board runs the same check and is free at [chainward.ai/x402](https://chainward.ai/x402).
 
+Every seller in these three weeks, one row per seller per week with its settlements, payers, volume and tier, is [a CSV for 10 USDC](/paid/x402-sellers-base), with a free one-wallet check on the same page.
+
 > **Update, Oct 7:** the check now resolves the payers behind Meridian and Fluxa proxies (from x402scan's payer field, confirmed on receipts) and follows a busy relay wallet the seller mostly funds. Re-run on the latest week, every ring wallet, the seventh seller and botpay's tree come out `buyers_funded_by_seller`; the board shows the ring with 5 resolved payers each. The paragraph above describes the check as it was when this was written; exchange hubs remain opaque.
 
 ---
