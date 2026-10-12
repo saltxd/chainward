@@ -172,12 +172,13 @@ export default function McpPage() {
             ))}
           </div>
           <p className="mcp-p" style={{ marginTop: 24 }}>
-            For HTTP transport:{' '}
+            Nothing to install: any MCP client that connects by URL can use the hosted
+            server at <code className="mcp-inline mono">https://api.chainward.ai/mcp</code>{' '}
+            (Streamable HTTP, no API key). To run your own over HTTP:{' '}
             <code className="mcp-inline mono">
               CHAINWARD_MCP_TRANSPORT=http PORT=3300 npx -y chainward-mcp-server
             </code>
-            . MCP endpoint at <code className="mcp-inline mono">/mcp</code>, health
-            at <code className="mcp-inline mono">/healthz</code>.
+            .
           </p>
         </section>
 

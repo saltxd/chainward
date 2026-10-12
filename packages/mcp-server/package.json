@@ -56,5 +56,9 @@
     "x402"
   ],
   "license": "MIT",
-  "homepage": "https://chainward.ai"
+  "homepage": "https://chainward.ai",
+  "exports": {
+    ".": "./dist/index.js",
+    "./server": "./src/server.ts"
+  }
 }

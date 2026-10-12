@@ -29,6 +29,8 @@ import { x402InFlightLock } from './middleware/x402InFlight.js';
 import { logger } from './lib/logger.js';
 import { apiHomePage, x402DiscoveryDocument, x402OpenApiDocument, x402PublicUrl } from './lib/x402.js';
 import { checkPaidInput, parseCounterpartyInput, parseDatasetAddress, parseHireInput, parseSanctionsAddress, parseSellerInput } from './lib/paidInput.js';
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { createServer as createMcpServer } from 'chainward-mcp-server/server';
 
 export interface AppOptions {
   /** Origins allowed to make credentialed cross-origin requests. */
@@ -165,6 +167,22 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
   // our listings is in chainward-secrets as INDEX402_VERIFICATION_TOKEN).
   app.get('/.well-known/402index-verify.txt', (c) => c.text(INDEX402_VERIFY_HASH));
   app.get('/.well-known/x402list.txt', (c) => c.text(`${X402LIST_TOKENS.join('\n')}\n`));
+
+  // The MCP server over Streamable HTTP, stateless: a fresh server and transport
+  // per request, JSON answers. Agent marketplaces probe an agent's MCP endpoint
+  // before listing it (Dolphin), and MCP clients can add it by URL. Its tools
+  // read the public API, like the npm package does.
+  app.all('/mcp', async (c) => {
+    const server = createMcpServer({ baseUrl: process.env.MCP_API_BASE_URL ?? 'https://api.chainward.ai' });
+    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    await server.connect(transport);
+    try {
+      return await transport.handleRequest(c.req.raw);
+    } finally {
+      void transport.close();
+      void server.close();
+    }
+  });
   app.get('/openapi.json', (c) => c.json(x402OpenApiDocument()));
 
   // Routes

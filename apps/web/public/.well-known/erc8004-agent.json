@@ -23,7 +23,7 @@
     },
     {
       "name": "MCP",
-      "endpoint": "https://chainward.ai/mcp",
+      "endpoint": "https://api.chainward.ai/mcp",
       "version": "0.2.3"
     },
     {
