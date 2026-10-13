@@ -10,6 +10,8 @@ interface PaidMeta {
   title: string;
   description: string;
   priceUsdc: number;
+  /** Set when the dataset is off sale (api lib/withdrawnDatasets.ts). */
+  withdrawn?: { reason: string } | null;
 }
 
 /**
@@ -37,11 +39,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const file = await loadPaidFile(slug);
   if (file === 'missing') return { title: 'Dataset not found', robots: { index: false } };
   if (!file) return { title: 'Dataset', robots: { index: false } };
-  const title = `${file.title}: ${file.priceUsdc} USDC`;
+  // A withdrawn dataset keeps its page but advertises no price and stays out of search.
+  const title = file.withdrawn ? `${file.title} (withdrawn from sale)` : `${file.title}: ${file.priceUsdc} USDC`;
   const { description } = file;
   const url = `https://chainward.ai/paid/${slug}`;
   return {
     title,
+    ...(file.withdrawn ? { robots: { index: false } } : {}),
     description,
     alternates: { canonical: url },
     openGraph: { title, description, url, siteName: 'ChainWard', type: 'website', images: [DEFAULT_OG_IMAGE] },
