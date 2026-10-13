@@ -10,6 +10,7 @@ import { logger } from '../lib/logger.js';
 import { verifyUsdcPayment } from '../lib/verifyUsdcPayment.js';
 import { parseDatasetAddress } from '../lib/paidInput.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { withdrawnReason } from '../lib/withdrawnDatasets.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
 // ─── Paid files ───────────────────────────────────────────────────────────────
@@ -58,6 +59,12 @@ function tokenSecret(): Uint8Array {
   return new TextEncoder().encode(getEnv().JWT_SECRET);
 }
 
+/** 410 for a dataset taken off sale (lib/withdrawnDatasets.ts), so nothing is served or charged. */
+function refuseWithdrawn(slug: string): void {
+  const reason = withdrawnReason(slug);
+  if (reason) throw new AppError(410, 'WITHDRAWN', reason);
+}
+
 async function fileMeta(slug: string) {
   const [row] = await getDb().select(META_COLUMNS).from(paidFiles).where(eq(paidFiles.slug, slug)).limit(1);
   if (!row) throw new AppError(404, 'NOT_FOUND', 'No such file');
@@ -70,6 +77,7 @@ async function fileMeta(slug: string) {
  */
 export async function requireKnownSlug(raw: string | undefined): Promise<string> {
   const slug = parseSlug(raw);
+  refuseWithdrawn(slug);
   await fileMeta(slug);
   return slug;
 }
@@ -84,6 +92,7 @@ function publicMeta(row: Awaited<ReturnType<typeof fileMeta>>) {
     priceUsdc: row.priceUsdc / 1e6,
     sizeBytes: row.sizeBytes,
     createdAt: row.createdAt,
+    withdrawn: withdrawnReason(row.slug) ? { reason: withdrawnReason(row.slug) } : null,
   };
 }
 
@@ -102,7 +111,8 @@ async function sendFile(c: Context, slug: string) {
 // What's for sale (no content).
 paid.get('/', async (c) => {
   const rows = await getDb().select(META_COLUMNS).from(paidFiles).orderBy(sql`${paidFiles.createdAt} DESC`);
-  return c.json({ success: true, data: rows.map(publicMeta), treasuryAddress: process.env.TREASURY_WALLET_ADDRESS ?? null });
+  const onSale = rows.filter((r) => !withdrawnReason(r.slug));
+  return c.json({ success: true, data: onSale.map(publicMeta), treasuryAddress: process.env.TREASURY_WALLET_ADDRESS ?? null });
 });
 
 paid.get('/:slug', async (c) => {
@@ -112,7 +122,11 @@ paid.get('/:slug', async (c) => {
 
 // x402-paid download. index.ts puts the payment middleware in front of this
 // path; settlement happens only after this handler succeeds, so a 404 never charges.
-paid.get('/:slug/file', async (c) => sendFile(c, slugParam(c)));
+paid.get('/:slug/file', async (c) => {
+  const slug = slugParam(c);
+  refuseWithdrawn(slug);
+  return sendFile(c, slug);
+});
 
 // Paid single-wallet check (x402, priced under every default client spend cap, so
 // sweep buyers can take it). The rows the free lookup below finds, with their fields, verdict first.
@@ -120,6 +134,7 @@ paid.get('/:slug/file', async (c) => sendFile(c, slugParam(c)));
 // 404 here is never charged.
 paid.get('/:slug/check', async (c) => {
   const slug = slugParam(c);
+  refuseWithdrawn(slug);
   const address = parseDatasetAddress(c.req.query('address'));
   const meta = await fileMeta(slug);
   const matches = await getDb()
@@ -149,6 +164,7 @@ paid.get('/:slug/check', async (c) => {
 // The row's fields are what the paid check above sells, so they stay out of here.
 paid.get('/:slug/lookup/:address', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:paid-lookup' }), async (c) => {
   const slug = slugParam(c);
+  refuseWithdrawn(slug);
   const address = (c.req.param('address') ?? '').toLowerCase();
   if (!ADDRESS_RE.test(address)) throw new AppError(400, 'INVALID_ADDRESS', 'Invalid wallet address');
   await fileMeta(slug);
@@ -166,6 +182,7 @@ const claimSchema = z.object({ txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/) }
 // hand back a short-lived download token.
 paid.post('/:slug/claim', rateLimit({ max: 10, windowSec: 60, prefix: 'rl:paid-claim' }), async (c) => {
   const slug = slugParam(c);
+  refuseWithdrawn(slug);
   const row = await fileMeta(slug);
   const body = await c.req.json().catch(() => ({}));
   const txHash = claimSchema.parse(body).txHash.toLowerCase();
@@ -216,6 +233,7 @@ paid.post('/:slug/claim', rateLimit({ max: 10, windowSec: 60, prefix: 'rl:paid-c
 // Token download (from a claim). Separate path so the x402 middleware never sees it.
 paid.get('/:slug/download', async (c) => {
   const slug = slugParam(c);
+  refuseWithdrawn(slug);
   const token = c.req.query('token') ?? '';
   let payload: { slug?: unknown };
   try {
