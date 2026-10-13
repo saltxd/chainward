@@ -20,10 +20,15 @@ function fakeFetch(files: Record<string, string | number>): typeof fetch {
   }) as typeof fetch;
 }
 
-/** Today's snapshot spread over the ETH file, plus `extra`; the other files empty. */
+/**
+ * The first `keep` snapshot addresses plus `extra` in the ETH file, and one of
+ * them repeated in every other file (each real file lists at least one address).
+ */
 function snapshotFiles(extra: string[] = [], keep = OFAC_SNAPSHOT.addresses.length): Record<string, string> {
-  const files: Record<string, string> = Object.fromEntries(OFAC_LIST_FILES.map((f) => [f.asset, '']));
-  files.ETH = [...OFAC_SNAPSHOT.addresses.slice(0, keep), ...extra].join('\n');
+  const listed = [...OFAC_SNAPSHOT.addresses.slice(0, keep), ...extra];
+  const files: Record<string, string> = Object.fromEntries(OFAC_LIST_FILES.map((f) => [f.asset, listed[0]!]));
+  files.ETH = listed.join('\n');
+  files.USDT = `${listed[0]}\nTXp6GhfS4ALMPtMNdSWGk7orXSCMrPwz8M`;
   return files;
 }
 
@@ -60,7 +65,7 @@ describe('refreshOfacList', () => {
   it('refuses an empty list', async () => {
     const empty = Object.fromEntries(OFAC_LIST_FILES.map((f) => [f.asset, '']));
     const result = await refreshOfacList({ fetch: fakeFetch(empty), now: NOW });
-    expect(result).toEqual({ ok: false, reason: expect.stringMatching(/empty/) });
+    expect(result).toEqual({ ok: false, reason: expect.stringMatching(/empty|no EVM/) });
     expect(ofacList().addresses).toBe(OFAC_SNAPSHOT.addresses.length);
   });
 
@@ -71,11 +76,36 @@ describe('refreshOfacList', () => {
     expect(isSanctioned(OFAC_SNAPSHOT.addresses.at(-1)!)).toBe(true);
   });
 
-  it('accepts a small delisting', async () => {
+  // The snapshot is the floor: a download can add addresses, never remove a
+  // bundled one. Removals go through the reviewed pnpm ofac:update.
+  it('keeps every bundled address even when a download leaves some out', async () => {
     const keep = OFAC_SNAPSHOT.addresses.length - 2;
-    const result = await refreshOfacList({ fetch: fakeFetch(snapshotFiles([], keep)), now: NOW });
-    expect(result).toEqual({ ok: true, added: 0, removed: 2, total: keep });
-    expect(isSanctioned(OFAC_SNAPSHOT.addresses.at(-1)!)).toBe(false);
+    const result = await refreshOfacList({ fetch: fakeFetch(snapshotFiles([NEW_ADDR], keep)), now: NOW });
+    expect(result).toEqual({ ok: true, added: 1, removed: 0, total: OFAC_SNAPSHOT.addresses.length + 1 });
+    expect(isSanctioned(OFAC_SNAPSHOT.addresses.at(-1)!)).toBe(true);
+    expect(isSanctioned(NEW_ADDR)).toBe(true);
+  });
+
+  it('drops an address it added earlier once the list stops naming it', async () => {
+    await refreshOfacList({ fetch: fakeFetch(snapshotFiles([NEW_ADDR])), now: NOW });
+    const result = await refreshOfacList({ fetch: fakeFetch(snapshotFiles()), now: NOW });
+    expect(result).toEqual({ ok: true, added: 0, removed: 1, total: OFAC_SNAPSHOT.addresses.length });
+    expect(isSanctioned(NEW_ADDR)).toBe(false);
+  });
+
+  it.each(['USDT', 'USDC'])('keeps the current list when the %s token file is an HTML page', async (asset) => {
+    const files = { ...snapshotFiles([NEW_ADDR]), [asset]: '<!doctype html><title>Too many requests</title>' };
+    const result = await refreshOfacList({ fetch: fakeFetch(files), now: NOW });
+    expect(result.ok).toBe(false);
+    expect(isSanctioned(NEW_ADDR)).toBe(false);
+    expect(ofacList().fetched_at).toBe(OFAC_SNAPSHOT.fetched_at);
+  });
+
+  it('keeps the current list when any file lists no EVM address at all', async () => {
+    const files = { ...snapshotFiles([NEW_ADDR]), ETC: '' };
+    const result = await refreshOfacList({ fetch: fakeFetch(files), now: NOW });
+    expect(result).toEqual({ ok: false, reason: expect.stringMatching(/ETC/) });
+    expect(isSanctioned(NEW_ADDR)).toBe(false);
   });
 });
 

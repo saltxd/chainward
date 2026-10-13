@@ -33,19 +33,26 @@ export function ofacListUrl(asset: string): string {
 }
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+/**
+ * The non-EVM lines a token file may carry: Bitcoin (Omni USDT) and Tron
+ * addresses, base58 or bech32. Only these are skipped; anything else (an HTML
+ * error page, a JSON body, a comment) refuses the file.
+ */
+const NON_EVM_ADDRESS = /^(?:[13T][1-9A-HJ-NP-Za-km-z]{25,34}|bc1[02-9ac-hj-np-z]{11,71})$/;
 
 /**
  * One list file, validated: every non-blank line must be 0x + 40 hex, or the
  * whole file is refused (a truncated or reformatted download must never shrink
- * the list quietly). `skipNonEvm` drops lines that are not 0x-prefixed at all,
- * for the multi-chain token files. Returns lowercased, deduped, sorted.
+ * the list quietly). `skipNonEvm` drops Bitcoin and Tron address lines, for the
+ * multi-chain token files; any other line still refuses the file. Returns
+ * lowercased, deduped, sorted.
  */
 export function parseOfacList(text: string, opts: { skipNonEvm?: boolean } = {}): string[] {
   const out = new Set<string>();
   text.split('\n').forEach((raw, i) => {
     const line = raw.trim();
     if (line === '') return;
-    if (opts.skipNonEvm && !/^0x/i.test(line)) return;
+    if (opts.skipNonEvm && NON_EVM_ADDRESS.test(line)) return;
     if (!EVM_ADDRESS.test(line)) {
       throw new Error(`OFAC list line ${i + 1} is not a 0x address: ${JSON.stringify(line.slice(0, 60))}`);
     }
@@ -79,10 +86,11 @@ export function renderOfacSnapshot(addresses: readonly string[], fetchedAt: stri
 // ─── The list in use ──────────────────────────────────────────────────────────
 //
 // Starts as the bundled snapshot and is replaced at runtime by refreshOfacList,
-// so a newly listed address is caught without a redeploy. The snapshot stays the
-// floor: a refresh that fails, comes back empty or would drop too much at once
-// leaves the current list in place. Readers see one list or the other, never a
-// half-built one (the swap is a single assignment).
+// so a newly listed address is caught without a redeploy. The snapshot is the
+// floor: a refresh can add addresses but never removes a bundled one (removals
+// land through the reviewed pnpm ofac:update), and a refresh that fails, finds a
+// file with no EVM address, or misses too much of the current list is refused.
+// Readers see one list or the other, never a half-built one (one assignment).
 
 interface ActiveList {
   source: string;
@@ -97,7 +105,7 @@ const SNAPSHOT_LIST: ActiveList = {
 };
 let active: ActiveList = SNAPSHOT_LIST;
 
-/** The largest share of the current list one refresh may drop; more looks like a broken download. */
+/** The largest share of the current list a download may leave out; more looks like a broken download. */
 export const OFAC_MAX_DROP = 0.25;
 /** How often the api and indexer refresh the list. */
 export const OFAC_REFRESH_MS = 12 * 3_600_000;
@@ -128,9 +136,10 @@ export function resetOfacListForTests(): void {
 export type RefreshResult = { ok: true; added: number; removed: number; total: number } | { ok: false; reason: string };
 
 /**
- * Download every OFAC list file and swap it in, only if every file downloaded and
- * parsed (parseOfacList refuses any malformed line, e.g. an HTML error page), the
- * union is non-empty, and it drops at most OFAC_MAX_DROP of the current list.
+ * Download every OFAC list file and swap in (download ∪ bundled snapshot), only if
+ * every file downloaded, parsed (parseOfacList refuses any malformed line, e.g.
+ * an HTML error page) and named at least one EVM address, and the download leaves
+ * out at most OFAC_MAX_DROP of the current list.
  */
 export async function refreshOfacList(opts: { fetch?: typeof fetch; now?: () => Date } = {}): Promise<RefreshResult> {
   const doFetch = opts.fetch ?? fetch;
@@ -140,20 +149,24 @@ export async function refreshOfacList(opts: { fetch?: typeof fetch; now?: () => 
     for (const { asset, skipNonEvm } of OFAC_LIST_FILES) {
       const res = await doFetch(ofacListUrl(asset), { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (!res.ok) return { ok: false, reason: `${asset}: HTTP ${res.status}` };
-      for (const a of parseOfacList(await res.text(), { skipNonEvm })) all.add(a);
+      const list = parseOfacList(await res.text(), { skipNonEvm });
+      if (list.length === 0) return { ok: false, reason: `${asset}: no EVM addresses in the file` };
+      for (const a of list) all.add(a);
     }
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   }
   if (all.size === 0) return { ok: false, reason: 'every OFAC list came back empty' };
   const current = active.set;
-  const removed = [...current].filter((a) => !all.has(a)).length;
-  if (removed > current.size * OFAC_MAX_DROP) {
-    return { ok: false, reason: `would drop ${removed} of ${current.size} addresses at once` };
+  const missing = [...current].filter((a) => !all.has(a)).length;
+  if (missing > current.size * OFAC_MAX_DROP) {
+    return { ok: false, reason: `the download would drop ${missing} of ${current.size} addresses at once` };
   }
-  const added = [...all].filter((a) => !current.has(a)).length;
-  active = { source: OFAC_LIST_SOURCE, fetched_at: now().toISOString().slice(0, 10), set: all };
-  return { ok: true, added, removed, total: all.size };
+  const next = new Set([...all, ...SNAPSHOT_LIST.set]);
+  const added = [...next].filter((a) => !current.has(a)).length;
+  const removed = [...current].filter((a) => !next.has(a)).length;
+  active = { source: OFAC_LIST_SOURCE, fetched_at: now().toISOString().slice(0, 10), set: next };
+  return { ok: true, added, removed, total: next.size };
 }
 
 interface RefreshLog {
