@@ -653,6 +653,8 @@ export interface PaidFileMeta {
   priceUsdc: number;
   sizeBytes: number;
   createdAt: string;
+  /** Set when the dataset is off sale; the page explains instead of selling. */
+  withdrawn?: { reason: string } | null;
 }
 
 export interface PaidFileLookup {

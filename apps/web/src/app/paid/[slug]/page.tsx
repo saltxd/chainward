@@ -13,6 +13,12 @@ import { PaymentStatus } from '@/components/payment/PaymentStatus';
 import { ClaimByHash } from '@/components/payment/ClaimByHash';
 import { usePaymentConfirmation } from '@/components/payment/usePaymentConfirmation';
 import { browserStorage, paymentKey, readDownload, saveDownload } from '@/lib/paymentStore';
+import { WithdrawnNotice } from './WithdrawnNotice';
+
+// Where a withdrawn dataset's page points instead: the decode it came from.
+const WITHDRAWN_DECODE: Record<string, string> = {
+  'x402-sellers-base': '/decodes/x402-on-base-two-weeks-later',
+};
 
 // Buy the full dataset behind a decode: pay the price in USDC on Base from any
 // wallet, the API verifies the transfer and hands back a 24h download link.
@@ -82,7 +88,11 @@ export default function PaidFilePage() {
           {loadError && <p className="brf-error">{loadError}</p>}
         </section>
 
-        {file && (
+        {file?.withdrawn && (
+          <WithdrawnNotice reason={file.withdrawn.reason} decodeHref={WITHDRAWN_DECODE[file.slug] ?? '/decodes'} />
+        )}
+
+        {file && !file.withdrawn && (
           <div className="brf-grid">
             <aside className="brf-offer">
               <div className="brf-offer-head">

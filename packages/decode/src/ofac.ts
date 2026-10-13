@@ -33,19 +33,26 @@ export function ofacListUrl(asset: string): string {
 }
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+/**
+ * The non-EVM lines a token file may carry: Bitcoin (Omni USDT) and Tron
+ * addresses, base58 or bech32. Only these are skipped; anything else (an HTML
+ * error page, a JSON body, a comment) refuses the file.
+ */
+const NON_EVM_ADDRESS = /^(?:[13T][1-9A-HJ-NP-Za-km-z]{25,34}|bc1[02-9ac-hj-np-z]{11,71})$/;
 
 /**
  * One list file, validated: every non-blank line must be 0x + 40 hex, or the
  * whole file is refused (a truncated or reformatted download must never shrink
- * the list quietly). `skipNonEvm` drops lines that are not 0x-prefixed at all,
- * for the multi-chain token files. Returns lowercased, deduped, sorted.
+ * the list quietly). `skipNonEvm` drops Bitcoin and Tron address lines, for the
+ * multi-chain token files; any other line still refuses the file. Returns
+ * lowercased, deduped, sorted.
  */
 export function parseOfacList(text: string, opts: { skipNonEvm?: boolean } = {}): string[] {
   const out = new Set<string>();
   text.split('\n').forEach((raw, i) => {
     const line = raw.trim();
     if (line === '') return;
-    if (opts.skipNonEvm && !/^0x/i.test(line)) return;
+    if (opts.skipNonEvm && NON_EVM_ADDRESS.test(line)) return;
     if (!EVM_ADDRESS.test(line)) {
       throw new Error(`OFAC list line ${i + 1} is not a 0x address: ${JSON.stringify(line.slice(0, 60))}`);
     }
@@ -76,9 +83,115 @@ export function renderOfacSnapshot(addresses: readonly string[], fetchedAt: stri
   ].join('\n');
 }
 
-const SANCTIONED: ReadonlySet<string> = new Set(OFAC_SNAPSHOT.addresses);
+// ─── The list in use ──────────────────────────────────────────────────────────
+//
+// Starts as the bundled snapshot and is replaced at runtime by refreshOfacList,
+// so a newly listed address is caught without a redeploy. The snapshot is the
+// floor: a refresh can add addresses but never removes a bundled one (removals
+// land through the reviewed pnpm ofac:update), and a refresh that fails, finds a
+// file with no EVM address, or misses too much of the current list is refused.
+// Readers see one list or the other, never a half-built one (one assignment).
 
-/** True when the address is on the bundled OFAC SDN snapshot. Case-insensitive. */
+interface ActiveList {
+  source: string;
+  fetched_at: string;
+  set: ReadonlySet<string>;
+}
+
+const SNAPSHOT_LIST: ActiveList = {
+  source: OFAC_SNAPSHOT.source,
+  fetched_at: OFAC_SNAPSHOT.fetched_at,
+  set: new Set(OFAC_SNAPSHOT.addresses),
+};
+let active: ActiveList = SNAPSHOT_LIST;
+
+/** The largest share of the current list a download may leave out; more looks like a broken download. */
+export const OFAC_MAX_DROP = 0.25;
+/** How often the api and indexer refresh the list. */
+export const OFAC_REFRESH_MS = 12 * 3_600_000;
+const FETCH_TIMEOUT_MS = 20_000;
+
+/** True when the address is on the OFAC SDN list in use. Case-insensitive. */
 export function isSanctioned(address: string): boolean {
-  return SANCTIONED.has(address.toLowerCase());
+  return active.set.has(address.toLowerCase());
+}
+
+export interface OfacList {
+  source: string;
+  /** YYYY-MM-DD of the download in use (the bundled snapshot's date until a refresh succeeds). */
+  fetched_at: string;
+  addresses: number;
+}
+
+/** Where the list in use came from, when, and how many addresses it holds. */
+export function ofacList(): OfacList {
+  return { source: active.source, fetched_at: active.fetched_at, addresses: active.set.size };
+}
+
+/** Back to the bundled snapshot. For tests. */
+export function resetOfacListForTests(): void {
+  active = SNAPSHOT_LIST;
+}
+
+export type RefreshResult = { ok: true; added: number; removed: number; total: number } | { ok: false; reason: string };
+
+/**
+ * Download every OFAC list file and swap in (download ∪ bundled snapshot), only if
+ * every file downloaded, parsed (parseOfacList refuses any malformed line, e.g.
+ * an HTML error page) and named at least one EVM address, and the download leaves
+ * out at most OFAC_MAX_DROP of the current list.
+ */
+export async function refreshOfacList(opts: { fetch?: typeof fetch; now?: () => Date } = {}): Promise<RefreshResult> {
+  const doFetch = opts.fetch ?? fetch;
+  const now = opts.now ?? (() => new Date());
+  const all = new Set<string>();
+  try {
+    for (const { asset, skipNonEvm } of OFAC_LIST_FILES) {
+      const res = await doFetch(ofacListUrl(asset), { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      if (!res.ok) return { ok: false, reason: `${asset}: HTTP ${res.status}` };
+      const list = parseOfacList(await res.text(), { skipNonEvm });
+      if (list.length === 0) return { ok: false, reason: `${asset}: no EVM addresses in the file` };
+      for (const a of list) all.add(a);
+    }
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+  if (all.size === 0) return { ok: false, reason: 'every OFAC list came back empty' };
+  const current = active.set;
+  const missing = [...current].filter((a) => !all.has(a)).length;
+  if (missing > current.size * OFAC_MAX_DROP) {
+    return { ok: false, reason: `the download would drop ${missing} of ${current.size} addresses at once` };
+  }
+  const next = new Set([...all, ...SNAPSHOT_LIST.set]);
+  const added = [...next].filter((a) => !current.has(a)).length;
+  const removed = [...current].filter((a) => !next.has(a)).length;
+  active = { source: OFAC_LIST_SOURCE, fetched_at: now().toISOString().slice(0, 10), set: next };
+  return { ok: true, added, removed, total: next.size };
+}
+
+interface RefreshLog {
+  info(obj: object, msg: string): void;
+  warn(obj: object, msg: string): void;
+}
+
+/**
+ * Refresh once shortly after start, then every intervalMs. Never throws; a failed
+ * refresh is logged and the current list stays. Returns a stop function.
+ */
+export function startOfacRefresh(opts: { intervalMs?: number; firstDelayMs?: number; log?: RefreshLog } = {}): { stop(): void } {
+  const run = async () => {
+    const result = await refreshOfacList();
+    if (result.ok) opts.log?.info({ ...result, fetched_at: active.fetched_at }, 'OFAC list refreshed');
+    else opts.log?.warn({ reason: result.reason, kept: ofacList() }, 'OFAC list refresh failed; keeping the current list');
+  };
+  const first = setTimeout(() => void run(), opts.firstDelayMs ?? 30_000);
+  const every = setInterval(() => void run(), opts.intervalMs ?? OFAC_REFRESH_MS);
+  first.unref?.();
+  every.unref?.();
+  return {
+    stop() {
+      clearTimeout(first);
+      clearInterval(every);
+    },
+  };
 }

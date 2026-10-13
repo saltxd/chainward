@@ -10,6 +10,7 @@ import {
   x402SanctionsPrice,
 } from '../lib/x402.js';
 import { sanctionsAnswer } from '../lib/sanctionsCheck.js';
+import { OFAC_LIST_FILES, ofacListUrl, refreshOfacList, resetOfacListForTests } from '@chainward/decode';
 
 // The $0.01 sanctions screen: the cheapest call an agent can make before every
 // payment. And the price ceiling: the catalog sweep bot that paid 929 sellers on
@@ -64,6 +65,34 @@ describe('x402 sanctions screen', () => {
     expect(a.limit).toMatch(/not a clearance/i);
     expect(a.full_check).toBe('https://api.chainward.ai/api/risk/x402?address=0x4baadba26c3c0bdef9e8faf173925d463aa53bb2');
     expect(JSON.stringify(a)).not.toMatch(/\bsafe\b/i);
+  });
+});
+
+// The list refreshes at runtime (packages/decode/src/ofac.ts); the answer must
+// say which list it used, so a buyer can see how fresh the screen is.
+describe('x402 sanctions screen after a refresh', () => {
+  afterEach(() => resetOfacListForTests());
+
+  it('catches a newly listed address and reports the refreshed list', async () => {
+    const added = `0x${'e'.repeat(40)}`;
+    // Every real file names at least one EVM address; the refresh refuses an empty one.
+    const body = (asset: string) => (asset === 'ETH' ? [...OFAC_SNAPSHOT.addresses, added].join('\n') : OFAC_SNAPSHOT.addresses[0]!);
+    const fakeFetch = (async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const asset = OFAC_LIST_FILES.find((f) => ofacListUrl(f.asset) === url)!.asset;
+      return new Response(body(asset));
+    }) as typeof fetch;
+    const result = await refreshOfacList({ fetch: fakeFetch, now: () => new Date('2026-10-13T06:00:00Z') });
+    expect(result.ok).toBe(true);
+
+    const a = sanctionsAnswer(added);
+    expect(a.sanctioned).toBe(true);
+    expect(a.verdict.text).toBe('Hold');
+    expect(a.list.fetched_at).toBe('2026-10-13');
+    expect(a.list.addresses).toBe(OFAC_SNAPSHOT.addresses.length + 1);
+
+    const clear = sanctionsAnswer('0x4baadba26c3c0bdef9e8faf173925d463aa53bb2');
+    expect(clear.verdict.reason).toContain(`${OFAC_SNAPSHOT.addresses.length + 1} EVM addresses`);
   });
 });
 

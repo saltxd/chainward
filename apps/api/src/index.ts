@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { logger } from './lib/logger.js';
 import { getWebhookProvider } from './providers/index.js';
 import { x402CheckMiddleware } from './lib/x402.js';
+import { startOfacRefresh } from '@chainward/decode';
 // Observatory cache warming has been removed from the API process to keep the
 // /api/livez event loop unconditionally responsive. The warmer ran every 5min
 // and did periodic CPU work (drizzle row materialization, JSON serialization)
@@ -19,6 +20,9 @@ const env = getEnv();
 getWebhookProvider().init();
 
 const app = createApp({ corsOrigins: env.CORS_ORIGINS.split(','), x402Check: x402CheckMiddleware() });
+
+// The sanctions screen is sold per call: keep its list fresh without a redeploy.
+startOfacRefresh({ log: logger });
 
 // Catch unhandled errors so the process doesn't die silently
 process.on('unhandledRejection', (reason) => {

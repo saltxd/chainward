@@ -96,7 +96,7 @@ The chain of custody, every hop on Base:
 
 So: payTo, to contract, to root, to funders, to buyers, to 489 sellers, back to payTo. In x402scan's index of the 30 days to Oct 11, BotPay's payTo received 10,386 settlements, $1,037.96, from 347 payers. 5,580 of those settlements, $558.00, came from the 489 ring wallets, which are 284 of the 347 payers. The ring is at least this big: three of the root's six funders were not traced.
 
-Ultravioleta DAO's facilitator is the rail. In our [Sep 15 to Oct 5 seller dataset](/paid/x402-sellers-base), 22,267 of the 22,450 settlements that went through it, 99.2%, went to sellers whose buyers the seller had funded.
+Ultravioleta DAO's facilitator is the rail. In our [Sep 15 to Oct 5 seller data](/decodes/x402-on-base-two-weeks-later), 22,267 of the 22,450 settlements that went through it, 99.2%, went to sellers whose buyers the seller had funded.
 
 ## The seven without a loop
 

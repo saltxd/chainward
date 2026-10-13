@@ -30,6 +30,17 @@ describe('parseOfacList', () => {
     expect(() => parseOfacList(`${hex40('a')}\n${bad}\n`)).toThrow(/line 2/);
   });
 
+  // A token file's non-EVM lines are Bitcoin (Omni) or Tron addresses. Anything
+  // else, such as an HTML error page served with 200, must refuse the whole file
+  // instead of reading as "no addresses here".
+  it.each([
+    ['an HTML page', '<!doctype html><title>Too many requests</title>'],
+    ['a JSON error body', '{"message":"Not Found"}'],
+    ['a comment line', '# sanctioned addresses'],
+  ])('refuses %s in a token list instead of skipping it', (_label, junk) => {
+    expect(() => parseOfacList(`${hex40('d')}\n${junk}\n`, { skipNonEvm: true })).toThrow(/line 2/);
+  });
+
   it('can skip the non-EVM entries of a multi-chain token list, but still rejects a malformed 0x line', () => {
     const usdt = `TXp6GhfS4ALMPtMNdSWGk7orXSCMrPwz8M\n${hex40('d')}\n1Df883c96LVauVsx9FEgnsourD8DELwCUQ\n`;
     expect(parseOfacList(usdt, { skipNonEvm: true })).toEqual([hex40('d')]);

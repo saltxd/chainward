@@ -25,7 +25,6 @@ Send paid requests to https://api.chainward.ai directly. The first request answe
 - The full data behind a decode, as CSV, 10 USDC each. What's for sale: GET https://api.chainward.ai/api/paid
 - Free single-wallet lookup in a dataset: GET https://api.chainward.ai/api/paid/termix-wallets/lookup/<address>
 - Dataset check over x402, 0.05 USDC: is one wallet in a dataset, and at what tier. GET https://api.chainward.ai/api/paid/<slug>/check?address=<address>
-- x402 sellers on Base, Sep 15 to Oct 5: every payTo with settlements, payers, volume and loop tier per week (34,960 sellers). Free one-wallet lookup and the CSV at https://chainward.ai/paid/x402-sellers-base
 - Buy from any wallet on the web: https://chainward.ai/paid/termix-wallets, or over x402: GET https://api.chainward.ai/api/paid/termix-wallets/file
 
 ## Boards (free)
