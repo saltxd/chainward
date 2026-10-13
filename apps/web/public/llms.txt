@@ -9,6 +9,11 @@
 - Latest report as JSON: GET https://api.chainward.ai/api/risk/report/<address> (add ?chain=bsc)
 - Latest on-chain attestation for an address (Base only; includes the canonical report JSON to verify the hash): GET https://api.chainward.ai/api/risk/attestation/<address>
 
+## Wallet screening API (free key, 1,000 lookups a month)
+
+- GET https://api.chainward.ai/v1/wallet/<address> with header Authorization: Bearer ag_<key> (add ?chain=bsc for BNB Chain). Returns a verdict (hold / review / no_flags) with one reason, OFAC sanctions status, first seen, age in days, last active, sent transactions, native and USDC balances, and the first funder (sanctioned, exchange or hub, how many wallets it funded). no_flags is not a clearance. Get a key: sign in at https://chainward.ai/login, then Settings, API keys. Overview: https://chainward.ai/wallet-api
+- No key: the same lookup over x402 for 0.01 USDC: GET https://api.chainward.ai/api/risk/wallet?address=<address> (add &chain=bsc)
+
 ## Paid checks (x402, USDC on Base, no account; not charged if the check fails)
 
 Send paid requests to https://api.chainward.ai directly. The first request answers 402 with the payment requirements; any x402 client pays and retries.

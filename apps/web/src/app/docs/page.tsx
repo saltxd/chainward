@@ -313,7 +313,8 @@ export default function DocsPage() {
         Dataset slugs today: <code>termix-wallets</code> and{' '}
         <code>set-and-earn-week-one</code> (<code>GET /api/paid</code> lists them). About to pay
         rewards or an airdrop to a list of wallets? <a href="/screen">Send us the list first</a>: we
-        flag the wallets that share a funder. To see
+        flag the wallets that share a funder. Screening one wallet at a time from your own code? The{' '}
+        <a href="/wallet-api">wallet screening API</a> is free for 1,000 lookups a month with a key. To see
         a price without paying, call an endpoint with no payment:
       </p>
       <CodeBlock>{probeCurl}</CodeBlock>
