@@ -3,6 +3,7 @@ import { logger } from './lib/logger.js';
 import { getDb } from './lib/db.js';
 import { getRedis } from './lib/redis.js';
 import { startObservatoryCacheWarmer } from '@chainward/observatory';
+import { startOfacRefresh } from '@chainward/decode';
 import { createBaseIndexerWorker } from './workers/baseIndexer.js';
 import { createBalancePollerWorker, setupBalancePolling } from './workers/balancePoller.js';
 import { createAlertEvaluatorWorker, setupAlertSchedule } from './workers/alertEvaluator.js';
@@ -22,6 +23,9 @@ import { createTermixProviderWorker, setupTermixProviderSchedule } from './worke
 
 // Validate env on startup
 getEnv();
+
+// Risk checks run here and flag sanctioned addresses: keep the OFAC list fresh.
+const ofacRefresh = startOfacRefresh({ log: logger });
 
 logger.info('Starting ChainWard indexer workers');
 
@@ -88,6 +92,7 @@ async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down workers');
   clearInterval(heartbeatInterval);
   observatoryWarmer.stop();
+  ofacRefresh.stop();
   await redis.del(HEARTBEAT_KEY).catch(() => {});
   await Promise.all([
     baseIndexer.close(),
