@@ -5,18 +5,24 @@ import type { MiddlewareHandler } from 'hono';
 // month per account. GET /api/risk/wallet: the same lookup over x402 for agents.
 const redis = vi.hoisted(() => {
   const store = new Map<string, string>();
+  const counts = new Map<string, number>();
+  const bump = (k: string, by: number) => {
+    const n = (counts.get(k) ?? 0) + by;
+    counts.set(k, n);
+    return n;
+  };
   return {
     store,
-    count: 0,
+    counts,
+    /** What every rate-limit window already holds (the zcard answer). */
+    windowCount: 0,
     get: vi.fn(async (k: string) => store.get(k) ?? null),
     set: vi.fn(async (k: string, v: string) => {
       store.set(k, v);
       return 'OK';
     }),
-    incr: vi.fn(async function (this: { count: number }) {
-      return ++redis.count;
-    }),
-    decr: vi.fn(async () => --redis.count),
+    incr: vi.fn(async (k: string) => bump(k, 1)),
+    decr: vi.fn(async (k: string) => bump(k, -1)),
     expire: vi.fn(async () => 1),
     pipeline: vi.fn(() => {
       const p = {
@@ -26,7 +32,7 @@ const redis = vi.hoisted(() => {
         expire: () => p,
         exec: async () => [
           [null, 0],
-          [null, 0],
+          [null, redis.windowCount],
           [null, 1],
           [null, 1],
         ],
@@ -35,7 +41,7 @@ const redis = vi.hoisted(() => {
     }),
   };
 });
-const lookups = vi.hoisted(() => ({ calls: 0 }));
+const lookups = vi.hoisted(() => ({ calls: 0, mode: 'ok' as 'ok' | 'fail' | 'hang' }));
 
 vi.mock('../lib/redis.js', () => ({ getRedis: () => redis }));
 vi.mock('../middleware/apiKeyAuth.js', () => ({
@@ -51,6 +57,8 @@ vi.mock('@chainward/decode', async (orig) => ({
   ...(await orig<typeof import('@chainward/decode')>()),
   lookupWallet: vi.fn(async (address: string, chain: string) => {
     lookups.calls++;
+    if (lookups.mode === 'fail') throw new Error('eth_getCode: Your app has exceeded its compute units per second capacity');
+    if (lookups.mode === 'hang') return new Promise(() => {});
     return { address: address.toLowerCase(), chain, verdict: { label: 'no_flags', reason: 'None of the checks matched.' }, flags: [] };
   }),
 }));
@@ -60,6 +68,8 @@ import { x402CheckMiddleware, x402DiscoveryDocument, x402OpenApiDocument } from 
 
 const ADDR = '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2';
 const KEY = { Authorization: 'Bearer ag_test' };
+const month = () => new Date().toISOString().slice(0, 7);
+const quotaUsed = () => redis.counts.get(`wallet-lookup:quota:user-1:${month()}`) ?? 0;
 
 function facilitatorFetch(url: string | URL | Request): Promise<Response> {
   const href = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
@@ -86,8 +96,11 @@ afterAll(() => {
 });
 beforeEach(() => {
   redis.store.clear();
-  redis.count = 0;
+  redis.counts.clear();
+  redis.windowCount = 0;
   lookups.calls = 0;
+  lookups.mode = 'ok';
+  vi.useRealTimers();
 });
 
 describe('GET /v1/wallet/:address', () => {
@@ -113,6 +126,7 @@ describe('GET /v1/wallet/:address', () => {
     expect(body.data).toMatchObject({ address: ADDR, chain: 'bsc', verdict: { label: 'no_flags' } });
     expect(res.headers.get('x-quota-limit')).toBe('1000');
     expect(res.headers.get('x-quota-remaining')).toBe('999');
+    expect(quotaUsed()).toBe(1);
   });
 
   it('serves a repeat lookup from cache', async () => {
@@ -122,13 +136,58 @@ describe('GET /v1/wallet/:address', () => {
   });
 
   it('answers 429 with how to get more once the free month is used', async () => {
-    redis.count = 1000;
+    redis.counts.set(`wallet-lookup:quota:user-1:${month()}`, 1000);
     const res = await app.request(`/v1/wallet/${ADDR}`, { headers: KEY });
     expect(res.status).toBe(429);
     const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe('QUOTA_EXCEEDED');
     expect(body.error.message).toMatch(/hello@chainward\.ai/);
     expect(lookups.calls).toBe(0);
+  });
+
+  it('answers 503, counting nothing and naming no provider, when the chain source fails', async () => {
+    lookups.mode = 'fail';
+    const res = await app.request(`/v1/wallet/${ADDR}`, { headers: KEY });
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('SOURCES_UNAVAILABLE');
+    expect(body.error.message).not.toMatch(/compute units|alchemy/i);
+    expect(quotaUsed()).toBe(0);
+  });
+
+  it('answers 504, counting nothing, when the lookup runs past its time budget', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    lookups.mode = 'hang';
+    const pending = app.request(`/v1/wallet/${ADDR}`, { headers: KEY });
+    await vi.advanceTimersByTimeAsync(10_001);
+    const res = await pending;
+    expect(res.status).toBe(504);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('LOOKUP_TIMEOUT');
+    expect(quotaUsed()).toBe(0);
+  });
+
+  it('rate limits by IP before it looks at the key', async () => {
+    redis.windowCount = 10_000;
+    const res = await app.request(`/v1/wallet/${ADDR}`, { headers: { Authorization: 'Bearer ag_random' } });
+    expect(res.status).toBe(429);
+  });
+
+  it("stops free lookups that miss the cache once the day's cap is spent, pointing to x402", async () => {
+    redis.counts.set(`wallet-lookup:free-misses:${new Date().toISOString().slice(0, 10)}`, 500);
+    const res = await app.request(`/v1/wallet/${ADDR}`, { headers: KEY });
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('FREE_TIER_BUSY');
+    expect(body.error.message).toMatch(/api\/risk\/wallet/);
+    expect(lookups.calls).toBe(0);
+    expect(quotaUsed()).toBe(0);
+  });
+
+  it("still serves a cached answer once the day's cap is spent", async () => {
+    await app.request(`/v1/wallet/${ADDR}`, { headers: KEY });
+    redis.counts.set(`wallet-lookup:free-misses:${new Date().toISOString().slice(0, 10)}`, 500);
+    const res = await app.request(`/v1/wallet/${ADDR}`, { headers: KEY });
+    expect(res.status).toBe(200);
   });
 });
 

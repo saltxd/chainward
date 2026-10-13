@@ -16,14 +16,22 @@ interface Chain {
   firstIn?: { from: string; ts: string; hash: string } | null;
   lastOut?: string | null;
   funderRecipients?: number;
+  /** The funder's recipients are contracts (DEX routers, pools), not wallets. */
+  recipientsAreContracts?: boolean;
 }
 
-function deps(c: Chain): WalletLookupDeps {
+const ZERO = `0x${'0'.repeat(40)}`;
+const recipient = (i: number) => `0x${(i + 1).toString(16).padStart(40, '0')}`;
+
+function deps(c: Chain, calls: string[] = []): WalletLookupDeps {
   return {
     now: () => NOW,
     rpc: async (method, params) => {
       const p = params as string[];
-      if (method === 'eth_getCode') return c.code?.[p[0]!] ?? '0x';
+      if (method === 'eth_getCode') {
+        if (c.recipientsAreContracts && p[0]!.startsWith('0x00000000')) return '0x6080';
+        return c.code?.[p[0]!] ?? '0x';
+      }
       if (method === 'eth_getTransactionCount') return `0x${(c.nonce?.[p[0]!] ?? 0).toString(16)}`;
       if (method === 'eth_getBalance') return '0xde0b6b3a7640000';
       if (method === 'eth_call') return '0x' + (512_400_000).toString(16).padStart(64, '0');
@@ -32,11 +40,12 @@ function deps(c: Chain): WalletLookupDeps {
     },
     transfers: async (params) => {
       const q = params as { toAddress?: string; fromAddress?: string; order?: string };
+      calls.push(q.fromAddress ? `from:${q.fromAddress}` : `to:${q.toAddress}`);
       if (q.toAddress) return { transfers: c.firstIn ? [{ from: c.firstIn.from, to: q.toAddress, hash: c.firstIn.hash, metadata: { blockTimestamp: c.firstIn.ts } }] : [] };
       if (q.fromAddress === A) return { transfers: c.lastOut ? [{ from: A, to: FUNDER, hash: '0x1', metadata: { blockTimestamp: c.lastOut } }] : [] };
       if (q.fromAddress === c.firstIn?.from) {
         const n = c.funderRecipients ?? 1;
-        return { transfers: Array.from({ length: n }, (_, i) => ({ from: q.fromAddress!, to: `0x${i.toString(16).padStart(40, '0')}`, hash: `0x${i}`, metadata: { blockTimestamp: days(1) } })) };
+        return { transfers: Array.from({ length: n }, (_, i) => ({ from: q.fromAddress!, to: recipient(i), hash: `0x${i}`, metadata: { blockTimestamp: days(1) } })) };
       }
       return { transfers: [] };
     },
@@ -95,7 +104,30 @@ describe('lookupWallet', () => {
     const r = await lookupWallet(A, 'base', deps({ nonce: { [A]: 9, [FUNDER]: 250_000 }, firstIn: { from: FUNDER, ts: days(60), hash: '0x5' }, funderRecipients: 900 }));
     expect(r.verdict.label).toBe('no_flags');
     expect(r.first_funder?.exchange_or_hub).toBe(true);
+    expect(r.first_funder?.funded_wallets).toBeNull();
     expect(r.flags).not.toContain('shared_funder');
+  });
+
+  // An active trader's outgoing transfers go to routers and pools: those are not wallets it funded.
+  it('does not count contracts the funder paid as wallets it funded', async () => {
+    const r = await lookupWallet(
+      A,
+      'base',
+      deps({ nonce: { [A]: 9, [FUNDER]: 400 }, firstIn: { from: FUNDER, ts: days(60), hash: '0x7' }, funderRecipients: 12, recipientsAreContracts: true }),
+    );
+    expect(r.flags).not.toContain('shared_funder');
+    expect(r.verdict.label).toBe('no_flags');
+    expect(r.first_funder?.funded_wallets).toBe(0);
+  });
+
+  // USDC bridged in by Circle's CCTP arrives as a mint: there is no funder to trace.
+  it('treats a mint as no funder and does not trace the zero address', async () => {
+    const calls: string[] = [];
+    const r = await lookupWallet(A, 'base', deps({ nonce: { [A]: 12 }, firstIn: { from: ZERO, ts: days(200), hash: '0x8' }, lastOut: days(3) }, calls));
+    expect(r.first_funder).toBeNull();
+    expect(r.verdict.label).toBe('no_flags');
+    expect(r.first_seen).not.toBeNull();
+    expect(calls).not.toContain(`from:${ZERO}`);
   });
 
   it('says when the address is a contract', async () => {

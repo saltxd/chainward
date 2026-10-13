@@ -136,7 +136,7 @@ const WALLET_OUTPUT_EXAMPLE = {
       tx: '0xaf801c6252bb681fc6654b763a1d530cc3828c918dd34774e64a8a33d53e20f3',
       sanctioned: false,
       exchange_or_hub: true,
-      funded_wallets: 103,
+      funded_wallets: null,
     },
     flags: [],
     as_of_block: 52553137,

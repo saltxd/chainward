@@ -19,7 +19,9 @@ describe('/wallet-api', () => {
   });
 
   it('states the free tier and how to get a key', () => {
-    expect(text).toContain('1,000 lookups a month');
+    expect(text).toContain('Every account gets 1,000 lookups a month');
+    expect(text).not.toMatch(/every key gets/i);
+    expect(text).toMatch(/daily cap/);
     expect(html).toContain('href="/login"');
     expect(html).toContain('href="/settings"');
   });

@@ -29,8 +29,11 @@ export interface WalletLookup {
     tx: string;
     sanctioned: boolean;
     exchange_or_hub: boolean;
-    /** Distinct wallets in the funder's latest 1,000 outgoing transfers: a floor. */
-    funded_wallets: number;
+    /**
+     * Wallets (no contract code) among the first 20 distinct recipients of the
+     * funder's latest 1,000 outgoing transfers: a floor. null for an exchange or hub.
+     */
+    funded_wallets: number | null;
   } | null;
   flags: LookupFlag[];
   as_of_block: number;
@@ -57,6 +60,9 @@ export const SHARED_FUNDER_MIN = 5;
 /** Sent transactions at which a funder counts as an exchange, bridge or other hub. */
 export const LOOKUP_HUB_NONCE = 10_000;
 const FUNDER_PAGE = 1000;
+const FUNDER_CODE_CHECKS = 20;
+const FUNDER_CODE_BATCH = 5;
+const ZERO_ADDRESS = `0x${'0'.repeat(40)}`;
 
 const USDC: Record<LookupChain, { address: string; decimals: number }> = {
   base: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
@@ -88,19 +94,20 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   const ageDays = firstSeen ? Math.floor((now.getTime() - new Date(firstSeen).getTime()) / 86_400_000) : null;
 
   let funder: WalletLookup['first_funder'] = null;
-  if (first) {
+  // A mint (USDC bridged in by CCTP, say) comes from the zero address: no funder to trace.
+  if (first && first.from.toLowerCase() !== ZERO_ADDRESS) {
     const f = first.from.toLowerCase();
     const [fNonce, fOut] = await Promise.all([
       deps.rpc('eth_getTransactionCount', [f, 'latest']),
       deps.transfers({ ...transferBase, fromAddress: f, order: 'desc', maxCount: `0x${FUNDER_PAGE.toString(16)}` }),
     ]);
-    const funded = new Set(fOut.transfers.map((t) => t.to?.toLowerCase()).filter(Boolean)).size;
+    const hub = hexToNumber(fNonce) >= LOOKUP_HUB_NONCE || fOut.transfers.length >= FUNDER_PAGE;
     funder = {
       address: f,
       tx: first.hash,
       sanctioned: isSanctioned(f),
-      exchange_or_hub: hexToNumber(fNonce) >= LOOKUP_HUB_NONCE || fOut.transfers.length >= FUNDER_PAGE,
-      funded_wallets: funded,
+      exchange_or_hub: hub,
+      funded_wallets: hub ? null : await countFundedWallets(fOut.transfers, f, deps),
     };
   }
 
@@ -111,7 +118,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   if (funder?.sanctioned) flags.push('funded_by_sanctioned');
   if (!first && sentTxs === 0) flags.push('no_history');
   if (ageDays !== null && ageDays < NEW_WALLET_DAYS) flags.push('new_wallet');
-  if (funder && !funder.exchange_or_hub && funder.funded_wallets >= SHARED_FUNDER_MIN) flags.push('shared_funder');
+  if (funder && !funder.exchange_or_hub && (funder.funded_wallets ?? 0) >= SHARED_FUNDER_MIN) flags.push('shared_funder');
   if (type === 'contract') flags.push('contract');
 
   return {
@@ -131,6 +138,25 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
     limits:
       'On-chain facts only. A shared funder is not proof of one owner, and exchanges and other hubs hide who funded a wallet. no_flags means none of these checks matched; it is not a clearance.',
   };
+}
+
+/**
+ * Of the funder's distinct recipients (most recent first), how many are wallets:
+ * no contract code. Routers and pools an active trader pays are not wallets it
+ * funded. At most FUNDER_CODE_CHECKS reads, FUNDER_CODE_BATCH at a time, so a
+ * count at the cap is a floor.
+ */
+async function countFundedWallets(transfers: Transfer[], funder: string, deps: WalletLookupDeps): Promise<number> {
+  const recipients = [...new Set(transfers.map((t) => t.to?.toLowerCase()).filter((t): t is string => !!t && t !== funder && t !== ZERO_ADDRESS))].slice(
+    0,
+    FUNDER_CODE_CHECKS,
+  );
+  let wallets = 0;
+  for (let i = 0; i < recipients.length; i += FUNDER_CODE_BATCH) {
+    const codes = await Promise.all(recipients.slice(i, i + FUNDER_CODE_BATCH).map((r) => deps.rpc('eth_getCode', [r, 'latest'])));
+    wallets += codes.filter((c) => c === '0x' || c === null || c === undefined).length;
+  }
+  return wallets;
 }
 
 function verdictFor(

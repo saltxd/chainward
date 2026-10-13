@@ -45,7 +45,7 @@ const response = `{
       "address": "0x0dff09a6733a12366236e62111a4ce93c475db78",
       "sanctioned": false,
       "exchange_or_hub": true,
-      "funded_wallets": 103
+      "funded_wallets": null
     },
     "flags": [],
     "as_of_block": 52553137
@@ -83,8 +83,9 @@ export default function WalletApiPage() {
               <h2>Get a key</h2>
               <p>
                 <Link href="/login">Sign in with your wallet</Link>, then create a key under{' '}
-                <Link href="/settings">Settings</Link>, API keys. Every key gets 1,000 lookups a month
-                for free; the <code>X-Quota-Remaining</code> header counts down. Need more? Email{' '}
+                <Link href="/settings">Settings</Link>, API keys. Every account gets 1,000 lookups a month
+                for free, cached answers included; the <code>X-Quota-Remaining</code> header counts down.
+                Need more? Email{' '}
                 <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
               </p>
 
@@ -129,6 +130,10 @@ export default function WalletApiPage() {
                   list, <Link href="/screen">send us the list</Link>.
                 </li>
                 <li>Answers are cached for up to an hour.</li>
+                <li>
+                  The free tier shares a daily cap across all accounts. Past it, a new lookup answers 429
+                  until the next UTC day; the pay-per-call route is not capped.
+                </li>
                 <li>This is on-chain analysis, not compliance advice.</li>
               </ul>
 
