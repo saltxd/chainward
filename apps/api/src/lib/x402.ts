@@ -36,6 +36,9 @@ export const SANCTIONS_ROUTE = 'GET /api/risk/sanctions' as const;
 // "counterparty" and /api/risk/sanctions never for "ofac". Same handler, same price.
 export const COUNTERPARTY_ALIAS_ROUTE = 'GET /api/risk/counterparty' as const;
 export const OFAC_ALIAS_ROUTE = 'GET /api/risk/ofac' as const;
+// Fast wallet lookup (routes/walletLookup.ts): sanctions, age, activity and first funder
+// with a hold / review / no_flags verdict. Same lookup as GET /v1/wallet/:address with a key.
+export const WALLET_ROUTE = 'GET /api/risk/wallet' as const;
 const BASE_MAINNET = 'eip155:8453';
 // PayAI settles Base-mainnet `exact` payments without an API key (free tier).
 const DEFAULT_FACILITATOR = 'https://facilitator.payai.network';
@@ -108,6 +111,39 @@ export function x402LookupPrice(): string {
 export function x402SanctionsPrice(): string {
   return process.env.X402_SANCTIONS_PRICE ?? '$0.01';
 }
+
+// Fast wallet lookup (GET /api/risk/wallet?address=): a handful of RPC reads, cached an hour.
+export function x402WalletPrice(): string {
+  return process.env.X402_WALLET_PRICE ?? '$0.01';
+}
+
+// The counterparty example address, as the lookup reported it on 2026-10-13.
+const WALLET_OUTPUT_EXAMPLE = {
+  success: true,
+  data: {
+    address: '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2',
+    chain: 'base',
+    verdict: { label: 'no_flags', reason: 'None of the checks matched: sanctions, age, history and first funder.' },
+    sanctioned: false,
+    type: 'wallet',
+    first_seen: '2025-02-04T12:26:09.000Z',
+    age_days: 616,
+    last_active: '2026-01-30T15:58:27.000Z',
+    sent_txs: 87,
+    balances: { native: 0.01916580034492214, usdc: 5451.386272 },
+    first_funder: {
+      address: '0x0dff09a6733a12366236e62111a4ce93c475db78',
+      tx: '0xaf801c6252bb681fc6654b763a1d530cc3828c918dd34774e64a8a33d53e20f3',
+      sanctioned: false,
+      exchange_or_hub: true,
+      funded_wallets: 103,
+    },
+    flags: [],
+    as_of_block: 52553137,
+    limits:
+      'On-chain facts only. A shared funder is not proof of one owner, and exchanges and other hubs hide who funded a wallet. no_flags means none of these checks matched; it is not a clearance.',
+  },
+};
 
 // The #2 seller from chainward.ai/decodes/x402-on-base, as the check reported it.
 const SELLER_OUTPUT_EXAMPLE = {
@@ -208,6 +244,7 @@ export function x402DiscoveryDocument() {
       'https://api.chainward.ai/api/risk/sanctions',
       'https://api.chainward.ai/api/risk/counterparty',
       'https://api.chainward.ai/api/risk/ofac',
+      'https://api.chainward.ai/api/risk/wallet',
       // Concrete dataset URLs so crawlers can probe each route; GET /api/paid lists them all.
       ...PUBLISHED_DATASETS.flatMap((d) => [
         `https://api.chainward.ai/api/paid/${d.slug}/file`,
@@ -252,6 +289,7 @@ export function apiHomePage(): string {
 <li><code>GET /api/risk/seller-demand?address=0x…</code> (add <code>&amp;chain=bsc</code>): how much of a seller's revenue traces back to the seller itself.</li>
 <li><code>GET /api/risk/hires?agent=&lt;ERC-8004 id or owner 0x…&gt;&amp;chain=bsc</code> (${x402HiresPrice()}): who hired a BNB Chain agent in the last ${HIRE_WINDOW_DAYS} days, and whether each hirer is the owner, funded by it, or shares a funder with it (Set and Earn).</li>
 <li><code>GET /api/risk/sanctions?address=0x…</code> (${x402SanctionsPrice()}): is the address on the US Treasury OFAC SDN list. Hold if it is; Not listed otherwise. Call it before every payment.</li>
+<li><code>GET /api/risk/wallet?address=0x…</code> (add <code>&amp;chain=bsc</code>) (${x402WalletPrice()}): a fast wallet lookup: sanctions, age, last activity, balances and who first funded it, with a hold / review / no_flags verdict. Free with an API key at <code>GET /v1/wallet/0x…</code>, 1,000 lookups a month.</li>
 <li><code>GET /api/paid/{slug}/check?address=</code>: is one wallet in a dataset, and at what tier (${x402LookupPrice()}).</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
@@ -369,6 +407,7 @@ function x402OpenApiBase() {
   const fileUsd = (x402FilePrice().match(/[\d.]+/) ?? ['10'])[0];
   const lookupUsd = (x402LookupPrice().match(/[\d.]+/) ?? ['0.05'])[0];
   const sanctionsUsd = (x402SanctionsPrice().match(/[\d.]+/) ?? ['0.01'])[0];
+  const walletUsd = (x402WalletPrice().match(/[\d.]+/) ?? ['0.01'])[0];
   return {
     openapi: '3.1.0',
     info: {
@@ -507,6 +546,39 @@ function x402OpenApiBase() {
           responses: {
             '200': { description: 'Sanctions screen', content: { 'application/json': { example: SANCTIONS_OUTPUT_EXAMPLE } } },
             '400': { description: 'Malformed address; not charged' },
+            '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+          },
+        },
+      },
+      '/api/risk/wallet': {
+        get: {
+          operationId: 'walletLookup',
+          summary: 'Fast wallet lookup: sanctions, age, activity and first funder, with a hold / review / no_flags verdict',
+          description:
+            'One address on Base or BNB Chain: is it on the OFAC SDN list, when it was first seen, when it last sent, its native and USDC balances, and the wallet that first funded it (sanctioned, an exchange or hub, or a funder of many wallets). hold if it or its first funder is sanctioned; review if it is new, has no history, or shares a funder with many wallets; no_flags otherwise, which is not a clearance. Also free with an API key at GET /v1/wallet/{address}.',
+          parameters: [
+            {
+              name: 'address',
+              in: 'query',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', example: '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2' },
+              description: 'Address to look up',
+            },
+            {
+              name: 'chain',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['base', 'bsc'], default: 'base' },
+              description: 'Chain the address is on. Payment is USDC on Base either way.',
+            },
+          ],
+          'x-payment-info': {
+            price: { mode: 'fixed', currency: 'USD', amount: walletUsd },
+            protocols: [{ x402: {} }],
+          },
+          responses: {
+            '200': { description: 'Wallet lookup', content: { 'application/json': { example: WALLET_OUTPUT_EXAMPLE } } },
+            '400': { description: 'Malformed address or unsupported chain; not charged' },
             '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
           },
         },
@@ -774,6 +846,15 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     whatYouGet:
       'sanctioned true/false, a verdict (sanctioned shown as Hold, or not_listed) with its reason, the list and its snapshot date, and the limit. Not charged if the address is malformed.',
   };
+  const walletLookup: Product = {
+    price: x402WalletPrice(),
+    serviceName: 'ChainWard wallet lookup',
+    description:
+      'Fast wallet lookup on Base or BNB Chain (?chain=bsc): OFAC sanctions, first seen, last active, sent transactions, native and USDC balances, and the first funder (sanctioned, exchange or hub, or funder of many wallets). Verdict hold / review / no_flags with one reason. Built for screening payout lists, signups and counterparties.',
+    tags: ['wallet', 'address', 'lookup', 'screening', 'sanctions', 'ofac', 'sybil', 'funder', 'age', 'base', 'bsc', 'agents', 'kyt'],
+    whatYouGet:
+      'A verdict (hold / review / no_flags) with its reason, the flags behind it, age, activity, balances and first funder, JSON. Cached for an hour. Not charged if the address is malformed.',
+  };
   const sanctionsDiscovery = () =>
     declareDiscoveryExtension({
       input: { address: example },
@@ -980,6 +1061,17 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     [OFAC_ALIAS_ROUTE]: {
       ...route(sanctionsScreen, sanctionsDiscovery()),
       resource: 'https://api.chainward.ai/api/risk/ofac',
+    },
+    [WALLET_ROUTE]: {
+      ...route(
+        walletLookup,
+        declareDiscoveryExtension({
+          input: { address: example },
+          inputSchema: checkSchema,
+          output: { example: WALLET_OUTPUT_EXAMPLE },
+        }),
+      ),
+      resource: 'https://api.chainward.ai/api/risk/wallet',
     },
   };
 }
