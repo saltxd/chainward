@@ -138,6 +138,8 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
       ['/api/risk/seller-demand', checkPaidInput((c) => parseSellerInput(c.req.query('address'), c.req.query('chain')))],
       ['/api/risk/hires', checkPaidInput((c) => parseHireInput(c.req.query('agent'), c.req.query('chain')))],
       ['/api/risk/sanctions', checkPaidInput((c) => parseSanctionsAddress(c.req.query('address')))],
+      ['/api/risk/counterparty', checkPaidInput((c) => parseCounterpartyInput(c.req.query('address'), c.req.query('chain')))],
+      ['/api/risk/ofac', checkPaidInput((c) => parseSanctionsAddress(c.req.query('address')))],
       ['/api/paid/:slug/file', checkPaidInput((c) => requireKnownSlug(c.req.param('slug')))],
       [
         '/api/paid/:slug/check',

@@ -1018,6 +1018,9 @@ risk.get('/x402/:address', paidRateLimit, (c) => paidCheck(c, c.req.param('addre
 // OFAC sanctions screen, $0.01 over x402 (app.ts mounts the payment middleware).
 // A bare request ends here in a 400, which the middleware never settles.
 risk.get('/sanctions', paidRateLimit, (c) => c.json({ success: true, data: sanctionsAnswer(parseSanctionsAddress(c.req.query('address'))) }));
+// Plainly named aliases (lib/x402.ts): the same handlers, so catalog search finds them.
+risk.get('/counterparty', paidRateLimit, (c) => paidCheck(c, c.req.query('address')));
+risk.get('/ofac', paidRateLimit, (c) => c.json({ success: true, data: sanctionsAnswer(parseSanctionsAddress(c.req.query('address'))) }));
 
 // GET /api/risk/library?sort=recent&limit=&offset= — the public, SEO-indexed library.
 risk.get(

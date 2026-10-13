@@ -131,6 +131,11 @@ describe('paid routes: input checked before the 402 challenge', () => {
     '/api/risk/sanctions?address=0x0000000000000000000000000000000000000000',
     '/api/paid/termix-wallets/check?address=0x0000000000000000000000000000000000000001',
     '/api/risk/hires?agent=0x0000000000000000000000000000000000000000',
+    // The plainly named aliases take the same input rules as the routes they alias.
+    '/api/risk/counterparty?address=0xzz',
+    `/api/risk/counterparty?address=${ADDR}&chain=eth`,
+    '/api/risk/counterparty?address=0x0000000000000000000000000000000000000001',
+    '/api/risk/ofac?address=0xzz',
   ])('GET %s answers 400 with no payment challenge', async (path) => {
     const res = await app.request(path.replace('<5000 digits>', tooLongAgent));
     expect(res.status).toBe(400);
@@ -144,7 +149,7 @@ describe('paid routes: input checked before the 402 challenge', () => {
   // resource URL to learn the price and the input from the 402. Nobody is charged
   // for it: a paid request with no target still ends in the handler's 400, and
   // the middleware does not settle a response of 400 or above.
-  it.each(['/api/risk/x402', '/api/risk/seller-demand', '/api/risk/hires', '/api/risk/hires?chain=bsc', '/api/paid/termix-wallets/check', '/api/risk/sanctions'])(
+  it.each(['/api/risk/x402', '/api/risk/seller-demand', '/api/risk/hires', '/api/risk/hires?chain=bsc', '/api/paid/termix-wallets/check', '/api/risk/sanctions', '/api/risk/counterparty', '/api/risk/ofac'])(
     'GET %s (bare resource, no target) answers 402 so catalogs can read the challenge',
     async (path) => {
       const res = await app.request(path);
@@ -184,6 +189,8 @@ describe('paid routes: input checked before the 402 challenge', () => {
     '/api/paid/termix-wallets/file',
     `/api/paid/termix-wallets/check?address=${ADDR}`,
     `/api/risk/sanctions?address=${ADDR}`,
+    `/api/risk/counterparty?address=${ADDR}&chain=bsc`,
+    `/api/risk/ofac?address=${ADDR}`,
   ])('GET %s (valid, unpaid) still answers 402 with the challenge', async (path) => {
     const res = await app.request(path);
     expect(res.status).toBe(402);
@@ -215,7 +222,7 @@ const freshReportRow = {
 };
 
 describe('paid routes: payment middleware runs once per request', () => {
-  it.each([`/api/risk/x402?address=${ADDR}`, `/api/risk/x402/${ADDR}`])('GET %s', async (path) => {
+  it.each([`/api/risk/x402?address=${ADDR}`, `/api/risk/x402/${ADDR}`, `/api/risk/counterparty?address=${ADDR}`])('GET %s', async (path) => {
     let calls = 0;
     const counting: MiddlewareHandler = async (_c, next) => {
       calls++;
@@ -262,3 +269,21 @@ describe('dataset check: verdict first', () => {
     expect(body.data.reason).toMatch(/TermiX wallets/);
   });
 });
+
+// The aliases run the same handlers as the routes they alias.
+describe('alias routes answer like the originals', () => {
+  const passthrough: MiddlewareHandler = async (_c, next) => {
+    await next();
+  };
+
+  it('GET /api/risk/ofac?address= is the sanctions screen', async () => {
+    const app = createApp({ corsOrigins: ['https://chainward.ai'], x402Check: passthrough });
+    const [ofac, sanctions] = await Promise.all([
+      app.request(`/api/risk/ofac?address=${ADDR}`),
+      app.request(`/api/risk/sanctions?address=${ADDR}`),
+    ]);
+    expect(ofac.status).toBe(200);
+    expect(await ofac.json()).toEqual(await sanctions.json());
+  });
+});
+

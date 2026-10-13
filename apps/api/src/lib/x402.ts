@@ -30,6 +30,12 @@ export const SELLER_DEMAND_ROUTE = 'GET /api/risk/seller-demand' as const;
 export const HIRES_ROUTE = 'GET /api/risk/hires' as const;
 // OFAC sanctions screen (lib/sanctionsCheck.ts): the cheapest call, made before every payment.
 export const SANCTIONS_ROUTE = 'GET /api/risk/sanctions' as const;
+// Plainly named aliases of the counterparty check and the sanctions screen. Catalog
+// search (x402scan's, which agents and reviewers use to find new endpoints) matches
+// the resource URL, not the description, so /api/risk/x402 never came up for
+// "counterparty" and /api/risk/sanctions never for "ofac". Same handler, same price.
+export const COUNTERPARTY_ALIAS_ROUTE = 'GET /api/risk/counterparty' as const;
+export const OFAC_ALIAS_ROUTE = 'GET /api/risk/ofac' as const;
 const BASE_MAINNET = 'eip155:8453';
 // PayAI settles Base-mainnet `exact` payments without an API key (free tier).
 const DEFAULT_FACILITATOR = 'https://facilitator.payai.network';
@@ -200,6 +206,8 @@ export function x402DiscoveryDocument() {
       'https://api.chainward.ai/api/risk/seller-demand',
       'https://api.chainward.ai/api/risk/hires',
       'https://api.chainward.ai/api/risk/sanctions',
+      'https://api.chainward.ai/api/risk/counterparty',
+      'https://api.chainward.ai/api/risk/ofac',
       // Concrete dataset URLs so crawlers can probe each route; GET /api/paid lists them all.
       ...PUBLISHED_DATASETS.flatMap((d) => [
         `https://api.chainward.ai/api/paid/${d.slug}/file`,
@@ -345,6 +353,16 @@ export function x402OpenApiDocument() {
       },
     };
   }
+  // The aliases carry the originals' parameters, price and responses; only the name and a note differ.
+  const paths = doc.paths as Record<string, unknown>;
+  const counterpartyOp = doc.paths['/api/risk/x402'].get;
+  paths['/api/risk/counterparty'] = {
+    get: { ...counterpartyOp, operationId: 'counterpartyCheckByName', description: `The same check as GET /api/risk/x402, under its plain name. ${counterpartyOp.description}` },
+  };
+  const sanctionsOp = doc.paths['/api/risk/sanctions'].get;
+  paths['/api/risk/ofac'] = {
+    get: { ...sanctionsOp, operationId: 'ofacScreen', description: `The same screen as GET /api/risk/sanctions, under its plain name. ${sanctionsOp.description}` },
+  };
   return doc;
 }
 
@@ -751,6 +769,21 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     whatYouGet:
       'A verdict (pay / hold / unknown) with its reason, then the full risk report no older than 24h (a fresh check runs if needed), JSON. Base by default; add ?chain=bsc for a BNB Chain address. Not charged if the check fails.',
   };
+  const sanctionsScreen: Product = {
+    price: x402SanctionsPrice(),
+    serviceName: 'ChainWard sanctions screen',
+    description:
+      'Is this address on the US Treasury OFAC SDN list? Hold if it is, Not listed otherwise, with the snapshot date. EVM addresses, any chain. One cent, meant to run before every payment an agent makes. Not listed is not a clearance.',
+    tags: ['ofac', 'sanctions', 'compliance', 'screening', 'address', 'wallet', 'counterparty', 'base', 'bsc', 'ethereum', 'agents', 'kyt'],
+    whatYouGet:
+      'sanctioned true/false, a verdict (sanctioned shown as Hold, or not_listed) with its reason, the list and its snapshot date, and the limit. Not charged if the address is malformed.',
+  };
+  const sanctionsDiscovery = () =>
+    declareDiscoveryExtension({
+      input: { address: example },
+      inputSchema: addressSchema,
+      output: { example: SANCTIONS_OUTPUT_EXAMPLE },
+    });
   const sellerDemand: Product = {
     price: x402SellerPrice(),
     serviceName: 'ChainWard x402 seller check',
@@ -934,23 +967,23 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
       resource: 'https://api.chainward.ai/api/risk/hires',
     },
     [SANCTIONS_ROUTE]: {
+      ...route(sanctionsScreen, sanctionsDiscovery()),
+      resource: 'https://api.chainward.ai/api/risk/sanctions',
+    },
+    [COUNTERPARTY_ALIAS_ROUTE]: {
       ...route(
-        {
-          price: x402SanctionsPrice(),
-          serviceName: 'ChainWard sanctions screen',
-          description:
-            'Is this address on the US Treasury OFAC SDN list? Hold if it is, Not listed otherwise, with the snapshot date. EVM addresses, any chain. One cent, meant to run before every payment an agent makes. Not listed is not a clearance.',
-          tags: ['ofac', 'sanctions', 'compliance', 'screening', 'address', 'wallet', 'counterparty', 'base', 'bsc', 'ethereum', 'agents', 'kyt'],
-          whatYouGet:
-            'sanctioned true/false, a verdict (sanctioned shown as Hold, or not_listed) with its reason, the list and its snapshot date, and the limit. Not charged if the address is malformed.',
-        },
+        counterparty,
         declareDiscoveryExtension({
           input: { address: example },
-          inputSchema: addressSchema,
-          output: { example: SANCTIONS_OUTPUT_EXAMPLE },
+          inputSchema: checkSchema,
+          output: { example: OUTPUT_EXAMPLE },
         }),
       ),
-      resource: 'https://api.chainward.ai/api/risk/sanctions',
+      resource: 'https://api.chainward.ai/api/risk/counterparty',
+    },
+    [OFAC_ALIAS_ROUTE]: {
+      ...route(sanctionsScreen, sanctionsDiscovery()),
+      resource: 'https://api.chainward.ai/api/risk/ofac',
     },
   };
 }
