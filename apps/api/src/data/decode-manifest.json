@@ -1,6 +1,48 @@
 {
   "decodes": [
     {
+      "slug": "x402-top-ten-self-funded",
+      "title": "Three of the Top Ten x402 Sellers on Agent402's Board Pay Their Own Buyers",
+      "subtitle": "On Oct 13, ranks 1, 5 and 7 on Agent402's 7-day x402 leaderboard were sellers whose buyers got their money from the seller. One of them runs a ring of 489 wallets through a facilitator.",
+      "date": "2026-10-13",
+      "url": "https://chainward.ai/decodes/x402-top-ten-self-funded",
+      "addresses": [
+        "0x589a2314a2e05f45e40c4823da3ba58d421db3d8",
+        "0x0f99fc0cbd7a114b2da171fda5a0167858f7afc2",
+        "0x7284d41b5b852f2bd4c99bdf95043d84452d299c",
+        "0xe9030014f5dae217d0a152f02a043567b16c1abf",
+        "0x17cd53c04d707ef0dd615ef56c633f02915a7905",
+        "0x325bdf6f7efab24a2210c48c1b64cab2eae1d430",
+        "0x159be9e316bc5fac8ce05aec4eaae46e8f8a4908",
+        "0xd5ba9711a3d052846a3695c70e7fcb8b3168fe7d",
+        "0x213c8d7434e2ae7aa1c392767c5120778d413215",
+        "0x44adc7d3199486730d6346f2dc2424de97124700",
+        "0xf5c85318e4818c64e3900a65a26666d61e6d0cf7",
+        "0xabef61c5629d5bb709618759f09adc2a82e29bb1",
+        "0xe5d93bb133ff91869c36c23ecc8fd5b9f15825a6",
+        "0x27db658d7c1d7b0ced8fda96e2ea1dbd8a4ed0fe",
+        "0x33cbc2ca8a838f07779d70a0cb927177b0767e87",
+        "0x6eda34d6e08a96915799608b3eadcb0c9b1b3f48",
+        "0x589a2911c68932a396bf354fb130979ba89cb3d8",
+        "0xc034588fb8257c4ae022abdef610de65037f8921",
+        "0xc7a535883766f0d1de1dd5af0fbc8fd690559d78",
+        "0x940648591641027f025b37a33a5769261d344420",
+        "0xa7a57268acc9c6cacb3effb38282ecf427828094",
+        "0x993f7d661c394ea6b66be9017c09216120b15d3a",
+        "0x8736ae11c1f3c6eba0a023baa455b2372fca2aab",
+        "0xeae5d185bf3505fdf87d59b3e7dbbd856ef88b2a",
+        "0xee1349447c302401fe3a105f89c8492d84252217",
+        "0x430afd700802d5acec07fb90375ddc59ebf83cdd",
+        "0x103040545ac5031a11e8c03dd11324c7333a13c7",
+        "0x16c1315f537d3c916d4a14edc95e4c1dbd773bef",
+        "0xcc1984e79726e7a0ae2b9df2ac9e79fb4983930e",
+        "0x96de2002a13c8e2ef3444192a7cabb7b1eacfc53",
+        "0x20ed59ba16bb9d5600c68ba19b7deffe50eb92e4",
+        "0x8094fb79556bb4f20f8eccda6a4e1b11c51d7676",
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+      ]
+    },
+    {
       "slug": "x402-closed-six",
       "title": "Six x402 Wallets Paid Only by Each Other Now Rank 3 to 8 on Base",
       "subtitle": "The six wallets from our two earlier x402 decodes, ranks 3 to 8 on x402scan on Oct 9, have moved $981K between them through Meridian since May 5.",
@@ -553,6 +595,113 @@
     }
   ],
   "byAddress": {
+    "0x589a2314a2e05f45e40c4823da3ba58d421db3d8": [
+      "x402-top-ten-self-funded",
+      "x402-on-base-two-weeks-later"
+    ],
+    "0x0f99fc0cbd7a114b2da171fda5a0167858f7afc2": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x7284d41b5b852f2bd4c99bdf95043d84452d299c": [
+      "x402-top-ten-self-funded",
+      "x402-on-base"
+    ],
+    "0xe9030014f5dae217d0a152f02a043567b16c1abf": [
+      "x402-top-ten-self-funded",
+      "x402-on-base"
+    ],
+    "0x17cd53c04d707ef0dd615ef56c633f02915a7905": [
+      "x402-top-ten-self-funded",
+      "x402-on-base-two-weeks-later",
+      "x402-on-base"
+    ],
+    "0x325bdf6f7efab24a2210c48c1b64cab2eae1d430": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x159be9e316bc5fac8ce05aec4eaae46e8f8a4908": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xd5ba9711a3d052846a3695c70e7fcb8b3168fe7d": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x213c8d7434e2ae7aa1c392767c5120778d413215": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x44adc7d3199486730d6346f2dc2424de97124700": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xf5c85318e4818c64e3900a65a26666d61e6d0cf7": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xabef61c5629d5bb709618759f09adc2a82e29bb1": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xe5d93bb133ff91869c36c23ecc8fd5b9f15825a6": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x27db658d7c1d7b0ced8fda96e2ea1dbd8a4ed0fe": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x33cbc2ca8a838f07779d70a0cb927177b0767e87": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x6eda34d6e08a96915799608b3eadcb0c9b1b3f48": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x589a2911c68932a396bf354fb130979ba89cb3d8": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xc034588fb8257c4ae022abdef610de65037f8921": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xc7a535883766f0d1de1dd5af0fbc8fd690559d78": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x940648591641027f025b37a33a5769261d344420": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xa7a57268acc9c6cacb3effb38282ecf427828094": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x993f7d661c394ea6b66be9017c09216120b15d3a": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x8736ae11c1f3c6eba0a023baa455b2372fca2aab": [
+      "x402-top-ten-self-funded",
+      "x402-on-base"
+    ],
+    "0xeae5d185bf3505fdf87d59b3e7dbbd856ef88b2a": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xee1349447c302401fe3a105f89c8492d84252217": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x430afd700802d5acec07fb90375ddc59ebf83cdd": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x103040545ac5031a11e8c03dd11324c7333a13c7": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x16c1315f537d3c916d4a14edc95e4c1dbd773bef": [
+      "x402-top-ten-self-funded"
+    ],
+    "0xcc1984e79726e7a0ae2b9df2ac9e79fb4983930e": [
+      "x402-top-ten-self-funded",
+      "x402-on-base"
+    ],
+    "0x96de2002a13c8e2ef3444192a7cabb7b1eacfc53": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x20ed59ba16bb9d5600c68ba19b7deffe50eb92e4": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x8094fb79556bb4f20f8eccda6a4e1b11c51d7676": [
+      "x402-top-ten-self-funded"
+    ],
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": [
+      "x402-top-ten-self-funded",
+      "bridgekitty-on-chain"
+    ],
     "0x30c2282e7e238a977ec710cf67a5d1e1a1bfe85f": [
       "x402-closed-six"
     ],
@@ -893,17 +1042,10 @@
     "0xc5320eae2a6f3cb56d5fd80ac63c85711b29cb4e": [
       "x402-on-base-two-weeks-later"
     ],
-    "0x17cd53c04d707ef0dd615ef56c633f02915a7905": [
-      "x402-on-base-two-weeks-later",
-      "x402-on-base"
-    ],
     "0xfcb9025017611600dce7fce699a820c86938ea65": [
       "x402-on-base-two-weeks-later"
     ],
     "0xdecada676485bd8a23808335aec0ff0ed290c045": [
-      "x402-on-base-two-weeks-later"
-    ],
-    "0x589a2314a2e05f45e40c4823da3ba58d421db3d8": [
       "x402-on-base-two-weeks-later"
     ],
     "0x2588c78ddb0015f033fba8485beeae8e9a05db63": [
@@ -1196,12 +1338,6 @@
     "0x32b9ce9331823fa5d0d092f9e6f90b1ef194b1c9": [
       "x402-on-base"
     ],
-    "0x8736ae11c1f3c6eba0a023baa455b2372fca2aab": [
-      "x402-on-base"
-    ],
-    "0xcc1984e79726e7a0ae2b9df2ac9e79fb4983930e": [
-      "x402-on-base"
-    ],
     "0x8d1e2ce4af9cc0fd872c1f4de2cc0a393e63545a": [
       "x402-on-base"
     ],
@@ -1214,16 +1350,10 @@
     "0x171edde4606c9d517282abf105208bcadf37f67b": [
       "x402-on-base"
     ],
-    "0x7284d41b5b852f2bd4c99bdf95043d84452d299c": [
-      "x402-on-base"
-    ],
     "0x3dd6f35c88f3ae22feccbde524caf9874aab1af7": [
       "x402-on-base"
     ],
     "0x93862e5b2b1fa10a01772e7e9ca7cdc7deb5ca25": [
-      "x402-on-base"
-    ],
-    "0xe9030014f5dae217d0a152f02a043567b16c1abf": [
       "x402-on-base"
     ],
     "0xa9dd7cc9cbf0e05551332209289f04be36bc2315": [
@@ -1368,9 +1498,6 @@
       "bridgekitty-on-chain"
     ],
     "0x44e7cb3f38abaf1a7448cf40bd7ee19e3678ecad": [
-      "bridgekitty-on-chain"
-    ],
-    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": [
       "bridgekitty-on-chain"
     ],
     "0x70434389e58f5afcf8e43b9eef066472af3044fb": [
