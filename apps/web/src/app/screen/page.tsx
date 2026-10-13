@@ -6,7 +6,7 @@ import { PressShell, Masthead, PressDateline, Colophon } from '@/components/pres
 
 const TITLE = 'Check a payout list before you pay it';
 const DESCRIPTION =
-  'Before you send rewards, cashback or an airdrop, send ChainWard the wallet list. We flag the wallets that share a funder, with the transactions behind each group, and any OFAC sanctions hits. First 500 wallets free.';
+  'Before you send rewards, cashback or an airdrop, send ChainWard the wallet list. We flag the wallets that share a funder, with the transactions behind each group, and any OFAC sanctions hits. The first 500 wallets of your first list are free.';
 
 export const metadata = {
   title: TITLE,
@@ -34,7 +34,7 @@ export default function ScreenPage() {
             <p className="da-sub">
               Paying rewards, cashback or an airdrop to a list of wallets? Send us the list first. We tell
               you which wallets share a funder, with the transactions that link each group, and which are
-              on the US sanctions list (OFAC). Nothing is published, and your list stays private.
+              on the US sanctions list (OFAC). We don&apos;t publish or share your list.
             </p>
           </header>
 
@@ -55,7 +55,7 @@ export default function ScreenPage() {
 
               <h2>Price</h2>
               <p>
-                The first 500 wallets free. After that, $0.05 per wallet, $25 minimum, paid in USDC on Base
+                The first 500 wallets of your first list are free. After that, $0.05 per wallet, $25 minimum, paid in USDC on Base
                 (or USDT or USDC on BNB Chain) to the ChainWard treasury once you have the results. No
                 account, no subscription.
               </p>
@@ -76,7 +76,7 @@ export default function ScreenPage() {
                 The same tracing is behind our public decodes: who funded the wallets hiring agents on{' '}
                 <Link href="/decodes/termix-on-chain">TermiX</Link>, and who hired whom in{' '}
                 <Link href="/decodes/set-and-earn-week-one">Set and Earn&apos;s first week</Link>. Your list
-                gets the same treatment, privately.
+                gets the same tracing, and the results go only to you.
               </p>
               <p>
                 Questions, or a list ready to go: <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.

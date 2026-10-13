@@ -15,16 +15,22 @@ describe('/screen', () => {
   });
 
   it('states the price and the free first batch', () => {
-    expect(text).toContain('first 500 wallets free');
+    expect(text).toContain('first 500 wallets of your first list are free');
     expect(text).toContain('$0.05 per wallet');
     expect(text).toContain('$25 minimum');
     expect(text).toMatch(/USDC/);
   });
 
-  it('says what comes back and that nothing is published', () => {
+  it('says what comes back', () => {
     expect(text).toMatch(/share a funder/);
     expect(text).toMatch(/OFAC/);
-    expect(text).toMatch(/nothing is published/i);
+  });
+
+  // Fulfilment reads each address from public blockchain nodes, so the page can
+  // promise not to publish or share the list, not that it stays private.
+  it('promises only what fulfilment can keep', () => {
+    expect(text).toContain("We don't publish or share your list");
+    expect(text).not.toMatch(/stays private|privately/i);
   });
 
   it('states the limits', () => {
