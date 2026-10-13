@@ -76,9 +76,109 @@ export function renderOfacSnapshot(addresses: readonly string[], fetchedAt: stri
   ].join('\n');
 }
 
-const SANCTIONED: ReadonlySet<string> = new Set(OFAC_SNAPSHOT.addresses);
+// ─── The list in use ──────────────────────────────────────────────────────────
+//
+// Starts as the bundled snapshot and is replaced at runtime by refreshOfacList,
+// so a newly listed address is caught without a redeploy. The snapshot stays the
+// floor: a refresh that fails, comes back empty or would drop too much at once
+// leaves the current list in place. Readers see one list or the other, never a
+// half-built one (the swap is a single assignment).
 
-/** True when the address is on the bundled OFAC SDN snapshot. Case-insensitive. */
+interface ActiveList {
+  source: string;
+  fetched_at: string;
+  set: ReadonlySet<string>;
+}
+
+const SNAPSHOT_LIST: ActiveList = {
+  source: OFAC_SNAPSHOT.source,
+  fetched_at: OFAC_SNAPSHOT.fetched_at,
+  set: new Set(OFAC_SNAPSHOT.addresses),
+};
+let active: ActiveList = SNAPSHOT_LIST;
+
+/** The largest share of the current list one refresh may drop; more looks like a broken download. */
+export const OFAC_MAX_DROP = 0.25;
+/** How often the api and indexer refresh the list. */
+export const OFAC_REFRESH_MS = 12 * 3_600_000;
+const FETCH_TIMEOUT_MS = 20_000;
+
+/** True when the address is on the OFAC SDN list in use. Case-insensitive. */
 export function isSanctioned(address: string): boolean {
-  return SANCTIONED.has(address.toLowerCase());
+  return active.set.has(address.toLowerCase());
+}
+
+export interface OfacList {
+  source: string;
+  /** YYYY-MM-DD of the download in use (the bundled snapshot's date until a refresh succeeds). */
+  fetched_at: string;
+  addresses: number;
+}
+
+/** Where the list in use came from, when, and how many addresses it holds. */
+export function ofacList(): OfacList {
+  return { source: active.source, fetched_at: active.fetched_at, addresses: active.set.size };
+}
+
+/** Back to the bundled snapshot. For tests. */
+export function resetOfacListForTests(): void {
+  active = SNAPSHOT_LIST;
+}
+
+export type RefreshResult = { ok: true; added: number; removed: number; total: number } | { ok: false; reason: string };
+
+/**
+ * Download every OFAC list file and swap it in, only if every file downloaded and
+ * parsed (parseOfacList refuses any malformed line, e.g. an HTML error page), the
+ * union is non-empty, and it drops at most OFAC_MAX_DROP of the current list.
+ */
+export async function refreshOfacList(opts: { fetch?: typeof fetch; now?: () => Date } = {}): Promise<RefreshResult> {
+  const doFetch = opts.fetch ?? fetch;
+  const now = opts.now ?? (() => new Date());
+  const all = new Set<string>();
+  try {
+    for (const { asset, skipNonEvm } of OFAC_LIST_FILES) {
+      const res = await doFetch(ofacListUrl(asset), { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      if (!res.ok) return { ok: false, reason: `${asset}: HTTP ${res.status}` };
+      for (const a of parseOfacList(await res.text(), { skipNonEvm })) all.add(a);
+    }
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+  if (all.size === 0) return { ok: false, reason: 'every OFAC list came back empty' };
+  const current = active.set;
+  const removed = [...current].filter((a) => !all.has(a)).length;
+  if (removed > current.size * OFAC_MAX_DROP) {
+    return { ok: false, reason: `would drop ${removed} of ${current.size} addresses at once` };
+  }
+  const added = [...all].filter((a) => !current.has(a)).length;
+  active = { source: OFAC_LIST_SOURCE, fetched_at: now().toISOString().slice(0, 10), set: all };
+  return { ok: true, added, removed, total: all.size };
+}
+
+interface RefreshLog {
+  info(obj: object, msg: string): void;
+  warn(obj: object, msg: string): void;
+}
+
+/**
+ * Refresh once shortly after start, then every intervalMs. Never throws; a failed
+ * refresh is logged and the current list stays. Returns a stop function.
+ */
+export function startOfacRefresh(opts: { intervalMs?: number; firstDelayMs?: number; log?: RefreshLog } = {}): { stop(): void } {
+  const run = async () => {
+    const result = await refreshOfacList();
+    if (result.ok) opts.log?.info({ ...result, fetched_at: active.fetched_at }, 'OFAC list refreshed');
+    else opts.log?.warn({ reason: result.reason, kept: ofacList() }, 'OFAC list refresh failed; keeping the current list');
+  };
+  const first = setTimeout(() => void run(), opts.firstDelayMs ?? 30_000);
+  const every = setInterval(() => void run(), opts.intervalMs ?? OFAC_REFRESH_MS);
+  first.unref?.();
+  every.unref?.();
+  return {
+    stop() {
+      clearTimeout(first);
+      clearInterval(every);
+    },
+  };
 }
