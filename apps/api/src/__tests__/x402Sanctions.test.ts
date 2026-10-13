@@ -75,7 +75,8 @@ describe('x402 sanctions screen after a refresh', () => {
 
   it('catches a newly listed address and reports the refreshed list', async () => {
     const added = `0x${'e'.repeat(40)}`;
-    const body = (asset: string) => (asset === 'ETH' ? [...OFAC_SNAPSHOT.addresses, added].join('\n') : '');
+    // Every real file names at least one EVM address; the refresh refuses an empty one.
+    const body = (asset: string) => (asset === 'ETH' ? [...OFAC_SNAPSHOT.addresses, added].join('\n') : OFAC_SNAPSHOT.addresses[0]!);
     const fakeFetch = (async (input: string | URL | Request) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       const asset = OFAC_LIST_FILES.find((f) => ofacListUrl(f.asset) === url)!.asset;
