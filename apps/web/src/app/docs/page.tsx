@@ -310,9 +310,8 @@ export default function DocsPage() {
         </table>
       </div>
       <p>
-        Dataset slugs today: <code>termix-wallets</code>,{' '}
-        <code>set-and-earn-week-one</code> and <code>x402-sellers-base</code>{' '}
-        (<code>GET /api/paid</code> lists them). To see
+        Dataset slugs today: <code>termix-wallets</code> and{' '}
+        <code>set-and-earn-week-one</code> (<code>GET /api/paid</code> lists them). To see
         a price without paying, call an endpoint with no payment:
       </p>
       <CodeBlock>{probeCurl}</CodeBlock>

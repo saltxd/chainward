@@ -24,6 +24,11 @@ describe('/docs', () => {
     for (const text of ['Inactive', 'No track record', 'Couldn&#x27;t check']) expect(html).toContain(text);
   });
 
+  it('lists only the datasets on sale', () => {
+    expect(html).toContain('Dataset slugs today: <code>termix-wallets</code> and <code>set-and-earn-week-one</code>');
+    expect(html).not.toContain('x402-sellers-base');
+  });
+
   it('documents the counterparty check at the path the 402 challenge names', () => {
     expect(html).toContain('GET /api/risk/x402?address=');
   });
