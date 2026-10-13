@@ -126,6 +126,11 @@ describe('paid routes: input checked before the 402 challenge', () => {
     `/api/paid/NOPE/check?address=${ADDR}`,
     '/api/risk/sanctions?address=0xzz',
     '/api/risk/sanctions?address=',
+    // A placeholder (0x000…) is never a wallet anyone pays, on any paid route.
+    '/api/risk/seller-demand?address=0x0000000000000000000000000000000000000000',
+    '/api/risk/sanctions?address=0x0000000000000000000000000000000000000000',
+    '/api/paid/termix-wallets/check?address=0x0000000000000000000000000000000000000001',
+    '/api/risk/hires?agent=0x0000000000000000000000000000000000000000',
   ])('GET %s answers 400 with no payment challenge', async (path) => {
     const res = await app.request(path.replace('<5000 digits>', tooLongAgent));
     expect(res.status).toBe(400);

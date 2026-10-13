@@ -21,9 +21,12 @@ const AGENT_ID_RE = /^\d{1,12}$/;
 const SELLER_CHAINS = ['base', 'bsc'] as const;
 type SellerChain = (typeof SELLER_CHAINS)[number];
 
+const PLACEHOLDER_MESSAGE = 'That is a placeholder address (0x000…), not a wallet to check';
+
 function parseAddress(raw: string | undefined): string {
   if (raw === undefined) throw new AppError(400, MISSING_TARGET, 'address is required');
   if (!ADDRESS_RE.test(raw)) throw new AppError(400, 'INVALID_TARGET', 'Invalid wallet address format');
+  if (isPlaceholderAddress(raw)) throw new AppError(400, 'INVALID_TARGET', PLACEHOLDER_MESSAGE);
   return raw.toLowerCase();
 }
 
@@ -33,9 +36,6 @@ export function parseCounterpartyInput(
   rawChain: string | undefined,
 ): { address: string; chain: RiskChainId } {
   const address = parseAddress(rawAddress);
-  if (isPlaceholderAddress(address)) {
-    throw new AppError(400, 'INVALID_TARGET', 'That is a placeholder address (0x000…), not a wallet to check');
-  }
   const chain = rawChain ?? 'base';
   if (!(RISK_CHAIN_IDS as readonly string[]).includes(chain)) {
     throw new AppError(400, 'INVALID_CHAIN', `chain must be one of: ${RISK_CHAIN_IDS.join(', ')}`);
@@ -74,7 +74,7 @@ export function parseHireInput(rawAgent: string | undefined, rawChain: string | 
   if (rawAgent === undefined) throw new AppError(400, MISSING_TARGET, 'agent is required');
   const agent = rawAgent.trim();
   if (AGENT_ID_RE.test(agent)) return { kind: 'id', id: Number(agent) };
-  if (ADDRESS_RE.test(agent)) return { kind: 'owner', address: agent.toLowerCase() };
+  if (ADDRESS_RE.test(agent)) return { kind: 'owner', address: parseAddress(agent) };
   throw new AppError(400, 'INVALID_TARGET', 'agent must be an ERC-8004 agent id or a 0x owner address');
 }
 
