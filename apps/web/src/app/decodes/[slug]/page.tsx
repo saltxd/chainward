@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { PressShell, Masthead, PressDateline, Colophon, BriefOffer } from '@/components/press';
+import { PressShell, Masthead, PressDateline, Colophon, BriefOffer, FreeTools } from '@/components/press';
 import { getAllDecodes, getDecodeBySlug, plainCallout } from '@/lib/decodes';
 
 // Some scrapers (notably X/Twitter) reliably fetch static OG assets but
@@ -133,6 +133,7 @@ export default async function DecodePage({ params }: PageProps) {
               title="Want this run on a wallet you care about?"
               lede="This decode is what the engine produces in public. The Intel Brief points the same investigation at a wallet you choose: we trace the fund flows, test the public claims against the chain, and hand you a written brief you can cite."
             />
+            <FreeTools />
           </div>
 
           <footer className="da-footer press-measure">

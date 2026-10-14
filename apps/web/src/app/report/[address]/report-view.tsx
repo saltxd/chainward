@@ -25,6 +25,7 @@ import {
   PressDateline,
   Colophon,
   BriefOffer,
+  FreeTools,
 } from '@/components/press';
 import { ApiError, publicApi, type RiskReport, type RiskTeaser } from '@/lib/api';
 import { DISCLAIMER } from '@/lib/risk';
@@ -553,6 +554,7 @@ function FullReport({
       {/* The single, serious upsell — a document artifact, not a pricing card. */}
       <div className="rr-block">
         <BriefOffer placement="report-document" />
+        <FreeTools />
       </div>
 
       <div className="rr-block">
