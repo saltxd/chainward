@@ -17,6 +17,14 @@ Deploy, once logged in (`npx wrangler@4 login`):
 
 Rollback: `npx wrangler@4 delete`, or remove the two Workers routes in the dashboard.
 
+**Deploys are manual.** CI does not deploy this Worker: a change merged to `main` reaches Cloudflare only when someone runs `npx wrangler@4 deploy` here (wrangler is OAuth-logged-in on the Mac). Deploy right after merging any change to this directory.
+
+**Takedowns.** When a page is retracted or withdrawn (a decode, a dataset page), also delete its saved copy, or the old version can still be served during an outage for up to a day. The key is host + path:
+
+    npx wrangler@4 kv key delete --namespace-id 408de82892c5456c977958e10db716f4 --remote "chainward.ai/decodes/<slug>"
+
+Ops notes and the live outage test (2026-10-14): BookStack page 378, "Edge fallback Worker".
+
 Free plan limits: 100,000 Worker requests a day (the account saw ~35k a day in Oct 2026) and 1,000 KV writes a day. Both routes are set to request-limit failure mode **fail open** (dashboard, Workers Routes, Edit), so past the daily limit traffic goes straight to the origin instead of failing. Re-check that setting after a deploy that changes the routes.
 
 Deployed 2026-10-13: KV namespace `SNAPSHOTS` (id in wrangler.toml), warmed with all 281 sitemap pages, their build assets and the API discovery documents.
