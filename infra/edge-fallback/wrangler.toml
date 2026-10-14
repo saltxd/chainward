@@ -12,4 +12,4 @@ routes = [
 
 [[kv_namespaces]]
 binding = "SNAPSHOTS"
-id = "KV_NAMESPACE_ID"
+id = "408de82892c5456c977958e10db716f4"

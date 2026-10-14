@@ -123,18 +123,25 @@ describe('edge fallback', () => {
     expect(await res.text()).toBe(css);
   });
 
-  // KV allows 1,000 writes a day on the free plan: a page is rewritten at most every 6 hours.
-  it('rewrites a page copy at most every 6 hours', async () => {
+  // KV allows 1,000 writes a day on the free plan and the sitemap lists ~280 pages:
+  // a page copy is rewritten at most once a day.
+  it('rewrites a page copy at most once a day', async () => {
     const first = setup(async () => html('<h1>v1</h1>'));
     await first.call(new Request('https://chainward.ai/wallet-api'));
     await first.call(new Request('https://chainward.ai/wallet-api'));
     expect(first.store.puts).toBe(1);
+    const saved = first.store.data.get('chainward.ai/wallet-api')!;
 
-    const later = setup(async () => html('<h1>v2</h1>'), NOW + 7 * HOUR);
-    later.store.data.set('chainward.ai/wallet-api', first.store.data.get('chainward.ai/wallet-api')!);
-    await later.call(new Request('https://chainward.ai/wallet-api'));
-    expect(later.store.puts).toBe(1);
-    expect(new TextDecoder().decode(later.store.data.get('chainward.ai/wallet-api')!.value)).toBe('<h1>v2</h1>');
+    const sameDay = setup(async () => html('<h1>v2</h1>'), NOW + 7 * HOUR);
+    sameDay.store.data.set('chainward.ai/wallet-api', saved);
+    await sameDay.call(new Request('https://chainward.ai/wallet-api'));
+    expect(sameDay.store.puts).toBe(0);
+
+    const nextDay = setup(async () => html('<h1>v2</h1>'), NOW + 25 * HOUR);
+    nextDay.store.data.set('chainward.ai/wallet-api', saved);
+    await nextDay.call(new Request('https://chainward.ai/wallet-api'));
+    expect(nextDay.store.puts).toBe(1);
+    expect(new TextDecoder().decode(nextDay.store.data.get('chainward.ai/wallet-api')!.value)).toBe('<h1>v2</h1>');
   });
 
   it('answers a page it has no copy of with a plain offline page and 503', async () => {

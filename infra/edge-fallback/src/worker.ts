@@ -38,7 +38,7 @@ export interface Deps {
 // Cloudflare's own origin errors: 530 is the tunnel being down (error 1033), 52x
 // the origin unreachable. Our API's 502/503/504 are real answers and pass through.
 const EDGE_OUTAGE = (status: number) => status >= 520 && status <= 530;
-const PAGE_REFRESH_MS = 6 * 3_600_000;
+const PAGE_REFRESH_MS = 24 * 3_600_000;
 const ASSET_MARK_SEC = 30 * 86_400;
 const MAX_BYTES = 5 * 1024 * 1024;
 
