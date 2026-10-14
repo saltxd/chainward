@@ -13,7 +13,7 @@ describe('OpenAPI dataset paths', () => {
   it.each(['termix-wallets', 'set-and-earn-week-one'])('lists /api/paid/%s/file as its own paid path', (slug) => {
     const p = doc.paths[`/api/paid/${slug}/file`];
     expect(p).toBeDefined();
-    expect(p!.get['x-payment-info'].price.amount).toBe(doc.paths['/api/paid/{slug}/file']!.get['x-payment-info'].price.amount);
+    expect(p!.get['x-payment-info'].price.amount).toBe('10');
   });
 
   it('gives each concrete dataset path a distinct operationId', () => {

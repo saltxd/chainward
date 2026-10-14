@@ -387,6 +387,10 @@ export function x402OpenApiDocument() {
       },
     };
   }
+  // The {slug} templates only seed the concrete paths above: agents call listed paths literally,
+  // and a literal {slug} answers 400. GET /api/paid lists the datasets.
+  delete (doc.paths as Record<string, unknown>)['/api/paid/{slug}/file'];
+  delete (doc.paths as Record<string, unknown>)['/api/paid/{slug}/check'];
   // The aliases carry the originals' parameters, price and responses; only the name and a note differ.
   const paths = doc.paths as Record<string, unknown>;
   const counterpartyOp = doc.paths['/api/risk/x402'].get;
@@ -415,7 +419,9 @@ function x402OpenApiBase() {
       version: '1.0.0',
       description:
         "Check a Base or BNB Chain address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check), the reason, and the evidence. Also sells the datasets behind published decodes. On-chain behavior only.",
-      contact: { url: 'https://chainward.ai' },
+      contact: { url: 'https://chainward.ai', email: 'hello@chainward.ai' },
+      'x-guidance':
+        'Start with GET /api/risk/wallet?address=0x... ($0.01): sanctions, wallet age, activity and first funder, with a hold / review / no_flags verdict. Before paying an address: GET /api/risk/x402?address=0x... ($0.05). Before every payment: GET /api/risk/sanctions?address=0x... ($0.01). Add &chain=bsc for BNB Chain. Pay with any x402 client in USDC on Base; a call that fails is not charged.',
     },
     servers: [{ url: 'https://api.chainward.ai' }],
     paths: {
@@ -430,7 +436,7 @@ function x402OpenApiBase() {
               name: 'address',
               in: 'query',
               required: true,
-              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', example: '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2' },
               description: 'Address to check',
             },
             {
@@ -467,7 +473,7 @@ function x402OpenApiBase() {
               name: 'address',
               in: 'query',
               required: true,
-              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', example: '0x68396bd35874695ad86cd29410bd80a550991a2b' },
               description: 'Address that receives payments (an x402 payTo or a marketplace escrow/agent wallet)',
             },
             {
@@ -601,7 +607,7 @@ function x402OpenApiBase() {
               name: 'address',
               in: 'query',
               required: true,
-              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', example: '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2' },
               description: 'Wallet to look up',
             },
           ],
@@ -798,6 +804,45 @@ export function x402CheckMiddleware(): MiddlewareHandler | null {
   return paymentMiddleware(x402PaidRoutes(payTo), server);
 }
 
+const escapeHtml = (text: string) =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+/**
+ * What a person who opens a paid link in a browser sees (status 402, with the
+ * PAYMENT-REQUIRED header unchanged for x402 clients): the call, its price, how
+ * to pay, and the free options. Static per route; no request data is rendered.
+ */
+function browserPaywallHtml(config: RouteConfig): string {
+  const accepts = Array.isArray(config.accepts) ? config.accepts[0] : config.accepts;
+  const name = escapeHtml(config.serviceName ?? 'ChainWard paid check');
+  const price = escapeHtml(String(accepts?.price ?? ''));
+  const description = escapeHtml(config.description ?? '');
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${name}: ${price} per call</title>
+<meta name="robots" content="noindex">
+<style>body{font:17px/1.6 Georgia,serif;max-width:640px;margin:56px auto;padding:0 20px;color:#1a1a1a;background:#faf8f3}code{font:14px ui-monospace,monospace;background:#efece4;padding:1px 4px}a{color:#1a1a1a}h1{font-size:30px;line-height:1.2}</style>
+</head>
+<body>
+<h1>${name}</h1>
+<p><strong>${price} per call</strong>, paid in USDC on Base over x402. This link is an API call, so a browser can't pay it.</p>
+<p>${description}</p>
+<h2>Pay per call</h2>
+<p>Send the same request from any x402 client. It answers 402 with the price, pays and retries. A call that fails is never charged. How it works: <a href="https://chainward.ai/docs">chainward.ai/docs</a>.</p>
+<h2>Free options</h2>
+<ul>
+<li>Wallet screening API with a free key, 1,000 lookups a month: <a href="https://chainward.ai/wallet-api">https://chainward.ai/wallet-api</a></li>
+<li>Check any address on the web, free: <a href="https://chainward.ai">chainward.ai</a></li>
+<li>Screening a payout or airdrop list: <a href="https://chainward.ai/screen">chainward.ai/screen</a></li>
+</ul>
+<p>Questions: hello@chainward.ai</p>
+</body>
+</html>`;
+}
+
 /** Every paid route's x402 config (price, description, Bazaar discovery), paying out to `payTo`. */
 export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
   const example = '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2';
@@ -930,7 +975,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     }),
   });
 
-  return {
+  const routes: Record<string, RouteConfig> = {
     [X402_CHECK_ROUTES[0]]: {
       ...route(
         counterparty,
@@ -1074,4 +1119,9 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
       resource: 'https://api.chainward.ai/api/risk/wallet',
     },
   };
+  // Browsers get a page that says what the call is and how to pay, not the library's developer note.
+  for (const config of Object.values(routes)) {
+    config.customPaywallHtml ??= browserPaywallHtml(config);
+  }
+  return routes;
 }

@@ -4,6 +4,7 @@ export { Masthead, type MastLink } from './Masthead';
 export { PressDateline } from './PressDateline';
 export { Colophon } from './Colophon';
 export { BriefOffer } from './BriefOffer';
+export { FreeTools } from './FreeTools';
 export { BriefCtaLink } from './BriefCtaLink';
 export { NodeClaim, NodeSyncNote } from './NodeClaim';
 export { CodeBlock } from './CodeBlock';
