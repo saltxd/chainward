@@ -17,4 +17,6 @@ Deploy, once logged in (`npx wrangler@4 login`):
 
 Rollback: `npx wrangler@4 delete`, or remove the two Workers routes in the dashboard.
 
-Free plan limits: 100,000 Worker requests a day (set the routes' request-limit failure mode to "fail open" so overflow goes straight to the origin), 1,000 KV writes a day.
+Free plan limits: 100,000 Worker requests a day (the account saw ~35k a day in Oct 2026) and 1,000 KV writes a day. Both routes are set to request-limit failure mode **fail open** (dashboard, Workers Routes, Edit), so past the daily limit traffic goes straight to the origin instead of failing. Re-check that setting after a deploy that changes the routes.
+
+Deployed 2026-10-13: KV namespace `SNAPSHOTS` (id in wrangler.toml), warmed with all 281 sitemap pages, their build assets and the API discovery documents.
