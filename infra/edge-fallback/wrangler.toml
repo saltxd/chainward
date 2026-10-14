@@ -1,0 +1,15 @@
+# Deploy: npx wrangler@4 deploy (from this directory, after `npx wrangler@4 login`).
+# Rollback: npx wrangler@4 delete, or remove the two routes in the dashboard;
+# traffic then goes straight to the tunnel again.
+name = "chainward-edge-fallback"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+workers_dev = false
+routes = [
+  { pattern = "chainward.ai/*", zone_name = "chainward.ai" },
+  { pattern = "api.chainward.ai/*", zone_name = "chainward.ai" },
+]
+
+[[kv_namespaces]]
+binding = "SNAPSHOTS"
+id = "408de82892c5456c977958e10db716f4"
