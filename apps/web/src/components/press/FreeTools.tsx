@@ -13,7 +13,7 @@ export function FreeTools() {
           </Link>
         </p>
         <p>
-          Paying rewards or an airdrop to a list of wallets? Send us the list first; the first 500 wallets are free.{' '}
+          Paying rewards or an airdrop to a list of wallets? Send us the list first; the first 500 wallets of your first list are free.{' '}
           <Link href="/screen" className="press-link">
             Screen a list →
           </Link>

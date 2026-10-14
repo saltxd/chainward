@@ -16,7 +16,7 @@ describe('FreeTools', () => {
 
   it('offers payout list screening with the free first batch', () => {
     expect(html).toContain('href="/screen"');
-    expect(text).toContain('first 500 wallets are free');
+    expect(text).toContain('the first 500 wallets of your first list are free');
   });
 
   it('never calls a wallet safe', () => {

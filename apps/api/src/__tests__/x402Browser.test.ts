@@ -30,7 +30,7 @@ const redis = vi.hoisted(() => ({
 vi.mock('../lib/redis.js', () => ({ getRedis: () => redis }));
 
 import { createApp } from '../app.js';
-import { x402CheckMiddleware, x402OpenApiDocument } from '../lib/x402.js';
+import { PUBLISHED_DATASETS, x402CheckMiddleware, x402OpenApiDocument, x402PaidRoutes } from '../lib/x402.js';
 
 const ADDR = '0x4baadba26c3c0bdef9e8faf173925d463aa53bb2';
 const BROWSER = { Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' };
@@ -76,11 +76,46 @@ describe('paid routes opened in a browser', () => {
     expect(html).not.toMatch(/install <code>@x402\/paywall/);
   });
 
+  it('says plainly that the client pays, not the API', async () => {
+    const html = await (await app.request(`/api/risk/wallet?address=${ADDR}`, { headers: BROWSER })).text();
+    expect(html).toContain('the client pays');
+  });
+
+  it('gives /screen its real terms', async () => {
+    const html = await (await app.request(`/api/risk/wallet?address=${ADDR}`, { headers: BROWSER })).text();
+    expect(html).toContain('first 500 wallets of your first list');
+  });
+
   it('still answers agents with JSON and the payment header', async () => {
     const res = await app.request(`/api/risk/wallet?address=${ADDR}`, { headers: { Accept: 'application/json' } });
     expect(res.status).toBe(402);
     expect(res.headers.get('content-type')).toMatch(/application\/json/);
     expect(((await res.json()) as { error: string }).error).toBe('payment_required');
+  });
+});
+
+// The dataset routes look the slug up in the database, so their pages are read from the route config.
+describe('paid route pages that have a free or in-browser equivalent', () => {
+  const routes = x402PaidRoutes('0x000000000000000000000000000000000000dEaD');
+  const page = (key: string) => routes[key]!.customPaywallHtml ?? '';
+
+  it.each(PUBLISHED_DATASETS.map((d) => d.slug))('the %s file page sends people to buy it in the browser', (slug) => {
+    const html = page(`GET /api/paid/${slug}/file`);
+    expect(html).toContain(`https://chainward.ai/paid/${slug}`);
+    expect(html).toContain('one download');
+    expect(html).not.toContain("a browser can't pay it");
+  });
+
+  it.each(PUBLISHED_DATASETS.map((d) => d.slug))('the %s check page offers the free one-wallet check', (slug) => {
+    expect(page(`GET /api/paid/${slug}/check`)).toContain(`https://chainward.ai/paid/${slug}`);
+  });
+
+  it('the hire check page links the free Set and Earn board', () => {
+    expect(page('GET /api/risk/hires')).toContain('https://chainward.ai/set-and-earn');
+  });
+
+  it('the seller check page links the free x402 seller board', () => {
+    expect(page('GET /api/risk/seller-demand')).toContain('https://chainward.ai/x402');
   });
 });
 
@@ -102,6 +137,22 @@ describe('OpenAPI for agent clients', () => {
   it('names a contact email and says where to start', () => {
     expect(doc.info.contact.email).toBe('hello@chainward.ai');
     expect(doc.info['x-guidance']).toMatch(/\/api\/risk\/wallet/);
+  });
+
+  it('quotes the configured prices in its guidance', () => {
+    vi.stubEnv('X402_WALLET_PRICE', '$0.02');
+    try {
+      const g = (x402OpenApiDocument() as { info: { 'x-guidance': string } }).info['x-guidance'];
+      expect(g).toContain('/api/risk/wallet?address=0x... ($0.02)');
+    } finally {
+      vi.stubEnv('X402_WALLET_PRICE', undefined as unknown as string);
+    }
+  });
+
+  // An example the list does not contain would charge $0.05 for a not_listed answer.
+  it.each(PUBLISHED_DATASETS.map((d) => [d.slug, d.example]))('the %s check example is a wallet in that dataset', (slug, example) => {
+    const params = doc.paths[`/api/paid/${slug}/check`]!.get.parameters!;
+    expect(params.find((q) => q.name === 'address')!.schema.example).toBe(example);
   });
 
   // Agents call listed paths literally; a {slug} template answers 400. The concrete dataset paths stay.
