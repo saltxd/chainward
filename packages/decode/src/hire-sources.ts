@@ -25,6 +25,7 @@ import {
   alchemyTransferSource,
   isInflowHub,
   mapLimit,
+  type SellerChain,
 } from './seller-demand.js';
 import {
   HIRE_WINDOW_DAYS,
@@ -269,33 +270,37 @@ export async function agentsOwnedBy(
 /** EIP-7702: an EOA delegating to code carries 0xef0100 ‖ address. Still a wallet. */
 const isDelegation = (code: string) => /^0xef0100[0-9a-f]{40}$/i.test(code);
 
-/**
- * The live funding graph: first funders from Alchemy, code and nonce from the
- * public RPC, hub = 100,000+ sent transactions (exchange-style hot wallet) or
- * the seller check's 1,000+ stablecoin inflows of at least $0.01 in the window.
- */
-export function bscFundingGraph(opts: {
+export interface FundingGraphOptions {
   alchemyUrl: string;
   rpcUrl: string;
   windowFromBlock: number;
   rpcCall?: RpcCall;
   log?: { warn: (msg: string) => void };
-}): FundingGraph {
+}
+
+/**
+ * The live funding graph on a chain: first funders from Alchemy, code and nonce
+ * from the public RPC, hub = 100,000+ sent transactions (exchange-style hot
+ * wallet) or the seller check's 1,000+ stablecoin inflows of at least $0.01 in
+ * the window. The hire check runs it on BNB Chain; the payout screen on either.
+ */
+export function chainFundingGraph(opts: FundingGraphOptions & { chain: SellerChain }): FundingGraph {
   const rpcCall = opts.rpcCall ?? defaultRpcCall;
-  const first = alchemyFirstFunderSource(opts.alchemyUrl, SELLER_STABLECOINS.bsc, opts.log);
-  const inflows = alchemyTransferSource(opts.alchemyUrl, BigInt(opts.windowFromBlock), opts.log, SELLER_STABLECOINS.bsc);
+  const tokens = SELLER_STABLECOINS[opts.chain];
+  const first = alchemyFirstFunderSource(opts.alchemyUrl, tokens, opts.log);
+  const inflows = alchemyTransferSource(opts.alchemyUrl, BigInt(opts.windowFromBlock), opts.log, tokens);
   return {
     firstFunder: async (kind, address) => {
       const f = await first(kind, address);
       return f ? { from: f.from, block: f.block } : null;
     },
     hasTransfer: async (from, to) => {
-      // One call covers top-level BNB and the stablecoins: contractAddresses only filters the token categories.
+      // One call covers top-level native coin and the stablecoins: contractAddresses only filters the token categories.
       const result = await alchemyAssetTransfers(
         opts.alchemyUrl,
         {
           category: ['external', 'erc20'],
-          contractAddresses: SELLER_STABLECOINS.bsc,
+          contractAddresses: tokens,
           fromAddress: from.toLowerCase(),
           toAddress: to.toLowerCase(),
           order: 'asc',
@@ -321,6 +326,9 @@ export function bscFundingGraph(opts: {
     },
   };
 }
+
+/** The hire check's graph, on BNB Chain. */
+export const bscFundingGraph = (opts: FundingGraphOptions): FundingGraph => chainFundingGraph({ ...opts, chain: 'bsc' });
 
 // ─── The check ────────────────────────────────────────────────────────────────
 
