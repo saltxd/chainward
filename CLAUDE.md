@@ -114,6 +114,8 @@ On-chain investigation articles rendered at `chainward.ai/decodes/{slug}`. The w
 
 To pick the next decode target programmatically: `pnpm decode:candidates`.
 
+**Payout screen** (the chainward.ai/screen offer): `pnpm payout:screen --chain base|bsc --in list.csv` groups the wallets on a payout list that share a funder, with the linking transactions and OFAC hits, and writes `payout-screen.md` (the one-page summary for the customer) and `payout-screen.json`. Logic in `packages/decode/src/payout-screen.ts`; hubs and contracts are decided by the hire check's funding graph. Alchemy calls are capped (`--max-calls`, default 1,500) and paced (`--rate`, default 3/s) because production shares the key. Trails stop at bridges: USDC minted by Circle's bridge (CCTP) is not followed to its source-chain sender yet.
+
 ## Project Status
 
 See `docs/STATUS.md` for full feature matrix, key files listing, deployment details, and roadmap.

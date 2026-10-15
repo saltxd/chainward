@@ -24,3 +24,5 @@ export * from './hire-check.js';
 export * from './verdict.js';
 export * from './hire-sources.js';
 export * from './set-and-earn-board.js';
+export * from './payout-screen.js';
+export * from './payout-screen-sources.js';
