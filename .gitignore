@@ -132,3 +132,6 @@ deliverables/x402-closed-six/scripts/
 deliverables/x402-closed-six/data/
 deliverables/x402-closed-six/publish-checklist.md
 deliverables/x402-closed-six/verification.md
+
+# wrangler/miniflare local state (created by any wrangler command run without --remote)
+.wrangler/
