@@ -106,8 +106,10 @@ export default function WalletApiPage() {
                 </li>
                 <li>
                   <strong>review</strong>: first seen less than 7 days ago (<code>age_days</code>), no
-                  history at all, or its first funder has funded 5 or more wallets and is not an exchange
-                  or other busy hub.
+                  history at all, its first funder has funded 5 or more wallets and is not an exchange
+                  or other busy hub, or it is a known relayer of the px402 privacy pool
+                  (<code>privacy_relay</code>), which pays for agents it does not name, so the real payer
+                  can&apos;t be screened.
                 </li>
                 <li>
                   <strong>no_flags</strong>: none of those matched.

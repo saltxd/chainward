@@ -21,7 +21,8 @@ describe('/docs', () => {
 
   it('explains the machine label apart from the words a person sees', () => {
     for (const label of ['pay', 'hold', 'unknown']) expect(html).toContain(`<code>${label}</code>`);
-    for (const text of ['Inactive', 'No track record', 'Couldn&#x27;t check']) expect(html).toContain(text);
+    for (const text of ['Inactive', 'No track record', 'Couldn&#x27;t check', 'Payer hidden']) expect(html).toContain(text);
+    expect(html).toContain('has four wordings');
   });
 
   it('lists only the datasets on sale', () => {
