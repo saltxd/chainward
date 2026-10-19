@@ -1,6 +1,7 @@
 import type { HireSummary } from './hire-check.js';
 import type { RiskBand, RiskFlag } from './risk-flags.js';
 import { formatWindowSpan } from './rpc-fixtures.js';
+import { PRIVACY_RELAY_LIMITS, PRIVACY_RELAY_REASON } from './privacy-relays.js';
 
 // One line a buyer can act on, on top of each check. The evidence sits under it
 // and the limits one line below, so the verdict never claims more than the
@@ -184,6 +185,11 @@ export function counterpartyVerdict(
   const sanctioned = assessment.flags.find((f) => f.id === 'ofac_sanctioned');
   if (sanctioned) {
     return { label: 'hold', text: 'Hold', reason: `${sanctioned.title}: ${sanctioned.evidence}`, limits: SANCTIONS_LIMITS };
+  }
+  // A px402 relayer pays for agents it does not name, so its own record (busy,
+  // quiet, flagged or not) is not the payer's. Also a list match: no chain read needed.
+  if (assessment.flags.some((f) => f.id === 'privacy_relay')) {
+    return { label: 'unknown', text: 'Payer hidden', reason: PRIVACY_RELAY_REASON, limits: PRIVACY_RELAY_LIMITS };
   }
   if (opts.transfersUnavailable) {
     return {

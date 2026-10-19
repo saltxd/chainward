@@ -206,4 +206,35 @@ describe('counterpartyVerdict', () => {
     expect(v.label).toBe('pay');
     expect(v.reason).toBe('7 transfers with 8 counterparties in the last 14 days, last one 9 days ago, no high-severity flag.');
   });
+
+  // A px402 relayer pays sellers for agents it does not name: its own clean,
+  // busy history says nothing about who is paying, so the answer is Unknown.
+  describe('on a px402 privacy relay', () => {
+    const relay = { id: 'privacy_relay', severity: 'info' as const, title: 'Pays for others through a privacy pool (px402)', evidence: 'e', source: 's' };
+    const PAYER_HIDDEN = {
+      label: 'unknown',
+      text: 'Payer hidden',
+      reason: "Payments from this address come through the px402 privacy pool: the real payer is hidden and can't be screened.",
+      limits: 'Only the px402 reserve and relayers known on 2026-10-19 are recognized; a newer relayer or another privacy pool is not.',
+    };
+
+    it('says Payer hidden where it would otherwise say Pay', () => {
+      expect(counterpartyVerdict({ band: 'low-signal', flags: [] }, activity).label).toBe('pay');
+      expect(counterpartyVerdict({ band: 'low-signal', flags: [relay] }, activity)).toEqual(PAYER_HIDDEN);
+    });
+
+    it("beats the relay's own behavior flags, Inactive and Couldn't check: the match needs no chain read", () => {
+      const stranded = flag('high', 'USDC balance held in a dormant wallet', 'Holds 100 USDC');
+      expect(counterpartyVerdict({ band: 'high-signal', flags: [stranded, relay] }, activity)).toEqual(PAYER_HIDDEN);
+      expect(counterpartyVerdict({ band: 'low-signal', flags: [relay] }, { ...activity, transfers_30d: 0, sent_tx_count: 700 })).toEqual(PAYER_HIDDEN);
+      expect(counterpartyVerdict({ band: 'low-signal', flags: [relay] }, null, { transfersUnavailable: true })).toEqual(PAYER_HIDDEN);
+    });
+
+    it('still says Hold when the relay is on the OFAC list: sanctions win', () => {
+      const ofac = { id: 'ofac_sanctioned', severity: 'high' as const, title: 'On the US sanctions list (OFAC)', evidence: 'Listed.', source: 's' };
+      const v = counterpartyVerdict({ band: 'high-signal', flags: [ofac, relay] }, activity);
+      expect(v).toMatchObject({ label: 'hold', text: 'Hold' });
+      expect(v.reason).toMatch(/OFAC/);
+    });
+  });
 });

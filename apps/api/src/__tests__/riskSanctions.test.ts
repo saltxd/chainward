@@ -194,3 +194,51 @@ describe('GET /api/risk/attestation on a sanctioned address', () => {
     expect(body.data.flag_ids).toEqual(['dormant_wallet']);
   });
 });
+
+// The other list match: a px402 relayer (packages/decode/src/privacy-relays.ts)
+// pays sellers for agents it does not name. A seller screening that payer gets
+// Unknown, never Pay, including from a report filed before the relay was listed.
+describe('the counterparty check on a px402 privacy relay', () => {
+  const RELAYER_A = '0x6f890cc63aa57da9695528c9f5e3434897b32b8e';
+  const PAYER_HIDDEN = {
+    label: 'unknown',
+    text: 'Payer hidden',
+    reason: "Payments from this address come through the px402 privacy pool: the real payer is hidden and can't be screened.",
+    limits: 'Only the px402 reserve and relayers known on 2026-10-19 are recognized; a newer relayer or another privacy pool is not.',
+  };
+  /** A busy relayer's report as filed before the list existed: it would read Pay. */
+  function busyRelayer(opts: { attested?: boolean; flags?: unknown[] } = {}) {
+    const r = row(RELAYER_A, opts);
+    r.reportData.wallet.nonce = 700;
+    r.reportData.activity = { transfers_30d: 212, unique_counterparties_30d: 41, latest_transfer_at: new Date().toISOString(), latest_transfer_age_hours: 1 } as any;
+    r.reportData.fetch_meta.transfers_fetched = 212;
+    return r;
+  }
+
+  it('answers Payer hidden from the paid check, with the flag and its coverage line', async () => {
+    reports.queue = [[busyRelayer()]];
+    const { status, body } = await paid(RELAYER_A);
+    expect(riskCheck.add).not.toHaveBeenCalled();
+    expect(status).toBe(200);
+    const report = body.data.report;
+    expect(report.verdict).toEqual(PAYER_HIDDEN);
+    expect(report.flags[0]).toMatchObject({ id: 'privacy_relay', severity: 'info' });
+    expect(report.flags[0].evidence).toMatch(/px402 relayer A/);
+    expect(report.band).toBe('low-signal');
+    expect(report.coverage.checks.find((c: any) => c.id === 'privacy_relay')).toMatchObject({ status: 'raised' });
+  });
+
+  it('answers the same through the plainly named /counterparty alias', async () => {
+    reports.queue = [[busyRelayer()]];
+    const res = await app().request(`/api/risk/counterparty?address=${RELAYER_A.toUpperCase().replace('0X', '0x')}`);
+    expect(((await res.json()) as any).data.report.verdict).toEqual(PAYER_HIDDEN);
+  });
+
+  it('answers Payer hidden from the attestation route while the attested flag ids stay as published', async () => {
+    const dormant = { id: 'dormant_wallet', severity: 'medium', title: 'Wallet is dormant', evidence: 'quiet', source: 's' };
+    reports.queue = [[busyRelayer({ flags: [dormant], attested: true })]];
+    const body = (await (await app().request(`/api/risk/attestation/${RELAYER_A}`)).json()) as any;
+    expect(body.data.verdict).toEqual(PAYER_HIDDEN);
+    expect(body.data.flag_ids).toEqual(['dormant_wallet']);
+  });
+});

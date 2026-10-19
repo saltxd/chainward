@@ -141,6 +141,28 @@ describe('plainAnswer', () => {
     expect(down!.advice).toBe('Re-check in a minute.');
   });
 
+  // A px402 relayer is busy and has sent hundreds of transactions: without its own
+  // case the third answer would read Inactive or No track record, which is wrong.
+  it('the third answer says Payer hidden for a px402 privacy relay, whatever its activity', () => {
+    const relay = {
+      id: 'privacy_relay',
+      severity: 'info' as const,
+      title: 'Pays for others through a privacy pool (px402)',
+      evidence: 'This is px402 relayer A (PRXVT).',
+      source: 'https://basescan.org/tx/0xf4',
+    };
+    const reason = "Payments from this address come through the px402 privacy pool: the real payer is hidden and can't be screened.";
+    const verdict = { label: 'unknown', text: 'Payer hidden', reason, limits: 'x' };
+    for (const window of [{ transfers_30d: 0, sent_tx_count: 700 }, { transfers_30d: 0, sent_tx_count: 0 }, { transfers_unavailable: 'all sources failed' }, {}]) {
+      const a = plainAnswer(report({ verdict, flags: [relay], window }), NOW);
+      expect(a!.label).toBe('unknown');
+      expect(a!.word).toBe('Payer hidden');
+      expect(a!.headline).toBe("We can't see who is really paying.");
+      expect(a!.why).toBe(reason);
+      expect(a!.advice).toBe('If you need to know who is behind it, ask them to pay from their own wallet.');
+    }
+  });
+
   it('Hold on the US sanctions list: says so plainly, even next to another high flag and with no activity', () => {
     const ofac = {
       id: 'ofac_sanctioned',

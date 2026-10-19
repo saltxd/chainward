@@ -118,6 +118,16 @@ describe('GET /api/risk/library', () => {
     expect(card.flag_count).toBe(1);
   });
 
+  // A px402 relayer pays sellers for agents it does not name (packages/decode/src/privacy-relays.ts).
+  it('answers Payer hidden for a px402 relayer filed before it was listed, with the relay flag on top', async () => {
+    results.queue = [[row('0x47e5499c44ecf8c78da82b9b64183df1e301a0b4', { activity: ACTIVE })], [{ total: 1 }]];
+    const { body } = await library();
+    const card = body.data.reports[0];
+    expect(card.verdict).toEqual({ label: 'unknown', text: 'Payer hidden' });
+    expect(card.top_flags[0]).toMatchObject({ id: 'privacy_relay', severity: 'info' });
+    expect(card.flag_count).toBe(1);
+  });
+
   it('carries the verdict in distinct=address mode too', async () => {
     results.queue = [[row('0x1111111111111111111111111111111111111111', { activity: ACTIVE })], [], [{ total: 1 }]];
     const { body } = await library('&distinct=address');

@@ -38,6 +38,12 @@ describe('/wallet-api', () => {
     }
   });
 
+  it('says a px402 privacy-pool relayer gets review, because the real payer is hidden', () => {
+    expect(text).toContain('a known relayer of the px402 privacy pool');
+    expect(text).toContain('privacy_relay');
+    expect(text).toContain("so the real payer can't be screened");
+  });
+
   it('states the limits without promising safety', () => {
     expect(text).toContain('not a clearance');
     expect(text).not.toMatch(/\bsafe\b|\bclean\b/i);

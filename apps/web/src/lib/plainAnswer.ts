@@ -26,9 +26,15 @@ const HEADLINE: Record<'pay' | 'hold', string> = {
   hold: "Don't pay yet. Something here should make you stop.",
 };
 
-/** The third answer, by case: the server's label is 'unknown' for all three. */
-type UnknownCase = 'inactive' | 'new' | 'unread';
+/** The third answer, by case: the server's label is 'unknown' for all of them. */
+type UnknownCase = 'hidden' | 'inactive' | 'new' | 'unread';
 const UNKNOWN: Record<UnknownCase, { word: string; headline: string; advice: string }> = {
+  // A px402 privacy-pool relayer (the privacy_relay flag): it pays for agents it does not name.
+  hidden: {
+    word: 'Payer hidden',
+    headline: "We can't see who is really paying.",
+    advice: 'If you need to know who is behind it, ask them to pay from their own wallet.',
+  },
   inactive: {
     word: 'Inactive',
     headline: 'Nothing recent to go on.',
@@ -178,7 +184,9 @@ export function plainAnswer(report: RiskReport, now: Date = new Date()): PlainAn
   if (label === 'unknown') {
     const sent = w?.sent_tx_count;
     const unread = Boolean(w?.transfers_unavailable) || /could not be read|unavailable/i.test(v.reason);
-    const kind: UnknownCase = unread ? 'unread' : typeof sent === 'number' && sent > 0 ? 'inactive' : 'new';
+    // First, as on the server: a list match needs no chain read, and the relay's own activity is not the payer's.
+    const hidden = report.flags.some((f) => f.id === 'privacy_relay');
+    const kind: UnknownCase = hidden ? 'hidden' : unread ? 'unread' : typeof sent === 'number' && sent > 0 ? 'inactive' : 'new';
     ({ word, headline, advice } = UNKNOWN[kind]);
     if (kind === 'inactive' && typeof sent === 'number') {
       why = `This wallet has sent ${plural(sent, 'transaction')} in its life, but hasn't moved any tokens in the last ${days}.`;
