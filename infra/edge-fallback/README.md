@@ -25,6 +25,6 @@ Rollback: `npx wrangler@4 delete`, or remove the two Workers routes in the dashb
 
 Ops notes and the live outage test (2026-10-14): BookStack page 378, "Edge fallback Worker".
 
-Free plan limits: 100,000 Worker requests a day (the account saw ~35k a day in Oct 2026) and 1,000 KV writes a day. Both routes are set to request-limit failure mode **fail open** (dashboard, Workers Routes, Edit), so past the daily limit traffic goes straight to the origin instead of failing. Re-check that setting after a deploy that changes the routes.
+Free plan limits: 100,000 Worker requests a day (the account saw ~35k a day in Oct 2026) and 1,000 KV writes a day. Writes are the tight one: Cloudflare mailed a 50% warning on 2026-10-19 when every page was still rewritten daily (500-600 writes), so since then a page is checked once a day and written only when its content changed. Reads (100,000 a day) run at about 1,500. Usage by operation: `wrangler` is logged in, and the account's GraphQL `kvOperationsAdaptiveGroups` dataset answers with the OAuth token; `kv key list` needs `--remote` or it shows the empty local store. Both routes are set to request-limit failure mode **fail open** (dashboard, Workers Routes, Edit), so past the daily limit traffic goes straight to the origin instead of failing. Re-check that setting after a deploy that changes the routes.
 
 Deployed 2026-10-13: KV namespace `SNAPSHOTS` (id in wrangler.toml), warmed with all 281 sitemap pages, their build assets and the API discovery documents.

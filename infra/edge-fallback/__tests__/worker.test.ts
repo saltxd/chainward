@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { handle, type Deps, type Env, type Marker, type SnapshotStore } from '../src/worker';
+import { handle, type Deps, type Env, type Marker, type SnapshotMeta, type SnapshotStore } from '../src/worker';
 
 // When the house loses internet, the Cloudflare tunnel drops and chainward.ai
 // answered Cloudflare's 1033 error page for two hours (2026-10-13). This Worker
@@ -10,8 +10,8 @@ import { handle, type Deps, type Env, type Marker, type SnapshotStore } from '..
 const NOW = 1_792_000_000_000;
 const HOUR = 3_600_000;
 
-function memoryStore(): SnapshotStore & { data: Map<string, { value: ArrayBuffer; metadata: { contentType: string; savedAt: number } }>; puts: number } {
-  const data = new Map<string, { value: ArrayBuffer; metadata: { contentType: string; savedAt: number } }>();
+function memoryStore(): SnapshotStore & { data: Map<string, { value: ArrayBuffer; metadata: SnapshotMeta }>; puts: number } {
+  const data = new Map<string, { value: ArrayBuffer; metadata: SnapshotMeta }>();
   const store = {
     data,
     puts: 0,
@@ -19,7 +19,7 @@ function memoryStore(): SnapshotStore & { data: Map<string, { value: ArrayBuffer
       const hit = data.get(key);
       return hit ? { value: hit.value, metadata: hit.metadata } : { value: null, metadata: null };
     },
-    async put(key: string, value: ArrayBuffer, opts: { metadata: { contentType: string; savedAt: number } }) {
+    async put(key: string, value: ArrayBuffer, opts: { metadata: SnapshotMeta }) {
       store.puts++;
       data.set(key, { value, metadata: opts.metadata });
     },
@@ -142,6 +142,26 @@ describe('edge fallback', () => {
     await nextDay.call(new Request('https://chainward.ai/wallet-api'));
     expect(nextDay.store.puts).toBe(1);
     expect(new TextDecoder().decode(nextDay.store.data.get('chainward.ai/wallet-api')!.value)).toBe('<h1>v2</h1>');
+  });
+
+  // Most pages never change once published (a decode is final), and the daily
+  // rewrites alone were 500-600 of those 1,000 writes (Oct 18-19, 2026). After a
+  // day a page is checked again, but written only when its content changed.
+  it('rewrites a page after a day only when its content changed', async () => {
+    const first = setup(async () => html('<h1>v1</h1>'));
+    await first.call(new Request('https://chainward.ai/wallet-api'));
+    const saved = first.store.data.get('chainward.ai/wallet-api')!;
+
+    const unchanged = setup(async () => html('<h1>v1</h1>'), NOW + 25 * HOUR);
+    unchanged.store.data.set('chainward.ai/wallet-api', saved);
+    await unchanged.call(new Request('https://chainward.ai/wallet-api'));
+    expect(unchanged.store.puts).toBe(0);
+
+    const changed = setup(async () => html('<h1>v2</h1>'), NOW + 25 * HOUR);
+    changed.store.data.set('chainward.ai/wallet-api', saved);
+    await changed.call(new Request('https://chainward.ai/wallet-api'));
+    expect(changed.store.puts).toBe(1);
+    expect(new TextDecoder().decode(changed.store.data.get('chainward.ai/wallet-api')!.value)).toBe('<h1>v2</h1>');
   });
 
   it('answers a page it has no copy of with a plain offline page and 503', async () => {

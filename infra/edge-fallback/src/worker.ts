@@ -8,6 +8,8 @@
 export interface SnapshotMeta {
   contentType: string;
   savedAt: number;
+  /** sha-256 of the body (hex); a page is rewritten only when it changes */
+  hash?: string;
 }
 
 export interface SnapshotStore {
@@ -64,17 +66,30 @@ function keepable(req: Request, url: URL, res: Response): boolean {
   return length <= MAX_BYTES && kindOf(url) !== null;
 }
 
+async function sha256(body: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', body);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// KV allows 1,000 writes a day on the free plan. Assets are written once (their
+// names carry a content hash); a page is checked once a day and written only when
+// its content changed, since most pages never do (Oct 2026: the daily rewrites
+// alone were 500-600 writes).
 async function keep(env: Env, deps: Deps, url: URL, res: Response): Promise<void> {
   const key = keyFor(url);
   if (await deps.marker.has(key)) return;
   const asset = kindOf(url) === 'asset';
   const now = deps.now();
   const { value, metadata } = await env.SNAPSHOTS.getWithMetadata(key, 'arrayBuffer');
-  const fresh = value !== null && metadata !== null && (asset || now - metadata.savedAt < PAGE_REFRESH_MS);
+  const have = value !== null && metadata !== null;
+  const fresh = have && (asset || now - metadata.savedAt < PAGE_REFRESH_MS);
   if (!fresh) {
     const body = await res.arrayBuffer();
     if (body.byteLength > MAX_BYTES) return;
-    await env.SNAPSHOTS.put(key, body, { metadata: { contentType: res.headers.get('content-type')!, savedAt: now } });
+    const hash = await sha256(body);
+    if (!have || metadata.hash !== hash) {
+      await env.SNAPSHOTS.put(key, body, { metadata: { contentType: res.headers.get('content-type')!, savedAt: now, hash } });
+    }
   }
   await deps.marker.mark(key, asset ? ASSET_MARK_SEC : PAGE_REFRESH_MS / 1000);
 }
