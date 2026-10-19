@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RISK_CHECKS, deriveRiskFlags, riskChecksFor } from '../src/risk-flags.js';
+import { RISK_CHECKS, deriveRiskFlags, riskChecksFor, withListFlags, type RiskAssessment } from '../src/risk-flags.js';
+import { isAttestable } from '../src/attestation.js';
 import type { QuickDecodeResultData } from '../src/types.js';
 
 const ADDR = '0x2222222222222222222222222222222222222222';
@@ -69,6 +70,7 @@ describe('RISK_CHECKS catalog', () => {
         'cluster_collapsed',
         'inactive_no_history',
         'activity_truncated',
+        'privacy_relay',
       ].sort(),
     );
     for (const c of RISK_CHECKS) {
@@ -134,5 +136,96 @@ describe('counterparty_concentration evidence', () => {
   it('keeps 30 days on Base', () => {
     const f = deriveRiskFlags(loudData()).flags.find((x) => x.id === 'counterparty_concentration')!;
     expect(f.evidence).toBe('12 transfers in 30 days across only 1 unique counterparties.');
+  });
+});
+
+// px402 (PRXVT) on Base: a relayer pays sellers from its own USDC for agents it
+// does not name. The match is a lookup in a hand-kept list, like the OFAC one: it
+// reads nothing from the chain and is recorded as a fact, not a risk signal.
+describe('the privacy_relay check', () => {
+  const RELAYER_A = '0x6f890cc63aa57da9695528c9f5e3434897b32b8e';
+  const RESERVE = '0xdd31c57e8f7cac78090a516292f0c9dea6c6119f';
+  const SANCTIONED = '0x098b716b8aaf21512996dc57eb0615e2383e2f96';
+  const at = (address: string, over: Partial<QuickDecodeResultData> = {}): QuickDecodeResultData => {
+    const d = loudData();
+    return { ...d, target: { ...d.target, input: address, wallet_address: address }, ...over };
+  };
+  const ids = (a: { flags: { id: string }[] }) => a.flags.map((f) => f.id);
+
+  it('is in the catalog as a Base-only check that reads nothing from the chain', () => {
+    const c = RISK_CHECKS.find((x) => x.id === 'privacy_relay')!;
+    expect(c).toMatchObject({ title: 'Pays for others through a privacy pool (px402)', base_only: true });
+    expect(c.reads_transfers).toBeUndefined();
+    expect(c.reads_state).toBeUndefined();
+    expect(riskChecksFor('base').map((x) => x.id)).toContain('privacy_relay');
+    expect(riskChecksFor('bsc', 14).map((x) => x.id)).not.toContain('privacy_relay');
+  });
+
+  it('raises an info flag for a known relayer on Base, naming it, and leaves the band alone', () => {
+    const plain = deriveRiskFlags(loudData());
+    const r = deriveRiskFlags(at(RELAYER_A.toUpperCase().replace('0X', '0x')));
+    expect(r.flags.find((f) => f.id === 'privacy_relay')).toEqual({
+      id: 'privacy_relay',
+      severity: 'info',
+      title: 'Pays for others through a privacy pool (px402)',
+      evidence:
+        'This is px402 relayer A (PRXVT). It pays x402 sellers from its own USDC for agents that deposited into the px402 pool, so the agent behind a payment does not appear on chain.',
+      source: 'https://basescan.org/tx/0xf48758770e9633cda7ca261ef59c41aecdad0023c8164b9b95e8f1175e8fdeaf',
+    });
+    expect(r.band).toBe(plain.band);
+    expect(r.signal_density).toBe(plain.signal_density);
+  });
+
+  it('describes the reserve contract as the pool itself', () => {
+    const f = deriveRiskFlags(at(RESERVE)).flags.find((x) => x.id === 'privacy_relay')!;
+    expect(f.evidence).toBe(
+      'This is the px402 reserve contract (PRXVT). Agents deposit into it and PRXVT relayers pay sellers for them, so the agent behind a payment does not appear on chain.',
+    );
+  });
+
+  it('raises it when every transfer source failed: it reads none', () => {
+    const r = deriveRiskFlags(at(RELAYER_A, { fetch_meta: { transfers_fetched: 0, transfers_truncated: false, transfers_unavailable: 'Every transfer source failed', head_stale: true } }));
+    expect(ids(r)).toContain('privacy_relay');
+  });
+
+  it('does not raise it off Base or for any other address', () => {
+    expect(ids(deriveRiskFlags(at(RELAYER_A, { chain: 'bsc', fetch_meta: { transfers_fetched: 500, transfers_truncated: true, window_days: 14 } })))).not.toContain('privacy_relay');
+    expect(ids(deriveRiskFlags(loudData()))).not.toContain('privacy_relay');
+  });
+
+  describe('withListFlags (a stored report read after the lists changed)', () => {
+    const stored: RiskAssessment = {
+      band: 'low-signal',
+      flags: [{ id: 'activity_truncated', severity: 'info', title: 't', evidence: 'e', source: 's' }],
+      not_assessed: ['x'],
+      classifier_version: '1.0.0',
+      signal_density: 0,
+    };
+
+    it('adds the relay flag to a report filed before the address was on the list', () => {
+      const r = withListFlags(stored, RELAYER_A, 'base');
+      expect(ids(r)).toEqual(['privacy_relay', 'activity_truncated']);
+      expect(r.band).toBe('low-signal');
+      expect(r.not_assessed).toEqual(['x']);
+    });
+
+    it('keeps a sanctions match first', () => {
+      expect(ids(withListFlags(stored, SANCTIONED, 'base'))).toEqual(['ofac_sanctioned', 'activity_truncated']);
+      const both = withListFlags({ ...stored, flags: [{ id: 'ofac_sanctioned', severity: 'high', title: 'o', evidence: 'e', source: 's' }, ...stored.flags] }, RELAYER_A, 'base');
+      expect(ids(both)).toEqual(['ofac_sanctioned', 'privacy_relay', 'activity_truncated']);
+    });
+
+    it('is idempotent, Base only, and leaves an unlisted address untouched', () => {
+      const once = withListFlags(stored, RELAYER_A, 'base');
+      expect(ids(withListFlags(once, RELAYER_A, 'base')).filter((id) => id === 'privacy_relay')).toHaveLength(1);
+      expect(withListFlags(stored, RELAYER_A, 'bsc')).toBe(stored);
+      expect(withListFlags(stored, ADDR, 'base')).toBe(stored);
+    });
+  });
+
+  it('never puts a report on-chain by itself: attestations rest on observed behavior', () => {
+    const report = (flagIds: string[]) => ({ address: RELAYER_A, flagIds, generatedAt: new Date(), headStale: false });
+    expect(isAttestable(report(['privacy_relay']), new Set())).toBe(false);
+    expect(isAttestable(report(['privacy_relay', 'dormant_wallet']), new Set())).toBe(true);
   });
 });
