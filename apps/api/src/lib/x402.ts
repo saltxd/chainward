@@ -234,7 +234,7 @@ export function x402DiscoveryDocument() {
     x402Version: 2,
     name: 'ChainWard',
     description:
-      "Check a Base or BNB Chain address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check), the reason, and the evidence. Also sells the datasets behind published decodes. On-chain behavior only.",
+      "Check a Base or BNB Chain address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record, Couldn't check or Payer hidden), the reason, and the evidence. Also sells the datasets behind published decodes. On-chain behavior only.",
     contact: 'https://chainward.ai',
     contactEmail: 'hello@chainward.ai',
     resources: [
@@ -263,7 +263,7 @@ export function x402DiscoveryDocument() {
 export function apiHomePage(): string {
   const title = 'ChainWard API: check an address before you pay it, per call';
   const description =
-    `Before your agent pays a Base or BNB Chain address: a verdict (pay / hold / unknown, shown as Pay, Hold, Inactive, No track record or Couldn't check) with the one reason (${x402CheckPrice()}). ` +
+    `Before your agent pays a Base or BNB Chain address: a verdict (pay / hold / unknown, shown as Pay, Hold, Inactive, No track record, Couldn't check or Payer hidden) with the one reason (${x402CheckPrice()}). ` +
     `For a seller: real or self-funded demand (${x402SellerPrice()}). For a BNB Chain agent: hired by others or by its own circle (${x402HiresPrice()}). ` +
     `Before every payment: an OFAC sanctions screen (${x402SanctionsPrice()}). Evidence and limits under every verdict. Paid in USDC on Base over x402; a check that fails is never charged.`;
   return `<!doctype html>
@@ -421,7 +421,7 @@ function x402OpenApiBase() {
       title: 'ChainWard',
       version: '1.0.0',
       description:
-        "Check a Base or BNB Chain address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check), the reason, and the evidence. Also sells the datasets behind published decodes. On-chain behavior only.",
+        "Check a Base or BNB Chain address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record, Couldn't check or Payer hidden), the reason, and the evidence. Also sells the datasets behind published decodes. On-chain behavior only.",
       contact: { url: 'https://chainward.ai', email: 'hello@chainward.ai' },
       'x-guidance':
         `Start with GET /api/risk/wallet?address=0x... ($${walletUsd}): sanctions, wallet age, activity and first funder, with a hold / review / no_flags verdict. Before paying an address: GET /api/risk/x402?address=0x... ($${usd}). Before every payment: GET /api/risk/sanctions?address=0x... ($${sanctionsUsd}). Add &chain=bsc to the first two for BNB Chain. Pay with any x402 client in USDC on Base; a call that fails is not charged.`,
@@ -433,7 +433,7 @@ function x402OpenApiBase() {
           operationId: 'counterpartyCheck',
           summary: 'Verdict label pay / hold / unknown for a Base or BNB Chain address, with a human text, the reason and the full report, paid per call over x402',
           description:
-            "Returns a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check), the reason, and the evidence: a report no older than 24h (a fresh check runs when needed) with every flag, its evidence and source, what was not assessed, and the EAS attestation if one exists. Screens the US Treasury OFAC sanctions list; a listed address always answers Hold. Not charged if the check fails.",
+            "Returns a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record, Couldn't check or Payer hidden), the reason, and the evidence: a report no older than 24h (a fresh check runs when needed) with every flag, its evidence and source, what was not assessed, and the EAS attestation if one exists. Screens the US Treasury OFAC sanctions list; a listed address always answers Hold. A known reserve or relayer of the px402 privacy pool answers Payer hidden: the real payer can't be screened. Not charged if the check fails.",
           parameters: [
             {
               name: 'address',
@@ -564,7 +564,7 @@ function x402OpenApiBase() {
           operationId: 'walletLookup',
           summary: 'Fast wallet lookup: sanctions, age, activity and first funder, with a hold / review / no_flags verdict',
           description:
-            'One address on Base or BNB Chain: is it on the OFAC SDN list, when it was first seen, when it last sent, its native and USDC balances, and the wallet that first funded it (sanctioned, an exchange or hub, or a funder of many wallets). hold if it or its first funder is sanctioned; review if it is new, has no history, or shares a funder with many wallets; no_flags otherwise, which is not a clearance. Also free with an API key at GET /v1/wallet/{address}.',
+            'One address on Base or BNB Chain: is it on the OFAC SDN list, when it was first seen, when it last sent, its native and USDC balances, and the wallet that first funded it (sanctioned, an exchange or hub, or a funder of many wallets). hold if it or its first funder is sanctioned; review if it is new, has no history, shares a funder with many wallets, or pays through the px402 privacy pool (flag privacy_relay: the real payer is hidden); no_flags otherwise, which is not a clearance. Also free with an API key at GET /v1/wallet/{address}.',
           parameters: [
             {
               name: 'address',
@@ -922,7 +922,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402CheckPrice(),
     serviceName: 'ChainWard counterparty check',
     description:
-      "Check a Base or BNB Chain (?chain=bsc) address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record or Couldn't check) and the one reason, such as active with real counterparties or a high-severity flag named. Under it, the evidence: every flag with its source, what was not assessed, and the EAS attestation if one exists. On-chain behavior only.",
+      "Check a Base or BNB Chain (?chain=bsc) address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record, Couldn't check or Payer hidden) and the one reason, such as active with real counterparties or a high-severity flag named. Under it, the evidence: every flag with its source, what was not assessed, and the EAS attestation if one exists. On-chain behavior only.",
     tags: ['base', 'bsc', 'bnb', 'risk', 'counterparty', 'wallet', 'address', 'reputation', 'trust', 'due-diligence', 'agents', 'eas', 'attestation'],
     whatYouGet:
       'A verdict (pay / hold / unknown) with its reason, then the full risk report no older than 24h (a fresh check runs if needed), JSON. Base by default; add ?chain=bsc for a BNB Chain address. Not charged if the check fails.',
@@ -940,7 +940,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402WalletPrice(),
     serviceName: 'ChainWard wallet lookup',
     description:
-      'Fast wallet lookup on Base or BNB Chain (?chain=bsc): OFAC sanctions, first seen, last active, sent transactions, native and USDC balances, and the first funder (sanctioned, exchange or hub, or funder of many wallets). Verdict hold / review / no_flags with one reason. Built for screening payout lists, signups and counterparties.',
+      'Fast wallet lookup on Base or BNB Chain (?chain=bsc): OFAC sanctions, first seen, last active, sent transactions, native and USDC balances, and the first funder (sanctioned, exchange or hub, or funder of many wallets). Verdict hold / review / no_flags with one reason; a payer that is a px402 privacy pool relayer gets review, since the real payer is hidden. Built for screening payout lists, signups and counterparties.',
     tags: ['wallet', 'address', 'lookup', 'screening', 'sanctions', 'ofac', 'sybil', 'funder', 'age', 'base', 'bsc', 'agents', 'kyt'],
     whatYouGet:
       'A verdict (hold / review / no_flags) with its reason, the flags behind it, age, activity, balances and first funder, JSON. Cached for an hour. Not charged if the address is malformed.',
