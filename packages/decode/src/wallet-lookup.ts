@@ -8,10 +8,12 @@
 
 import { alchemyAssetTransfers, type SellerChain } from './seller-demand.js';
 import { isSanctioned } from './ofac.js';
+import { PRIVACY_RELAY_REASON, privacyRelay } from './privacy-relays.js';
 
 
 export type LookupChain = SellerChain;
-export type LookupFlag = 'sanctioned' | 'funded_by_sanctioned' | 'no_history' | 'new_wallet' | 'shared_funder' | 'contract';
+/** privacy_relay: a known px402 reserve or relayer (privacy-relays.ts); whoever it pays for is not on chain. */
+export type LookupFlag = 'sanctioned' | 'funded_by_sanctioned' | 'privacy_relay' | 'no_history' | 'new_wallet' | 'shared_funder' | 'contract';
 
 export interface WalletLookup {
   address: string;
@@ -116,6 +118,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   const flags: LookupFlag[] = [];
   if (sanctioned) flags.push('sanctioned');
   if (funder?.sanctioned) flags.push('funded_by_sanctioned');
+  if (privacyRelay(address, chain)) flags.push('privacy_relay');
   if (!first && sentTxs === 0) flags.push('no_history');
   if (ageDays !== null && ageDays < NEW_WALLET_DAYS) flags.push('new_wallet');
   if (funder && !funder.exchange_or_hub && (funder.funded_wallets ?? 0) >= SHARED_FUNDER_MIN) flags.push('shared_funder');
@@ -165,6 +168,8 @@ function verdictFor(
 ): WalletLookup['verdict'] {
   if (flags.includes('sanctioned')) return { label: 'hold', reason: 'This address is on the US Treasury OFAC SDN list.' };
   if (flags.includes('funded_by_sanctioned')) return { label: 'hold', reason: 'Its first funds came from an address on the OFAC SDN list.' };
+  // Below sanctions, above everything else: the relay's own age and funder say nothing about the payer behind it.
+  if (flags.includes('privacy_relay')) return { label: 'review', reason: PRIVACY_RELAY_REASON };
   if (flags.includes('no_history')) return { label: 'review', reason: 'No transfers or transactions on this chain yet.' };
   if (flags.includes('new_wallet')) {
     const d = ctx.ageDays ?? 0;

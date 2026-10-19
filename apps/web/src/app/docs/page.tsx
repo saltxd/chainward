@@ -142,12 +142,22 @@ export default function DocsPage() {
               <td>Couldn&apos;t check</td>
               <td>The data sources were down, so activity could not be read. Try again later.</td>
             </tr>
+            <tr>
+              <td>
+                <code>unknown</code>
+              </td>
+              <td>Payer hidden</td>
+              <td>
+                A known relayer of the px402 privacy pool: it pays for agents it does not name, so the
+                real payer can&apos;t be screened.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
       <p>
         Branch on <code>label</code>, not <code>text</code>: the <code>unknown</code> label
-        has three wordings. The seller check uses <code>real_demand</code>,{' '}
+        has four wordings. The seller check uses <code>real_demand</code>,{' '}
         <code>self_funded_demand</code>, <code>mixed</code> and{' '}
         <code>not_enough_data</code>; the hire check uses <code>hired_by_others</code>,{' '}
         <code>hired_by_own_circle</code> and <code>not_enough_data</code>. Their text is

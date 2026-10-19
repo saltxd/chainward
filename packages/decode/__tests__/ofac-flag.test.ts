@@ -76,8 +76,8 @@ describe('the ofac_sanctioned check in the catalog', () => {
     expect(riskChecksFor('bsc', 14).map((c) => c.id)).toContain('ofac_sanctioned');
   });
 
-  it('brings the catalog to 9 checks', () => {
-    expect(RISK_CHECKS).toHaveLength(9);
+  it('brings the catalog to 10 checks, with privacy_relay', () => {
+    expect(RISK_CHECKS).toHaveLength(10);
   });
 });
 

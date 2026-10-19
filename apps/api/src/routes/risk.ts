@@ -20,7 +20,8 @@ import {
   HireCheckError,
   runHireCheck,
   isSanctioned,
-  withSanctionsFlag,
+  LIST_MATCH_FLAG_IDS,
+  withListFlags,
   type RiskAssessment,
 } from '@chainward/decode';
 import {
@@ -204,9 +205,10 @@ function noHistoryVerdict(windowDays: number): Verdict<CounterpartyVerdictLabel>
 }
 
 function rowToReport(row: RiskReportRow): ReportPayload {
-  // The sanctions list is checked on read too, so a report filed before the
-  // address was listed still carries the flag and the Hold.
-  const assessment = withSanctionsFlag(row.riskAssessment as RiskAssessment, row.walletAddress);
+  // The sanctions list and the px402 relay list are checked on read too, so a
+  // report filed before the address was listed still carries the flag and the
+  // Hold (or Payer hidden).
+  const assessment = withListFlags(row.riskAssessment as RiskAssessment, row.walletAddress, row.chain);
   return {
     address: row.walletAddress,
     chain: row.chain,
@@ -256,23 +258,22 @@ function reportPath(address: string, chain: string): string {
 }
 
 function rowToCard(row: RiskReportRow): ReportCard {
-  // Same reading as rowToReport: the sanctions list is applied on read, so a
-  // card filed before the address was listed still says Hold and names why.
-  const assessment = withSanctionsFlag(row.riskAssessment as RiskAssessment, row.walletAddress);
+  // Same reading as rowToReport: the list matches are applied on read, so a card
+  // filed before the address was listed still gives the answer and names why.
+  const assessment = withListFlags(row.riskAssessment as RiskAssessment, row.walletAddress, row.chain);
   const { label, text } = reportVerdict(assessment, row.reportData);
   const stored = (row.topFlags as TopFlagPreview[] | null) ?? [];
-  const sanctions = assessment.flags.find((f) => f.id === 'ofac_sanctioned');
-  const topFlags =
-    sanctions && !stored.some((f) => f.id === sanctions.id)
-      ? [{ id: sanctions.id, severity: sanctions.severity, title: sanctions.title }, ...stored].slice(0, 3)
-      : stored;
+  const added = assessment.flags
+    .filter((f) => LIST_MATCH_FLAG_IDS.has(f.id) && !stored.some((s) => s.id === f.id))
+    .map((f) => ({ id: f.id, severity: f.severity, title: f.title }));
+  const topFlags = added.length ? [...added, ...stored].slice(0, 3) : stored;
   return {
     address: row.walletAddress,
     chain: row.chain,
     agent_name: row.agentName ?? undefined,
     verdict: { label, text },
     band: row.band,
-    flag_count: topFlags === stored ? row.flagCount : row.flagCount + 1,
+    flag_count: row.flagCount + added.length,
     top_severity: topSeverity(topFlags),
     top_flags: topFlags,
     as_of_date: new Date(row.generatedAt).toISOString(),
@@ -789,8 +790,8 @@ risk.get(
       success: true,
       data: {
         address,
-        // The verdict follows today's sanctions list; the attested fields below stay as published.
-        verdict: reportVerdict(withSanctionsFlag(assessment, address), row.reportData),
+        // The verdict follows today's sanctions and px402 relay lists; the attested fields below stay as published.
+        verdict: reportVerdict(withListFlags(assessment, address, row.chain), row.reportData),
         band: assessment.band,
         flag_ids: assessment.flags.map((f) => f.id),
         as_of_block: row.asOfBlock,

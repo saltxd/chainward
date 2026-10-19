@@ -14,6 +14,7 @@ export * from './sentinel-block.js';
 export * from './risk-flags.js';
 export * from './ofac.js';
 export * from './wallet-lookup.js';
+export * from './privacy-relays.js';
 export { OFAC_SNAPSHOT } from './ofac-snapshot.js';
 export * from './attestation.js';
 export * from './data-fetch.js';

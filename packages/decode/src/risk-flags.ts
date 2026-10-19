@@ -3,6 +3,7 @@ import type { DecodeChain, QuickDecodeResultData, Discrepancy } from './types.js
 import { CLASSIFIER_VERSION } from './types.js';
 import { formatWindowDays, formatWindowSpan } from './rpc-fixtures.js';
 import { OFAC_SEARCH_URL, isSanctioned } from './ofac.js';
+import { privacyRelay } from './privacy-relays.js';
 
 /**
  * Risk-Check v1 flag derivation.
@@ -115,6 +116,7 @@ function notAssessedForChain(chain: DecodeChain, fetchMeta: QuickDecodeResultDat
 
 export type RiskCheckId =
   | 'ofac_sanctioned'
+  | 'privacy_relay'
   | 'claim_vs_chain_offline'
   | 'dormant_wallet'
   | 'stranded_value'
@@ -156,6 +158,14 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     id: 'ofac_sanctioned',
     title: 'On the US sanctions list (OFAC)',
     looks_for: 'The address appears on the US Treasury sanctions list',
+  },
+  {
+    // A match on the hand-kept px402 list (privacy-relays.ts), not a chain reading.
+    // Info severity: it changes the verdict to Unknown, not the signal band.
+    id: 'privacy_relay',
+    title: 'Pays for others through a privacy pool (px402)',
+    looks_for: 'A known px402 reserve or relayer, which pays x402 sellers for agents it does not name',
+    base_only: true,
   },
   {
     id: 'claim_vs_chain_offline',
@@ -310,6 +320,34 @@ export function withSanctionsFlag(assessment: RiskAssessment, address: string): 
     ...assessment.flags,
   ];
   return { ...assessment, flags, band: computeBand(flags), signal_density: signalDensity(flags) };
+}
+
+/**
+ * The assessment with the privacy_relay flag when the address is a known px402
+ * reserve or relayer on this chain (privacy-relays.ts): right after a sanctions
+ * flag, otherwise first. Idempotent; any other address gets the assessment back
+ * unchanged. Info severity, so band and density stay as they were.
+ */
+export function withPrivacyRelayFlag(assessment: RiskAssessment, address: string, chain: string): RiskAssessment {
+  const relay = privacyRelay(address, chain);
+  if (!relay || assessment.flags.some((f) => f.id === 'privacy_relay')) return assessment;
+  const evidence =
+    relay.role === 'reserve'
+      ? `This is ${relay.name}. Agents deposit into it and PRXVT relayers pay sellers for them, so the agent behind a payment does not appear on chain.`
+      : `This is ${relay.name}. It pays x402 sellers from its own USDC for agents that deposited into the px402 pool, so the agent behind a payment does not appear on chain.`;
+  const flag: RiskFlag = { id: 'privacy_relay', severity: 'info', title: CHECK_TITLE.privacy_relay, evidence, source: relay.source };
+  const at = assessment.flags[0]?.id === 'ofac_sanctioned' ? 1 : 0;
+  const flags = [...assessment.flags.slice(0, at), flag, ...assessment.flags.slice(at)];
+  return { ...assessment, flags, band: computeBand(flags), signal_density: signalDensity(flags) };
+}
+
+/**
+ * Both list matches (OFAC, then the px402 relays), which need no chain read.
+ * deriveRiskFlags ends here and the API applies it to stored reports on read,
+ * so a report filed before an address was listed still says so.
+ */
+export function withListFlags(assessment: RiskAssessment, address: string, chain: string): RiskAssessment {
+  return withPrivacyRelayFlag(withSanctionsFlag(assessment, address), address, chain);
 }
 
 function blockscoutAddressUrl(address: string): string {
@@ -505,8 +543,9 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
   }
 
   // ofac_sanctioned (high), put first <- the address is on the OFAC SDN snapshot.
-  // Reads no transfers and no head, so it fires even when every source failed.
-  return withSanctionsFlag(
+  // privacy_relay (info), next <- the address is a known px402 reserve or relayer.
+  // Both read no transfers and no head, so they fire even when every source failed.
+  return withListFlags(
     {
       band: computeBand(flags),
       flags,
@@ -515,5 +554,6 @@ export function deriveRiskFlags(data: QuickDecodeResultData): RiskAssessment {
       signal_density: signalDensity(flags),
     },
     address,
+    chain,
   );
 }
