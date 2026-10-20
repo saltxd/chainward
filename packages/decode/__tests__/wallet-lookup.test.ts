@@ -137,6 +137,64 @@ describe('lookupWallet', () => {
     expect(r.type).toBe('contract');
     expect(r.flags).toContain('contract');
   });
+
+  // An OptimismPortal deposit lists as a transfer from the wallet to itself: bridged from L1,
+  // with no funder to trace. Traced, its own sends made it a "shared funder" (VIRTUAL's deployer).
+  it('treats funds bridged in from L1 (a transfer from itself) as no funder', async () => {
+    const recipients = Array.from({ length: 14 }, (_, i) => ({ from: A, to: recipient(i), hash: `0x${i}`, metadata: { blockTimestamp: days(1) } }));
+    const r = await lookupWallet(A, 'base', {
+      ...deps({ nonce: { [A]: 30 } }),
+      transfers: async (params) => {
+        const q = params as { toAddress?: string; fromAddress?: string };
+        if (q.toAddress === A) return { transfers: [{ from: A, to: A, hash: '0xdeposit', metadata: { blockTimestamp: days(400) } }] };
+        if (q.fromAddress === A) return { transfers: recipients };
+        return { transfers: [] };
+      },
+    });
+    expect(r.first_funder).toBeNull();
+    expect(r.flags).not.toContain('shared_funder');
+    expect(r.age_days).toBe(400);
+  });
+
+  // EIP-7702: an EOA that delegates to a contract carries 0xef0100 + the delegate as its code.
+  it('calls an EIP-7702 delegated EOA a wallet, not a contract', async () => {
+    const r = await lookupWallet(A, 'base', deps({ code: { [A]: `0xef0100${'ab'.repeat(20)}` }, nonce: { [A]: 12, [FUNDER]: 3 }, firstIn: { from: FUNDER, ts: days(90), hash: '0x9' } }));
+    expect(r.type).toBe('wallet');
+    expect(r.flags).not.toContain('contract');
+  });
+
+  // Bridge fills, disperse contracts and smart wallets pay ETH by internal call. HOOK's
+  // launch wallet got 1.02 ETH that way 42 minutes before the launch; read without
+  // internal transfers, its first funder was the pool it bought from at launch.
+  // BNB Chain's provider refuses the internal category, so it is not asked there.
+  describe('a first funder that paid by internal transfer', () => {
+    const BRIDGE = `0x${'b'.repeat(40)}`;
+    const POOL = `0x${'c'.repeat(40)}`;
+    const internalDeps = (supported: boolean): WalletLookupDeps => ({
+      ...deps({ nonce: { [A]: 3, [BRIDGE]: 1, [POOL]: 1 } }),
+      transfers: async (params) => {
+        const q = params as { toAddress?: string; category: string[] };
+        const internal = q.category.includes('internal');
+        if (internal && !supported) throw new Error("The 'internal' category is not supported for this network.");
+        if (q.toAddress !== A) return { transfers: [] };
+        const fill = { from: BRIDGE, to: A, hash: '0xfill', metadata: { blockTimestamp: days(3) } };
+        const buy = { from: POOL, to: A, hash: '0xbuy', metadata: { blockTimestamp: days(1) } };
+        return { transfers: [internal ? fill : buy] };
+      },
+    });
+
+    it('is found on Base, with the age it gives', async () => {
+      const r = await lookupWallet(A, 'base', internalDeps(true));
+      expect(r.first_funder).toMatchObject({ address: BRIDGE, tx: '0xfill' });
+      expect(r.first_seen).toBe(days(3));
+      expect(r.age_days).toBe(3);
+    });
+
+    it('is not asked for on BNB Chain, where the provider refuses it', async () => {
+      const r = await lookupWallet(A, 'bsc', internalDeps(false));
+      expect(r.first_funder?.address).toBe(POOL);
+    });
+  });
 });
 
 // px402 v2 (PRXVT) on Base: an agent deposits into the PX402Reserve and a PRXVT

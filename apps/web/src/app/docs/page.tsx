@@ -258,6 +258,25 @@ export default function DocsPage() {
             </tr>
             <tr>
               <td>
+                <code>GET /api/risk/rugcheck?token=</code>
+              </td>
+              <td>0.02 USDC</td>
+              <td>
+                <strong>A rug check on a Base token, before you buy it.</strong> Who launched
+                it and how (Clanker&apos;s factory and Virtuals&apos; bonding curve are named when
+                their contracts confirm the token), mints after the first issuance and how many
+                went to the launch wallet, and what the launch wallet did: sanctions, its age at
+                launch, its first funder, the share of supply it holds, and whether it sent out
+                90% or more of the tokens it got at launch within the hour. Verdict{' '}
+                <code>hold</code>, <code>review</code> or <code>no_flags</code>, which is not a
+                clearance. It is not a honeypot, liquidity or holder check. An address that is not
+                a token answers <code>not_a_contract</code> or <code>not_a_token</code>, and that
+                answer is charged. Also at{' '}
+                <code>/api/risk/token?address=</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>
                 <code>GET /api/risk/x402?address=</code>
               </td>
               <td>0.05 USDC</td>
@@ -331,7 +350,7 @@ export default function DocsPage() {
       <p>
         The <code>PAYMENT-REQUIRED</code> header is base64-encoded JSON. Its{' '}
         <code>amount</code> is in USDC&apos;s smallest unit (6 decimals): 10000 is 0.01
-        USDC, 50000 is 0.05, 100000 is 0.10 and 10000000 is 10. The JSON body says the
+        USDC, 20000 is 0.02, 50000 is 0.05, 100000 is 0.10 and 10000000 is 10. The JSON body says the
         price in plain words. Discovery files for x402 clients:{' '}
         <a href="/.well-known/x402">/.well-known/x402</a> and{' '}
         <a href="/openapi.json">/openapi.json</a>.

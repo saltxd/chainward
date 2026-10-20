@@ -418,6 +418,7 @@ export async function alchemyAssetTransfers(
   params: Record<string, unknown>,
   log?: { warn: (msg: string) => void },
 ): Promise<{ transfers: AlchemyTransfer[]; pageKey?: string }> {
+  let internalErrors = 0;
   for (let attempt = 0; attempt < 6; attempt++) {
     const res = await fetch(rpcUrl, {
       method: 'POST',
@@ -431,6 +432,8 @@ export async function alchemyAssetTransfers(
       await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
       continue;
     }
+    // A heavy query (a mints read on WBTC) can hit Alchemy's own time limit, then pass on a retry.
+    if (/internal server error/i.test(body.error?.message ?? '') && internalErrors++ === 0) continue;
     if (body.error) throw new Error(`alchemy_getAssetTransfers: ${body.error.message}`);
     return body.result!;
   }

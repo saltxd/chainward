@@ -29,7 +29,16 @@ import { x402InFlightLock } from './middleware/x402InFlight.js';
 import { logger } from './lib/logger.js';
 import { apiHomePage, x402DiscoveryDocument, x402OpenApiDocument, x402PublicUrl } from './lib/x402.js';
 import { walletPaid, walletV1 } from './routes/walletLookup.js';
-import { checkPaidInput, parseCounterpartyInput, parseDatasetAddress, parseHireInput, parseSanctionsAddress, parseSellerInput } from './lib/paidInput.js';
+import { tokenCheck, tokenParam } from './routes/tokenCheck.js';
+import {
+  checkPaidInput,
+  parseCounterpartyInput,
+  parseDatasetAddress,
+  parseHireInput,
+  parseSanctionsAddress,
+  parseSellerInput,
+  parseTokenInput,
+} from './lib/paidInput.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { createServer as createMcpServer } from 'chainward-mcp-server/server';
 
@@ -142,6 +151,8 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
       ['/api/risk/counterparty', checkPaidInput((c) => parseCounterpartyInput(c.req.query('address'), c.req.query('chain')))],
       ['/api/risk/ofac', checkPaidInput((c) => parseSanctionsAddress(c.req.query('address')))],
       ['/api/risk/wallet', checkPaidInput((c) => parseCounterpartyInput(c.req.query('address'), c.req.query('chain')))],
+      ['/api/risk/rugcheck', checkPaidInput((c) => parseTokenInput(tokenParam(c), c.req.query('chain')))],
+      ['/api/risk/token', checkPaidInput((c) => parseTokenInput(tokenParam(c), c.req.query('chain')))],
       ['/api/paid/:slug/file', checkPaidInput((c) => requireKnownSlug(c.req.param('slug')))],
       [
         '/api/paid/:slug/check',
@@ -203,8 +214,10 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
   app.route('/api/wallets', wallets);
   app.route('/api/public/agents', publicAgents);
   app.route('/api/public/decodes', publicDecodes);
-  // Before /api/risk, so its /:param routes never see /wallet.
+  // Before /api/risk, so its /:param routes never see /wallet, /rugcheck or /token.
   app.route('/api/risk/wallet', walletPaid);
+  app.route('/api/risk/rugcheck', tokenCheck);
+  app.route('/api/risk/token', tokenCheck);
   app.route('/api/risk', risk);
   app.route('/api/observatory', observatory);
   app.route('/api/digest', digest);

@@ -33,6 +33,13 @@ describe('/docs', () => {
   it('documents the counterparty check at the path the 402 challenge names', () => {
     expect(html).toContain('GET /api/risk/x402?address=');
   });
+
+  it('documents the rug check with its price and what it does not cover', () => {
+    const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
+    expect(paid).toContain('GET /api/risk/rugcheck?token=');
+    expect(paid).toContain('0.02 USDC');
+    expect(paid).toContain('not a honeypot');
+  });
 });
 
 describe.each([

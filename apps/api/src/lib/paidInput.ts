@@ -78,6 +78,16 @@ export function parseHireInput(rawAgent: string | undefined, rawChain: string | 
   throw new AppError(400, 'INVALID_TARGET', 'agent must be an ERC-8004 agent id or a 0x owner address');
 }
 
+/** GET /api/risk/rugcheck: the token contract to check, Base only for now. */
+export function parseTokenInput(rawToken: string | undefined, rawChain: string | undefined): { token: string; chain: 'base' } {
+  if (rawToken === undefined) throw new AppError(400, MISSING_TARGET, 'token is required');
+  if (!ADDRESS_RE.test(rawToken)) throw new AppError(400, 'INVALID_TARGET', 'Invalid token address format');
+  if (isPlaceholderAddress(rawToken)) throw new AppError(400, 'INVALID_TARGET', 'That is a placeholder address (0x000…), not a token to check');
+  const chain = rawChain || 'base';
+  if (chain !== 'base') throw new AppError(400, 'INVALID_CHAIN', 'The rug check is Base only for now');
+  return { token: rawToken.toLowerCase(), chain: 'base' };
+}
+
 /**
  * Runs a route's input parse before the payment middleware; a bad request throws
  * its 4xx here. A request with no target at all continues to the 402 instead.
