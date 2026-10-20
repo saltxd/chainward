@@ -52,7 +52,11 @@ export interface AppOptions {
 /** The API's Hono app: every middleware and route, with no server, env or process hooks. */
 const INDEX402_VERIFY_HASH = '9ed1abee6b118a2073cf0ffc377486c2ef20dc86e12c5ac125a9dd64eae18183';
 // x402-list.com listing-update ownership proof (one line per issued token; public by design).
-const X402LIST_TOKENS = ['x402list-verify-uDXyA03gPZK-Op9QDLyA6u0zuakvq4DckwYTY-c-imY'];
+const X402LIST_TOKENS = [
+  'x402list-verify-uDXyA03gPZK-Op9QDLyA6u0zuakvq4DckwYTY-c-imY',
+  // 2026-10-20 update: the rug check and the other paid routes.
+  'x402list-verify-0HgDpL961ImJaGy-Epqb7XTII5rr7UCZ7vo1RgaY4po',
+];
 
 export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
   const app = new Hono();
