@@ -115,12 +115,17 @@ const hasCode = (c: unknown) => typeof c === 'string' && c !== '0x' && c !== '0x
 const lower = (a: string | null | undefined) => (a ? a.toLowerCase() : null);
 const pad = (addr: string) => addr.slice(2).toLowerCase().padStart(64, '0');
 
+/** The contract itself refused the call (Alchemy answers "execution reverted"): its answer is no. */
+const EXECUTION_ERROR = /revert|invalid opcode|out of gas|stack (?:under|over)flow|EVM error/i;
+
+/** An eth_call the contract may refuse. A throttled or failed read throws: it is not the contract's answer. */
 async function safeCall(deps: TokenCheckDeps, to: string, data: string): Promise<string | null> {
   try {
     const r = await deps.rpc('eth_call', [{ to, data }, 'latest']);
     return typeof r === 'string' && r.length > 2 ? r : null;
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof Error && EXECUTION_ERROR.test(err.message)) return null;
+    throw err;
   }
 }
 
@@ -210,6 +215,8 @@ function scaleUnits(raw: bigint, decimals: number): number {
   return Number(raw / unit) + Number(raw % unit) / Number(unit);
 }
 
+/** Alchemy's amounts are floats: a sum of them, kept to the 15 digits a float holds exactly. */
+const sumValues = (ts: TokenTransfer[]) => Number(ts.reduce((s, t) => s + (typeof t.value === 'number' ? t.value : 0), 0).toPrecision(15));
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const amount = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const duration = (sec: number) => (sec < 120 ? plural(sec, 'second') : sec < 7200 ? plural(Math.round(sec / 60), 'minute') : plural(Math.round(sec / 3600), 'hour'));
@@ -281,7 +288,7 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
   const later = mints.filter((m) => m.hash.toLowerCase() !== firstIssuance);
   const supply: TokenCheck['supply'] = {
     mints_after_launch: later.length,
-    minted_after_launch: later.length ? later.reduce((s, m) => s + (typeof m.value === 'number' ? m.value : 0), 0) : null,
+    minted_after_launch: later.length ? sumValues(later) : null,
     to_creator: creatorAddr ? later.filter((m) => lower(m.to) === creatorAddr).length : 0,
     capped: mints.length >= PAGE,
   };
@@ -351,9 +358,7 @@ function launchTokens(
   inflows: TokenTransfer[],
   outflows: TokenTransfer[],
 ): NonNullable<TokenCheck['creator']>['launch_tokens'] {
-  const received = inflows
-    .filter((t) => t.hash.toLowerCase() === launch.tx && t.from.toLowerCase() !== ZERO)
-    .reduce((s, t) => s + (typeof t.value === 'number' ? t.value : 0), 0);
+  const received = sumValues(inflows.filter((t) => t.hash.toLowerCase() === launch.tx && t.from.toLowerCase() !== ZERO));
   if (received <= 0) return null;
   const sends = outflows
     .map((t) => ({ value: typeof t.value === 'number' ? t.value : 0, ms: t.metadata?.blockTimestamp ? new Date(t.metadata.blockTimestamp).getTime() : null }))

@@ -48,6 +48,8 @@ interface Chain {
   creatorNonce?: number;
   funderNonce?: number;
   launchReceiptLogs?: Array<{ address: string; topics: string[] }>;
+  /** eth_calls the provider refuses ('registry', or a selector on the token), as a throttled RPC does. */
+  failCalls?: string[];
 }
 
 function deps(c: Chain, log: string[] = []): WalletLookupDeps {
@@ -74,6 +76,8 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         }
         case 'eth_call': {
           const [{ to, data }] = p as [{ to: string; data: string }];
+          const key = to === CLANKER_V4_FACTORY.toLowerCase() ? 'registry' : to === TOKEN ? data.slice(0, 10) : null;
+          if (key && c.failCalls?.includes(key)) throw new Error('eth_call: Your app has exceeded its compute units per second capacity');
           if (to === CLANKER_V4_FACTORY.toLowerCase()) {
             const tokenWord = c.clanker ? TOKEN.slice(2).padStart(64, '0') : word(0n);
             return `0x${word(32n)}${tokenWord}${word(0n)}${word(0n)}`;
@@ -347,6 +351,26 @@ describe('checkToken', () => {
     const r = await checkToken(TOKEN, deps({ totalSupply: null }));
     expect(r.flags).toEqual(['not_a_token']);
     expect(r.verdict.label).toBe('review');
+  });
+
+  // Alchemy reports amounts as floats; 0.1 + 0.2 must read 0.3, not 0.30000000000000004.
+  it('adds mint amounts without float noise', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({ transfers: [mint(POOL, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX), mint(POOL, 0.1, LAUNCH_BLOCK + 5, '0xm2'), mint(POOL, 0.2, LAUNCH_BLOCK + 6, '0xm3')] }),
+    );
+    expect(r.supply).toMatchObject({ mints_after_launch: 2, minted_after_launch: 0.3 });
+  });
+
+  // A throttled read is not the contract's answer. Swallowed, it turned a token into
+  // not_a_token (charged, and cached for ten minutes); failing lets the API answer 503.
+  it.each([
+    ['totalSupply', '0x18160ddd'],
+    ['Clanker registry', 'registry'],
+    ['launch wallet balance', '0x70a08231'],
+  ])('fails rather than guess when the provider refuses the %s read', async (_name, call) => {
+    const chain = deps({ transfers: [mint(POOL, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], failCalls: [call] });
+    await expect(checkToken(TOKEN, chain)).rejects.toThrow(/capacity/);
   });
 
   it('answers review when the launch transaction cannot be found', async () => {
