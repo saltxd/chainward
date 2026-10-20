@@ -72,6 +72,8 @@ const USDC: Record<LookupChain, { address: string; decimals: number }> = {
 };
 
 const hexToNumber = (h: unknown) => (typeof h === 'string' && h.startsWith('0x') ? Number(BigInt(h)) : 0);
+/** No code, or EIP-7702's 0xef0100 + delegate: an EOA, which can delegate to a contract and still be a wallet. */
+const isWalletCode = (c: unknown) => c === '0x' || c === null || c === undefined || (typeof c === 'string' && /^0xef0100[0-9a-f]{40}$/i.test(c));
 const scaled = (h: unknown, decimals: number) => (typeof h === 'string' && h.startsWith('0x') && h !== '0x' ? Number(BigInt(h)) / 10 ** decimals : 0);
 const balanceOfData = (addr: string) => `0x70a08231${addr.slice(2).toLowerCase().padStart(64, '0')}`;
 
@@ -99,8 +101,9 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   const ageDays = firstSeen ? Math.floor((now.getTime() - new Date(firstSeen).getTime()) / 86_400_000) : null;
 
   let funder: WalletLookup['first_funder'] = null;
-  // A mint (USDC bridged in by CCTP, say) comes from the zero address: no funder to trace.
-  if (first && first.from.toLowerCase() !== ZERO_ADDRESS) {
+  // A mint (USDC bridged in by CCTP, say) comes from the zero address, and an OptimismPortal
+  // deposit lists as a transfer from the wallet to itself (bridged from L1): no funder to trace.
+  if (first && first.from.toLowerCase() !== ZERO_ADDRESS && first.from.toLowerCase() !== address) {
     const f = first.from.toLowerCase();
     const [fNonce, fOut] = await Promise.all([
       deps.rpc('eth_getTransactionCount', [f, 'latest']),
@@ -117,7 +120,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   }
 
   const sanctioned = isSanctioned(address);
-  const type = typeof code === 'string' && code !== '0x' ? 'contract' : 'wallet';
+  const type = isWalletCode(code) ? 'wallet' : 'contract';
   const flags: LookupFlag[] = [];
   if (sanctioned) flags.push('sanctioned');
   if (funder?.sanctioned) flags.push('funded_by_sanctioned');
@@ -160,7 +163,7 @@ async function countFundedWallets(transfers: Transfer[], funder: string, deps: W
   let wallets = 0;
   for (let i = 0; i < recipients.length; i += FUNDER_CODE_BATCH) {
     const codes = await Promise.all(recipients.slice(i, i + FUNDER_CODE_BATCH).map((r) => deps.rpc('eth_getCode', [r, 'latest'])));
-    wallets += codes.filter((c) => c === '0x' || c === null || c === undefined).length;
+    wallets += codes.filter(isWalletCode).length;
   }
   return wallets;
 }

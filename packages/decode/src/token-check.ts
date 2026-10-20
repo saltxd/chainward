@@ -14,12 +14,24 @@ import { alchemyAssetTransfers } from './seller-demand.js';
 /** Clanker's current factory; `tokenDeploymentInfo(token)` returns the token for its own launches. */
 export const CLANKER_V4_FACTORY = '0xE85A59c628F7d27878ACeB4bf3b35733630083a9';
 const TOKEN_DEPLOYMENT_INFO = '0x22adcdb1';
-/** ERC-4337 EntryPoints v0.6, v0.7 and v0.8: a launch sent through one came from a smart wallet. */
+/** ERC-4337 EntryPoints v0.6 to v0.9: a launch sent through one came from a smart wallet. */
 const ENTRY_POINTS = new Set([
   '0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789',
   '0x0000000071727de22e5e9d8baf0edac6f37da032',
   '0x4337084d9e255ff0702461cf8895ce9e3b5ff108',
+  '0x433709009b8330fda32311df1c2afa402ed8d009',
 ]);
+/**
+ * Virtuals' Bonding contract. An agent token is created when its prototype graduates, inside
+ * whichever purchase crosses the threshold, so that transaction's sender is a buyer. Bonding
+ * emits Graduated(prototype indexed, agentToken) and records the prototype's creator in
+ * tokenInfo(prototype): (creator, token, pair, agentToken, ...).
+ */
+const VIRTUALS_BONDING = '0xf66dea7b3e897cd44a5a231c61b6b4423d613259';
+const GRADUATED = '0x381d54fa425631e6266af114239150fae1d5db67bb65b4fa9ecc65013107e07e';
+const TOKEN_INFO = '0xf5dab711';
+/** supportsInterface(ERC-721): NFT collections answer totalSupply() too. */
+const SUPPORTS_ERC721 = `0x01ffc9a7${'80ac58cd'.padEnd(64, '0')}`;
 const USER_OPERATION_EVENT = '0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f';
 const SEL = { totalSupply: '0x18160ddd', decimals: '0x313ce567', symbol: '0x95d89b41', name: '0x06fdde03', balanceOf: '0x70a08231' };
 const ZERO = `0x${'0'.repeat(40)}`;
@@ -28,9 +40,12 @@ const ZERO = `0x${'0'.repeat(40)}`;
 export const NEW_CREATOR_DAYS = 7;
 /** The launch wallet still holding at least this share of the supply. */
 export const LARGE_SHARE_PCT = 20;
-/** Sent out at least this share of the tokens it received at launch, the first part within SENT_WITHIN_SEC. */
-const SENT_LAUNCH_BUY_PCT = 90;
+/** Mints to the launch wallet after launch answer hold from this share of today's supply (cbBTC's one-unit test mint does not). */
+export const CREATOR_MINT_HOLD_PCT = 1;
+/** Had sent out at least this share of the tokens it received at launch within SENT_WITHIN_SEC of the launch. */
+const SENT_LAUNCH_SHARE = 0.9;
 const SENT_WITHIN_SEC = 3600;
+/** Sends read for the launch tokens: the day after the launch. */
 const SENT_WINDOW_SEC = 86_400;
 /** Mints and launch-wallet transfers are read from their first PAGE records. */
 const PAGE = 100;
@@ -62,7 +77,7 @@ export interface TokenCheck {
     creator: string | null;
     /** The contract the launch transaction called (a factory, router or EntryPoint); null for a direct deploy. */
     via: string | null;
-    launcher: 'clanker' | null;
+    launcher: 'clanker' | 'virtuals' | null;
     launcher_note: string | null;
   } | null;
   creator: {
@@ -75,14 +90,20 @@ export interface TokenCheck {
     first_funder: WalletLookup['first_funder'];
     /** Share of the current supply the launch wallet holds now, in percent. */
     holds_pct: number | null;
-    /** Tokens it received in the launch transaction (a dev buy or an allocation), and how much of that it sent on within a day. */
-    launch_tokens: { received: number; sent_pct: number; first_send_after_sec: number | null } | null;
+    /**
+     * Tokens it received in the launch transaction (a dev buy or an allocation), and what it
+     * sent on within a day: the share, its first send, and when 90% of it had gone. Null when
+     * it got none, or was also minted to in the launch transaction (its sends could be that).
+     */
+    launch_tokens: { received: number; sent_pct: number; first_send_after_sec: number | null; sent_90pct_after_sec: number | null } | null;
   } | null;
   supply: {
     /** Mints after the first issuance (the transaction of the first mint). A floor when `capped`. */
     mints_after_launch: number;
     minted_after_launch: number | null;
+    /** How many of those mints went to the launch wallet, and how many tokens they made. */
     to_creator: number;
+    minted_to_creator: number | null;
     capped: boolean;
   };
   flags: TokenFlag[];
@@ -96,6 +117,8 @@ export interface TokenTransfer {
   hash: string;
   blockNum?: string;
   value?: number | null;
+  /** The amount in raw units, as hex; Alchemy leaves `value` null for tokens it has no decimals for. */
+  rawContract?: { value?: string | null };
   metadata?: { blockTimestamp?: string };
 }
 
@@ -108,6 +131,8 @@ const LIMITS =
   'On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints and launch-wallet transfers are read from their first 100 records. no_flags means none of these checks matched; it is not a clearance.';
 const CLANKER_NOTE =
   "Launched through Clanker's current factory, which deploys every token from one verified template with no owner mint, pause, blacklist or transfer tax.";
+const VIRTUALS_NOTE =
+  "A Virtuals agent token: created when its prototype graduated from Virtuals' bonding curve, inside another wallet's purchase. The wallet that launched it is the prototype's creator, as Virtuals' Bonding contract records it.";
 
 const hex = (n: number) => `0x${n.toString(16)}`;
 const hexToNumber = (h: unknown) => (typeof h === 'string' && h.startsWith('0x') && h !== '0x' ? Number(BigInt(h)) : 0);
@@ -192,21 +217,44 @@ async function searchLaunch(token: string, deps: TokenCheckDeps, hi: number): Pr
   return { block, tx: hit ? hit.transactionHash.toLowerCase() : null, time };
 }
 
-/** The wallet behind the launch transaction: its sender, or the one smart wallet a bundle executed. */
-async function findCreator(deps: TokenCheckDeps, txHash: string): Promise<{ creator: string | null; via: string | null }> {
-  const tx = (await deps.rpc('eth_getTransactionByHash', [txHash])) as { from?: string; to?: string | null } | null;
-  if (!tx?.from) return { creator: null, via: null };
+const wordAddr = (w: string | undefined) => (w && w.length >= 40 ? `0x${w.slice(-40).toLowerCase()}` : null);
+
+/**
+ * The wallet behind the launch transaction: its sender; the one smart wallet a bundle executed;
+ * or, for a Virtuals agent token, the prototype's creator (the sender was a buyer).
+ */
+async function findCreator(
+  deps: TokenCheckDeps,
+  txHash: string,
+  token: string,
+): Promise<{ creator: string | null; via: string | null; launcher: 'virtuals' | null }> {
+  const [tx, receipt] = await Promise.all([
+    deps.rpc('eth_getTransactionByHash', [txHash]) as Promise<{ from?: string; to?: string | null } | null>,
+    deps.rpc('eth_getTransactionReceipt', [txHash]) as Promise<{ logs?: Array<{ address: string; topics?: string[]; data?: string }> } | null>,
+  ]);
+  if (!tx?.from) return { creator: null, via: null, launcher: null };
+  const logs = receipt?.logs ?? [];
+  const graduation = logs.find(
+    (l) => lower(l.address) === VIRTUALS_BONDING && l.topics?.[0]?.toLowerCase() === GRADUATED && wordAddr(l.data?.slice(2, 66)) === token,
+  );
+  if (graduation) {
+    const prototype = wordAddr(graduation.topics?.[1]);
+    const info = prototype ? await safeCall(deps, VIRTUALS_BONDING, `${TOKEN_INFO}${pad(prototype)}`) : null;
+    const words = info?.slice(2).match(/.{64}/g) ?? [];
+    const recorded = wordAddr(words[1]) === prototype && wordAddr(words[3]) === token ? wordAddr(words[0]) : null;
+    // Unconfirmed, the launch wallet is unknown: the sender only bought.
+    return { creator: recorded && recorded !== ZERO ? recorded : null, via: VIRTUALS_BONDING, launcher: 'virtuals' };
+  }
   const via = lower(tx.to ?? null);
   if (via && ENTRY_POINTS.has(via)) {
-    const receipt = (await deps.rpc('eth_getTransactionReceipt', [txHash])) as { logs?: Array<{ address: string; topics?: string[] }> } | null;
     const senders = new Set(
-      (receipt?.logs ?? [])
+      logs
         .filter((l) => lower(l.address) === via && l.topics?.[0]?.toLowerCase() === USER_OPERATION_EVENT && l.topics[2])
-        .map((l) => `0x${l.topics![2]!.slice(26).toLowerCase()}`),
+        .map((l) => wordAddr(l.topics![2])!),
     );
-    return { creator: senders.size === 1 ? [...senders][0]! : null, via };
+    return { creator: senders.size === 1 ? [...senders][0]! : null, via, launcher: null };
   }
-  return { creator: tx.from.toLowerCase(), via };
+  return { creator: tx.from.toLowerCase(), via, launcher: null };
 }
 
 /** Raw units to token units, splitting whole and fraction in BigInt so large supplies stay exact. */
@@ -215,10 +263,30 @@ function scaleUnits(raw: bigint, decimals: number): number {
   return Number(raw / unit) + Number(raw % unit) / Number(unit);
 }
 
-/** Alchemy's amounts are floats: a sum of them, kept to the 15 digits a float holds exactly. */
-const sumValues = (ts: TokenTransfer[]) => Number(ts.reduce((s, t) => s + (typeof t.value === 'number' ? t.value : 0), 0).toPrecision(15));
+const rawOf = (t: TokenTransfer): bigint | null => {
+  const v = t.rawContract?.value;
+  return typeof v === 'string' && /^0x[0-9a-f]+$/i.test(v) ? BigInt(v) : null;
+};
+/** Raw units summed exactly, or null when a transfer lacks them. */
+const rawSum = (ts: TokenTransfer[]): bigint | null => {
+  let total = 0n;
+  for (const t of ts) {
+    const r = rawOf(t);
+    if (r === null) return null;
+    total += r;
+  }
+  return total;
+};
+/** Token units: exact from raw units when the decimals are known, else Alchemy's floats kept to the 15 digits a float holds. */
+function sumAmounts(ts: TokenTransfer[], decimals: number | null): number {
+  const raw = decimals !== null ? rawSum(ts) : null;
+  if (raw !== null) return scaleUnits(raw, decimals!);
+  return Number(ts.reduce((s, t) => s + (typeof t.value === 'number' ? t.value : 0), 0).toPrecision(15));
+}
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const amount = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+/** Two decimals, and tiny amounts to four significant digits, so a real mint never reads "0". */
+const amount = (n: number) =>
+  n > 0 && n < 0.01 ? n.toLocaleString('en-US', { maximumSignificantDigits: 4 }) : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const duration = (sec: number) => (sec < 120 ? plural(sec, 'second') : sec < 7200 ? plural(Math.round(sec / 60), 'minute') : plural(Math.round(sec / 3600), 'hour'));
 
 export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promise<TokenCheck> {
@@ -232,19 +300,20 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
     deps.rpc('eth_blockNumber', []),
   ]);
   const head = hexToNumber(headHex);
-  const decimals = decimalsHex ? Number(BigInt(decimalsHex)) : null;
+  const decimalsRead = decimalsHex ? Number(BigInt(decimalsHex)) : null;
+  const decimals = decimalsRead !== null && decimalsRead <= 77 ? decimalsRead : null;
   const supplyRaw = supplyHex ? BigInt(supplyHex) : null;
   const token_info = {
     name: decodeString(nameHex),
     symbol: decodeString(symbolHex),
-    decimals: decimals !== null && decimals <= 77 ? decimals : null,
-    total_supply: supplyRaw !== null && decimals !== null && decimals <= 77 ? scaleUnits(supplyRaw, decimals) : null,
+    decimals,
+    total_supply: supplyRaw !== null && decimals !== null ? scaleUnits(supplyRaw, decimals) : null,
   };
-  const empty = { mints_after_launch: 0, minted_after_launch: null, to_creator: 0, capped: false };
-  const stop = (flag: 'not_a_contract' | 'not_a_token'): TokenCheck => ({
+  const empty = { mints_after_launch: 0, minted_after_launch: null, to_creator: 0, minted_to_creator: null, capped: false };
+  const stop = (flag: 'not_a_contract' | 'not_a_token', reason: string = REASONS[flag]()): TokenCheck => ({
     token,
     chain: 'base',
-    verdict: { label: 'review', reason: REASONS[flag]() },
+    verdict: { label: 'review', reason },
     token_info,
     launch: null,
     creator: null,
@@ -255,28 +324,32 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
   });
   if (!hasCode(code)) return stop('not_a_contract');
   if (supplyRaw === null) return stop('not_a_token');
+  // An ERC-721 collection answers totalSupply() but has no decimals().
+  if (decimalsRead === null && BigInt((await safeCall(deps, token, SUPPORTS_ERC721)) ?? '0x0') === 1n) return stop('not_a_token', NFT_REASON);
 
   const launch0 = await findLaunch(token, deps, head);
   const [who, clankerHex] = await Promise.all([
-    launch0.tx ? findCreator(deps, launch0.tx) : Promise.resolve({ creator: null, via: null }),
+    launch0.tx ? findCreator(deps, launch0.tx, token) : Promise.resolve({ creator: null, via: null, launcher: null }),
     safeCall(deps, CLANKER_V4_FACTORY.toLowerCase(), `${TOKEN_DEPLOYMENT_INFO}${pad(token)}`),
   ]);
-  const isClanker = clankerRegistryMatches(clankerHex, token);
+  const launcher = clankerRegistryMatches(clankerHex, token) ? 'clanker' : who.launcher;
   const launch: NonNullable<TokenCheck['launch']> = {
     block: launch0.block,
     time: launch0.time,
     tx: launch0.tx,
     creator: who.creator,
     via: who.via,
-    launcher: isClanker ? 'clanker' : null,
-    launcher_note: isClanker ? CLANKER_NOTE : null,
+    launcher,
+    launcher_note: launcher === 'clanker' ? CLANKER_NOTE : launcher === 'virtuals' ? VIRTUALS_NOTE : null,
   };
   const creatorAddr = who.creator;
-  const transferBase = { fromBlock: '0x0', toBlock: 'latest', contractAddresses: [token], category: ['erc20'], order: 'asc', excludeZeroValue: false };
+  // Nothing precedes the launch, and reading from genesis made Alchemy fail on busy tokens.
+  const transferBase = { fromBlock: hex(launch.block), toBlock: 'latest', contractAddresses: [token], category: ['erc20'], order: 'asc', excludeZeroValue: false };
+  const mintsFrom = (block: number) => deps.transfers({ ...transferBase, fromBlock: hex(block), fromAddress: ZERO, maxCount: hex(PAGE), withMetadata: false });
 
   const [wallet, mintsPage, balanceHex, inflows, outflows] = await Promise.all([
     creatorAddr ? lookupWallet(creatorAddr, 'base', deps) : Promise.resolve(null),
-    deps.transfers({ ...transferBase, fromAddress: ZERO, maxCount: hex(PAGE), withMetadata: false }),
+    mintsFrom(launch.block),
     creatorAddr ? safeCall(deps, token, `${SEL.balanceOf}${pad(creatorAddr)}`) : Promise.resolve(null),
     creatorAddr && launch.tx ? deps.transfers({ ...transferBase, toAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null),
     creatorAddr && launch.tx ? deps.transfers({ ...transferBase, fromAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null),
@@ -285,21 +358,35 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
   // Supply: every mint after the transaction of the first mint (the first issuance).
   const mints = mintsPage.transfers;
   const firstIssuance = mints[0]?.hash.toLowerCase();
-  const later = mints.filter((m) => m.hash.toLowerCase() !== firstIssuance);
+  let later = mints.filter((m) => m.hash.toLowerCase() !== firstIssuance);
+  let capped = mints.length >= PAGE;
+  if (capped && later.length === 0 && mints[0]?.blockNum) {
+    // The whole page is the first issuance (an airdrop-style launch): read on from the next block.
+    const next = (await mintsFrom(hexToNumber(mints[0].blockNum) + 1)).transfers;
+    later = next.filter((m) => m.hash.toLowerCase() !== firstIssuance);
+    capped = next.length >= PAGE;
+  }
+  const laterToCreator = creatorAddr ? later.filter((m) => lower(m.to) === creatorAddr) : [];
   const supply: TokenCheck['supply'] = {
     mints_after_launch: later.length,
-    minted_after_launch: later.length ? sumValues(later) : null,
-    to_creator: creatorAddr ? later.filter((m) => lower(m.to) === creatorAddr).length : 0,
-    capped: mints.length >= PAGE,
+    minted_after_launch: later.length ? sumAmounts(later, decimals) : null,
+    to_creator: laterToCreator.length,
+    minted_to_creator: laterToCreator.length ? sumAmounts(laterToCreator, decimals) : null,
+    capped,
   };
+  const creatorMintPct = mintSharePct(laterToCreator, supplyRaw, supply.minted_to_creator, token_info.total_supply);
 
   let creator: TokenCheck['creator'] = null;
+  let sentPctAt90: number | null = null;
   if (creatorAddr && wallet) {
     const launchMs = launch.time ? new Date(launch.time).getTime() : null;
     const firstSeenMs = wallet.first_seen ? new Date(wallet.first_seen).getTime() : null;
-    const age = launchMs !== null && firstSeenMs !== null ? Math.max(0, Math.floor((launchMs - firstSeenMs) / 86_400_000)) : null;
+    // First seen after the launch: its funding came by a path the transfers do not show, so its age is unknown.
+    const age = launchMs !== null && firstSeenMs !== null && firstSeenMs <= launchMs ? Math.floor((launchMs - firstSeenMs) / 86_400_000) : null;
     const balance = balanceHex ? BigInt(balanceHex) : null;
     const holds_pct = balance !== null && supplyRaw > 0n ? Number((balance * 10_000n) / supplyRaw) / 100 : null;
+    const lt = launchTokens(launch, launchMs, inflows?.transfers ?? [], outflows?.transfers ?? [], decimals);
+    sentPctAt90 = lt?.pctAt90 ?? null;
     creator = {
       address: creatorAddr,
       type: wallet.type,
@@ -309,7 +396,7 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
       sent_txs: wallet.sent_txs,
       first_funder: wallet.first_funder,
       holds_pct,
-      launch_tokens: launchTokens(launch, launchMs, inflows?.transfers ?? [], outflows?.transfers ?? []),
+      launch_tokens: lt?.result ?? null,
     };
   }
 
@@ -317,12 +404,10 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
   if (!launch.tx || !creatorAddr) flags.push('launch_unknown');
   if (creator?.sanctioned) flags.push('creator_sanctioned');
   if (wallet?.flags.includes('funded_by_sanctioned')) flags.push('creator_funded_by_sanctioned');
-  if (supply.to_creator > 0) flags.push('creator_minted_after_launch');
+  if (creatorMintPct !== null && creatorMintPct >= CREATOR_MINT_HOLD_PCT) flags.push('creator_minted_after_launch');
   else if (supply.mints_after_launch > 0) flags.push('minted_after_launch');
   const lb = creator?.launch_tokens;
-  if (lb && lb.sent_pct >= SENT_LAUNCH_BUY_PCT && lb.first_send_after_sec !== null && lb.first_send_after_sec <= SENT_WITHIN_SEC) {
-    flags.push('creator_sent_launch_tokens');
-  }
+  if (lb && lb.sent_90pct_after_sec !== null && lb.sent_90pct_after_sec <= SENT_WITHIN_SEC) flags.push('creator_sent_launch_tokens');
   if (creator?.holds_pct !== null && creator?.holds_pct !== undefined && creator.holds_pct >= LARGE_SHARE_PCT) flags.push('creator_holds_large_share');
   if (creator?.age_days_at_launch !== null && creator?.age_days_at_launch !== undefined && creator.age_days_at_launch < NEW_CREATOR_DAYS) {
     flags.push('new_creator');
@@ -332,7 +417,7 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
   return {
     token,
     chain: 'base',
-    verdict: verdictFor(flags, { supply, creator }),
+    verdict: verdictFor(flags, { supply, creator, creatorMintPct, sentPctAt90 }),
     token_info,
     launch,
     creator,
@@ -351,54 +436,87 @@ function clankerRegistryMatches(result: string | null, token: string): boolean {
   return asAddr(words[0]) === token || (words[0] !== undefined && BigInt(`0x${words[0]}`) === 32n && asAddr(words[1]) === token);
 }
 
-/** What the launch wallet did with tokens it received in the launch transaction (not minted to it). */
+/** The share of today's supply the mints made, in percent: from raw units, else from token amounts. */
+function mintSharePct(ts: TokenTransfer[], supplyRaw: bigint, amountMinted: number | null, totalSupply: number | null): number | null {
+  if (!ts.length) return null;
+  const raw = rawSum(ts);
+  if (raw !== null) return supplyRaw > 0n ? Number((raw * 10_000n) / supplyRaw) / 100 : 100;
+  if (amountMinted !== null && totalSupply) return Math.round((amountMinted / totalSupply) * 10_000) / 100;
+  return 100;
+}
+
+/**
+ * What the launch wallet did with tokens it received in the launch transaction from other
+ * wallets (not minted to it): how much it sent on within a day, its first send, and when 90%
+ * had gone. A wallet also minted to in that transaction is not judged: its sends could be that.
+ */
 function launchTokens(
   launch: NonNullable<TokenCheck['launch']>,
   launchMs: number | null,
   inflows: TokenTransfer[],
   outflows: TokenTransfer[],
-): NonNullable<TokenCheck['creator']>['launch_tokens'] {
-  const received = sumValues(inflows.filter((t) => t.hash.toLowerCase() === launch.tx && t.from.toLowerCase() !== ZERO));
+  decimals: number | null,
+): { result: NonNullable<NonNullable<TokenCheck['creator']>['launch_tokens']>; pctAt90: number | null } | null {
+  const inLaunch = inflows.filter((t) => t.hash.toLowerCase() === launch.tx);
+  if (launchMs === null || inLaunch.some((t) => t.from.toLowerCase() === ZERO)) return null;
+  const received = sumAmounts(inLaunch, decimals);
   if (received <= 0) return null;
   const sends = outflows
-    .map((t) => ({ value: typeof t.value === 'number' ? t.value : 0, ms: t.metadata?.blockTimestamp ? new Date(t.metadata.blockTimestamp).getTime() : null }))
-    .filter((t) => t.ms !== null && launchMs !== null && t.ms >= launchMs && t.ms - launchMs <= SENT_WINDOW_SEC * 1000);
-  const sent = sends.reduce((s, t) => s + t.value, 0);
-  const firstMs = sends.length ? Math.min(...sends.map((t) => t.ms!)) : null;
+    .map((t) => ({ value: sumAmounts([t], decimals), ms: t.metadata?.blockTimestamp ? new Date(t.metadata.blockTimestamp).getTime() : null }))
+    .filter((t): t is { value: number; ms: number } => t.ms !== null && t.ms >= launchMs && t.ms - launchMs <= SENT_WINDOW_SEC * 1000)
+    .sort((a, b) => a.ms - b.ms);
+  let sent = 0;
+  let at90: { ms: number; pct: number } | null = null;
+  for (const t of sends) {
+    sent += t.value;
+    if (!at90 && sent >= received * SENT_LAUNCH_SHARE) at90 = { ms: t.ms, pct: Math.min(100, Math.round((sent / received) * 100)) };
+  }
+  const sec = (ms: number) => Math.round((ms - launchMs) / 1000);
   return {
-    received,
-    sent_pct: Math.min(100, Math.round((sent / received) * 100)),
-    first_send_after_sec: firstMs !== null && launchMs !== null ? Math.round((firstMs - launchMs) / 1000) : null,
+    result: {
+      received,
+      sent_pct: Math.min(100, Math.round((sent / received) * 100)),
+      first_send_after_sec: sends.length ? sec(sends[0]!.ms) : null,
+      sent_90pct_after_sec: at90 ? sec(at90.ms) : null,
+    },
+    pctAt90: at90?.pct ?? null,
   };
 }
 
+const NFT_REASON = 'This contract is an ERC-721 collection (NFTs), not an ERC-20 token.';
 const REASONS = {
   not_a_contract: () => 'There is no contract at this address on Base, so it is not a token.',
   not_a_token: () => 'This contract does not answer totalSupply(), so it is not an ERC-20 token.',
 };
 
-function verdictFor(flags: TokenFlag[], ctx: { supply: TokenCheck['supply']; creator: TokenCheck['creator'] }): TokenCheck['verdict'] {
+function verdictFor(
+  flags: TokenFlag[],
+  ctx: { supply: TokenCheck['supply']; creator: TokenCheck['creator']; creatorMintPct: number | null; sentPctAt90: number | null },
+): TokenCheck['verdict'] {
   const { supply, creator } = ctx;
   const atLeast = supply.capped ? 'at least ' : '';
   if (flags.includes('creator_sanctioned')) return { label: 'hold', reason: 'The wallet that launched it is on the US Treasury OFAC SDN list.' };
   if (flags.includes('creator_funded_by_sanctioned')) {
     return { label: 'hold', reason: 'The wallet that launched it got its first funds from an address on the OFAC SDN list.' };
   }
-  if (flags.includes('creator_minted_after_launch')) {
-    const added = supply.minted_after_launch !== null ? ` added ${amount(supply.minted_after_launch)} tokens, and` : ' followed, and';
+  if (flags.includes('creator_minted_after_launch') && supply.minted_to_creator !== null && ctx.creatorMintPct !== null) {
     return {
       label: 'hold',
-      reason: `After the first issuance, ${atLeast}${plural(supply.mints_after_launch, 'more mint')}${added} ${supply.to_creator} of them minted to the wallet that launched it.`,
+      reason: `After the first issuance, ${atLeast}${amount(supply.minted_to_creator)} more tokens were minted to the wallet that launched it in ${atLeast}${plural(supply.to_creator, 'mint')}, ${amount(ctx.creatorMintPct)}% of the supply today.`,
     };
   }
-  if (flags.includes('minted_after_launch')) {
-    return { label: 'review', reason: `Tokens were minted ${atLeast}${plural(supply.mints_after_launch, 'time')} after the first issuance, so the supply can grow.` };
-  }
-  const lb = creator?.launch_tokens;
-  if (flags.includes('creator_sent_launch_tokens') && lb && lb.first_send_after_sec !== null) {
+  if (flags.includes('minted_after_launch') && supply.minted_after_launch !== null) {
+    const count = `${atLeast}${plural(supply.mints_after_launch, 'mint')}`;
     return {
       label: 'review',
-      reason: `The wallet that launched it received ${amount(lb.received)} tokens in the launch transaction and sent out ${lb.sent_pct}% of them ${duration(lb.first_send_after_sec)} later.`,
+      reason: `${count.charAt(0).toUpperCase()}${count.slice(1)} after the first issuance created ${atLeast}${amount(supply.minted_after_launch)} more tokens.`,
+    };
+  }
+  const lb = creator?.launch_tokens;
+  if (flags.includes('creator_sent_launch_tokens') && lb && lb.sent_90pct_after_sec !== null && ctx.sentPctAt90 !== null) {
+    return {
+      label: 'review',
+      reason: `The wallet that launched it received ${amount(lb.received)} tokens in the launch transaction and had sent out ${ctx.sentPctAt90}% of them ${duration(lb.sent_90pct_after_sec)} later.`,
     };
   }
   if (flags.includes('creator_holds_large_share') && creator?.holds_pct !== null && creator?.holds_pct !== undefined) {
@@ -406,7 +524,7 @@ function verdictFor(flags: TokenFlag[], ctx: { supply: TokenCheck['supply']; cre
   }
   if (flags.includes('new_creator') && creator?.age_days_at_launch !== null && creator?.age_days_at_launch !== undefined) {
     const d = creator.age_days_at_launch;
-    return { label: 'review', reason: `The wallet that launched it was first seen ${d === 0 ? 'the same day as the launch' : `${plural(d, 'day')} before the launch`}.` };
+    return { label: 'review', reason: `The wallet that launched it was first seen ${d === 0 ? 'less than a day' : plural(d, 'day')} before the launch.` };
   }
   if (flags.includes('creator_shared_funder')) {
     const n = creator?.first_funder?.funded_wallets ?? 0;
@@ -417,7 +535,7 @@ function verdictFor(flags: TokenFlag[], ctx: { supply: TokenCheck['supply']; cre
   }
   return {
     label: 'no_flags',
-    reason: "None of the checks matched: sanctions, supply after the first issuance, and the launch wallet's age, funder, holdings and launch-buy sales.",
+    reason: "None of the checks matched: sanctions, mints after the first issuance, and the launch wallet's age, funder, holdings and send-outs after launch.",
   };
 }
 

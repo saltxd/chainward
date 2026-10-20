@@ -34,7 +34,7 @@ const redis = vi.hoisted(() => {
     }),
   };
 });
-const checks = vi.hoisted(() => ({ calls: 0, mode: 'ok' as 'ok' | 'fail' | 'hang', last: '' }));
+const checks = vi.hoisted(() => ({ calls: 0, mode: 'ok' as 'ok' | 'fail' | 'hang', last: '', launchTime: '2026-02-02T15:21:13.000Z' as string | null }));
 
 vi.mock('../lib/redis.js', () => ({ getRedis: () => redis }));
 vi.mock('@chainward/decode', async (orig) => ({
@@ -44,7 +44,13 @@ vi.mock('@chainward/decode', async (orig) => ({
     checks.last = token;
     if (checks.mode === 'fail') throw new Error('eth_getCode: Your app has exceeded its compute units per second capacity');
     if (checks.mode === 'hang') return new Promise(() => {});
-    return { token: token.toLowerCase(), chain: 'base', verdict: { label: 'review', reason: 'The wallet that launched it was first seen the same day as the launch.' }, flags: ['new_creator'] };
+    return {
+      token: token.toLowerCase(),
+      chain: 'base',
+      verdict: { label: 'review', reason: 'The wallet that launched it was first seen less than a day before the launch.' },
+      launch: { time: checks.launchTime },
+      flags: ['new_creator'],
+    };
   }),
 }));
 
@@ -87,6 +93,8 @@ beforeEach(() => {
   checks.calls = 0;
   checks.mode = 'ok';
   checks.last = '';
+  checks.launchTime = '2026-02-02T15:21:13.000Z';
+  redis.set.mockClear();
   vi.useRealTimers();
 });
 
@@ -125,6 +133,18 @@ describe('GET /api/risk/rugcheck (x402)', () => {
     expect(challenge.resource.url).toBe('https://api.chainward.ai/api/risk/token');
   });
 
+  // The 402 body and the browser page offer free options; none of the wallet tools checks a token.
+  it("offers no unrelated free alternatives in its 402, and points to the rug check's docs", async () => {
+    const res = await paid.request(`/api/risk/rugcheck?token=${TOKEN}`, { headers: { Accept: 'application/json' } });
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(JSON.stringify(body)).not.toMatch(/attestation/);
+    expect(body.docs).toBe('https://chainward.ai/docs');
+    const html = await (await paid.request(`/api/risk/rugcheck?token=${TOKEN}`, { headers: { Accept: 'text/html', 'User-Agent': 'Mozilla/5.0' } })).text();
+    expect(html).toContain('ChainWard rug check');
+    expect(html).not.toContain('wallet-api');
+    expect(html).toContain('https://chainward.ai/docs');
+  });
+
   it('is listed in /.well-known/x402 and /openapi.json under both names', () => {
     const resources = x402DiscoveryDocument().resources;
     expect(resources).toContain('https://api.chainward.ai/api/risk/rugcheck');
@@ -133,6 +153,9 @@ describe('GET /api/risk/rugcheck (x402)', () => {
     expect(paths['/api/risk/rugcheck']!.get['x-payment-info'].price.amount).toBe('0.02');
     expect(paths['/api/risk/token']!.get['x-payment-info'].price.amount).toBe('0.02');
     expect(paths['/api/risk/rugcheck']!.get.description).toMatch(/not a honeypot/i);
+    // What a buyer pays for when the address is not a token, and the Virtuals case.
+    expect(paths['/api/risk/rugcheck']!.get.description).toMatch(/not_a_token[^.]*charged/);
+    expect(paths['/api/risk/rugcheck']!.get.description).toMatch(/Virtuals/);
   });
 });
 
@@ -154,6 +177,18 @@ describe('the token check handler', () => {
     await open.request(`/api/risk/rugcheck?token=${TOKEN}`);
     await open.request(`/api/risk/token?address=${TOKEN}`);
     expect(checks.calls).toBe(1);
+  });
+
+  // A launch-hour signal can change within minutes of launch, so a young token is re-read sooner.
+  it('keeps the answer for a token launched within the last two hours for one minute only', async () => {
+    checks.launchTime = new Date(Date.now() - 10 * 60_000).toISOString();
+    await open.request(`/api/risk/rugcheck?token=${TOKEN}`);
+    expect(redis.set).toHaveBeenCalledWith(`token-check:v1:base:${TOKEN}`, expect.any(String), 'EX', 60);
+  });
+
+  it('keeps an older token for ten minutes', async () => {
+    await open.request(`/api/risk/rugcheck?token=${TOKEN}`);
+    expect(redis.set).toHaveBeenCalledWith(`token-check:v1:base:${TOKEN}`, expect.any(String), 'EX', 600);
   });
 
   it('answers 503 naming no provider when the chain source fails', async () => {

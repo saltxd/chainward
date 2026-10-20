@@ -13,6 +13,13 @@ import { AppError } from '../middleware/errorHandler.js';
 // token, how, and what the launch wallet and the supply did afterwards, with a verdict.
 
 const CACHE_TTL_SEC = 600;
+// In a token's first hours the launch-hour send-out can change within minutes: re-read it sooner.
+const YOUNG_TOKEN_TTL_SEC = 60;
+const YOUNG_TOKEN_MS = 2 * 3_600_000;
+const ttlFor = (r: TokenCheck) => {
+  const launched = r.launch?.time ? Date.parse(r.launch.time) : Number.NaN;
+  return Number.isFinite(launched) && Date.now() - launched < YOUNG_TOKEN_MS ? YOUNG_TOKEN_TTL_SEC : CACHE_TTL_SEC;
+};
 // A check takes one to five seconds; a launch found by searching blocks, or a throttled
 // RPC, takes longer. Past this the caller gets a 504 (an x402 payment is not settled on
 // any error), and a check that finishes later still fills the cache.
@@ -29,7 +36,7 @@ async function cachedCheck(token: string): Promise<TokenCheck> {
   const rpcUrl = sellerDemandRpcUrl('base', process.env);
   if (!rpcUrl) throw new AppError(503, 'CHECK_UNAVAILABLE', 'The token check is not configured');
   const check = checkToken(token, alchemyTokenCheckDeps(rpcUrl)).then(async (result) => {
-    await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL_SEC);
+    await redis.set(cacheKey, JSON.stringify(result), 'EX', ttlFor(result));
     return result;
   });
   let timer: ReturnType<typeof setTimeout> | undefined;

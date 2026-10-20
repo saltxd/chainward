@@ -138,6 +138,31 @@ describe('lookupWallet', () => {
     expect(r.flags).toContain('contract');
   });
 
+  // An OptimismPortal deposit lists as a transfer from the wallet to itself: bridged from L1,
+  // with no funder to trace. Traced, its own sends made it a "shared funder" (VIRTUAL's deployer).
+  it('treats funds bridged in from L1 (a transfer from itself) as no funder', async () => {
+    const recipients = Array.from({ length: 14 }, (_, i) => ({ from: A, to: recipient(i), hash: `0x${i}`, metadata: { blockTimestamp: days(1) } }));
+    const r = await lookupWallet(A, 'base', {
+      ...deps({ nonce: { [A]: 30 } }),
+      transfers: async (params) => {
+        const q = params as { toAddress?: string; fromAddress?: string };
+        if (q.toAddress === A) return { transfers: [{ from: A, to: A, hash: '0xdeposit', metadata: { blockTimestamp: days(400) } }] };
+        if (q.fromAddress === A) return { transfers: recipients };
+        return { transfers: [] };
+      },
+    });
+    expect(r.first_funder).toBeNull();
+    expect(r.flags).not.toContain('shared_funder');
+    expect(r.age_days).toBe(400);
+  });
+
+  // EIP-7702: an EOA that delegates to a contract carries 0xef0100 + the delegate as its code.
+  it('calls an EIP-7702 delegated EOA a wallet, not a contract', async () => {
+    const r = await lookupWallet(A, 'base', deps({ code: { [A]: `0xef0100${'ab'.repeat(20)}` }, nonce: { [A]: 12, [FUNDER]: 3 }, firstIn: { from: FUNDER, ts: days(90), hash: '0x9' } }));
+    expect(r.type).toBe('wallet');
+    expect(r.flags).not.toContain('contract');
+  });
+
   // Bridge fills, disperse contracts and smart wallets pay ETH by internal call. HOOK's
   // launch wallet got 1.02 ETH that way 42 minutes before the launch; read without
   // internal transfers, its first funder was the pool it bought from at launch.

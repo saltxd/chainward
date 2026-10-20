@@ -162,7 +162,7 @@ const TOKEN_CHECK_OUTPUT_EXAMPLE = {
     chain: 'base',
     verdict: {
       label: 'review',
-      reason: 'The wallet that launched it received 6,416,006,425.89 tokens in the launch transaction and sent out 100% of them 26 seconds later.',
+      reason: 'The wallet that launched it received 6,416,006,425.89 tokens in the launch transaction and had sent out 100% of them 26 seconds later.',
     },
     token_info: {
       name: 'Clanker hook',
@@ -198,16 +198,18 @@ const TOKEN_CHECK_OUTPUT_EXAMPLE = {
         received: 6416006425.8854265,
         sent_pct: 100,
         first_send_after_sec: 26,
+        sent_90pct_after_sec: 26,
       },
     },
     supply: {
       mints_after_launch: 0,
       minted_after_launch: null,
       to_creator: 0,
+      minted_to_creator: null,
       capped: false,
     },
     flags: ['creator_sent_launch_tokens', 'new_creator'],
-    as_of_block: 52838768,
+    as_of_block: 52840675,
     limits: 'On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints and launch-wallet transfers are read from their first 100 records. no_flags means none of these checks matched; it is not a clearance.',
   },
 };
@@ -359,7 +361,7 @@ export function apiHomePage(): string {
 <li><code>GET /api/risk/hires?agent=&lt;ERC-8004 id or owner 0x…&gt;&amp;chain=bsc</code> (${x402HiresPrice()}): who hired a BNB Chain agent in the last ${HIRE_WINDOW_DAYS} days, and whether each hirer is the owner, funded by it, or shares a funder with it (Set and Earn).</li>
 <li><code>GET /api/risk/sanctions?address=0x…</code> (${x402SanctionsPrice()}): is the address on the US Treasury OFAC SDN list. Hold if it is; Not listed otherwise. Call it before every payment.</li>
 <li><code>GET /api/risk/wallet?address=0x…</code> (add <code>&amp;chain=bsc</code>) (${x402WalletPrice()}): a fast wallet lookup: sanctions, age, last activity, balances and who first funded it, with a hold / review / no_flags verdict. Free with an API key at <code>GET /v1/wallet/0x…</code>, 1,000 lookups a month.</li>
-<li><code>GET /api/risk/rugcheck?token=0x…</code> (${x402TokenCheckPrice()}): a rug check on a Base token's launch: who launched it and how, mints after the first issuance, and what the launch wallet did with the tokens it got, with a hold / review / no_flags verdict. Not a honeypot or liquidity check.</li>
+<li><code>GET /api/risk/rugcheck?token=0x…</code> (${x402TokenCheckPrice()}): a rug check on a Base token's launch: who launched it and how (Clanker and Virtuals launches named), mints after the first issuance, and whether the launch wallet sent out most of the tokens it got at launch within the hour, with a hold / review / no_flags verdict. Not a honeypot or liquidity check.</li>
 <li><code>GET /api/paid/{slug}/check?address=</code>: is one wallet in a dataset, and at what tier (${x402LookupPrice()}).</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
@@ -678,7 +680,7 @@ function x402OpenApiBase() {
           operationId: 'tokenRugCheck',
           summary: 'Rug check for a Base token: who launched it and what the launch wallet and the supply did after, with a hold / review / no_flags verdict',
           description:
-            "For an ERC-20 token on Base: the launch block and transaction, the wallet that sent it (a smart wallet behind an ERC-4337 bundle is named), and Clanker's factory when its registry confirms the token. Then the launch wallet: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, and whether it sent out the tokens it received at launch within the hour. And the supply: mints after the first issuance, and how many went to the launch wallet. hold if the launch wallet or its first funder is sanctioned, or more of the token was minted to it after launch; review for later mints, a fast send-out, a large holding, a new launch wallet, a shared funder or a launch it could not trace; no_flags otherwise, which is not a clearance. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. The launch wallet can be a bot, relayer or launch service acting for someone else. Not charged if the check fails.",
+            "For an ERC-20 token on Base: the launch block and transaction and the wallet that launched it: the sender, the smart wallet behind an ERC-4337 bundle, or for a Virtuals agent token the prototype's creator (a buyer's purchase graduates it). Clanker's factory and Virtuals' bonding curve are named when their contracts confirm the token. Then the launch wallet: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, and whether it had sent out 90% or more of the tokens it received at launch within the hour. And the supply: mints after the first issuance, and how many went to the launch wallet. hold if the launch wallet or its first funder is sanctioned, or mints after launch gave it 1% or more of today's supply; review for other mints after launch, a fast send-out, a large holding, a new launch wallet, a shared funder or a launch it could not trace; no_flags otherwise, which is not a clearance. An address with no contract, or a contract that is not an ERC-20 (an NFT collection, say), answers review with not_a_contract or not_a_token, and that answer is charged. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. The launch wallet can be a bot or launch service acting for someone else. Not charged if the check fails.",
           parameters: [
             {
               name: 'token',
@@ -933,6 +935,8 @@ interface PaywallExtras {
   links?: Array<{ label: string; href: string }>;
   /** True when the page itself sells this in the browser, so it never says a browser can't pay. */
   buyInBrowser?: boolean;
+  /** True when the wallet tools in DEFAULT_FREE_LINKS are no way to the same answer. */
+  onlyLinks?: boolean;
 }
 
 const DEFAULT_FREE_LINKS = [
@@ -952,7 +956,7 @@ function browserPaywallHtml(config: RouteConfig, extras: PaywallExtras = {}): st
   const price = escapeHtml(String(accepts?.price ?? ''));
   const unit = escapeHtml(extras.unit ?? 'per call');
   const description = escapeHtml(config.description ?? '');
-  const links = [...(extras.links ?? []), ...DEFAULT_FREE_LINKS]
+  const links = [...(extras.links ?? []), ...(extras.onlyLinks ? [] : DEFAULT_FREE_LINKS)]
     .map((l) => `<li>${escapeHtml(l.label)}: <a href="${escapeHtml(l.href)}">${escapeHtml(l.href)}</a></li>`)
     .join('\n');
   const browserLine = extras.buyInBrowser
@@ -1001,6 +1005,9 @@ function paywallExtras(routeKey: string): PaywallExtras {
   if (routeKey === SELLER_DEMAND_ROUTE) {
     return { links: [{ label: 'Free weekly board of the top x402 sellers on Base', href: 'https://chainward.ai/x402' }] };
   }
+  if (routeKey === RUGCHECK_ROUTE || routeKey === TOKEN_ALIAS_ROUTE) {
+    return { links: [{ label: 'What the rug check reads, and what it does not', href: 'https://chainward.ai/docs' }], onlyLinks: true };
+  }
   return {};
 }
 
@@ -1033,6 +1040,10 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     description: string;
     tags: string[];
     whatYouGet: string;
+    /** Free ways to the same answer for the 402 body; null when there are none. Default: the attestation and the web check. */
+    freeAlternatives?: Record<string, string> | null;
+    /** Where the 402 body sends readers. Default: the attestation docs. */
+    docs?: string;
   }
   const counterparty: Product = {
     price: x402CheckPrice(),
@@ -1065,10 +1076,12 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402TokenCheckPrice(),
     serviceName: 'ChainWard rug check',
     description:
-      "Rug check for a Base token before you buy it: who launched it and how (Clanker's factory named when its registry confirms it), mints after the first issuance and to whom, and what the launch wallet did: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, and whether it sent out the tokens it received at launch within the hour. Verdict hold / review / no_flags with one reason. Not a honeypot, liquidity or holder check.",
+      "Rug check for a Base token before you buy it: who launched it and how (Clanker's factory and Virtuals' bonding curve named when their contracts confirm it), mints after the first issuance and how many went to the launch wallet, and what the launch wallet did: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, and whether it sent out 90% or more of the tokens it received at launch within the hour. Verdict hold / review / no_flags with one reason. Not a honeypot, liquidity or holder check.",
     tags: ['base', 'token', 'erc20', 'rugcheck', 'rug', 'launch', 'creator', 'deployer', 'mint', 'clanker', 'memecoin', 'due-diligence', 'agents', 'trading'],
     whatYouGet:
-      'A verdict (hold / review / no_flags) with its reason, then the launch (block, transaction, launch wallet, launcher), the launch wallet facts and the supply after launch, JSON. Cached for ten minutes. Not charged if the check fails.',
+      'A verdict (hold / review / no_flags) with its reason, then the launch (block, transaction, launch wallet, launcher), the launch wallet facts and the supply after launch, JSON. Cached for ten minutes (one minute for a token under two hours old). Not charged if the check fails.',
+    freeAlternatives: null,
+    docs: 'https://chainward.ai/docs',
   };
   const tokenSchema = (name: 'token' | 'address') => ({
     type: 'object',
@@ -1145,11 +1158,15 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
         network: 'base',
         asset: 'USDC',
         what_you_get: product.whatYouGet,
-        free_alternatives: {
-          latest_attestation: 'GET https://api.chainward.ai/api/risk/attestation/<address>',
-          web_check: 'https://chainward.ai',
-        },
-        docs: 'https://github.com/saltxd/chainward/blob/main/docs/ATTEST.md',
+        ...(product.freeAlternatives === null
+          ? {}
+          : {
+              free_alternatives: product.freeAlternatives ?? {
+                latest_attestation: 'GET https://api.chainward.ai/api/risk/attestation/<address>',
+                web_check: 'https://chainward.ai',
+              },
+            }),
+        docs: product.docs ?? 'https://github.com/saltxd/chainward/blob/main/docs/ATTEST.md',
       },
     }),
   });
