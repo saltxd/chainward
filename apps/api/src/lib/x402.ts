@@ -178,6 +178,7 @@ const TOKEN_CHECK_OUTPUT_EXAMPLE = {
       via: '0xe85a59c628f7d27878aceb4bf3b35733630083a9',
       launcher: 'clanker',
       launcher_note: "Launched through Clanker's current factory, which deploys every token from one verified template with no owner mint, pause, blacklist or transfer tax.",
+      token_admin: '0xdbd1c0e6c6252492bd5b99da162558de7f08d68b',
     },
     creator: {
       address: '0xdbd1c0e6c6252492bd5b99da162558de7f08d68b',
@@ -200,6 +201,7 @@ const TOKEN_CHECK_OUTPUT_EXAMPLE = {
         first_send_after_sec: 26,
         sent_90pct_after_sec: 26,
       },
+      clanker_launches_24h: 1,
     },
     supply: {
       mints_after_launch: 0,
@@ -210,7 +212,7 @@ const TOKEN_CHECK_OUTPUT_EXAMPLE = {
     },
     flags: ['creator_sent_launch_tokens', 'new_creator'],
     as_of_block: 52840675,
-    limits: 'On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints and launch-wallet transfers are read from their first 100 records. no_flags means none of these checks matched; it is not a clearance.',
+    limits: 'On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints and launch-wallet transfers are read from their first 100 records; for a Clanker launch, the other launches of the launch wallet are the transactions it sent to the Clanker factory itself in the 24 hours up to this one. no_flags means none of these checks matched; it is not a clearance.',
   },
 };
 
@@ -361,7 +363,7 @@ export function apiHomePage(): string {
 <li><code>GET /api/risk/hires?agent=&lt;ERC-8004 id or owner 0x…&gt;&amp;chain=bsc</code> (${x402HiresPrice()}): who hired a BNB Chain agent in the last ${HIRE_WINDOW_DAYS} days, and whether each hirer is the owner, funded by it, or shares a funder with it (Set and Earn).</li>
 <li><code>GET /api/risk/sanctions?address=0x…</code> (${x402SanctionsPrice()}): is the address on the US Treasury OFAC SDN list. Hold if it is; Not listed otherwise. Call it before every payment.</li>
 <li><code>GET /api/risk/wallet?address=0x…</code> (add <code>&amp;chain=bsc</code>) (${x402WalletPrice()}): a fast wallet lookup: sanctions, age, last activity, balances and who first funded it, with a hold / review / no_flags verdict. Free with an API key at <code>GET /v1/wallet/0x…</code>, 1,000 lookups a month.</li>
-<li><code>GET /api/risk/rugcheck?token=0x…</code> (${x402TokenCheckPrice()}): a rug check on a Base token's launch: who launched it and how (Clanker and Virtuals launches named), mints after the first issuance, and whether the launch wallet sent out most of the tokens it got at launch within the hour, with a hold / review / no_flags verdict. Not a honeypot or liquidity check.</li>
+<li><code>GET /api/risk/rugcheck?token=0x…</code> (${x402TokenCheckPrice()}): a rug check on a Base token's launch: who launched it and how (Clanker and Virtuals launches named), mints after the first issuance, whether the launch wallet sent out most of the tokens it got at launch within the hour, and whether it is a serial launcher (dozens of Clanker tokens a day), with a hold / review / no_flags verdict. Not a honeypot or liquidity check.</li>
 <li><code>GET /api/paid/{slug}/check?address=</code>: is one wallet in a dataset, and at what tier (${x402LookupPrice()}).</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
@@ -680,7 +682,7 @@ function x402OpenApiBase() {
           operationId: 'tokenRugCheck',
           summary: 'Rug check for a Base token: who launched it and what the launch wallet and the supply did after, with a hold / review / no_flags verdict',
           description:
-            "For an ERC-20 token on Base: the launch block and transaction and the wallet that launched it: the sender, the smart wallet behind an ERC-4337 bundle, or for a Virtuals agent token the prototype's creator (a buyer's purchase graduates it). Clanker's factory and Virtuals' bonding curve are named when their contracts confirm the token. Then the launch wallet: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, and whether it had sent out 90% or more of the tokens it received at launch within the hour. And the supply: mints after the first issuance, and how many went to the launch wallet. hold if the launch wallet or its first funder is sanctioned, or mints after launch gave it 1% or more of today's supply; review for other mints after launch, a fast send-out, a large holding, a new launch wallet, a shared funder or a launch it could not trace; no_flags otherwise, which is not a clearance. An address with no contract, or a contract that is not an ERC-20 (an NFT collection, say), answers review with not_a_contract or not_a_token, and that answer is charged. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. The launch wallet can be a bot or launch service acting for someone else. Not charged if the check fails.",
+            "For an ERC-20 token on Base: the launch block and transaction and the wallet that launched it: the sender, the smart wallet behind an ERC-4337 bundle, or for a Virtuals agent token the prototype's creator (a buyer's purchase graduates it). Clanker's factory and Virtuals' bonding curve are named when their contracts confirm the token. Then the launch wallet: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, whether it had sent out 90% or more of the tokens it received at launch within the hour, and for a Clanker launch it made for itself, how many tokens it launched through Clanker in the 24 hours up to this one. When a service sent a Clanker launch for another wallet (Clanker's X bot, say), the token's admin is named as token_admin. And the supply: mints after the first issuance, and how many went to the launch wallet. hold if the launch wallet or its first funder is sanctioned, or mints after launch gave it 1% or more of today's supply; review for other mints after launch, a fast send-out, a large holding, a serial launcher (5 or more tokens through Clanker in 24 hours), a new launch wallet, a shared funder or a launch it could not trace; no_flags otherwise, which is not a clearance. An address with no contract, or a contract that is not an ERC-20 (an NFT collection, say), answers review with not_a_contract or not_a_token, and that answer is charged. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. The launch wallet can be a bot or launch service acting for someone else. Not charged if the check fails.",
           parameters: [
             {
               name: 'token',
@@ -1076,7 +1078,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402TokenCheckPrice(),
     serviceName: 'ChainWard rug check',
     description:
-      "Rug check for a Base token before you buy it: who launched it and how (Clanker's factory and Virtuals' bonding curve named when their contracts confirm it), mints after the first issuance and how many went to the launch wallet, and what the launch wallet did: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, and whether it sent out 90% or more of the tokens it received at launch within the hour. Verdict hold / review / no_flags with one reason. Not a honeypot, liquidity or holder check.",
+      "Rug check for a Base token before you buy it: who launched it and how (Clanker's factory and Virtuals' bonding curve named when their contracts confirm it), mints after the first issuance and how many went to the launch wallet, and what the launch wallet did: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, whether it sent out 90% or more of the tokens it received at launch within the hour, and how many tokens it launched through Clanker in the 24 hours up to this one. Verdict hold / review / no_flags with one reason. Not a honeypot, liquidity or holder check.",
     tags: ['base', 'token', 'erc20', 'rugcheck', 'rug', 'launch', 'creator', 'deployer', 'mint', 'clanker', 'memecoin', 'due-diligence', 'agents', 'trading'],
     whatYouGet:
       'A verdict (hold / review / no_flags) with its reason, then the launch (block, transaction, launch wallet, launcher), the launch wallet facts and the supply after launch, JSON. Cached for ten minutes (one minute for a token under two hours old). Not charged if the check fails.',
