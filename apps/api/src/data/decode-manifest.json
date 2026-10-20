@@ -1,6 +1,28 @@
 {
   "decodes": [
     {
+      "slug": "px402-private-payments",
+      "title": "Private Agent Payments Are Live, and the Pool Has One Paying User",
+      "subtitle": "Two weeks in, px402's pool on Base has two funded reserves, one of them PRXVT's own $1 test. Privacy needs a crowd.",
+      "date": "2026-10-19",
+      "url": "https://chainward.ai/decodes/px402-private-payments",
+      "addresses": [
+        "0xdd31c57e8f7cac78090a516292f0c9dea6c6119f",
+        "0xf48758770e9633cda7ca261ef59c41aecdad0023",
+        "0xa116959ffe4f64b82e294ef2209b34423c078e9f",
+        "0xb1025af12f16dce40b27057d22d0518674857ab8",
+        "0x3a647497dc0d0806991ada9752cafeee34553d1e",
+        "0x6f890cc63aa57da9695528c9f5e3434897b32b8e",
+        "0x6e3e7840ba3b991072eb09482513b17e51591a87",
+        "0x47e5499c44ecf8c78da82b9b64183df1e301a0b4",
+        "0x941204003dae596af0b78ac36d33fb8b9bd8bbc9",
+        "0x4f4ef46861ce93cc42a9352921130a85982561d2",
+        "0xd8f4212c2d13f77d29f7ce791182df8f765d20ce",
+        "0xe17bdf42f57d7050210a3ea9b7b30a98ad263f7e",
+        "0xa4416674f9cbd4b8986b315be5ef3a08a4c08285"
+      ]
+    },
+    {
       "slug": "x402-top-ten-self-funded",
       "title": "Three of the Top Ten x402 Sellers on Agent402's Board Pay Their Own Buyers",
       "subtitle": "On Oct 13, ranks 1, 5 and 7 on Agent402's 7-day x402 leaderboard were sellers whose buyers got their money from the seller. One of them runs a ring of 489 wallets through a facilitator.",
@@ -595,6 +617,45 @@
     }
   ],
   "byAddress": {
+    "0xdd31c57e8f7cac78090a516292f0c9dea6c6119f": [
+      "px402-private-payments"
+    ],
+    "0xf48758770e9633cda7ca261ef59c41aecdad0023": [
+      "px402-private-payments"
+    ],
+    "0xa116959ffe4f64b82e294ef2209b34423c078e9f": [
+      "px402-private-payments"
+    ],
+    "0xb1025af12f16dce40b27057d22d0518674857ab8": [
+      "px402-private-payments"
+    ],
+    "0x3a647497dc0d0806991ada9752cafeee34553d1e": [
+      "px402-private-payments"
+    ],
+    "0x6f890cc63aa57da9695528c9f5e3434897b32b8e": [
+      "px402-private-payments"
+    ],
+    "0x6e3e7840ba3b991072eb09482513b17e51591a87": [
+      "px402-private-payments"
+    ],
+    "0x47e5499c44ecf8c78da82b9b64183df1e301a0b4": [
+      "px402-private-payments"
+    ],
+    "0x941204003dae596af0b78ac36d33fb8b9bd8bbc9": [
+      "px402-private-payments"
+    ],
+    "0x4f4ef46861ce93cc42a9352921130a85982561d2": [
+      "px402-private-payments"
+    ],
+    "0xd8f4212c2d13f77d29f7ce791182df8f765d20ce": [
+      "px402-private-payments"
+    ],
+    "0xe17bdf42f57d7050210a3ea9b7b30a98ad263f7e": [
+      "px402-private-payments"
+    ],
+    "0xa4416674f9cbd4b8986b315be5ef3a08a4c08285": [
+      "px402-private-payments"
+    ],
     "0x589a2314a2e05f45e40c4823da3ba58d421db3d8": [
       "x402-top-ten-self-funded",
       "x402-on-base-two-weeks-later"
