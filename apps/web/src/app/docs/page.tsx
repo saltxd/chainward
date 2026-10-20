@@ -266,8 +266,12 @@ export default function DocsPage() {
                 it and how (Clanker&apos;s factory and Virtuals&apos; bonding curve are named when
                 their contracts confirm the token), mints after the first issuance and how many
                 went to the launch wallet, and what the launch wallet did: sanctions, its age at
-                launch, its first funder, the share of supply it holds, and whether it sent out
-                90% or more of the tokens it got at launch within the hour. Verdict{' '}
+                launch, its first funder, the share of supply it holds, whether it sent out 90%
+                or more of the tokens it got at launch within the hour, and how many tokens it
+                launched through Clanker in the 24 hours up to this one (5 or more answers{' '}
+                <code>review</code>). The token&apos;s admin at launch is named; when it is not
+                the launch wallet, as when Clanker&apos;s X bot launches for someone, its launches
+                are not counted. Verdict{' '}
                 <code>hold</code>, <code>review</code> or <code>no_flags</code>, which is not a
                 clearance. It is not a honeypot, liquidity or holder check. An address that is not
                 a token answers <code>not_a_contract</code> or <code>not_a_token</code>, and that

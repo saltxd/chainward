@@ -156,6 +156,9 @@ describe('GET /api/risk/rugcheck (x402)', () => {
     // What a buyer pays for when the address is not a token, and the Virtuals case.
     expect(paths['/api/risk/rugcheck']!.get.description).toMatch(/not_a_token[^.]*charged/);
     expect(paths['/api/risk/rugcheck']!.get.description).toMatch(/Virtuals/);
+    // Serial launchers and service launches are part of what the check reads.
+    expect(paths['/api/risk/rugcheck']!.get.description).toMatch(/serial launcher \(5 or more tokens through Clanker in 24 hours\)/);
+    expect(paths['/api/risk/rugcheck']!.get.description).toMatch(/token_admin/);
   });
 });
 
@@ -183,12 +186,12 @@ describe('the token check handler', () => {
   it('keeps the answer for a token launched within the last two hours for one minute only', async () => {
     checks.launchTime = new Date(Date.now() - 10 * 60_000).toISOString();
     await open.request(`/api/risk/rugcheck?token=${TOKEN}`);
-    expect(redis.set).toHaveBeenCalledWith(`token-check:v1:base:${TOKEN}`, expect.any(String), 'EX', 60);
+    expect(redis.set).toHaveBeenCalledWith(`token-check:v2:base:${TOKEN}`, expect.any(String), 'EX', 60);
   });
 
   it('keeps an older token for ten minutes', async () => {
     await open.request(`/api/risk/rugcheck?token=${TOKEN}`);
-    expect(redis.set).toHaveBeenCalledWith(`token-check:v1:base:${TOKEN}`, expect.any(String), 'EX', 600);
+    expect(redis.set).toHaveBeenCalledWith(`token-check:v2:base:${TOKEN}`, expect.any(String), 'EX', 600);
   });
 
   it('answers 503 naming no provider when the chain source fails', async () => {

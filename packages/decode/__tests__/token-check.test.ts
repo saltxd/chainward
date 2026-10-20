@@ -62,6 +62,22 @@ interface Chain {
   queries?: Array<Record<string, unknown>>;
   /** eth_calls the provider refuses ('registry', or a selector on the token), as a throttled RPC does. */
   failCalls?: string[];
+  /** ClankerToken originalAdmin(), the admin set at launch; null = it reverts. Default: the launch transaction's sender. */
+  originalAdmin?: string | null;
+  /** ClankerToken admin(), the current admin, which updateAdmin can change after launch. Default: originalAdmin. */
+  currentAdmin?: string;
+  /** Launch transactions to Clanker's factory in the 24 hours up to this launch, newest first (this launch's own first). */
+  factoryLaunches?: number;
+  /** More transactions to the factory, older than 24 hours before the launch. */
+  factoryOlder?: number;
+  /** This launch did not go straight from the launch wallet to the factory (a router or multicall in between). */
+  factoryOmitsLaunch?: boolean;
+  /** The wallet whose transactions to the factory exist. Default: the launch transaction's sender. */
+  factoryWallet?: string;
+  /** The asset-transfer read of the factory transactions fails, as a throttled provider does. */
+  failFactory?: boolean;
+  /** Every eth_call made, as `to:selector`. */
+  calls?: string[];
 }
 
 function deps(c: Chain, log: string[] = []): WalletLookupDeps {
@@ -97,6 +113,7 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         }
         case 'eth_call': {
           const [{ to, data }] = p as [{ to: string; data: string }];
+          c.calls?.push(`${to}:${data.slice(0, 10)}`);
           const key = to === CLANKER_V4_FACTORY.toLowerCase() ? 'registry' : to === TOKEN ? data.slice(0, 10) : null;
           if (key && c.failCalls?.includes(key)) throw new Error('eth_call: Your app has exceeded its compute units per second capacity');
           if (to === BONDING && data.startsWith('0xf5dab711') && c.virtualsCreator) {
@@ -120,6 +137,11 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
             if (data === '0x95d89b41') return abiString('CLK2');
             if (data === '0x06fdde03') return abiString('ClankerToken');
             if (data.startsWith('0x70a08231')) return `0x${word(c.creatorBalance ?? 0n)}`;
+            if (data === '0x1c7b2ff4') {
+              if (c.originalAdmin === null) throw new Error('execution reverted');
+              return `0x${(c.originalAdmin ?? c.launchTx?.from ?? CREATOR).slice(2).padStart(64, '0')}`;
+            }
+            if (data === '0xf851a440') return `0x${(c.currentAdmin ?? c.originalAdmin ?? c.launchTx?.from ?? CREATOR).slice(2).padStart(64, '0')}`;
           }
           return `0x${word(0n)}`; // USDC balanceOf in the wallet lookup
         }
@@ -157,6 +179,19 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         if (q.toAddress) list = list.filter((t) => t.to === q.toAddress);
         if (q.order === 'desc') list = [...list].reverse();
         return { transfers: list.slice(0, max).map(asAlchemy) };
+      }
+      // The launch wallet's own transactions to Clanker's factory, newest first, with block times.
+      if (q.toAddress === CLANKER_V4_FACTORY.toLowerCase()) {
+        if (c.failFactory) throw new Error('alchemy_getAssetTransfers: Your app has exceeded its compute units per second capacity');
+        const owner = c.factoryWallet ?? c.launchTx?.from ?? CREATOR;
+        if (q.fromAddress !== owner) return { transfers: [] };
+        const within = c.factoryLaunches ?? 0;
+        const rows: Array<{ hash: string; sec: number }> = [];
+        for (let i = 0; i < within; i++) rows.push({ hash: i === 0 && !c.factoryOmitsLaunch ? LAUNCH_TX : `0xl${i}`, sec: -Math.floor((i * 86_000) / within) });
+        for (let j = 0; j < (c.factoryOlder ?? 0); j++) rows.push({ hash: `0xo${j}`, sec: -86_400 - 3_600 * (j + 1) });
+        return {
+          transfers: rows.slice(0, max).map((r) => ({ from: owner, to: q.toAddress!, hash: r.hash, value: 0, metadata: { blockTimestamp: ts(LAUNCH_TIME, r.sec) } })),
+        };
       }
       // The wallet lookup of the creator and its funder (no contract filter).
       if (q.toAddress === CREATOR) {
@@ -566,5 +601,162 @@ describe('checkToken', () => {
   it('lowercases the token it was given', async () => {
     const r = await checkToken(TOKEN.toUpperCase().replace('0X', '0x'), deps({ transfers: [mint(CREATOR, 1, LAUNCH_BLOCK, LAUNCH_TX)] }));
     expect(r.token).toBe(TOKEN);
+  });
+
+  describe('serial launchers through Clanker', () => {
+    const OTHER = `0x${'a'.repeat(40)}`;
+    const DEAD = '0x000000000000000000000000000000000000dead';
+    const ENTRY_POINT = '0x0000000071727de22e5e9d8baf0edac6f37da032';
+    const USER_OP = '0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f';
+    const clankerLaunch = (extra: Partial<Chain> = {}) =>
+      deps({
+        clanker: true,
+        launchTx: { hash: LAUNCH_TX, from: CREATOR, to: CLANKER_V4_FACTORY.toLowerCase() },
+        transfers: [
+          mint(CLANKER_V4_FACTORY.toLowerCase(), 100_000_000_000, LAUNCH_BLOCK, LAUNCH_TX),
+          { from: POOL, to: CREATOR, value: 9_948.97, hash: LAUNCH_TX, block: LAUNCH_BLOCK, time: LAUNCH_TIME },
+        ],
+        creatorFirstInbound: { from: FUNDER, time: days(31), hash: '0xf1' },
+        ...extra,
+      });
+
+    // 0x1afab1f6...: two same-name tokens every 30 minutes, about 96 a day, admin and fee recipient of each.
+    it('answers review when the launch wallet launched many tokens through Clanker in the 24 hours up to this one', async () => {
+      const queries: Array<Record<string, unknown>> = [];
+      const r = await checkToken(TOKEN, clankerLaunch({ factoryLaunches: 96, queries }));
+      expect(r.flags).toContain('creator_serial_launcher');
+      expect(r.creator?.clanker_launches_24h).toBe(96);
+      expect(r.launch?.token_admin).toBe(CREATOR);
+      expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it launched 96 tokens through Clanker in the 24 hours up to and including this one.' });
+      const q = queries.find((x) => x.toAddress === CLANKER_V4_FACTORY.toLowerCase())!;
+      expect(q).toMatchObject({ fromAddress: CREATOR, category: ['external'], excludeZeroValue: false, order: 'desc', withMetadata: true });
+      // Wide enough for a day at 5 blocks a second (Denim); the day itself is cut by block time.
+      expect(q.fromBlock).toBe(`0x${(LAUNCH_BLOCK - 432_000).toString(16)}`);
+      expect(q.toBlock).toBe(`0x${LAUNCH_BLOCK.toString(16)}`);
+    });
+
+    it('does not flag a launch wallet below the threshold', async () => {
+      const r = await checkToken(TOKEN, clankerLaunch({ factoryLaunches: 4 }));
+      expect(r.flags).not.toContain('creator_serial_launcher');
+      expect(r.creator?.clanker_launches_24h).toBe(4);
+      expect(r.verdict.label).toBe('no_flags');
+    });
+
+    it('counts by block time, so launches older than 24 hours do not count', async () => {
+      const r = await checkToken(TOKEN, clankerLaunch({ factoryLaunches: 3, factoryOlder: 10 }));
+      expect(r.creator?.clanker_launches_24h).toBe(3);
+      expect(r.flags).not.toContain('creator_serial_launcher');
+    });
+
+    it('says at least when the launch count fills a page', async () => {
+      const r = await checkToken(TOKEN, clankerLaunch({ factoryLaunches: 5_000 }));
+      expect(r.creator?.clanker_launches_24h).toBe(1_000);
+      expect(r.verdict.reason).toBe('The wallet that launched it launched at least 1,000 tokens through Clanker in the 24 hours up to and including this one.');
+    });
+
+    // A launch through a router or multicall is not a transaction to the factory: the count would read too low.
+    it('leaves the count unknown when this launch did not go straight from the launch wallet to the factory', async () => {
+      const r = await checkToken(TOKEN, clankerLaunch({ factoryLaunches: 96, factoryOmitsLaunch: true }));
+      expect(r.creator?.clanker_launches_24h).toBeNull();
+      expect(r.flags).not.toContain('creator_serial_launcher');
+    });
+
+    it('leaves the count unknown for a smart-wallet launch through an EntryPoint', async () => {
+      const bundler = `0x${'b'.repeat(40)}`;
+      const smartWallet = `0x${'5'.repeat(40)}`;
+      const r = await checkToken(
+        TOKEN,
+        clankerLaunch({
+          launchTx: { hash: LAUNCH_TX, from: bundler, to: ENTRY_POINT },
+          launchReceiptLogs: [{ address: ENTRY_POINT, topics: [USER_OP, `0x${'a'.repeat(64)}`, topic(smartWallet), topic(ZERO)] }],
+          originalAdmin: smartWallet,
+          factoryLaunches: 96,
+        }),
+      );
+      expect(r.launch?.creator).toBe(smartWallet);
+      expect(r.creator?.clanker_launches_24h).toBeNull();
+    });
+
+    // Clanker's X bot sends the launch for whoever asked it; the admin at launch is that wallet.
+    it('names the admin at launch when it is not the launch wallet, and does not count the launches', async () => {
+      const r = await checkToken(TOKEN, clankerLaunch({ originalAdmin: OTHER, factoryLaunches: 500 }));
+      expect(r.launch?.token_admin).toBe(OTHER);
+      expect(r.launch?.launcher_note).toContain(`The token's admin at launch, ${OTHER}, is not the wallet that sent the launch`);
+      expect(r.launch?.launcher_note).toMatch(/describe the wallet that sent the launch/);
+      expect(r.flags).not.toContain('creator_serial_launcher');
+      expect(r.creator?.clanker_launches_24h).toBeNull();
+    });
+
+    // updateAdmin can renounce (to zero) or move the admin after launch; the verdict must not move with it.
+    it.each([
+      ['renounced', ZERO],
+      ['moved to a dead address', DEAD],
+      ['moved to another wallet', OTHER],
+    ])('reads the admin at launch, so an admin %s later does not change the answer', async (_how, now) => {
+      const r = await checkToken(TOKEN, clankerLaunch({ currentAdmin: now, factoryLaunches: 96 }));
+      expect(r.launch?.token_admin).toBe(CREATOR);
+      expect(r.flags).toContain('creator_serial_launcher');
+    });
+
+    it.each([
+      ['zero', ZERO],
+      ['unreadable', null],
+    ])('treats a %s admin at launch as a launch for the sender', async (_how, admin) => {
+      const r = await checkToken(TOKEN, clankerLaunch({ originalAdmin: admin, factoryLaunches: 96 }));
+      expect(r.launch?.token_admin).toBeNull();
+      expect(r.flags).toContain('creator_serial_launcher');
+    });
+
+    it('does not say a service launched it when the launch wallet is unknown', async () => {
+      const bundler = `0x${'b'.repeat(40)}`;
+      const r = await checkToken(
+        TOKEN,
+        clankerLaunch({
+          launchTx: { hash: LAUNCH_TX, from: bundler, to: ENTRY_POINT },
+          launchReceiptLogs: [
+            { address: ENTRY_POINT, topics: [USER_OP, `0x${'a'.repeat(64)}`, topic(`0x${'5'.repeat(40)}`), topic(ZERO)] },
+            { address: ENTRY_POINT, topics: [USER_OP, `0x${'d'.repeat(64)}`, topic(`0x${'6'.repeat(40)}`), topic(ZERO)] },
+          ],
+          originalAdmin: OTHER,
+        }),
+      );
+      expect(r.flags).toContain('launch_unknown');
+      expect(r.launch?.token_admin).toBe(OTHER);
+      expect(r.launch?.launcher_note).not.toMatch(/is not the wallet that sent the launch/);
+    });
+
+    it('neither reads an admin nor counts launches for a token Clanker did not launch', async () => {
+      const queries: Array<Record<string, unknown>> = [];
+      const calls: string[] = [];
+      const r = await checkToken(TOKEN, deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], factoryLaunches: 96, queries, calls }));
+      expect(r.launch?.token_admin).toBeNull();
+      expect(r.creator?.clanker_launches_24h).toBeNull();
+      expect(queries.some((x) => x.toAddress === CLANKER_V4_FACTORY.toLowerCase())).toBe(false);
+      expect(calls.some((c) => c.endsWith(':0x1c7b2ff4') || c.endsWith(':0xf851a440'))).toBe(false);
+    });
+
+    it('ranks a send-out within the hour ahead of serial launching', async () => {
+      const r = await checkToken(
+        TOKEN,
+        clankerLaunch({
+          factoryLaunches: 96,
+          transfers: [
+            mint(CLANKER_V4_FACTORY.toLowerCase(), 100_000_000_000, LAUNCH_BLOCK, LAUNCH_TX),
+            { from: POOL, to: CREATOR, value: 1_000, hash: LAUNCH_TX, block: LAUNCH_BLOCK, time: LAUNCH_TIME },
+            { from: CREATOR, to: POOL, value: 1_000, hash: '0xsell', block: LAUNCH_BLOCK + 30, time: ts(LAUNCH_TIME, 60) },
+          ],
+        }),
+      );
+      expect(r.flags).toEqual(expect.arrayContaining(['creator_sent_launch_tokens', 'creator_serial_launcher']));
+      expect(r.verdict.reason).toMatch(/had sent out 100% of them 60 seconds later/);
+    });
+
+    // A throttled read must not turn into a cached no_flags for a mill token: the API answers 503, uncharged.
+    it.each([
+      ['launch count', { failFactory: true }],
+      ['admin at launch', { failCalls: ['0x1c7b2ff4'] }],
+    ])('fails rather than guess when the provider refuses the %s read', async (_name, extra) => {
+      await expect(checkToken(TOKEN, clankerLaunch({ factoryLaunches: 96, ...extra }))).rejects.toThrow(/capacity/);
+    });
   });
 });

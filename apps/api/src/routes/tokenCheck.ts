@@ -30,7 +30,7 @@ export const tokenParam = (c: Context): string | undefined => c.req.query('token
 
 async function cachedCheck(token: string): Promise<TokenCheck> {
   const redis = getRedis();
-  const cacheKey = `token-check:v1:base:${token}`;
+  const cacheKey = `token-check:v2:base:${token}`;
   const hit = await redis.get(cacheKey);
   if (hit) return JSON.parse(hit) as TokenCheck;
   const rpcUrl = sellerDemandRpcUrl('base', process.env);
