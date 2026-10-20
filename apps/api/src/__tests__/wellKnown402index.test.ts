@@ -22,6 +22,9 @@ describe('GET /.well-known/x402list.txt', () => {
     const res = await app.request('/.well-known/x402list.txt');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toMatch(/^text\/plain/);
-    expect((await res.text()).split('\n')).toContain('x402list-verify-uDXyA03gPZK-Op9QDLyA6u0zuakvq4DckwYTY-c-imY');
+    const lines = (await res.text()).split('\n');
+    expect(lines).toContain('x402list-verify-uDXyA03gPZK-Op9QDLyA6u0zuakvq4DckwYTY-c-imY');
+    // 2026-10-20 update request: the rug check and the other paid routes.
+    expect(lines).toContain('x402list-verify-0HgDpL961ImJaGy-Epqb7XTII5rr7UCZ7vo1RgaY4po');
   });
 });
