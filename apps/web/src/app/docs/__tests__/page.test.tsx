@@ -45,7 +45,7 @@ describe('/docs', () => {
   it('says the rug check counts Clanker launches by the same wallet, and names the admin behind a service launch', () => {
     const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
     expect(paid).toMatch(/how many tokens it\s+launched through Clanker in the 24 hours up to this one/);
-    expect(paid).toMatch(/the token(&#x27;|')s admin is named/);
+    expect(paid).toMatch(/the token(&#x27;|')s admin at launch is named/i);
   });
 });
 

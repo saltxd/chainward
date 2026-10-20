@@ -14,13 +14,17 @@ import { alchemyAssetTransfers } from './seller-demand.js';
 /** Clanker's current factory; `tokenDeploymentInfo(token)` returns the token for its own launches. */
 export const CLANKER_V4_FACTORY = '0xE85A59c628F7d27878ACeB4bf3b35733630083a9';
 const TOKEN_DEPLOYMENT_INFO = '0x22adcdb1';
-/** ClankerToken's admin(): the wallet the launch was made for, which a launch service sends on its behalf. */
-const TOKEN_ADMIN = '0xf851a440';
+/**
+ * ClankerToken's originalAdmin(): the admin set at launch, the wallet the launch was made for (a launch
+ * service sends it on that wallet's behalf). Later updateAdmin calls change admin() but not this.
+ */
+const ORIGINAL_ADMIN = '0x1c7b2ff4';
 /** A launch wallet that launched at least this many tokens through Clanker in the 24 hours up to a launch is a serial launcher. */
 export const SERIAL_LAUNCHES_24H = 5;
-/** Base blocks in 24 hours, at 2 seconds a block. */
-const DAY_BLOCKS = 43_200;
-/** The launch wallet's transactions to Clanker's factory are read from their first this many records. */
+const DAY_SEC = 86_400;
+/** Blocks searched back for a day of launches: a day at 5 blocks a second (Base's Denim upgrade); the day itself is cut by block time. */
+const DAY_BLOCKS_MAX = 432_000;
+/** The launch wallet's transactions to Clanker's factory are read from their newest this many records. */
 const LAUNCH_COUNT_PAGE = 1000;
 /** ERC-4337 EntryPoints v0.6 to v0.9: a launch sent through one came from a smart wallet. */
 const ENTRY_POINTS = new Set([
@@ -89,8 +93,8 @@ export interface TokenCheck {
     launcher: 'clanker' | 'virtuals' | null;
     launcher_note: string | null;
     /**
-     * Clanker launches: the token's admin, the wallet the launch was made for. When it differs from
-     * the launch wallet, a service (such as Clanker's X bot) sent the launch for it.
+     * Clanker launches: the token's admin at launch (originalAdmin). When it is not the launch wallet,
+     * the launch was sent for it, as when Clanker's X bot launches for someone.
      */
     token_admin: string | null;
   } | null;
@@ -111,8 +115,9 @@ export interface TokenCheck {
      */
     launch_tokens: { received: number; sent_pct: number; first_send_after_sec: number | null; sent_90pct_after_sec: number | null } | null;
     /**
-     * Clanker launches it made for itself: the transactions it sent to Clanker's factory in the 24
-     * hours up to and including this launch (a floor at 1,000). Null when not read.
+     * Clanker launches it made for itself: the transactions it sent straight to Clanker's factory in the
+     * 24 hours up to and including this launch, by block time (a floor at 1,000). Null when not read, or
+     * when this launch did not go straight from it to the factory (a router, multicall or smart wallet).
      */
     clanker_launches_24h: number | null;
   } | null;
@@ -147,7 +152,7 @@ export interface TokenCheckDeps extends WalletLookupDeps {
 }
 
 const LIMITS =
-  'On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints and launch-wallet transfers are read from their first 100 records; for a Clanker launch, the other launches of the launch wallet are the transactions it sent to the Clanker factory itself in the 24 hours up to this one. no_flags means none of these checks matched; it is not a clearance.';
+  'On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints and launch-wallet transfers are read from their first 100 records. For a Clanker launch, the launches of the launch wallet are the transactions it sent straight to the Clanker factory in the 24 hours up to and including this one (the newest 1,000); launches through another contract, and launches made for another admin, are not counted. no_flags means none of these checks matched; it is not a clearance.';
 const CLANKER_NOTE =
   "Launched through Clanker's current factory, which deploys every token from one verified template with no owner mint, pause, blacklist or transfer tax.";
 const VIRTUALS_NOTE =
@@ -374,29 +379,30 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
     creatorAddr ? safeCall(deps, token, `${SEL.balanceOf}${pad(creatorAddr)}`) : Promise.resolve(null),
     creatorAddr && launch.tx ? deps.transfers({ ...transferBase, toAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null),
     creatorAddr && launch.tx ? deps.transfers({ ...transferBase, fromAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null),
-    clanker ? safeCall(deps, token, TOKEN_ADMIN) : Promise.resolve(null),
-    // Its launches through Clanker's factory in the day up to this one (each launch is one transaction to it).
-    clanker && creatorAddr
+    clanker ? safeCall(deps, token, ORIGINAL_ADMIN) : Promise.resolve(null),
+    // Its launches through Clanker's factory up to this one, newest first (each launch is one transaction to it).
+    clanker && creatorAddr && launch.tx
       ? deps.transfers({
           fromAddress: creatorAddr,
           toAddress: CLANKER_V4_FACTORY.toLowerCase(),
           category: ['external'],
           excludeZeroValue: false,
-          fromBlock: hex(Math.max(0, launch.block - DAY_BLOCKS)),
+          fromBlock: hex(Math.max(0, launch.block - DAY_BLOCKS_MAX)),
           toBlock: hex(launch.block),
+          order: 'desc',
           maxCount: hex(LAUNCH_COUNT_PAGE),
-          withMetadata: false,
+          withMetadata: true,
         })
       : Promise.resolve(null),
   ]);
   const admin = clanker ? wordAddr(adminHex ?? undefined) : null;
   launch.token_admin = admin && admin !== ZERO ? admin : null;
-  // A service sent the launch for the token's admin: its own launch count describes the service, not this launch.
-  const forAnother = launch.token_admin !== null && launch.token_admin !== creatorAddr;
+  // Launched for another admin, as a launch service does: its own launch count would describe the service.
+  const forAnother = creatorAddr !== null && launch.token_admin !== null && launch.token_admin !== creatorAddr;
   if (forAnother) {
-    launch.launcher_note = `${CLANKER_NOTE} A service sent the launch for another wallet: the token's admin is ${launch.token_admin}. The launch-wallet facts below describe the wallet that sent the launch.`;
+    launch.launcher_note = `${CLANKER_NOTE} The token's admin at launch, ${launch.token_admin}, is not the wallet that sent the launch, as when a launch service such as Clanker's X bot launches for someone. The launch-wallet facts below describe the wallet that sent the launch.`;
   }
-  const launchCount = factoryTxs && !forAnother ? new Set(factoryTxs.transfers.map((t) => t.hash.toLowerCase())).size : null;
+  const launchCount = forAnother ? null : countLaunches(factoryTxs?.transfers ?? null, launch);
 
   // Supply: every mint after the transaction of the first mint (the first issuance).
   const mints = mintsPage.transfers;
@@ -473,6 +479,23 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
     as_of_block: head,
     limits: LIMITS,
   };
+}
+
+/**
+ * Launches in the 24 hours up to and including this one, by block time, from the launch wallet's newest
+ * transactions to the factory. Null unless this launch is among them: a launch through a router, multicall
+ * or smart wallet is not a transaction to the factory, and the rest of its launches would not be either.
+ */
+function countLaunches(rows: TokenTransfer[] | null, launch: NonNullable<TokenCheck['launch']>): number | null {
+  if (!rows || !launch.tx || !launch.time) return null;
+  if (!rows.some((t) => t.hash.toLowerCase() === launch.tx)) return null;
+  const end = new Date(launch.time).getTime();
+  const start = end - DAY_SEC * 1000;
+  const inDay = rows.filter((t) => {
+    const at = t.metadata?.blockTimestamp ? new Date(t.metadata.blockTimestamp).getTime() : NaN;
+    return at >= start && at <= end;
+  });
+  return new Set(inDay.map((t) => t.hash.toLowerCase())).size;
 }
 
 /** The registry answers a tuple (offset, token, hook, ...) for its own launches, zeros otherwise. */
