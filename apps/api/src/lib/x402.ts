@@ -39,6 +39,10 @@ export const OFAC_ALIAS_ROUTE = 'GET /api/risk/ofac' as const;
 // Fast wallet lookup (routes/walletLookup.ts): sanctions, age, activity and first funder
 // with a hold / review / no_flags verdict. Same lookup as GET /v1/wallet/:address with a key.
 export const WALLET_ROUTE = 'GET /api/risk/wallet' as const;
+// Token check (routes/tokenCheck.ts): who launched a Base token, how, and what the launch
+// wallet and the supply did afterwards. /api/risk/token is its plain name for catalog search.
+export const RUGCHECK_ROUTE = 'GET /api/risk/rugcheck' as const;
+export const TOKEN_ALIAS_ROUTE = 'GET /api/risk/token' as const;
 const BASE_MAINNET = 'eip155:8453';
 // PayAI settles Base-mainnet `exact` payments without an API key (free tier).
 const DEFAULT_FACILITATOR = 'https://facilitator.payai.network';
@@ -117,6 +121,11 @@ export function x402WalletPrice(): string {
   return process.env.X402_WALLET_PRICE ?? '$0.01';
 }
 
+// Token check (GET /api/risk/rugcheck?token=): a few dozen RPC reads, cached ten minutes.
+export function x402TokenCheckPrice(): string {
+  return process.env.X402_TOKEN_CHECK_PRICE ?? '$0.02';
+}
+
 // The counterparty example address, as the lookup reported it on 2026-10-13.
 const WALLET_OUTPUT_EXAMPLE = {
   success: true,
@@ -142,6 +151,64 @@ const WALLET_OUTPUT_EXAMPLE = {
     as_of_block: 52553137,
     limits:
       'On-chain facts only. A shared funder is not proof of one owner, and exchanges and other hubs hide who funded a wallet. no_flags means none of these checks matched; it is not a clearance.',
+  },
+};
+
+// HOOK, a Clanker launch from chainward.ai/decodes, as the check reported it on 2026-10-20.
+const TOKEN_CHECK_OUTPUT_EXAMPLE = {
+  success: true,
+  data: {
+    token: '0x5f13d8f3bd2a9bd439d6ec9734ac1b4fb32b3b07',
+    chain: 'base',
+    verdict: {
+      label: 'review',
+      reason: 'The wallet that launched it received 6,416,006,425.89 tokens in the launch transaction and sent out 100% of them 26 seconds later.',
+    },
+    token_info: {
+      name: 'Clanker hook',
+      symbol: 'HOOK',
+      decimals: 18,
+      total_supply: 100000000000,
+    },
+    launch: {
+      block: 41628163,
+      time: '2026-02-02T15:21:13.000Z',
+      tx: '0x2f7eae9f2bba106190fa1c3ff6e6726ad8f49281eb967e12f180c76529dc5a03',
+      creator: '0xdbd1c0e6c6252492bd5b99da162558de7f08d68b',
+      via: '0xe85a59c628f7d27878aceb4bf3b35733630083a9',
+      launcher: 'clanker',
+      launcher_note: "Launched through Clanker's current factory, which deploys every token from one verified template with no owner mint, pause, blacklist or transfer tax.",
+    },
+    creator: {
+      address: '0xdbd1c0e6c6252492bd5b99da162558de7f08d68b',
+      type: 'wallet',
+      sanctioned: false,
+      first_seen: '2026-02-02T14:39:03.000Z',
+      age_days_at_launch: 0,
+      sent_txs: 8,
+      first_funder: {
+        address: '0xb0818aebe3afd4fbc5dccde0b5a370140b1380a7',
+        tx: '0x2353f506566e79dc6dd4c35fbebe065373d78c7a5010f48f5dcd76d6e2a476dd',
+        sanctioned: false,
+        exchange_or_hub: true,
+        funded_wallets: null,
+      },
+      holds_pct: 0,
+      launch_tokens: {
+        received: 6416006425.8854265,
+        sent_pct: 100,
+        first_send_after_sec: 26,
+      },
+    },
+    supply: {
+      mints_after_launch: 0,
+      minted_after_launch: null,
+      to_creator: 0,
+      capped: false,
+    },
+    flags: ['creator_sent_launch_tokens', 'new_creator'],
+    as_of_block: 52838768,
+    limits: 'On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints and launch-wallet transfers are read from their first 100 records. no_flags means none of these checks matched; it is not a clearance.',
   },
 };
 
@@ -245,6 +312,8 @@ export function x402DiscoveryDocument() {
       'https://api.chainward.ai/api/risk/counterparty',
       'https://api.chainward.ai/api/risk/ofac',
       'https://api.chainward.ai/api/risk/wallet',
+      'https://api.chainward.ai/api/risk/rugcheck',
+      'https://api.chainward.ai/api/risk/token',
       // Concrete dataset URLs so crawlers can probe each route; GET /api/paid lists them all.
       ...PUBLISHED_DATASETS.flatMap((d) => [
         `https://api.chainward.ai/api/paid/${d.slug}/file`,
@@ -265,7 +334,7 @@ export function apiHomePage(): string {
   const description =
     `Before your agent pays a Base or BNB Chain address: a verdict (pay / hold / unknown, shown as Pay, Hold, Inactive, No track record, Couldn't check or Payer hidden) with the one reason (${x402CheckPrice()}). ` +
     `For a seller: real or self-funded demand (${x402SellerPrice()}). For a BNB Chain agent: hired by others or by its own circle (${x402HiresPrice()}). ` +
-    `Before every payment: an OFAC sanctions screen (${x402SanctionsPrice()}). Evidence and limits under every verdict. Paid in USDC on Base over x402; a check that fails is never charged.`;
+    `Before every payment: an OFAC sanctions screen (${x402SanctionsPrice()}). Before buying a Base token: a rug check on its launch (${x402TokenCheckPrice()}). Evidence and limits under every verdict. Paid in USDC on Base over x402; a check that fails is never charged.`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -290,6 +359,7 @@ export function apiHomePage(): string {
 <li><code>GET /api/risk/hires?agent=&lt;ERC-8004 id or owner 0x…&gt;&amp;chain=bsc</code> (${x402HiresPrice()}): who hired a BNB Chain agent in the last ${HIRE_WINDOW_DAYS} days, and whether each hirer is the owner, funded by it, or shares a funder with it (Set and Earn).</li>
 <li><code>GET /api/risk/sanctions?address=0x…</code> (${x402SanctionsPrice()}): is the address on the US Treasury OFAC SDN list. Hold if it is; Not listed otherwise. Call it before every payment.</li>
 <li><code>GET /api/risk/wallet?address=0x…</code> (add <code>&amp;chain=bsc</code>) (${x402WalletPrice()}): a fast wallet lookup: sanctions, age, last activity, balances and who first funded it, with a hold / review / no_flags verdict. Free with an API key at <code>GET /v1/wallet/0x…</code>, 1,000 lookups a month.</li>
+<li><code>GET /api/risk/rugcheck?token=0x…</code> (${x402TokenCheckPrice()}): a rug check on a Base token's launch: who launched it and how, mints after the first issuance, and what the launch wallet did with the tokens it got, with a hold / review / no_flags verdict. Not a honeypot or liquidity check.</li>
 <li><code>GET /api/paid/{slug}/check?address=</code>: is one wallet in a dataset, and at what tier (${x402LookupPrice()}).</li>
 <li><code>GET /api/paid/{slug}/file</code>: the CSV behind a decode; <code>GET /api/paid</code> lists them.</li>
 </ul>
@@ -404,6 +474,16 @@ export function x402OpenApiDocument() {
   paths['/api/risk/ofac'] = {
     get: { ...sanctionsOp, operationId: 'ofacScreen', description: `The same screen as GET /api/risk/sanctions, under its plain name. ${sanctionsOp.description}` },
   };
+  // The token alias documents ?address=, the name generic clients send; both routes take either.
+  const rugCheckOp = doc.paths['/api/risk/rugcheck'].get;
+  paths['/api/risk/token'] = {
+    get: {
+      ...rugCheckOp,
+      operationId: 'tokenCheckByName',
+      description: `The same check as GET /api/risk/rugcheck, under its plain name. ${rugCheckOp.description}`,
+      parameters: rugCheckOp.parameters.map((q) => (q.name === 'token' ? { ...q, name: 'address', description: 'Token contract on Base (?token= works too)' } : q)),
+    },
+  };
   return doc;
 }
 
@@ -415,6 +495,7 @@ function x402OpenApiBase() {
   const lookupUsd = (x402LookupPrice().match(/[\d.]+/) ?? ['0.05'])[0];
   const sanctionsUsd = (x402SanctionsPrice().match(/[\d.]+/) ?? ['0.01'])[0];
   const walletUsd = (x402WalletPrice().match(/[\d.]+/) ?? ['0.01'])[0];
+  const tokenUsd = (x402TokenCheckPrice().match(/[\d.]+/) ?? ['0.02'])[0];
   return {
     openapi: '3.1.0',
     info: {
@@ -424,7 +505,7 @@ function x402OpenApiBase() {
         "Check a Base or BNB Chain address before you pay it: a verdict label pay / hold / unknown with a human text (Pay, Hold, Inactive, No track record, Couldn't check or Payer hidden), the reason, and the evidence. Also sells the datasets behind published decodes. On-chain behavior only.",
       contact: { url: 'https://chainward.ai', email: 'hello@chainward.ai' },
       'x-guidance':
-        `Start with GET /api/risk/wallet?address=0x... ($${walletUsd}): sanctions, wallet age, activity and first funder, with a hold / review / no_flags verdict. Before paying an address: GET /api/risk/x402?address=0x... ($${usd}). Before every payment: GET /api/risk/sanctions?address=0x... ($${sanctionsUsd}). Add &chain=bsc to the first two for BNB Chain. Pay with any x402 client in USDC on Base; a call that fails is not charged.`,
+        `Start with GET /api/risk/wallet?address=0x... ($${walletUsd}): sanctions, wallet age, activity and first funder, with a hold / review / no_flags verdict. Before paying an address: GET /api/risk/x402?address=0x... ($${usd}). Before every payment: GET /api/risk/sanctions?address=0x... ($${sanctionsUsd}). Add &chain=bsc to the first two for BNB Chain. Before buying a Base token: GET /api/risk/rugcheck?token=0x... ($${tokenUsd}). Pay with any x402 client in USDC on Base; a call that fails is not charged.`,
     },
     servers: [{ url: 'https://api.chainward.ai' }],
     paths: {
@@ -589,6 +670,41 @@ function x402OpenApiBase() {
             '200': { description: 'Wallet lookup', content: { 'application/json': { example: WALLET_OUTPUT_EXAMPLE } } },
             '400': { description: 'Malformed address or unsupported chain; not charged' },
             '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+          },
+        },
+      },
+      '/api/risk/rugcheck': {
+        get: {
+          operationId: 'tokenRugCheck',
+          summary: 'Rug check for a Base token: who launched it and what the launch wallet and the supply did after, with a hold / review / no_flags verdict',
+          description:
+            "For an ERC-20 token on Base: the launch block and transaction, the wallet that sent it (a smart wallet behind an ERC-4337 bundle is named), and Clanker's factory when its registry confirms the token. Then the launch wallet: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, and whether it sent out the tokens it received at launch within the hour. And the supply: mints after the first issuance, and how many went to the launch wallet. hold if the launch wallet or its first funder is sanctioned, or more of the token was minted to it after launch; review for later mints, a fast send-out, a large holding, a new launch wallet, a shared funder or a launch it could not trace; no_flags otherwise, which is not a clearance. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. The launch wallet can be a bot, relayer or launch service acting for someone else. Not charged if the check fails.",
+          parameters: [
+            {
+              name: 'token',
+              in: 'query',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', example: '0x5f13d8f3bd2a9bd439d6ec9734ac1b4fb32b3b07' },
+              description: 'Token contract on Base (?address= works too)',
+            },
+            {
+              name: 'chain',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['base'], default: 'base' },
+              description: 'Base only for now. Payment is USDC on Base.',
+            },
+          ],
+          'x-payment-info': {
+            price: { mode: 'fixed', currency: 'USD', amount: tokenUsd },
+            protocols: [{ x402: {} }],
+          },
+          responses: {
+            '200': { description: 'Token check', content: { 'application/json': { example: TOKEN_CHECK_OUTPUT_EXAMPLE } } },
+            '400': { description: 'Malformed address or a chain other than Base; not charged' },
+            '402': { description: 'Payment required: x402 v2 challenge in the PAYMENT-REQUIRED header' },
+            '503': { description: 'SOURCES_UNAVAILABLE: the chain data source did not answer; not charged' },
+            '504': { description: 'Check did not finish in time; not charged' },
           },
         },
       },
@@ -945,6 +1061,24 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     whatYouGet:
       'A verdict (hold / review / no_flags) with its reason, the flags behind it, age, activity, balances and first funder, JSON. Cached for an hour. Not charged if the address is malformed.',
   };
+  const tokenRugCheck: Product = {
+    price: x402TokenCheckPrice(),
+    serviceName: 'ChainWard rug check',
+    description:
+      "Rug check for a Base token before you buy it: who launched it and how (Clanker's factory named when its registry confirms it), mints after the first issuance and to whom, and what the launch wallet did: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, and whether it sent out the tokens it received at launch within the hour. Verdict hold / review / no_flags with one reason. Not a honeypot, liquidity or holder check.",
+    tags: ['base', 'token', 'erc20', 'rugcheck', 'rug', 'launch', 'creator', 'deployer', 'mint', 'clanker', 'memecoin', 'due-diligence', 'agents', 'trading'],
+    whatYouGet:
+      'A verdict (hold / review / no_flags) with its reason, then the launch (block, transaction, launch wallet, launcher), the launch wallet facts and the supply after launch, JSON. Cached for ten minutes. Not charged if the check fails.',
+  };
+  const tokenSchema = (name: 'token' | 'address') => ({
+    type: 'object',
+    properties: {
+      [name]: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', description: 'Token contract on Base' },
+      chain: { type: 'string', enum: ['base'], default: 'base', description: 'Base only for now. Payment is USDC on Base.' },
+    },
+    required: [name],
+  });
+  const tokenExample = TOKEN_CHECK_OUTPUT_EXAMPLE.data.token;
   const sanctionsDiscovery = () =>
     declareDiscoveryExtension({
       input: { address: example },
@@ -1162,6 +1296,28 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
         }),
       ),
       resource: 'https://api.chainward.ai/api/risk/wallet',
+    },
+    [RUGCHECK_ROUTE]: {
+      ...route(
+        tokenRugCheck,
+        declareDiscoveryExtension({
+          input: { token: tokenExample },
+          inputSchema: tokenSchema('token'),
+          output: { example: TOKEN_CHECK_OUTPUT_EXAMPLE },
+        }),
+      ),
+      resource: 'https://api.chainward.ai/api/risk/rugcheck',
+    },
+    [TOKEN_ALIAS_ROUTE]: {
+      ...route(
+        tokenRugCheck,
+        declareDiscoveryExtension({
+          input: { address: tokenExample },
+          inputSchema: tokenSchema('address'),
+          output: { example: TOKEN_CHECK_OUTPUT_EXAMPLE },
+        }),
+      ),
+      resource: 'https://api.chainward.ai/api/risk/token',
     },
   };
   // Browsers get a page that says what the call is and how to pay, not the library's developer note.

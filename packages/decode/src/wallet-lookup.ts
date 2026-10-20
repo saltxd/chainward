@@ -78,7 +78,10 @@ const balanceOfData = (addr: string) => `0x70a08231${addr.slice(2).toLowerCase()
 export async function lookupWallet(rawAddress: string, chain: LookupChain, deps: WalletLookupDeps): Promise<WalletLookup> {
   const address = rawAddress.toLowerCase();
   const now = deps.now();
-  const transferBase = { category: ['external', 'erc20'], excludeZeroValue: true, withMetadata: true };
+  // Bridge fills, disperse contracts and smart wallets move ETH by internal call. Alchemy
+  // indexes those on Base; on BNB Chain it refuses the category, so it is not asked there.
+  const category = chain === 'base' ? ['external', 'internal', 'erc20'] : ['external', 'erc20'];
+  const transferBase = { category, excludeZeroValue: true, withMetadata: true };
 
   const [code, nonceHex, balanceHex, usdcHex, blockHex, firstIn, lastOut] = await Promise.all([
     deps.rpc('eth_getCode', [address, 'latest']),

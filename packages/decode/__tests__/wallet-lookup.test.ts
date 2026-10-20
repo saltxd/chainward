@@ -137,6 +137,39 @@ describe('lookupWallet', () => {
     expect(r.type).toBe('contract');
     expect(r.flags).toContain('contract');
   });
+
+  // Bridge fills, disperse contracts and smart wallets pay ETH by internal call. HOOK's
+  // launch wallet got 1.02 ETH that way 42 minutes before the launch; read without
+  // internal transfers, its first funder was the pool it bought from at launch.
+  // BNB Chain's provider refuses the internal category, so it is not asked there.
+  describe('a first funder that paid by internal transfer', () => {
+    const BRIDGE = `0x${'b'.repeat(40)}`;
+    const POOL = `0x${'c'.repeat(40)}`;
+    const internalDeps = (supported: boolean): WalletLookupDeps => ({
+      ...deps({ nonce: { [A]: 3, [BRIDGE]: 1, [POOL]: 1 } }),
+      transfers: async (params) => {
+        const q = params as { toAddress?: string; category: string[] };
+        const internal = q.category.includes('internal');
+        if (internal && !supported) throw new Error("The 'internal' category is not supported for this network.");
+        if (q.toAddress !== A) return { transfers: [] };
+        const fill = { from: BRIDGE, to: A, hash: '0xfill', metadata: { blockTimestamp: days(3) } };
+        const buy = { from: POOL, to: A, hash: '0xbuy', metadata: { blockTimestamp: days(1) } };
+        return { transfers: [internal ? fill : buy] };
+      },
+    });
+
+    it('is found on Base, with the age it gives', async () => {
+      const r = await lookupWallet(A, 'base', internalDeps(true));
+      expect(r.first_funder).toMatchObject({ address: BRIDGE, tx: '0xfill' });
+      expect(r.first_seen).toBe(days(3));
+      expect(r.age_days).toBe(3);
+    });
+
+    it('is not asked for on BNB Chain, where the provider refuses it', async () => {
+      const r = await lookupWallet(A, 'bsc', internalDeps(false));
+      expect(r.first_funder?.address).toBe(POOL);
+    });
+  });
 });
 
 // px402 v2 (PRXVT) on Base: an agent deposits into the PX402Reserve and a PRXVT
