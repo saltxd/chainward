@@ -255,6 +255,13 @@ describe('labels on the launch wallet', () => {
 });
 
 describe('tokenFlagLines', () => {
+  it('names a token passing for a well-known one as high severity', () => {
+    expect(tokenFlagLines(check({ flags: ['imitates_known_token'] }))[0]).toEqual({
+      id: 'imitates_known_token',
+      severity: 'high',
+      title: 'Its name or symbol passes for a well-known token such as USDC',
+    });
+  });
   it('words each flag plainly, the hold ones as high', () => {
     const lines = tokenFlagLines(check({ flags: ['creator_sanctioned', 'creator_serial_launcher'] }));
     expect(lines[0]).toMatchObject({ id: 'creator_sanctioned', severity: 'high' });

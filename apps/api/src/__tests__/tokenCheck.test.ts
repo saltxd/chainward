@@ -202,12 +202,12 @@ describe('the token check handler', () => {
   it('keeps the answer for a token launched within the last two hours for one minute only', async () => {
     checks.launchTime = new Date(Date.now() - 10 * 60_000).toISOString();
     await open.request(`/api/risk/rugcheck?token=${TOKEN}`);
-    expect(redis.set).toHaveBeenCalledWith(`token-check:v2:base:${TOKEN}`, expect.any(String), 'EX', 60);
+    expect(redis.set).toHaveBeenCalledWith(`token-check:v3:base:${TOKEN}`, expect.any(String), 'EX', 60);
   });
 
   it('keeps an older token for ten minutes', async () => {
     await open.request(`/api/risk/rugcheck?token=${TOKEN}`);
-    expect(redis.set).toHaveBeenCalledWith(`token-check:v2:base:${TOKEN}`, expect.any(String), 'EX', 600);
+    expect(redis.set).toHaveBeenCalledWith(`token-check:v3:base:${TOKEN}`, expect.any(String), 'EX', 600);
   });
 
   it('answers 503 naming no provider when the chain source fails', async () => {

@@ -448,6 +448,8 @@ export interface RiskFlag {
   title: string;
   evidence: string;
   source: string;
+  /** One sentence for a verdict reason, when the evidence runs long (poisoning_decoy). */
+  summary?: string;
 }
 
 export interface RiskFreshness {
@@ -654,6 +656,8 @@ export interface TokenReport {
   chain: 'base';
   verdict: { label: 'hold' | 'review' | 'no_flags'; reason: string };
   token_info: { name: string | null; symbol: string | null; decimals: number | null; total_supply: number | null };
+  /** When its name or symbol passes for a well-known token: which one, and that token's real contract on Base. */
+  imitation?: { imitates: string; real: string | null } | null;
   launch: {
     block: number;
     time: string | null;

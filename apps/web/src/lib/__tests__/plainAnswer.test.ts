@@ -185,6 +185,23 @@ describe('plainAnswer', () => {
     expect(a!.why).toBe('This address is on the US Treasury sanctions list. Paying it may be illegal for US persons.');
   });
 
+  it('Hold on an address-poisoning decoy: says which address it copies, with every character intact', () => {
+    const summary =
+      'It looks like an address-poisoning decoy of 0xf7ee65130fb2b3bb42cc5cbfed085d7d482667cd, planted after a real USDC payment. Check every character of the address you meant to pay.';
+    const decoy = { id: 'poisoning_decoy', severity: 'high' as const, title: 'Looks like an address-poisoning decoy', evidence: 'This address has never sent a transaction.', summary, source: '' };
+    const a = plainAnswer(
+      report({
+        band: 'high-signal',
+        verdict: { label: 'hold', text: 'Hold', reason: summary, limits: 'x' },
+        flags: [decoy],
+        window: { transfers_30d: 0, unique_counterparties_30d: 0, latest_transfer_at: null },
+      }),
+      NOW,
+    );
+    expect(a!.word).toBe('Hold');
+    expect(a!.why).toBe(summary);
+  });
+
   it('falls back to the server reason for an unmapped Hold flag', () => {
     const odd = plainAnswer(
       report({ verdict: { label: 'hold', text: 'Hold', reason: 'Something new: 12 events.', limits: 'x' }, flags: [{ id: 'brand_new_check', severity: 'high', title: 't', evidence: 'e', source: '' }] }),

@@ -163,8 +163,8 @@ export interface CounterpartyActivity {
 
 const COUNTERPARTY_LIMITS = 'On-chain behavior only. Absence of flags is not a clearance of the counterparty.';
 const SANCTIONS_LIMITS = 'Matched against the US Treasury OFAC SDN list only; other countries’ sanctions lists are not checked.';
-const DECOY_LIMITS =
-  'Matched on transfer history: a look-alike that never sent a transaction and appears only in fake transfers. Absence of this flag is not a clearance.';
+// Anyone can send transfers to an unused address, so the finding can be planted on a real one too.
+const DECOY_LIMITS = 'Read from transfer history. Anyone can send transfers to an unused address, so confirm the full address with whoever gave it to you.';
 
 const SEVERITY_ORDER: Record<RiskFlag['severity'], number> = { high: 3, medium: 2, low: 1, info: 0 };
 /** Silence past which survival classifies a wallet dormant (survival.ts). */

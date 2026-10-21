@@ -31,7 +31,7 @@ const CHECK_BUDGET_MS = 15_000;
 /** The token: ?token=, or ?address= for clients that always send that name. */
 export const tokenParam = (c: Context): string | undefined => c.req.query('token') ?? c.req.query('address');
 
-const sharedKey = (token: string) => `token-check:v2:base:${token}`;
+const sharedKey = (token: string) => `token-check:v3:base:${token}`;
 
 async function readCache(key: string): Promise<TokenCheck | null> {
   const hit = await getRedis().get(key);

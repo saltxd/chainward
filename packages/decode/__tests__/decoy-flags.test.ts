@@ -65,7 +65,7 @@ describe('counterpartyVerdict on a decoy', () => {
       expect(v.text).toBe('Hold');
       expect(v.reason).toBe(decoyReason(DECOY));
       expect(v.limits).toBe(
-        'Matched on transfer history: a look-alike that never sent a transaction and appears only in fake transfers. Absence of this flag is not a clearance.',
+        'Read from transfer history. Anyone can send transfers to an unused address, so confirm the full address with whoever gave it to you.',
       );
     }
   });

@@ -122,6 +122,13 @@ describe('isAttestable', () => {
     expect(isAttestable({ ...fresh, flagIds: ['inactive_no_history', 'activity_truncated'] }, allowlist, now)).toBe(false);
   });
 
+  // Anyone can make a fresh, unused address read as a decoy (grind a look-alike, pay it a cent,
+  // then fake a transfer), so the finding helps a payer but never goes on-chain by itself.
+  it('never attests a decoy finding on its own, but lets it ride along', () => {
+    expect(isAttestable({ ...fresh, flagIds: ['poisoning_decoy'] }, allowlist, now)).toBe(false);
+    expect(isAttestable({ ...fresh, flagIds: ['poisoning_decoy', 'dormant_wallet'] }, allowlist, now)).toBe(true);
+  });
+
   it('skips reports older than the attest window', () => {
     expect(
       isAttestable({ ...fresh, generatedAt: '2026-09-18T12:00:00Z', flagIds: ['dormant_wallet'] }, allowlist, now),

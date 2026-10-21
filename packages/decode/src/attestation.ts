@@ -127,6 +127,11 @@ export const ABSENCE_FLAG_IDS: ReadonlySet<string> = new Set(['inactive_no_histo
  * observed behavior. A list match rides along on an attestation but never triggers one. */
 export const LIST_MATCH_FLAG_IDS: ReadonlySet<string> = new Set(['ofac_sanctioned', 'privacy_relay', 'known_label']);
 
+/** Findings a third party can plant on someone else's address cheaply. A decoy is read off
+ * transfers anyone can cause (grind a look-alike, pay it a cent, fake a transfer), so it
+ * warns a payer but rides along on an attestation and never triggers one. */
+export const PLANTABLE_FLAG_IDS: ReadonlySet<string> = new Set(['poisoning_decoy']);
+
 /** Only reports filed within this window are attested; older ones wait for a re-check. */
 export const ATTEST_MAX_REPORT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -144,5 +149,5 @@ export function isAttestable(
   // Reports filed before the freshness guard existed carry no head_stale at all.
   if (r.headStale !== false) return false;
   if (now - new Date(r.generatedAt).getTime() > ATTEST_MAX_REPORT_AGE_MS) return false;
-  return r.flagIds.some((id) => !ABSENCE_FLAG_IDS.has(id) && !LIST_MATCH_FLAG_IDS.has(id));
+  return r.flagIds.some((id) => !ABSENCE_FLAG_IDS.has(id) && !LIST_MATCH_FLAG_IDS.has(id) && !PLANTABLE_FLAG_IDS.has(id));
 }

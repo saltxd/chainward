@@ -216,6 +216,7 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
 }
 
 const FLAG_LINES: Record<string, { title: string; severity: 'high' | 'medium' }> = {
+  imitates_known_token: { title: 'Its name or symbol passes for a well-known token such as USDC', severity: 'high' },
   creator_sanctioned: { title: 'The launch wallet is on the US sanctions list (OFAC SDN)', severity: 'high' },
   creator_funded_by_sanctioned: { title: 'The launch wallet got its first funds from a sanctioned address', severity: 'high' },
   creator_minted_after_launch: { title: 'More tokens were minted to the launch wallet after launch', severity: 'high' },

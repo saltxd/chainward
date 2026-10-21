@@ -28,7 +28,7 @@ const freeDailyMisses = () => Number(process.env.WALLET_FREE_DAILY_LOOKUPS ?? 50
 async function cachedLookup(address: string, chain: 'base' | 'bsc', beforeMiss?: () => Promise<void>): Promise<WalletLookup> {
   const redis = getRedis();
   // v2: lookups carry labels; v1 entries (cached before labels) have none.
-  const cacheKey = `wallet-lookup:v2:${chain}:${address}`;
+  const cacheKey = `wallet-lookup:v3:${chain}:${address}`;
   const hit = await redis.get(cacheKey);
   if (hit) return JSON.parse(hit) as WalletLookup;
   const rpcUrl = sellerDemandRpcUrl(chain, process.env);
