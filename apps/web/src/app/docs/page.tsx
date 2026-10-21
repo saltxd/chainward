@@ -275,7 +275,9 @@ export default function DocsPage() {
                 <code>hold</code>, <code>review</code> or <code>no_flags</code>, which is not a
                 clearance. It is not a honeypot, liquidity or holder check. An address that is not
                 a token answers <code>not_a_contract</code> or <code>not_a_token</code>, and that
-                answer is charged. Also at{' '}
+                answer is charged. A token whose name or symbol passes for USDC, USDT or another
+                well-known token through look-alike or hidden characters answers <code>hold</code>{' '}
+                (<code>imitates_known_token</code>), even when it is not a full ERC-20. Also at{' '}
                 <code>/api/risk/token?address=</code>. People can run it free on the site: paste
                 the token at <a href="/rugcheck">chainward.ai/rugcheck</a>. It also lists the
                 labels our published investigations put on the launch wallet, and a strong one

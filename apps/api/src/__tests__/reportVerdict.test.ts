@@ -46,6 +46,19 @@ describe('reportVerdict', () => {
     expect(v.reason).toMatch(/USDC balance could not be read/);
   });
 
+  it("is unknown, never pay, on a never-used wallet whose decoy check couldn't run", () => {
+    const v = reportVerdict(
+      { band: 'low-signal', flags: [] },
+      { ...active, wallet: { nonce: 0 }, fetch_meta: { decoy_check: 'unavailable' } },
+    );
+    expect(v).toMatchObject({ label: 'unknown', text: "Couldn't check" });
+    expect(v.reason).toMatch(/planted look-alike/);
+  });
+
+  it('leaves an old report alone: Pay stays Pay where the decoy check never ran', () => {
+    expect(reportVerdict({ band: 'low-signal', flags: [] }, { ...active, wallet: { nonce: 0 } }).label).toBe('pay');
+  });
+
   it('is unknown when the decode data carries no activity block', () => {
     const v = reportVerdict({ band: 'low-signal', flags: [] }, {});
     expect(v.label).toBe('unknown');

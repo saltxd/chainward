@@ -72,6 +72,7 @@ describe('RISK_CHECKS catalog', () => {
         'inactive_no_history',
         'activity_truncated',
         'privacy_relay',
+        'poisoning_decoy',
       ].sort(),
     );
     for (const c of RISK_CHECKS) {

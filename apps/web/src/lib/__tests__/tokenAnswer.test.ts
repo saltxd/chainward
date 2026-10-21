@@ -61,6 +61,22 @@ describe('classifyProbe', () => {
     expect(classifyProbe(check({ flags: [flag], launch: null, creator: null }), null)).toEqual({ kind: 'not_token' });
   });
 
+  // The fake USDC an address-poisoning bot airdrops only emits Transfer events, so it is "not a
+  // token"; whoever pastes it should still get the Hold that it passes itself off as USDC.
+  it('shows the rug check for a look-alike that is not a full token, and it renders', () => {
+    const c = check({
+      flags: ['not_a_token', 'imitates_known_token'],
+      launch: null,
+      creator: null,
+      imitation: { imitates: 'USDC', real: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+      verdict: { label: 'hold', reason: 'It passes itself off as USDC, but it is not: the real USDC on Base is 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913.' },
+    });
+    expect(classifyProbe(c, null)).toEqual({ kind: 'token', check: c });
+    expect(tokenAnswer(c)).toMatchObject({ word: 'Hold', why: c.verdict.reason });
+    expect(() => tokenFacts(c)).not.toThrow();
+    expect(tokenFlagLines(c).map((l) => l.id)).toContain('imitates_known_token');
+  });
+
   // The per-minute limit is shared with wallet checks: a wallet must still reach its report.
   it('falls back to the wallet report when the probe is rate limited', () => {
     expect(classifyProbe(null, new ApiError('Too many requests.', 'RATE_LIMITED'))).toEqual({ kind: 'unknown' });
@@ -255,6 +271,13 @@ describe('labels on the launch wallet', () => {
 });
 
 describe('tokenFlagLines', () => {
+  it('names a token passing for a well-known one as high severity', () => {
+    expect(tokenFlagLines(check({ flags: ['imitates_known_token'] }))[0]).toEqual({
+      id: 'imitates_known_token',
+      severity: 'high',
+      title: 'Its name or symbol passes for a well-known token such as USDC',
+    });
+  });
   it('words each flag plainly, the hold ones as high', () => {
     const lines = tokenFlagLines(check({ flags: ['creator_sanctioned', 'creator_serial_launcher'] }));
     expect(lines[0]).toMatchObject({ id: 'creator_sanctioned', severity: 'high' });

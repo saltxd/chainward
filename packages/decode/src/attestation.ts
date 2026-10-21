@@ -127,6 +127,16 @@ export const ABSENCE_FLAG_IDS: ReadonlySet<string> = new Set(['inactive_no_histo
  * observed behavior. A list match rides along on an attestation but never triggers one. */
 export const LIST_MATCH_FLAG_IDS: ReadonlySet<string> = new Set(['ofac_sanctioned', 'privacy_relay', 'known_label']);
 
+/** Findings a third party can plant on someone else's address cheaply. A decoy is read off
+ * transfers anyone can cause (grind a look-alike, pay it a cent, fake a transfer), so it
+ * warns a payer, but a report carrying it is never attested. */
+export const PLANTABLE_FLAG_IDS: ReadonlySet<string> = new Set(['poisoning_decoy']);
+
+/** A report carrying a plantable finding stays out of public listings (library, sitemap, recently checked); its own page still answers. */
+export function listsPublicly(flagIds: readonly string[]): boolean {
+  return !flagIds.some((id) => PLANTABLE_FLAG_IDS.has(id));
+}
+
 /** Only reports filed within this window are attested; older ones wait for a re-check. */
 export const ATTEST_MAX_REPORT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -144,5 +154,7 @@ export function isAttestable(
   // Reports filed before the freshness guard existed carry no head_stale at all.
   if (r.headStale !== false) return false;
   if (now - new Date(r.generatedAt).getTime() > ATTEST_MAX_REPORT_AGE_MS) return false;
+  // The planted transfers make other flags fire too (a decoy reads as dormant a week later).
+  if (r.flagIds.some((id) => PLANTABLE_FLAG_IDS.has(id))) return false;
   return r.flagIds.some((id) => !ABSENCE_FLAG_IDS.has(id) && !LIST_MATCH_FLAG_IDS.has(id));
 }

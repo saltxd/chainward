@@ -21,7 +21,8 @@ const NOT_TOKEN = new Set(['not_a_contract', 'not_a_token']);
 const USED_UP = new Set(['FREE_CHECKS_USED_UP', 'FREE_HOURLY_LIMIT']);
 
 export function classifyProbe(check: TokenReport | null, err: unknown): ProbeOutcome {
-  if (check) return check.flags.some((f) => NOT_TOKEN.has(f)) ? { kind: 'not_token' } : { kind: 'token', check };
+  // A look-alike (a fake USDC that only emits Transfer events) is "not a token" but still gets its Hold.
+  if (check) return check.flags.some((f) => NOT_TOKEN.has(f)) && !check.flags.includes('imitates_known_token') ? { kind: 'not_token' } : { kind: 'token', check };
   if (err instanceof ApiError && USED_UP.has(err.code)) return { kind: 'used_up', message: err.message };
   // Only a token gets far enough to run past the time budget; the run goes on and fills the cache.
   if (err instanceof ApiError && err.code === 'CHECK_TIMEOUT') return { kind: 'slow' };
@@ -216,6 +217,7 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
 }
 
 const FLAG_LINES: Record<string, { title: string; severity: 'high' | 'medium' }> = {
+  imitates_known_token: { title: 'Its name or symbol passes for a well-known token such as USDC', severity: 'high' },
   creator_sanctioned: { title: 'The launch wallet is on the US sanctions list (OFAC SDN)', severity: 'high' },
   creator_funded_by_sanctioned: { title: 'The launch wallet got its first funds from a sanctioned address', severity: 'high' },
   creator_minted_after_launch: { title: 'More tokens were minted to the launch wallet after launch', severity: 'high' },

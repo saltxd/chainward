@@ -127,6 +127,35 @@ describe('buildCoverage when a state read failed', () => {
   });
 });
 
+describe('buildCoverage and the address-poisoning decoy check', () => {
+  const fresh = (decoy_check?: 'ran' | 'not_applicable' | 'unavailable') => ({
+    ...reportData,
+    wallet: { ...(reportData as { wallet: object }).wallet, nonce: 0 },
+    fetch_meta: { ...(reportData as { fetch_meta: object }).fetch_meta, ...(decoy_check ? { decoy_check } : {}) },
+  });
+  const decoyRow = (data: unknown, flags: { id: string }[] = []) => buildCoverage(data, flags)!.checks.find((c) => c.id === 'poisoning_decoy')!;
+
+  it('marks it not assessed on a never-used wallet whose report was filed before the check existed', () => {
+    expect(decoyRow(fresh())).toMatchObject({ status: 'not_assessed', reason: 'Added after this report was filed. Re-check to run it.' });
+  });
+
+  it('keeps it not raised on an old report of a wallet that has sent transactions, which cannot be a decoy', () => {
+    expect(decoyRow(reportData).status).toBe('not_raised');
+  });
+
+  it('marks it not assessed when it could not run, and raised when it found one', () => {
+    expect(decoyRow(fresh('unavailable'))).toMatchObject({ status: 'not_assessed', reason: "The transfer index this check reads wasn't available." });
+    expect(decoyRow(fresh('ran'), [{ id: 'poisoning_decoy' }]).status).toBe('raised');
+    expect(decoyRow(fresh('ran')).status).toBe('not_raised');
+  });
+
+  it('is a report the paid route must not sell when the check could not run on a never-used wallet', () => {
+    expect(sourcesUnavailable(fresh('unavailable'))).toMatch(/planted look-alike/);
+    expect(sourcesUnavailable(fresh('ran'))).toBeUndefined();
+    expect(sourcesUnavailable({ ...reportData, fetch_meta: { ...(reportData as { fetch_meta: object }).fetch_meta, decoy_check: 'unavailable' } })).toBeUndefined();
+  });
+});
+
 describe('buildCoverage on BNB Chain', () => {
   const bscData = {
     ...reportData,

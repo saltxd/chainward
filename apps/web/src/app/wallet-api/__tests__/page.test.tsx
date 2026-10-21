@@ -9,6 +9,13 @@ describe('/wallet-api', () => {
   const html = renderToStaticMarkup(<WalletApiPage />);
   const text = html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 
+  it('documents the address-poisoning decoy hold and its field', () => {
+    expect(text).toContain('poisoning_decoy');
+    expect(text).toMatch(/never sent a transaction/);
+    expect(text).toContain('decoy.copies');
+    expect(text).not.toMatch(/another wallet really paid/);
+  });
+
   it('names the product', () => {
     expect(text).toContain('Wallet screening API');
   });

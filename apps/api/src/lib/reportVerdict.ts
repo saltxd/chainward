@@ -1,5 +1,5 @@
 import { counterpartyVerdict, STATE_READ_UNAVAILABLE, type CounterpartyVerdictLabel, type RiskAssessment, type Verdict } from '@chainward/decode';
-import { stateUnavailable, transfersUnavailable } from './reportCoverage.js';
+import { DECOY_UNCHECKED_REASON, decoyCheckStatus, neverUsed, stateUnavailable, transfersUnavailable } from './reportCoverage.js';
 
 /** Pay / Hold / Unknown for a stored report: the assessment plus the decode's activity numbers. */
 export function reportVerdict(assessment: Pick<RiskAssessment, 'band' | 'flags'>, reportData: unknown): Verdict<CounterpartyVerdictLabel> {
@@ -10,6 +10,10 @@ export function reportVerdict(assessment: Pick<RiskAssessment, 'band' | 'flags'>
   const unread = stateUnavailable(reportData);
   if (verdict.label === 'pay' && unread.includes('usdc_balance')) {
     return { ...verdict, label: 'unknown', text: "Couldn't check", reason: STATE_READ_UNAVAILABLE.usdc_balance! };
+  }
+  // A never-used wallet whose decoy check could not run: its fake transfers read as activity.
+  if (verdict.label === 'pay' && decoyCheckStatus(reportData) === 'unavailable' && neverUsed(reportData)) {
+    return { ...verdict, label: 'unknown', text: "Couldn't check", reason: DECOY_UNCHECKED_REASON };
   }
   return verdict;
 }

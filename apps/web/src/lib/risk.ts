@@ -137,6 +137,15 @@ export function isThinReport(verdict: Pick<RiskVerdict, 'label'> | null | undefi
   return !verdict || (verdict.label !== 'pay' && verdict.label !== 'hold');
 }
 
+/** Flags anyone can plant on an unused address (a decoy finding): a report carrying one is never indexed. */
+const PLANTABLE_FLAGS = new Set(['poisoning_decoy']);
+
+/** Whether search engines may index this report: not thin, and no plantable finding. */
+export function reportIndexable(report: { verdict?: Pick<RiskVerdict, 'label'> | null; flags?: readonly { id: string }[] } | null | undefined): boolean {
+  if (!report || isThinReport(report.verdict)) return false;
+  return !(report.flags ?? []).some((f) => PLANTABLE_FLAGS.has(f.id));
+}
+
 export function topSeverity(
   flags: { severity: RiskSeverity }[],
 ): RiskSeverity | null {

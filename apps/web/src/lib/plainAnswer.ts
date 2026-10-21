@@ -153,6 +153,8 @@ function holdWhy(
       return "It's a copy of a Virtuals factory contract, not custom code.";
     case 'inactive_no_history':
       return "We can't see any token transfers for this wallet.";
+    case 'poisoning_decoy':
+      return 'This address was made to look like another one, and it has never been used. Get the full address from whoever you are paying.';
     default:
       return null;
   }

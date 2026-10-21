@@ -8,6 +8,7 @@
 // in the launch transaction. Never says "safe": no_flags means nothing matched.
 
 import { lookupWallet, type WalletLookup, type WalletLookupDeps } from './wallet-lookup.js';
+import { imitatedToken, type Imitation } from './lookalike.js';
 import { alchemyWalletLookupDeps } from './wallet-lookup.js';
 import { alchemyAssetTransfers } from './seller-demand.js';
 
@@ -66,6 +67,7 @@ const MAX_SEARCH_STEPS = 40;
 export type TokenFlag =
   | 'not_a_contract'
   | 'not_a_token'
+  | 'imitates_known_token'
   | 'launch_unknown'
   | 'creator_sanctioned'
   | 'creator_funded_by_sanctioned'
@@ -83,6 +85,8 @@ export interface TokenCheck {
   chain: 'base';
   verdict: { label: 'hold' | 'review' | 'no_flags'; reason: string };
   token_info: { name: string | null; symbol: string | null; decimals: number | null; total_supply: number | null };
+  /** When its name or symbol passes for a well-known token (USDC, USDT...): which one, and that token's real contract on Base. */
+  imitation: Imitation | null;
   launch: {
     block: number;
     time: string | null;
@@ -345,16 +349,20 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     decimals,
     total_supply: supplyRaw !== null && decimals !== null ? scaleUnits(supplyRaw, decimals) : null,
   };
+  // Fake USDC airdropped by address-poisoning bots, and look-alike Tethers from launch mills. Judged
+  // from the name and symbol alone, so it holds for a contract that only emits fake Transfer events too.
+  const imitation = imitatedToken({ symbol: token_info.symbol, name: token_info.name, contract: token, chain: 'base' });
   const empty = { mints_after_launch: 0, minted_after_launch: null, to_creator: 0, minted_to_creator: null, capped: false };
   const stop = (flag: 'not_a_contract' | 'not_a_token', reason: string = REASONS[flag]()): TokenCheck => ({
     token,
     chain: 'base',
-    verdict: { label: 'review', reason },
+    verdict: imitation ? imitationVerdict(imitation) : { label: 'review', reason },
     token_info,
+    imitation,
     launch: null,
     creator: null,
     supply: empty,
-    flags: [flag],
+    flags: imitation ? [flag, 'imitates_known_token'] : [flag],
     as_of_block: head,
     limits: LIMITS,
   });
@@ -466,6 +474,7 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   }
 
   const flags: TokenFlag[] = [];
+  if (imitation) flags.push('imitates_known_token');
   if (!launch.tx || !creatorAddr) flags.push('launch_unknown');
   if (creator?.sanctioned) flags.push('creator_sanctioned');
   if (wallet?.flags.includes('funded_by_sanctioned')) flags.push('creator_funded_by_sanctioned');
@@ -488,8 +497,9 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   return {
     token,
     chain: 'base',
-    verdict: verdictFor(flags, { supply, creator, creatorMintPct, sentPctAt90 }),
+    verdict: verdictFor(flags, { supply, creator, creatorMintPct, sentPctAt90, imitation }),
     token_info,
+    imitation,
     launch,
     creator,
     supply,
@@ -572,6 +582,12 @@ function launchTokens(
 }
 
 const NFT_REASON = 'This contract is an ERC-721 collection (NFTs), not an ERC-20 token.';
+
+function imitationVerdict(imitation: Imitation): TokenCheck['verdict'] {
+  return imitation.real
+    ? { label: 'hold', reason: `It passes itself off as ${imitation.imitates}, but it is not: the real ${imitation.imitates} on Base is ${imitation.real}.` }
+    : { label: 'hold', reason: `Its name or symbol spells ${imitation.imitates} with look-alike or hidden characters, a sign it is posing as ${imitation.imitates}.` };
+}
 const REASONS = {
   not_a_contract: () => 'There is no contract at this address on Base, so it is not a token.',
   not_a_token: () => 'This contract does not answer totalSupply(), so it is not an ERC-20 token.',
@@ -579,14 +595,22 @@ const REASONS = {
 
 function verdictFor(
   flags: TokenFlag[],
-  ctx: { supply: TokenCheck['supply']; creator: TokenCheck['creator']; creatorMintPct: number | null; sentPctAt90: number | null },
+  ctx: {
+    supply: TokenCheck['supply'];
+    creator: TokenCheck['creator'];
+    creatorMintPct: number | null;
+    sentPctAt90: number | null;
+    imitation: Imitation | null;
+  },
 ): TokenCheck['verdict'] {
-  const { supply, creator } = ctx;
+  const { supply, creator, imitation } = ctx;
   const atLeast = supply.capped ? 'at least ' : '';
   if (flags.includes('creator_sanctioned')) return { label: 'hold', reason: 'The wallet that launched it is on the US Treasury OFAC SDN list.' };
   if (flags.includes('creator_funded_by_sanctioned')) {
     return { label: 'hold', reason: 'The wallet that launched it got its first funds from an address on the OFAC SDN list.' };
   }
+  // Whoever launched it, a token passing for USDC is not USDC: holding or paying with it is the trap.
+  if (flags.includes('imitates_known_token') && imitation) return imitationVerdict(imitation);
   if (flags.includes('creator_minted_after_launch') && supply.minted_to_creator !== null && ctx.creatorMintPct !== null) {
     return {
       label: 'hold',

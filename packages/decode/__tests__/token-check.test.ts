@@ -22,7 +22,11 @@ const HEAD = 52_800_000;
 const ts = (iso: string, sec: number) => new Date(new Date(iso).getTime() + sec * 1000).toISOString();
 const days = (n: number) => ts(LAUNCH_TIME, -n * 86_400);
 const word = (n: bigint) => n.toString(16).padStart(64, '0');
-const abiString = (s: string) => `0x${word(32n)}${word(BigInt(s.length))}${Buffer.from(s).toString('hex').padEnd(64, '0')}`;
+// Byte length, not UTF-16 length: the look-alike symbols are multi-byte.
+const abiString = (s: string) => {
+  const hex = Buffer.from(s, 'utf8').toString('hex');
+  return `0x${word(32n)}${word(BigInt(Buffer.byteLength(s, 'utf8')))}${hex.padEnd(Math.ceil(hex.length / 64) * 64 || 64, '0')}`;
+};
 const SUPPLY = 1_000_000n * 10n ** 18n;
 const BONDING = '0xf66dea7b3e897cd44a5a231c61b6b4423d613259';
 const topic = (a: string) => `0x${a.slice(2).padStart(64, '0')}`;
@@ -42,6 +46,9 @@ interface Transfer {
 
 interface Chain {
   code?: boolean; // token has code at head
+  /** symbol() and name() of the token. Default CLK2 / ClankerToken. */
+  symbol?: string;
+  name?: string;
   codeFromBlock?: number; // first block with token code (default LAUNCH_BLOCK)
   totalSupply?: bigint | null; // null = totalSupply() reverts
   transfers?: Transfer[]; // token transfers, any order
@@ -134,8 +141,8 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
               return `0x${word(18n)}`;
             }
             if (data.startsWith('0x01ffc9a7')) return `0x${word(c.nft && data.slice(10, 18) === '80ac58cd' ? 1n : 0n)}`;
-            if (data === '0x95d89b41') return abiString('CLK2');
-            if (data === '0x06fdde03') return abiString('ClankerToken');
+            if (data === '0x95d89b41') return abiString(c.symbol ?? 'CLK2');
+            if (data === '0x06fdde03') return abiString(c.name ?? 'ClankerToken');
             if (data.startsWith('0x70a08231')) return `0x${word(c.creatorBalance ?? 0n)}`;
             if (data === '0x1c7b2ff4') {
               if (c.originalAdmin === null) throw new Error('execution reverted');
@@ -210,6 +217,37 @@ const mint = (to: string, value: number, block: number, hash: string, secAfterLa
   hash,
   block,
   time: ts(LAUNCH_TIME, secAfterLaunch),
+});
+
+describe('checkToken: tokens passing for a well-known one', () => {
+  // The fake USDC airdropped by an address-poisoning bot on Base, 2026-10-21 (0x72846b6b…).
+  it('answers hold for a token whose symbol passes for USDC, and names the real USDC', async () => {
+    const r = await checkToken(TOKEN, deps({ symbol: 'ሀ‌‍Ѕ​‌D​​С', name: 'USD Coin', transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 20n }));
+    expect(r.flags[0]).toBe('imitates_known_token');
+    expect(r.imitation).toEqual({ imitates: 'USDC', real: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' });
+    expect(r.verdict).toEqual({ label: 'hold', reason: 'It passes itself off as USDC, but it is not: the real USDC on Base is 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913.' });
+  });
+
+  // A launch-mill token on Base (0x06cbcba1…) whose symbol spells "TetherUSD" in Cyrillic and Armenian.
+  it('answers hold for a look-alike Tether without naming a contract it cannot vouch for', async () => {
+    const r = await checkToken(TOKEN, deps({ symbol: 'ТеthеrՍՏD ​‌​‍​', transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 20n }));
+    expect(r.imitation).toEqual({ imitates: 'USDT', real: null });
+    expect(r.verdict).toEqual({ label: 'hold', reason: 'Its name or symbol spells USDT with look-alike or hidden characters, a sign it is posing as USDT.' });
+  });
+
+  // The real fake USDC (0x72846b6b…) only emits Transfer events: totalSupply() reverts.
+  it('still answers hold for a USDC look-alike that is not a full ERC-20', async () => {
+    const r = await checkToken(TOKEN, deps({ symbol: 'ሀ‌‍Ѕ​‌D​​С', totalSupply: null }));
+    expect(r.flags).toEqual(['not_a_token', 'imitates_known_token']);
+    expect(r.imitation).toEqual({ imitates: 'USDC', real: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' });
+    expect(r.verdict).toEqual({ label: 'hold', reason: 'It passes itself off as USDC, but it is not: the real USDC on Base is 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913.' });
+  });
+
+  it('leaves an ordinary token alone', async () => {
+    const r = await checkToken(TOKEN, deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 20n }));
+    expect(r.imitation).toBeNull();
+    expect(r.flags).not.toContain('imitates_known_token');
+  });
 });
 
 describe('checkToken', () => {

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ReportView } from './report-view';
-import { isThinReport } from '@/lib/risk';
+import { isThinReport, reportIndexable } from '@/lib/risk';
 import { reportPageCopy } from '@/lib/reportPageCopy';
 import type { RiskReport, TokenReport } from '@/lib/api';
 import { classifyProbe, tokenAnswer, tokenTitle } from '@/lib/tokenAnswer';
@@ -106,7 +106,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical },
-    robots: thin
+    robots: thin || !reportIndexable(report)
       ? { index: false, follow: true }
       : { index: true, follow: true },
     openGraph: {
