@@ -603,6 +603,53 @@ describe('checkToken', () => {
     expect(r.token).toBe(TOKEN);
   });
 
+  // The free check on chainward.ai spends its allowance only on tokens: a wallet pasted
+  // into the same box is answered from the first reads, without spending any.
+  describe('before the launch search', () => {
+    it('runs the hook once for a token, before any transfers are read', async () => {
+      const log: string[] = [];
+      let runs = 0;
+      let transfersBeforeHook = -1;
+      const r = await checkToken(TOKEN, deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)] }, log), {
+        beforeLaunchSearch: async () => {
+          runs++;
+          transfersBeforeHook = log.filter((m) => m.startsWith('transfers')).length;
+        },
+      });
+      expect(runs).toBe(1);
+      expect(transfersBeforeHook).toBe(0);
+      expect(log.some((m) => m.startsWith('transfers'))).toBe(true);
+      expect(r.launch).not.toBeNull();
+    });
+
+    it.each([
+      ['there is no contract', { code: false }],
+      ['the contract is not an ERC-20', { totalSupply: null }],
+      ['the contract is an NFT collection', { nft: true }],
+    ] as const)('does not run the hook when %s', async (_case, chain) => {
+      let runs = 0;
+      await checkToken(TOKEN, deps({ ...chain }), {
+        beforeLaunchSearch: async () => {
+          runs++;
+        },
+      });
+      expect(runs).toBe(0);
+    });
+
+    it('stops the check when the hook refuses, reading no transfers', async () => {
+      const log: string[] = [];
+      const refusal = new Error('free checks used up');
+      await expect(
+        checkToken(TOKEN, deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)] }, log), {
+          beforeLaunchSearch: async () => {
+            throw refusal;
+          },
+        }),
+      ).rejects.toBe(refusal);
+      expect(log.some((m) => m.startsWith('transfers'))).toBe(false);
+    });
+  });
+
   describe('serial launchers through Clanker', () => {
     const OTHER = `0x${'a'.repeat(40)}`;
     const DEAD = '0x000000000000000000000000000000000000dead';

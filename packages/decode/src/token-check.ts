@@ -313,7 +313,16 @@ const amount = (n: number) =>
   n > 0 && n < 0.01 ? n.toLocaleString('en-US', { maximumSignificantDigits: 4 }) : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const duration = (sec: number) => (sec < 120 ? plural(sec, 'second') : sec < 7200 ? plural(Math.round(sec / 60), 'minute') : plural(Math.round(sec / 3600), 'hour'));
 
-export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promise<TokenCheck> {
+export interface CheckTokenOptions {
+  /**
+   * Runs once the address is known to be an ERC-20 token, before the launch search (the costly
+   * part of the check). A throw stops the check there. The free check on chainward.ai spends its
+   * allowance here, so a wallet pasted into the same box spends none.
+   */
+  beforeLaunchSearch?: () => Promise<void>;
+}
+
+export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: CheckTokenOptions = {}): Promise<TokenCheck> {
   const token = rawToken.toLowerCase();
   const [code, supplyHex, decimalsHex, symbolHex, nameHex, headHex] = await Promise.all([
     deps.rpc('eth_getCode', [token, 'latest']),
@@ -350,6 +359,7 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps): Promis
   if (supplyRaw === null) return stop('not_a_token');
   // An ERC-721 collection answers totalSupply() but has no decimals().
   if (decimalsRead === null && BigInt((await safeCall(deps, token, SUPPORTS_ERC721)) ?? '0x0') === 1n) return stop('not_a_token', NFT_REASON);
+  await opts.beforeLaunchSearch?.();
 
   const launch0 = await findLaunch(token, deps, head);
   const [who, clankerHex] = await Promise.all([

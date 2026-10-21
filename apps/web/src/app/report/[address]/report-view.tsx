@@ -11,6 +11,8 @@
  *   teaser   → novel address with history → public_stats + "decoding now"
  *   pending  → a decode is queued → poll GET /api/risk/check/:id
  *   no_history → address has no on-chain history
+ *   token    → a Base token: the rug check instead of the wallet report
+ *   token_used_up → a Base token, but today's free rug checks are used up
  *   error    → transport / unexpected failure → retry
  *
  * INTEGRITY: no SAFE verdict, no grade, no safety %, signal_density never shown.
@@ -27,7 +29,7 @@ import {
   BriefOffer,
   FreeTools,
 } from '@/components/press';
-import { ApiError, publicApi, type RiskReport, type RiskTeaser } from '@/lib/api';
+import { ApiError, publicApi, type RiskReport, type RiskTeaser, type TokenReport } from '@/lib/api';
 import { DISCLAIMER } from '@/lib/risk';
 import { chainMeta, chainQuery, type RiskChainParam } from '@/lib/chains';
 import { track } from '@/lib/track';
@@ -46,6 +48,8 @@ import {
 import { plainAnswer } from '@/lib/plainAnswer';
 import { reportPageCopy } from '@/lib/reportPageCopy';
 import { isTransient } from '@/lib/checkProgress';
+import { classifyProbe, tokenTitle } from '@/lib/tokenAnswer';
+import { TokenReportView } from './token-report';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const POLL_INTERVAL_MS = 3000;
@@ -60,6 +64,8 @@ type ViewState =
   | { kind: 'no_history' }
   | { kind: 'pending' }
   | { kind: 'rate_limited' }
+  | { kind: 'token'; check: TokenReport }
+  | { kind: 'token_used_up'; message: string }
   | { kind: 'error'; message: string };
 
 function fmtNum(n: number, maxFrac = 4): string {
@@ -181,6 +187,30 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
     }
     setState({ kind: 'loading' });
     startedAtRef.current = Date.now();
+    // A Base token gets the rug check instead of the wallet report. A wallet answers
+    // not_a_contract / not_a_token; a failed probe falls back to the wallet report.
+    if (chain === 'base') {
+      let probe: TokenReport | null = null;
+      let probeErr: unknown = null;
+      try {
+        probe = (await publicApi.getTokenReport(lowered)).data;
+      } catch (err) {
+        probeErr = err;
+      }
+      const outcome = classifyProbe(probe, probeErr);
+      if (outcome.kind === 'token') {
+        setState({ kind: 'token', check: outcome.check });
+        return;
+      }
+      if (outcome.kind === 'used_up') {
+        setState({ kind: 'token_used_up', message: outcome.message });
+        return;
+      }
+      if (outcome.kind === 'rate_limited') {
+        setState({ kind: 'rate_limited' });
+        return;
+      }
+    }
     try {
       const res = await publicApi.getReport(lowered, chain);
       const report = res.data.report;
@@ -271,7 +301,9 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
   const outcomeKey =
     state.kind === 'ready' || state.kind === 'stale'
       ? `${state.kind}:${state.report.band}:${state.report.flags.length}`
-      : state.kind;
+      : state.kind === 'token'
+        ? `token:${state.check.verdict.label}:${state.check.flags.length}`
+        : state.kind;
   useEffect(() => {
     if (state.kind === 'ready' || state.kind === 'stale') {
       track('check_result', {
@@ -279,10 +311,13 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
         band: state.report.band,
         flags: state.report.flags.length,
       });
+    } else if (state.kind === 'token') {
+      track('check_result', { state: 'token', verdict: state.check.verdict.label, flags: state.check.flags.length });
     } else if (
       state.kind === 'teaser' ||
       state.kind === 'no_history' ||
       state.kind === 'rate_limited' ||
+      state.kind === 'token_used_up' ||
       state.kind === 'error'
     ) {
       track('check_result', { state: state.kind });
@@ -293,6 +328,10 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
   // The server set the title from the report cached at page load; a re-check
   // replaces the report client-side, so keep the tab title in step with it.
   useEffect(() => {
+    if (state.kind === 'token') {
+      document.title = `${tokenTitle(state.check)} | ChainWard`;
+      return;
+    }
     if (state.kind !== 'ready' && state.kind !== 'stale') return;
     const { title } = reportPageCopy({
       report: state.report,
@@ -309,6 +348,8 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lowered, chain]);
 
+  const tokenCheck = state.kind === 'token' ? state.check : null;
+
   return (
     <PressShell>
       <PressDateline />
@@ -317,15 +358,21 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
 
         <section className="rr-hero">
           <div className="press-fileno">
-            Case File <span className="ph-dateline-sep">·</span> On-chain risk check
+            Case File <span className="ph-dateline-sep">·</span> {tokenCheck ? 'Rug check' : 'On-chain risk check'}
           </div>
           <h1 className="rr-question press-display">
-            Should you pay {valid ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'this address'}?
+            {tokenCheck
+              ? `Should you buy ${tokenCheck.token_info.symbol ?? `${address.slice(0, 6)}…${address.slice(-4)}`}?`
+              : `Should you pay ${valid ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'this address'}?`}
           </h1>
           <div className="rr-subject mono">{address}</div>
           <div className="rr-hero-note">
             <span className="rr-chip" data-chain={chain}>{meta.name}</span>
-            <span>Should you pay it? The answer, the reason, and the evidence, read from the chain.</span>
+            <span>
+              {tokenCheck
+                ? 'Who launched it, how, and what the launch wallet did next, read from the chain.'
+                : 'Should you pay it? The answer, the reason, and the evidence, read from the chain.'}
+            </span>
             {valid && (
               <a
                 className="press-link rr-explorer"
@@ -453,6 +500,20 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
               </div>
             </div>
           </>
+        )}
+
+        {/* ── token (the rug check) ────────────────────────────────────── */}
+        {state.kind === 'token' && <TokenReportView check={state.check} />}
+
+        {/* ── token, but today's free rug checks are used up ─────────── */}
+        {state.kind === 'token_used_up' && (
+          <div className="rr-notice rr-notice--amber">
+            <div className="rr-notice-tag">Free checks used up</div>
+            <p>{state.message}</p>
+            <button className="press-btn press-btn--ghost" onClick={() => load()}>
+              Retry
+            </button>
+          </div>
         )}
 
         {/* ── ready / stale (full report) ─────────────────────────────── */}

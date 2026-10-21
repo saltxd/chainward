@@ -29,7 +29,7 @@ import { x402InFlightLock } from './middleware/x402InFlight.js';
 import { logger } from './lib/logger.js';
 import { apiHomePage, x402DiscoveryDocument, x402OpenApiDocument, x402PublicUrl } from './lib/x402.js';
 import { walletPaid, walletV1 } from './routes/walletLookup.js';
-import { tokenCheck, tokenParam } from './routes/tokenCheck.js';
+import { tokenCheck, tokenParam, tokenReport } from './routes/tokenCheck.js';
 import {
   checkPaidInput,
   parseCounterpartyInput,
@@ -218,10 +218,12 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
   app.route('/api/wallets', wallets);
   app.route('/api/public/agents', publicAgents);
   app.route('/api/public/decodes', publicDecodes);
-  // Before /api/risk, so its /:param routes never see /wallet, /rugcheck or /token.
+  // Before /api/risk, so its /:param routes never see /wallet, /rugcheck, /token or /token-report.
   app.route('/api/risk/wallet', walletPaid);
   app.route('/api/risk/rugcheck', tokenCheck);
   app.route('/api/risk/token', tokenCheck);
+  // The rug check, free for people on chainward.ai (not a paid path).
+  app.route('/api/risk/token-report', tokenReport);
   app.route('/api/risk', risk);
   app.route('/api/observatory', observatory);
   app.route('/api/digest', digest);

@@ -623,6 +623,10 @@ export const publicApi = {
     fetchApi<{ success: true; data: { report: RiskReport } }>(
       `/api/risk/report/${address}${chain && chain !== 'base' ? `?chain=${chain}` : ''}`,
     ),
+  // The rug check, free for people: who launched a Base token and what the launch wallet did
+  // next. A wallet answers not_a_contract / not_a_token, and the page shows the wallet report.
+  getTokenReport: (address: string) =>
+    fetchApi<{ success: true; data: TokenReport }>(`/api/risk/token-report/${address}`),
   // Public, SEO-indexed library. distinct: 'address' → latest filing per (address, chain).
   listReports: (params?: {
     sort?: string;
@@ -643,6 +647,43 @@ export const publicApi = {
     );
   },
 };
+
+/** GET /api/risk/token-report/:address (data): the rug check for a Base token. */
+export interface TokenReport {
+  token: string;
+  chain: 'base';
+  verdict: { label: 'hold' | 'review' | 'no_flags'; reason: string };
+  token_info: { name: string | null; symbol: string | null; decimals: number | null; total_supply: number | null };
+  launch: {
+    block: number;
+    time: string | null;
+    tx: string | null;
+    /** The wallet that sent the launch transaction. */
+    creator: string | null;
+    /** The contract the launch called (a factory, router or EntryPoint); null for a direct deploy. */
+    via: string | null;
+    launcher: 'clanker' | 'virtuals' | null;
+    launcher_note: string | null;
+    /** Clanker: the token's admin at launch; another wallet than the creator when a service launched it. */
+    token_admin: string | null;
+  } | null;
+  creator: {
+    address: string;
+    type: 'wallet' | 'contract';
+    sanctioned: boolean;
+    first_seen: string | null;
+    age_days_at_launch: number | null;
+    sent_txs: number;
+    first_funder: { address: string; tx: string; sanctioned: boolean; exchange_or_hub: boolean; funded_wallets: number | null } | null;
+    holds_pct: number | null;
+    launch_tokens: { received: number; sent_pct: number; first_send_after_sec: number | null; sent_90pct_after_sec: number | null } | null;
+    clanker_launches_24h: number | null;
+  } | null;
+  supply: { mints_after_launch: number; minted_after_launch: number | null; to_creator: number; minted_to_creator: number | null; capped: boolean };
+  flags: string[];
+  as_of_block: number;
+  limits: string;
+}
 
 export interface PaidFileMeta {
   slug: string;

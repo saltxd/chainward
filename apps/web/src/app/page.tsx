@@ -122,6 +122,13 @@ export default async function CheckHomePage({
               <NodeClaim live="our own Base node" neutral="the chain" />. When there isn&apos;t
               enough recent history to judge, we say that instead.
             </p>
+            <p className="home-lede">
+              Buying a new Base token instead? Paste the token and you get its{' '}
+              <Link href="/rugcheck" className="press-link">
+                rug check
+              </Link>
+              : who launched it, and what the launch wallet did next.
+            </p>
           </div>
 
           <div className="home-intake-row">

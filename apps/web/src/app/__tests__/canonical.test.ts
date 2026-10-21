@@ -25,6 +25,7 @@ const PUBLIC_PAGES = [
   'base/page.tsx',
   'base/[slug]/page.tsx',
   'docs/page.tsx',
+  'rugcheck/page.tsx',
   'paid/[slug]/layout.tsx',
   '(checkout)/request-brief/layout.tsx',
 ];

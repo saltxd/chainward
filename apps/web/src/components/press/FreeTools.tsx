@@ -7,6 +7,12 @@ export function FreeTools() {
       <span className="press-label">Free tools</span>
       <div className="free-tools-row">
         <p>
+          About to buy a new Base token? The rug check shows who launched it and what the launch wallet did next.{' '}
+          <Link href="/rugcheck" className="press-link">
+            Run a rug check →
+          </Link>
+        </p>
+        <p>
           Screening wallets from your own code? The wallet screening API is free for 1,000 lookups a month.{' '}
           <Link href="/wallet-api" className="press-link">
             Get a free key →

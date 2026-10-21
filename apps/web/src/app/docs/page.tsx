@@ -276,7 +276,8 @@ export default function DocsPage() {
                 clearance. It is not a honeypot, liquidity or holder check. An address that is not
                 a token answers <code>not_a_contract</code> or <code>not_a_token</code>, and that
                 answer is charged. Also at{' '}
-                <code>/api/risk/token?address=</code>.
+                <code>/api/risk/token?address=</code>. People can run it free on the site: paste
+                the token at <a href="/rugcheck">chainward.ai/rugcheck</a>.
               </td>
             </tr>
             <tr>
