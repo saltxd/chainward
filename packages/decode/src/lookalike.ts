@@ -109,6 +109,12 @@ export function imitatedToken(t: { symbol?: string | null; name?: string | null;
   return null;
 }
 
+/** The chain's native coin (ETH on Base, BNB on BNB Chain) with its dust floor: what an imitation ETH copies. */
+export function nativeToken(chain: SellerChain): { symbol: string; dust: number } {
+  const symbol = chain === 'bsc' ? 'BNB' : 'ETH';
+  return { symbol, dust: KNOWN.find((k) => k.symbol === symbol)!.dust };
+}
+
 /** The listed real token at this contract on this chain, with its dust floor; null for anything else. */
 export function realToken(contract: string | null | undefined, chain: SellerChain): { symbol: string; dust: number } | null {
   const c = lower(contract);
