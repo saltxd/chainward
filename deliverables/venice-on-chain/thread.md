@@ -1,6 +1,6 @@
 # Thread draft (not posted; max 1 @chainwardai post a day; no promo link replies)
 
-1/ "Venice API calls up 400% since July." Calls aren't on a chain, but Venice's sales leave a trace on Base: it burns VVV every time it sells credits. Those burn swaps grew about 2.35x since July.
+1/ "API calls are up 400% since July," says the Venice post going around. Calls aren't on a chain, but Venice's sales leave a trace on Base: it burns VVV every time it sells credits. Those burn swaps grew about 2.35x since July.
 
 2/ Since Jul 17, Venice's rule: $5 of VVV burned per $100 of credits sold. On-chain that's a stream of exactly-$5.07 swaps from one Venice wallet: 1,193 a day in late July, 2,804 a day last week.
 
