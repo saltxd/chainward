@@ -36,6 +36,7 @@ const CHECK: TokenReport = {
     holds_pct: 0,
     launch_tokens: { received: 1_200_000_000, sent_pct: 100, first_send_after_sec: 20, sent_90pct_after_sec: 26 },
     clanker_launches_24h: 1,
+    labels: [],
   },
   supply: { mints_after_launch: 0, minted_after_launch: null, to_creator: 0, minted_to_creator: null, capped: false },
   flags: ['creator_sent_launch_tokens', 'new_creator'],

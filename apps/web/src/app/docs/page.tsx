@@ -277,7 +277,9 @@ export default function DocsPage() {
                 a token answers <code>not_a_contract</code> or <code>not_a_token</code>, and that
                 answer is charged. Also at{' '}
                 <code>/api/risk/token?address=</code>. People can run it free on the site: paste
-                the token at <a href="/rugcheck">chainward.ai/rugcheck</a>.
+                the token at <a href="/rugcheck">chainward.ai/rugcheck</a>. It also lists the
+                labels our published investigations put on the launch wallet, and a strong one
+                answers <code>review</code>.
               </td>
             </tr>
             <tr>
@@ -289,7 +291,11 @@ export default function DocsPage() {
                 <strong>The counterparty check.</strong> The verdict with its reason, then
                 the full report, no older than 24 hours (a fresh check runs if needed). Add{' '}
                 <code>&amp;chain=bsc</code> for a BNB Chain address; payment is still USDC
-                on Base. <code>/api/risk/x402/&lt;address&gt;</code> also works.
+                on Base. <code>/api/risk/x402/&lt;address&gt;</code> also works. Like a
+                sanctions match, a strong label from our published investigations or detectors
+                answers <code>hold</code>, with the label as the reason (for example, one of a
+                group of wallets that appear to be run together); a wallet with no label is not
+                cleared.
               </td>
             </tr>
             <tr>
