@@ -41,6 +41,13 @@ describe('/docs', () => {
     expect(paid).toContain('not a honeypot');
   });
 
+  // People paste a token on chainward.ai for free; the paid route is for bots and apps.
+  it('says people can run the rug check free on the site', () => {
+    const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
+    expect(paid).toContain('href="/rugcheck"');
+    expect(paid).toMatch(/free on the site/);
+  });
+
   // Most Clanker launches come from wallets that launch dozens of tokens a day.
   it('says the rug check counts Clanker launches by the same wallet, and names the admin behind a service launch', () => {
     const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));

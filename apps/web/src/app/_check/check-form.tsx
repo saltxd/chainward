@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { track } from '@/lib/track';
 import { CHAINS, CHAIN_IDS, chainQuery, parseChainParam, type RiskChainParam } from '@/lib/chains';
+import { intakeCopy } from './intake-copy';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
@@ -11,14 +12,16 @@ const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
  * The home-page checker, styled as a case-intake document. Accepts an address
  * on Base or BNB Chain (chain toggle) and routes straight to the report page
  * (lowercased, canonical; `?chain=bsc` for BNB Chain). Addresses only: handles
- * are not resolved, so the form never asks for one.
+ * are not resolved, so the form never asks for one. A Base token gets the rug
+ * check on the same report page; `variant="token"` (the /rugcheck page) asks for
+ * a Base token only and drops the chain toggle.
  */
-export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
+export function CheckForm({ initialChain, variant = 'wallet' }: { initialChain?: string; variant?: 'wallet' | 'token' } = {}) {
   const router = useRouter();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
-  const [chain, setChain] = useState<RiskChainParam>(parseChainParam(initialChain) ?? 'base');
-  const meta = CHAINS[chain];
+  const [chain, setChain] = useState<RiskChainParam>(variant === 'token' ? 'base' : (parseChainParam(initialChain) ?? 'base'));
+  const copy = intakeCopy(chain, variant);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,19 +29,17 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
 
     if (ADDRESS_RE.test(trimmed)) {
       setError('');
-      track('check_submit', { kind: 'address', chain });
+      track('check_submit', { kind: 'address', chain, form: variant });
       router.push(`/report/${trimmed.toLowerCase()}${chainQuery(chain)}`);
       return;
     }
 
-    track('check_submit', { kind: trimmed.startsWith('@') ? 'handle' : 'invalid', chain });
-    setError(
-      `That isn't a ${meta.name} wallet address. Paste the address itself: it starts with 0x, followed by 40 letters and numbers.`,
-    );
+    track('check_submit', { kind: trimmed.startsWith('@') ? 'handle' : 'invalid', chain, form: variant });
+    setError(copy.error);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="intake" aria-label="Run a risk check">
+    <form onSubmit={handleSubmit} className="intake" aria-label={variant === 'token' ? 'Run a rug check' : 'Run a risk check'}>
       <div className="intake-head">
         <span className="intake-head-org">ChainWard · Forensic Intake</span>
         <span className="intake-head-file">
@@ -49,25 +50,27 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
       <div className="intake-body">
         <div className="intake-row">
           <label className="intake-field-label" htmlFor="intake-subject">
-            Subject: {meta.name} address
+            {copy.label}
           </label>
-          <div className="intake-chains" role="radiogroup" aria-label="Chain">
-            {CHAIN_IDS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                role="radio"
-                aria-checked={chain === id}
-                className={`intake-chain${chain === id ? ' intake-chain--on' : ''}`}
-                onClick={() => {
-                  setChain(id);
-                  if (error) setError('');
-                }}
-              >
-                {CHAINS[id].name}
-              </button>
-            ))}
-          </div>
+          {variant === 'wallet' && (
+            <div className="intake-chains" role="radiogroup" aria-label="Chain">
+              {CHAIN_IDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={chain === id}
+                  className={`intake-chain${chain === id ? ' intake-chain--on' : ''}`}
+                  onClick={() => {
+                    setChain(id);
+                    if (error) setError('');
+                  }}
+                >
+                  {CHAINS[id].name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="intake-field">
           <input
@@ -84,13 +87,13 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
             autoCapitalize="off"
             autoCorrect="off"
             className="intake-input mono"
-            aria-label={`${meta.name} wallet address`}
+            aria-label={copy.inputLabel}
             aria-describedby="intake-subject-hint"
             aria-invalid={error ? true : undefined}
           />
         </div>
         <p id="intake-subject-hint" className="intake-field-hint">
-          The wallet address you&apos;re about to pay or hire. It starts with 0x.
+          {copy.hint}
         </p>
 
         {error && (
@@ -101,10 +104,10 @@ export function CheckForm({ initialChain }: { initialChain?: string } = {}) {
 
         <div className="intake-actions">
           <button type="submit" className="press-btn">
-            Run the risk check →
+            {copy.button}
           </button>
           <span className="intake-hint">
-            Free · public · the first check files a public report with its verdict.
+            {copy.footnote}
           </span>
         </div>
       </div>

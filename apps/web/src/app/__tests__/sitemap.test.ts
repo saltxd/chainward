@@ -32,6 +32,7 @@ describe('sitemap', () => {
 
     const urls = (await sitemap()).map((e) => e.url);
     expect(urls).toContain('https://chainward.ai/base');
+    expect(urls).toContain('https://chainward.ai/rugcheck');
     expect(urls).toContain('https://chainward.ai/base/larry');
     expect(urls).not.toContain('https://chainward.ai/base/idle-agent');
     expect(urls.some((u) => u.includes('/hyperliquid'))).toBe(false);
