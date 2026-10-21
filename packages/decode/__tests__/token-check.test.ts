@@ -235,6 +235,14 @@ describe('checkToken: tokens passing for a well-known one', () => {
     expect(r.verdict).toEqual({ label: 'hold', reason: 'Its name or symbol spells USDT with look-alike or hidden characters, which real tokens do not use.' });
   });
 
+  // The real fake USDC (0x72846b6b…) only emits Transfer events: totalSupply() reverts.
+  it('still answers hold for a USDC look-alike that is not a full ERC-20', async () => {
+    const r = await checkToken(TOKEN, deps({ symbol: 'ሀ‌‍Ѕ​‌D​​С', totalSupply: null }));
+    expect(r.flags).toEqual(['not_a_token', 'imitates_known_token']);
+    expect(r.imitation).toEqual({ imitates: 'USDC', real: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' });
+    expect(r.verdict).toEqual({ label: 'hold', reason: 'It passes itself off as USDC, but it is not: the real USDC on Base is 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913.' });
+  });
+
   it('leaves an ordinary token alone', async () => {
     const r = await checkToken(TOKEN, deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 20n }));
     expect(r.imitation).toBeNull();

@@ -349,17 +349,20 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     decimals,
     total_supply: supplyRaw !== null && decimals !== null ? scaleUnits(supplyRaw, decimals) : null,
   };
+  // Fake USDC airdropped by address-poisoning bots, and look-alike Tethers from launch mills. Judged
+  // from the name and symbol alone, so it holds for a contract that only emits fake Transfer events too.
+  const imitation = imitatedToken({ symbol: token_info.symbol, name: token_info.name, contract: token, chain: 'base' });
   const empty = { mints_after_launch: 0, minted_after_launch: null, to_creator: 0, minted_to_creator: null, capped: false };
   const stop = (flag: 'not_a_contract' | 'not_a_token', reason: string = REASONS[flag]()): TokenCheck => ({
     token,
     chain: 'base',
-    verdict: { label: 'review', reason },
+    verdict: imitation ? imitationVerdict(imitation) : { label: 'review', reason },
     token_info,
-    imitation: null,
+    imitation,
     launch: null,
     creator: null,
     supply: empty,
-    flags: [flag],
+    flags: imitation ? [flag, 'imitates_known_token'] : [flag],
     as_of_block: head,
     limits: LIMITS,
   });
@@ -470,8 +473,6 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     };
   }
 
-  // Fake USDC airdropped by address-poisoning bots, and look-alike Tethers from launch mills.
-  const imitation = imitatedToken({ symbol: token_info.symbol, name: token_info.name, contract: token, chain: 'base' });
   const flags: TokenFlag[] = [];
   if (imitation) flags.push('imitates_known_token');
   if (!launch.tx || !creatorAddr) flags.push('launch_unknown');
@@ -581,6 +582,12 @@ function launchTokens(
 }
 
 const NFT_REASON = 'This contract is an ERC-721 collection (NFTs), not an ERC-20 token.';
+
+function imitationVerdict(imitation: Imitation): TokenCheck['verdict'] {
+  return imitation.real
+    ? { label: 'hold', reason: `It passes itself off as ${imitation.imitates}, but it is not: the real ${imitation.imitates} on Base is ${imitation.real}.` }
+    : { label: 'hold', reason: `Its name or symbol spells ${imitation.imitates} with look-alike or hidden characters, which real tokens do not use.` };
+}
 const REASONS = {
   not_a_contract: () => 'There is no contract at this address on Base, so it is not a token.',
   not_a_token: () => 'This contract does not answer totalSupply(), so it is not an ERC-20 token.',
@@ -603,11 +610,7 @@ function verdictFor(
     return { label: 'hold', reason: 'The wallet that launched it got its first funds from an address on the OFAC SDN list.' };
   }
   // Whoever launched it, a token passing for USDC is not USDC: holding or paying with it is the trap.
-  if (flags.includes('imitates_known_token') && imitation) {
-    return imitation.real
-      ? { label: 'hold', reason: `It passes itself off as ${imitation.imitates}, but it is not: the real ${imitation.imitates} on Base is ${imitation.real}.` }
-      : { label: 'hold', reason: `Its name or symbol spells ${imitation.imitates} with look-alike or hidden characters, which real tokens do not use.` };
-  }
+  if (flags.includes('imitates_known_token') && imitation) return imitationVerdict(imitation);
   if (flags.includes('creator_minted_after_launch') && supply.minted_to_creator !== null && ctx.creatorMintPct !== null) {
     return {
       label: 'hold',
