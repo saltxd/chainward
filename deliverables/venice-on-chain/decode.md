@@ -4,7 +4,6 @@ subtitle: "A viral chart says Venice's API calls are up 400% since July. On Base
 plain: "Venice says its API use is up 400% since July. Venice also burns some of its token on-chain every time it sells credits, and those burns grew about 2.35x over the same months. Both can be true: calls can grow faster than dollars. If you judge an AI service by a usage chart, its on-chain sales are the steadier number."
 date: "2026-10-21"
 slug: "venice-on-chain"
-draft: true
 seoTitle: "Venice AI On-Chain: VVV Credit-Burn Swaps Grew 2.35x Since July, x402 Small and DIEM Flat (Base, Oct 2026)"
 ---
 
