@@ -19,7 +19,8 @@ const FAKE_TX = '0xfb329dcb45f3e01ef2d65ac9b5404dad3513c57e4bab5f89205baea8c970b
 
 const DECOY: Decoy = {
   role: 'payee',
-  imitates: PAYEE,
+  copies: PAYEE,
+  candidates: 1,
   counterparty: PAYER,
   token: 'USDC',
   echoes_tx: REAL_TX,
@@ -80,7 +81,7 @@ describe('lookupWallet on a decoy', () => {
   });
   const world: DecoyTransfer[] = [real(PAYER, PAYEE, 0.1, REAL_TX, '2026-10-21T15:43:13.000Z'), fake(PAYER, PAYEE_LOOKALIKE)];
 
-  function deps(nonce: number, calls: string[]): WalletLookupDeps {
+  function deps(nonce: number, calls: string[], failTransfers = false): WalletLookupDeps {
     return {
       now: () => new Date('2026-10-21T16:00:00Z'),
       rpc: async (method) => {
@@ -93,6 +94,8 @@ describe('lookupWallet on a decoy', () => {
       },
       transfers: async (params) => {
         const q = params as { fromAddress?: string; toAddress?: string; contractAddresses?: string[]; order?: string; maxCount?: string };
+        // The decoy step's reads (a 25-row page or a contract-filtered page) fail when asked to.
+        if (failTransfers && (q.maxCount === '0x19' || q.contractAddresses)) throw new Error('transfer source throttled');
         // side:address:page:contract-filtered, so the funder trace (a 1,000 page, no filter) tells apart from decoy reads
         calls.push(`${q.fromAddress ? `from:${q.fromAddress}` : `to:${q.toAddress}`}:${q.maxCount}:${q.contractAddresses ? 'usdc' : ''}`);
         const rows = world
@@ -108,10 +111,28 @@ describe('lookupWallet on a decoy', () => {
     const r = await lookupWallet(PAYEE_LOOKALIKE, 'base', deps(0, calls));
     expect(r.verdict).toEqual({ label: 'hold', reason: decoyReason(DECOY) });
     expect(r.flags).toContain('poisoning_decoy');
-    expect(r.decoy).toMatchObject({ role: 'payee', imitates: PAYEE, counterparty: PAYER, echoes_tx: REAL_TX });
+    expect(r.decoy).toMatchObject({ role: 'payee', copies: PAYEE, counterparty: PAYER, echoes_tx: REAL_TX });
+    expect(r.limits).toContain('Anyone can send transfers to an unused address');
     expect(r.first_funder).toBeNull();
     expect(calls).not.toContain(`from:${PAYER}:0x3e8:`);
     expect(calls).toContain(`from:${PAYER}:0x64:usdc`);
+  });
+
+  it('answers review instead of failing when the decoy reads fail', async () => {
+    const r = await lookupWallet(PAYEE_LOOKALIKE, 'base', deps(0, [], true));
+    expect(r.decoy).toBeNull();
+    expect(r.flags).toContain('decoy_unchecked');
+    expect(r.verdict).toEqual({
+      label: 'review',
+      reason: "Couldn't check whether this never-used address is a planted look-alike. Confirm the full address with whoever gave it to you.",
+    });
+  });
+
+  it('does not run the decoy check on BNB Chain yet', async () => {
+    const calls: string[] = [];
+    const r = await lookupWallet(PAYEE_LOOKALIKE, 'bsc', deps(0, calls));
+    expect(r.decoy).toBeNull();
+    expect(calls.some((c) => c.includes(':0x19:'))).toBe(false);
   });
 
   it('runs no decoy reads for a wallet that has sent transactions', async () => {

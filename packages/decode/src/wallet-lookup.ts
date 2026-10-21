@@ -17,11 +17,13 @@ export type LookupChain = SellerChain;
 /**
  * privacy_relay: a known px402 reserve or relayer (privacy-relays.ts); whoever it pays for is not on chain.
  * poisoning_decoy: a look-alike an address-poisoning bot planted in another wallet's history (decoy.ts).
+ * decoy_unchecked: a never-used wallet whose decoy reads failed or timed out.
  */
 export type LookupFlag =
   | 'sanctioned'
   | 'funded_by_sanctioned'
   | 'poisoning_decoy'
+  | 'decoy_unchecked'
   | 'privacy_relay'
   | 'labeled'
   | 'no_history'
@@ -85,6 +87,10 @@ const FUNDER_PAGE = 1000;
 const FUNDER_CODE_CHECKS = 20;
 const FUNDER_CODE_BATCH = 5;
 const ZERO_ADDRESS = `0x${'0'.repeat(40)}`;
+/** The decoy reads get this long inside the lookup's budget; past it the lookup says it could not check. */
+const DECOY_TIMEOUT_MS = 6_000;
+const DECOY_LIMITS = ' A decoy finding is read from transfer history. Anyone can send transfers to an unused address, so confirm the full address with whoever gave it to you.';
+const DECOY_UNCHECKED = "Couldn't check whether this never-used address is a planted look-alike. Confirm the full address with whoever gave it to you.";
 
 const USDC: Record<LookupChain, { address: string; decimals: number }> = {
   base: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
@@ -124,8 +130,17 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   const usdc = scaled(usdcHex, USDC[chain].decimals);
 
   // Only a wallet that never sent a transaction can be a planted look-alike; its first
-  // "transfer in" is then a fake, so there is no funder to trace.
-  const decoy = sentTxs === 0 && isWallet ? await detectDecoy(address, chain, deps, { sentTxs, isWallet, native, usdc }) : null;
+  // "transfer in" is then a fake, so there is no funder to trace. Base only for now. A failed
+  // or slow read does not fail the lookup: it says it could not check.
+  let decoy: Decoy | null = null;
+  let decoyUnchecked = false;
+  if (chain === 'base' && sentTxs === 0 && isWallet) {
+    try {
+      decoy = await withTimeout(detectDecoy(address, chain, deps, { sentTxs, isWallet, native, usdc }), DECOY_TIMEOUT_MS);
+    } catch {
+      decoyUnchecked = true;
+    }
+  }
 
   let funder: WalletLookup['first_funder'] = null;
   // A mint (USDC bridged in by CCTP, say) comes from the zero address, and an OptimismPortal
@@ -152,6 +167,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   if (sanctioned) flags.push('sanctioned');
   if (funder?.sanctioned) flags.push('funded_by_sanctioned');
   if (decoy) flags.push('poisoning_decoy');
+  if (decoyUnchecked) flags.push('decoy_unchecked');
   if (privacyRelay(address, chain)) flags.push('privacy_relay');
   const labels = publicLabels((await deps.labelsFor?.(address, chain)) ?? []);
   if (labels[0]?.strength === 'strong') flags.push('labeled');
@@ -177,8 +193,17 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
     flags,
     as_of_block: hexToNumber(blockHex),
     limits:
-      'On-chain facts only. A shared funder is not proof of one owner, and exchanges and other hubs hide who funded a wallet. no_flags means none of these checks matched; it is not a clearance.',
+      'On-chain facts only. A shared funder is not proof of one owner, and exchanges and other hubs hide who funded a wallet. no_flags means none of these checks matched; it is not a clearance.' +
+      (decoy ? DECOY_LIMITS : ''),
   };
+}
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -210,6 +235,7 @@ function verdictFor(
   // Below sanctions, above everything else: the relay's own age and funder say nothing about the payer behind it.
   if (flags.includes('privacy_relay')) return { label: 'review', reason: PRIVACY_RELAY_REASON };
   if (flags.includes('labeled') && ctx.label) return { label: 'review', reason: ctx.label };
+  if (flags.includes('decoy_unchecked')) return { label: 'review', reason: DECOY_UNCHECKED };
   if (flags.includes('no_history')) return { label: 'review', reason: 'No transfers or transactions on this chain yet.' };
   if (flags.includes('new_wallet')) {
     const d = ctx.ageDays ?? 0;

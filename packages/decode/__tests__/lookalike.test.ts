@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imitatedToken, sharesEnds, symbolSkeleton } from '../src/lookalike.js';
+import { imitatedToken, realToken, sharesEnds, symbolSkeleton } from '../src/lookalike.js';
 
 // Fake "USDC" symbols that address-poisoning bots airdropped on Base in October 2026,
 // exactly as symbol() returns them (Would Pay Again's payout wallet history, Oct 5-21).
@@ -31,6 +31,17 @@ describe('symbolSkeleton', () => {
     expect(symbolSkeleton('ＵＳＤＣ')).toBe('USDC');
     expect(symbolSkeleton('ÚSDC')).toBe('USDC');
     expect(symbolSkeleton('‮USD Coin')).toBe('USDCOIN');
+  });
+});
+
+describe('symbolSkeleton look-alike table (review fixes)', () => {
+  it('maps lowercase look-alikes after uppercasing, so a Greek tau reads as T', () => {
+    expect(symbolSkeleton('USDτ')).toBe('USDT');
+  });
+
+  it('reads Cherokee Ꮢ as R and Ꮥ as S', () => {
+    expect(symbolSkeleton('ᑌᏕDᏟ')).toBe('USDC');
+    expect(symbolSkeleton('Ꮢ')).toBe('R');
   });
 });
 
@@ -67,6 +78,15 @@ describe('imitatedToken', () => {
     expect(imitatedToken({ symbol: 'ETH', contract: FAKE_CONTRACT, chain: 'bsc' })).toBeNull();
   });
 
+  it('does not treat a no-break space in a plain name as a disguise', () => {
+    expect(imitatedToken({ name: 'Tether\u00a0USD', symbol: 'USDT', contract: FAKE_CONTRACT, chain: 'bsc' })).toBeNull();
+  });
+
+  it('knows USDbC as a real Base token, so a look-alike of it is a fake', () => {
+    expect(imitatedToken({ symbol: 'USDbC', contract: '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA', chain: 'base' })).toBeNull();
+    expect(imitatedToken({ symbol: 'USDЬC', contract: FAKE_CONTRACT, chain: 'base' })?.imitates).toBe('USDBC');
+  });
+
   it('answers null without a symbol or name', () => {
     expect(imitatedToken({ symbol: null, name: null, contract: FAKE_CONTRACT, chain: 'base' })).toBeNull();
     expect(imitatedToken({ symbol: '', contract: FAKE_CONTRACT, chain: 'base' })).toBeNull();
@@ -85,5 +105,14 @@ describe('sharesEnds', () => {
     expect(sharesEnds('0xf7ee65130fb2b3bb42cc5cbfed085d7d482667cd', '0xf7ef65130fb2b3bb42cc5cbfed085d7d482667cd')).toBe(false);
     expect(sharesEnds('0xf7ee65130fb2b3bb42cc5cbfed085d7d482667cd', '0xf7e065130fb2b3bb42cc5cbfed085d7d482667cd')).toBe(false);
     expect(sharesEnds('0xf7ee65130fb2b3bb42cc5cbfed085d7d482667cd', '0xf7ee65130fb2b3bb42cc5cbfed085d7d482667ce')).toBe(false);
+  });
+});
+
+describe('realToken', () => {
+  it('names the real listed token at a contract, with the dust floor below which a transfer proves nothing', () => {
+    expect(realToken('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', 'base')).toEqual({ symbol: 'USDC', dust: 0.01 });
+    expect(realToken('0x4200000000000000000000000000000000000006', 'base')).toEqual({ symbol: 'WETH', dust: 0.000005 });
+    expect(realToken(FAKE_CONTRACT, 'base')).toBeNull();
+    expect(realToken(null, 'base')).toBeNull();
   });
 });

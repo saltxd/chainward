@@ -14,19 +14,24 @@ export interface Imitation {
   real: string | null;
 }
 
-/** Well-known tokens fakes copy: symbol, the names they go by, and the real contract per chain (verified on chain 2026-10-21). */
-const KNOWN: ReadonlyArray<{ symbol: string; names: readonly string[]; real: Partial<Record<SellerChain, string>> }> = [
-  { symbol: 'USDC', names: ['USD Coin'], real: { base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', bsc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' } },
-  { symbol: 'USDT', names: ['Tether USD', 'TetherUSD', 'Tether'], real: { bsc: '0x55d398326f99059fF775485246999027B3197955' } },
-  { symbol: 'DAI', names: ['Dai Stablecoin'], real: { base: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' } },
-  { symbol: 'EURC', names: [], real: { base: '0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42' } },
-  { symbol: 'WETH', names: ['Wrapped Ether'], real: { base: '0x4200000000000000000000000000000000000006' } },
-  { symbol: 'ETH', names: ['Ether', 'Ethereum'], real: {} },
-  { symbol: 'CBBTC', names: ['Coinbase Wrapped BTC'], real: { base: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf' } },
-  { symbol: 'WBTC', names: ['Wrapped BTC'], real: {} },
-  { symbol: 'WBNB', names: ['Wrapped BNB'], real: { bsc: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c' } },
-  { symbol: 'BNB', names: [], real: {} },
-  { symbol: 'USD', names: [], real: {} },
+/**
+ * Well-known tokens fakes copy: symbol, the names they go by, the real contract per chain
+ * (verified on chain 2026-10-21) and a dust floor: a transfer at or below it proves nothing
+ * about a wallet being in use, since dust is one more way to plant a look-alike.
+ */
+const KNOWN: ReadonlyArray<{ symbol: string; names: readonly string[]; real: Partial<Record<SellerChain, string>>; dust: number }> = [
+  { symbol: 'USDC', names: ['USD Coin'], real: { base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', bsc: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' }, dust: 0.01 },
+  { symbol: 'USDBC', names: ['USD Base Coin'], real: { base: '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA' }, dust: 0.01 },
+  { symbol: 'USDT', names: ['Tether USD', 'TetherUSD', 'Tether'], real: { bsc: '0x55d398326f99059fF775485246999027B3197955' }, dust: 0.01 },
+  { symbol: 'DAI', names: ['Dai Stablecoin'], real: { base: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' }, dust: 0.01 },
+  { symbol: 'EURC', names: [], real: { base: '0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42' }, dust: 0.01 },
+  { symbol: 'WETH', names: ['Wrapped Ether'], real: { base: '0x4200000000000000000000000000000000000006' }, dust: 0.000005 },
+  { symbol: 'ETH', names: ['Ether', 'Ethereum'], real: {}, dust: 0.000005 },
+  { symbol: 'CBBTC', names: ['Coinbase Wrapped BTC'], real: { base: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf' }, dust: 0.0000002 },
+  { symbol: 'WBTC', names: ['Wrapped BTC'], real: {}, dust: 0.0000002 },
+  { symbol: 'WBNB', names: ['Wrapped BNB'], real: { bsc: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c' }, dust: 0.00002 },
+  { symbol: 'BNB', names: [], real: {}, dust: 0.00002 },
+  { symbol: 'USD', names: [], real: {}, dust: 0.01 },
 ];
 
 /**
@@ -39,7 +44,7 @@ const ONE_CONTRACT: ReadonlyArray<{ symbol: string; chain: SellerChain }> = [{ s
 /** Look-alikes from other scripts, mapped to the Latin capital they pass for (from Unicode's confusables data). */
 const CONFUSABLES: Record<string, string> = {
   // Cyrillic
-  А: 'A', В: 'B', С: 'C', Е: 'E', Н: 'H', І: 'I', Ј: 'J', К: 'K', М: 'M', О: 'O', Р: 'P', Ѕ: 'S', Т: 'T', Х: 'X', У: 'Y', Ү: 'Y', Ԁ: 'D', Ԛ: 'Q', Ԝ: 'W',
+  А: 'A', В: 'B', С: 'C', Е: 'E', Н: 'H', І: 'I', Ј: 'J', К: 'K', М: 'M', О: 'O', Р: 'P', Ѕ: 'S', Т: 'T', Х: 'X', У: 'Y', Ү: 'Y', Ԁ: 'D', Ԛ: 'Q', Ԝ: 'W', Ь: 'B',
   а: 'A', с: 'C', е: 'E', һ: 'H', і: 'I', ј: 'J', о: 'O', р: 'P', ѕ: 'S', х: 'X', у: 'Y', ԁ: 'D', ԛ: 'Q', ԝ: 'W',
   // Greek
   Α: 'A', Β: 'B', Ε: 'E', Ζ: 'Z', Η: 'H', Ι: 'I', Κ: 'K', Μ: 'M', Ν: 'N', Ο: 'O', Ρ: 'P', Τ: 'T', Υ: 'Y', Χ: 'X', Ϲ: 'C', ϲ: 'C', ο: 'O', ρ: 'P', ν: 'V',
@@ -50,7 +55,7 @@ const CONFUSABLES: Record<string, string> = {
   // Canadian syllabics
   ᐯ: 'V', ᑌ: 'U', ᑎ: 'N', ᑕ: 'C', ᑭ: 'P', ᒪ: 'L', ᔕ: 'S', ᕼ: 'H', ᖇ: 'R', ᗞ: 'D', ᗩ: 'A', ᗯ: 'W', ᗰ: 'M', ᗷ: 'B',
   // Cherokee
-  Ꭰ: 'D', Ꭱ: 'R', Ꭲ: 'T', Ꭺ: 'A', Ꭼ: 'E', Ꮃ: 'W', Ꮇ: 'M', Ꮋ: 'H', Ꮓ: 'Z', Ꮢ: 'S', Ꮪ: 'S', Ꮯ: 'C', Ꮲ: 'P', Ꮶ: 'K', Ᏼ: 'B',
+  Ꭰ: 'D', Ꭱ: 'R', Ꭲ: 'T', Ꭺ: 'A', Ꭼ: 'E', Ꮃ: 'W', Ꮇ: 'M', Ꮋ: 'H', Ꮓ: 'Z', Ꮢ: 'R', Ꮥ: 'S', Ꮪ: 'S', Ꮯ: 'C', Ꮲ: 'P', Ꮶ: 'K', Ᏼ: 'B',
   // Lisu
   ꓐ: 'B', ꓑ: 'P', ꓓ: 'D', ꓔ: 'T', ꓖ: 'G', ꓗ: 'K', ꓙ: 'J', ꓚ: 'C', ꓜ: 'Z', ꓝ: 'F', ꓟ: 'M', ꓠ: 'N', ꓡ: 'L', ꓢ: 'S', ꓣ: 'R', ꓦ: 'V', ꓧ: 'H', ꓪ: 'W', ꓫ: 'X', ꓬ: 'Y', ꓮ: 'A', ꓰ: 'E', ꓲ: 'I', ꓳ: 'O', ꓴ: 'U',
   // Latin small capitals and Coptic
@@ -67,13 +72,16 @@ const mapConfusables = (s: string) => Array.from(s, (ch) => CONFUSABLES[ch] ?? c
 /**
  * The matching key a reader's eye sees: look-alikes mapped to Latin, compatibility-folded,
  * invisibles stripped, uppercase. Look-alikes are mapped before folding too, because NFKD
- * turns some of them into letters that look like nothing (the lunate sigma Ϲ becomes Σ).
+ * turns some of them into letters that look like nothing (the lunate sigma Ϲ becomes Σ),
+ * and again after uppercasing, so a lowercase look-alike (Greek τ) meets its capital.
  */
 export function symbolSkeleton(s: string): string {
-  return mapConfusables(mapConfusables(s).normalize('NFKD').replace(INVISIBLE, '')).toUpperCase();
+  return mapConfusables(mapConfusables(s).normalize('NFKD').replace(INVISIBLE, '').toUpperCase());
 }
 
 const plainLetters = (s: string) => /^[\x20-\x7e]+$/.test(s);
+/** Any space separator (no-break, narrow, thin) as a plain space: spacing is not a disguise. */
+const flatSpaces = (s: string) => s.replace(/\p{Zs}/gu, ' ').trim();
 const lower = (a: string | null | undefined) => (a ?? '').toLowerCase();
 
 function knownFor(skeleton: string) {
@@ -93,11 +101,20 @@ export function imitatedToken(t: { symbol?: string | null; name?: string | null;
     if (!known) continue;
     const real = known.real[t.chain] ?? null;
     if (real && lower(real) === lower(t.contract)) return null;
-    const disguised = !plainLetters(raw.trim()) || raw.trim() !== raw.trim().normalize('NFKC');
+    const flat = flatSpaces(raw);
+    const disguised = !plainLetters(flat) || flat !== flat.normalize('NFKC');
     const oneContract = ONE_CONTRACT.some((o) => o.symbol === known.symbol && o.chain === t.chain);
     if (disguised || (oneContract && real)) return { imitates: known.symbol, real };
   }
   return null;
+}
+
+/** The listed real token at this contract on this chain, with its dust floor; null for anything else. */
+export function realToken(contract: string | null | undefined, chain: SellerChain): { symbol: string; dust: number } | null {
+  const c = lower(contract);
+  if (!c) return null;
+  const known = KNOWN.find((k) => lower(k.real[chain]) === c);
+  return known ? { symbol: known.symbol, dust: known.dust } : null;
 }
 
 /**
