@@ -4,6 +4,7 @@ import { CLASSIFIER_VERSION } from './types.js';
 import { formatWindowDays, formatWindowSpan } from './rpc-fixtures.js';
 import { OFAC_SEARCH_URL, isSanctioned } from './ofac.js';
 import { privacyRelay } from './privacy-relays.js';
+import { publicLabels, type WalletLabel } from './labels.js';
 
 /**
  * Risk-Check v1 flag derivation.
@@ -117,6 +118,7 @@ function notAssessedForChain(chain: DecodeChain, fetchMeta: QuickDecodeResultDat
 export type RiskCheckId =
   | 'ofac_sanctioned'
   | 'privacy_relay'
+  | 'known_label'
   | 'claim_vs_chain_offline'
   | 'dormant_wallet'
   | 'stranded_value'
@@ -166,6 +168,14 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     title: 'Pays for others through a privacy pool (px402)',
     looks_for: 'A known px402 reserve or relayer, which pays x402 sellers for agents it does not name',
     base_only: true,
+  },
+  {
+    // A match on ChainWard's public labels (labels.ts), not a chain reading: the API
+    // passes them in on read. Strong labels are medium severity, weak ones info.
+    id: 'known_label',
+    title: 'Labeled in our investigations',
+    looks_for:
+      'The address in a group our published investigations or detectors found: wallets that appear to be run together, sellers that fund their own buyers, serial token launchers, known services',
   },
   {
     id: 'claim_vs_chain_offline',
@@ -337,6 +347,30 @@ export function withPrivacyRelayFlag(assessment: RiskAssessment, address: string
       : `This is ${relay.name}. It pays x402 sellers from its own USDC for agents that deposited into the px402 pool, so the agent behind a payment does not appear on chain.`;
   const flag: RiskFlag = { id: 'privacy_relay', severity: 'info', title: CHECK_TITLE.privacy_relay, evidence, source: relay.source };
   const at = assessment.flags[0]?.id === 'ofac_sanctioned' ? 1 : 0;
+  const flags = [...assessment.flags.slice(0, at), flag, ...assessment.flags.slice(at)];
+  return { ...assessment, flags, band: computeBand(flags), signal_density: signalDensity(flags) };
+}
+
+/**
+ * The assessment with one known_label flag for the address's strongest public label
+ * (labels.ts): after the OFAC and relay flags, otherwise first. A strong label is medium
+ * severity, a weak one info. Private labels are ignored. Idempotent; a wallet with no
+ * public label gets the assessment back unchanged.
+ */
+export function withLabelFlags(assessment: RiskAssessment, labels: readonly WalletLabel[]): RiskAssessment {
+  const shown = publicLabels(labels);
+  const lead = shown[0];
+  if (!lead || assessment.flags.some((f) => f.id === 'known_label')) return assessment;
+  const more = shown.length - 1;
+  const flag: RiskFlag = {
+    id: 'known_label',
+    severity: lead.strength === 'strong' ? 'medium' : 'info',
+    title: CHECK_TITLE.known_label,
+    evidence: more > 0 ? `${lead.sentence} (and ${more} more label${more === 1 ? '' : 's'})` : lead.sentence,
+    source: lead.source_url ?? lead.evidence_url ?? '',
+  };
+  let at = 0;
+  while (at < assessment.flags.length && (assessment.flags[at]!.id === 'ofac_sanctioned' || assessment.flags[at]!.id === 'privacy_relay')) at++;
   const flags = [...assessment.flags.slice(0, at), flag, ...assessment.flags.slice(at)];
   return { ...assessment, flags, band: computeBand(flags), signal_density: signalDensity(flags) };
 }

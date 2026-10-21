@@ -62,6 +62,7 @@ describe('RISK_CHECKS catalog', () => {
     expect(ids.sort()).toEqual(
       [
         'ofac_sanctioned',
+        'known_label',
         'claim_vs_chain_offline',
         'dormant_wallet',
         'stranded_value',
