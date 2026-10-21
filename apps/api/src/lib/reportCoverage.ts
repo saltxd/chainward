@@ -70,14 +70,34 @@ export function stateUnavailable(reportData: unknown): string[] {
   return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : [];
 }
 
+/** The decoy check's status as the worker stored it (fetch_meta.decoy_check); undefined on reports filed before it existed. */
+export function decoyCheckStatus(reportData: unknown): 'ran' | 'not_applicable' | 'unavailable' | undefined {
+  if (!reportData || typeof reportData !== 'object') return undefined;
+  const s = (reportData as { fetch_meta?: { decoy_check?: unknown } }).fetch_meta?.decoy_check;
+  return s === 'ran' || s === 'not_applicable' || s === 'unavailable' ? s : undefined;
+}
+
+/** A wallet that never sent a transaction and has no code: the only kind that can be a planted look-alike. */
+export function neverUsed(reportData: unknown): boolean {
+  if (!reportData || typeof reportData !== 'object') return false;
+  const w = (reportData as { wallet?: { nonce?: unknown; code_size?: unknown } }).wallet;
+  return num(w?.nonce) === 0 && (num(w?.code_size) ?? 0) === 0;
+}
+
+export const DECOY_UNCHECKED_REASON = "The check for a planted look-alike couldn't run, so this never-used address can't be cleared.";
+
 /**
  * Why this report must not be sold as complete: the transfer list or a state
- * value it rests on could not be read. Undefined when every source answered.
+ * value it rests on could not be read, or the decoy check could not run on a
+ * never-used wallet (its fake transfers would read as activity). Undefined when
+ * every source answered.
  */
 export function sourcesUnavailable(reportData: unknown): string | undefined {
-  const parts = [transfersUnavailable(reportData), ...stateUnavailable(reportData).map((k) => STATE_READ_UNAVAILABLE[k] ?? `The ${k} read failed.`)].filter(
-    (x): x is string => Boolean(x),
-  );
+  const parts = [
+    transfersUnavailable(reportData),
+    ...stateUnavailable(reportData).map((k) => STATE_READ_UNAVAILABLE[k] ?? `The ${k} read failed.`),
+    decoyCheckStatus(reportData) === 'unavailable' && neverUsed(reportData) ? DECOY_UNCHECKED_REASON : undefined,
+  ].filter((x): x is string => Boolean(x));
   return parts.length ? parts.join(' ') : undefined;
 }
 
@@ -124,6 +144,14 @@ export function buildCoverage(
       const failedState = (c.reads_state ?? []).find((k) => stateUnread.includes(k));
       if (failedState) {
         return { ...base, raised: false, status: 'not_assessed', reason: STATE_READ_UNAVAILABLE[failedState] ?? `The ${failedState} read failed.` };
+      }
+      if (c.id === 'poisoning_decoy') {
+        const decoy = decoyCheckStatus(reportData);
+        if (decoy === 'unavailable') return { ...base, raised: false, status: 'not_assessed', reason: "The transfer index this check reads wasn't available." };
+        // A wallet that sent transactions cannot be a decoy, so an older report's "not raised" stays true.
+        if (decoy === undefined && neverUsed(reportData)) {
+          return { ...base, raised: false, status: 'not_assessed', reason: 'Added after this report was filed. Re-check to run it.' };
+        }
       }
       return raised.has(c.id) ? { ...base, raised: true, status: 'raised' } : { ...base, raised: false, status: 'not_raised' };
     }),

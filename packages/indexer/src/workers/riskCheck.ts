@@ -5,6 +5,7 @@ import {
   checkDecoyForReport,
   computeQuickDecodeData,
   deriveRiskFlags,
+  listsPublicly,
   fetchFixtures,
   fetchRpcFixtures,
   sellerDemandRpcUrl,
@@ -192,7 +193,9 @@ async function runRiskCheck(job: Job<RiskCheckJobData>): Promise<{ persisted: bo
     // A planted look-alike (an address-poisoning decoy) is read from Alchemy's Base transfer
     // index; the step reads nothing for a wallet that has sent a transaction or has code.
     const alchemyRpc = chain === 'base' ? sellerDemandRpcUrl('base', process.env) : undefined;
-    const assessment = await checkDecoyForReport(deriveRiskFlags(data), data, chain, alchemyRpc ? alchemyWalletLookupDeps(alchemyRpc) : null);
+    const { assessment, status: decoyCheck } = await checkDecoyForReport(deriveRiskFlags(data), data, chain, alchemyRpc ? alchemyWalletLookupDeps(alchemyRpc) : null);
+    // Stored with the report: coverage and the verdict read whether the decoy check ran.
+    data.fetch_meta.decoy_check = decoyCheck;
 
     // Denormalized card columns: top flags by severity, capped to 3 for the preview.
     const topFlags = [...assessment.flags]
@@ -218,7 +221,8 @@ async function runRiskCheck(job: Job<RiskCheckJobData>): Promise<{ persisted: bo
         sources,
         // report_markdown is intentionally null in v1 — no LLM prose on the hot path.
         reportMarkdown: null,
-        isPublic: true,
+        // A report with a plantable finding (a decoy) stays out of the library and the sitemap.
+        isPublic: listsPublicly(assessment.flags.map((f) => f.id)),
         generatedAt: new Date(meta.generated_at),
       })
       // Unique key is (lower(address), chain, as_of_block, classifier_version);

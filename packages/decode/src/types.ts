@@ -113,6 +113,11 @@ export interface QuickDecodeResultData {
     /** State reads (balance, nonce, code) that failed on every RPC; the checks that read them are not assessed. */
     state_unavailable?: string[];
     /**
+     * The address-poisoning decoy step (decoy-check.ts): ran, not_applicable (sent transactions,
+     * has code, off Base, our own) or unavailable. Absent on reports filed before the check existed.
+     */
+    decoy_check?: 'ran' | 'not_applicable' | 'unavailable';
+    /**
      * How far back the transfer scan ACTUALLY looked, in days. Set when the
      * window is narrower than the 30-day activity horizon (public-RPC chains),
      * so the report can state the limit instead of implying 30 days. May be

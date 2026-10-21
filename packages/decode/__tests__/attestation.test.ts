@@ -7,6 +7,7 @@ import {
   canonicalReportJson,
   encodeAttestationData,
   isAttestable,
+  listsPublicly,
   reportHash,
   reportUri,
   type AttestableReport,
@@ -123,10 +124,11 @@ describe('isAttestable', () => {
   });
 
   // Anyone can make a fresh, unused address read as a decoy (grind a look-alike, pay it a cent,
-  // then fake a transfer), so the finding helps a payer but never goes on-chain by itself.
-  it('never attests a decoy finding on its own, but lets it ride along', () => {
+  // then fake a transfer), and the planted transfers later read as a dormant wallet too: a
+  // report carrying the finding helps a payer but never goes on-chain.
+  it('never attests a report that carries a decoy finding, whatever else it flags', () => {
     expect(isAttestable({ ...fresh, flagIds: ['poisoning_decoy'] }, allowlist, now)).toBe(false);
-    expect(isAttestable({ ...fresh, flagIds: ['poisoning_decoy', 'dormant_wallet'] }, allowlist, now)).toBe(true);
+    expect(isAttestable({ ...fresh, flagIds: ['poisoning_decoy', 'dormant_wallet'] }, allowlist, now)).toBe(false);
   });
 
   it('skips reports older than the attest window', () => {
@@ -149,5 +151,16 @@ describe('isAttestable', () => {
         now,
       ),
     ).toBe(false);
+  });
+});
+
+describe('listsPublicly', () => {
+  // Anyone can plant a decoy finding on an unused address, so such a report stays out of the
+  // public library, the sitemap and the recently-checked list; its own page still answers.
+  it('keeps reports with a plantable finding out of public listings', () => {
+    expect(listsPublicly(['poisoning_decoy'])).toBe(false);
+    expect(listsPublicly(['dormant_wallet', 'poisoning_decoy'])).toBe(false);
+    expect(listsPublicly(['dormant_wallet'])).toBe(true);
+    expect(listsPublicly([])).toBe(true);
   });
 });

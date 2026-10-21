@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkDecoyForReport, type DecoyReportData } from '../src/decoy-check.js';
+import { DECOY_NOT_ASSESSED, checkDecoyForReport, type DecoyReportData } from '../src/decoy-check.js';
 import type { DecoyDeps, DecoyTransfer } from '../src/decoy.js';
 import type { RiskAssessment } from '../src/risk-flags.js';
 
@@ -44,32 +44,55 @@ function deps(calls: string[], fail = false): DecoyDeps {
 describe('checkDecoyForReport', () => {
   it('adds the poisoning_decoy flag for a planted look-alike on Base, from the state the decode read', async () => {
     const calls: string[] = [];
-    const a = await checkDecoyForReport(assessment, data(), 'base', deps(calls));
+    const { assessment: a, status } = await checkDecoyForReport(assessment, data(), 'base', deps(calls));
+    expect(status).toBe('ran');
     expect(a.flags.map((f) => f.id)).toEqual(['poisoning_decoy']);
     expect(a.band).toBe('high-signal');
     expect(calls.filter((c) => c !== 'transfers')).toEqual([]);
   });
 
-  it('reads nothing for a wallet that has sent transactions or has code, off Base, or without an Alchemy source', async () => {
+  it('says ran, with no flag, for a never-used wallet that is not a decoy', async () => {
+    const r = await checkDecoyForReport(assessment, { ...data(), target: { wallet_address: `0x${'7'.repeat(40)}` } }, 'base', deps([]));
+    expect(r).toEqual({ assessment, status: 'ran' });
+  });
+
+  it('reads nothing for a wallet that has sent transactions or has code, or off Base: not applicable', async () => {
     const calls: string[] = [];
-    expect(await checkDecoyForReport(assessment, data({ nonce: 7 }), 'base', deps(calls))).toBe(assessment);
-    expect(await checkDecoyForReport(assessment, data({ code_size: 23 }), 'base', deps(calls))).toBe(assessment);
-    expect(await checkDecoyForReport(assessment, data(), 'bsc', deps(calls))).toBe(assessment);
-    expect(await checkDecoyForReport(assessment, data(), 'base', null)).toBe(assessment);
+    for (const r of [
+      await checkDecoyForReport(assessment, data({ nonce: 7 }), 'base', deps(calls)),
+      await checkDecoyForReport(assessment, data({ code_size: 23 }), 'base', deps(calls)),
+      await checkDecoyForReport(assessment, data(), 'bsc', deps(calls)),
+    ]) {
+      expect(r).toEqual({ assessment, status: 'not_applicable' });
+    }
     expect(calls).toEqual([]);
   });
 
-  it('does not gate on a nonce or code it could not read', async () => {
+  it('says unavailable, and names it, for a never-used wallet when there is no Alchemy source', async () => {
+    const r = await checkDecoyForReport(assessment, data(), 'base', null);
+    expect(r.status).toBe('unavailable');
+    expect(r.assessment.flags).toEqual([]);
+    expect(r.assessment.not_assessed).toEqual([...assessment.not_assessed, DECOY_NOT_ASSESSED]);
+  });
+
+  it('does not gate on a nonce or code it could not read: unavailable, no reads', async () => {
     const calls: string[] = [];
-    expect(await checkDecoyForReport(assessment, data({ unread: ['nonce'] }), 'base', deps(calls))).toBe(assessment);
+    const r = await checkDecoyForReport(assessment, data({ unread: ['nonce'] }), 'base', deps(calls));
+    expect(r).toEqual({ assessment, status: 'unavailable' });
     expect(calls).toEqual([]);
   });
 
   it('reads the balances itself when the decode could not', async () => {
     const calls: string[] = [];
-    const a = await checkDecoyForReport(assessment, data({ unread: ['usdc_balance'] }), 'base', deps(calls));
-    expect(a.flags.map((f) => f.id)).toEqual(['poisoning_decoy']);
+    const r = await checkDecoyForReport(assessment, data({ unread: ['usdc_balance'] }), 'base', deps(calls));
+    expect(r.assessment.flags.map((f) => f.id)).toEqual(['poisoning_decoy']);
     expect(calls).toContain('eth_call');
+  });
+
+  // A decoy's fake transfers count as activity, so a report without the check would answer Pay:
+  // a failed read fails the check (the worker's job fails and nothing is charged).
+  it('fails when its reads fail, rather than filing a report that might say Pay', async () => {
+    await expect(checkDecoyForReport(assessment, data(), 'base', deps([], true))).rejects.toThrow(/decoy check/);
   });
 
   // The self-flag guard: deriveRiskFlags never flags ChainWard's own wallets, and neither does this step.
@@ -80,14 +103,8 @@ describe('checkDecoyForReport', () => {
     it('reads nothing and flags nothing for an allowlisted address', async () => {
       process.env.RISK_SELF_FLAG_ALLOWLIST = `0x${'1'.repeat(40)}, ${LOOKALIKE.toUpperCase().replace('0X', '0x')}`;
       const calls: string[] = [];
-      expect(await checkDecoyForReport(assessment, data(), 'base', deps(calls))).toBe(assessment);
+      expect(await checkDecoyForReport(assessment, data(), 'base', deps(calls))).toEqual({ assessment, status: 'not_applicable' });
       expect(calls).toEqual([]);
     });
-  });
-
-  it('names the check as not assessed when its reads fail, and adds no flag', async () => {
-    const a = await checkDecoyForReport(assessment, data(), 'base', deps([], true));
-    expect(a.flags).toEqual([]);
-    expect(a.not_assessed).toEqual([...assessment.not_assessed, "Address-poisoning decoy check (Alchemy's Base transfer index did not answer)"]);
   });
 });

@@ -187,8 +187,10 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     id: 'poisoning_decoy',
     title: 'Looks like an address-poisoning decoy',
     looks_for:
-      "A look-alike planted in a wallet's history: an address that never sent a transaction, appears only in fake or zero-value token transfers, and shares its first and last characters with an address that wallet really paid or was paid by",
+      "A look-alike planted in a wallet's history: an address that never sent a transaction, whose newest token transfers are all fake, zero-value or dust, and whose first and last characters match an address that wallet really paid or was paid by",
     base_only: true,
+    // The gate reads the nonce and code; an unread one leaves the check not assessed.
+    reads_state: ['nonce', 'code'],
   },
   {
     id: 'claim_vs_chain_offline',
