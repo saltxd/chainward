@@ -19,7 +19,7 @@ import { CHAINS } from '@/lib/chains';
 import { useToast } from '@/components/ui/toast';
 import { PendingOrderPayment } from './PendingOrderPayment';
 
-// A real Intel Brief delivered as a public @chainwardai thread (2026-06-16).
+// A real Intel Brief, delivered as an @chainwardai thread on 2026-06-16.
 const SAMPLE_BRIEF_URL = 'https://x.com/chainwardai/status/2066738827100622921';
 
 const WHAT_YOU_GET: ReactNode[] = [
@@ -30,7 +30,7 @@ const WHAT_YOU_GET: ReactNode[] = [
   'Where the money goes: who funds the wallet and who it pays',
   'Each public claim checked against what the chain shows',
   'Every finding linked to the transactions behind it',
-  'Delivered privately within 48 hours, or as a public @chainwardai thread if you prefer',
+  'Delivered privately within 48 hours, to your Telegram or email',
 ];
 
 function shortAddr(a: string): string {
@@ -209,8 +209,7 @@ export default function RequestBriefPage() {
           <p className="brf-lede">
             Send us any Base agent or wallet. We trace where its money comes from
             and where it goes, check its public claims against the chain, and write
-            it up in plain language. You get the brief privately within 48 hours,
-            or as a public thread if you prefer.
+            it up in plain language. You get the brief privately within 48 hours.
           </p>
         </section>
 
@@ -267,45 +266,12 @@ export default function RequestBriefPage() {
                     spellCheck={false}
                   />
                 </label>
-                <fieldset className="brf-delivery">
-                  <legend>Delivery</legend>
-                  <label>
-                    <input
-                      type="radio"
-                      name="delivery"
-                      value="private"
-                      checked={form.delivery === 'private'}
-                      onChange={() => setForm({ ...form, delivery: 'private' })}
-                    />
-                    <span>
-                      Private: to your Telegram or email
-                      <small>Nothing about your request is published.</small>
-                    </span>
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="delivery"
-                      value="public"
-                      checked={form.delivery === 'public'}
-                      onChange={() => setForm({ ...form, delivery: 'public' })}
-                    />
-                    <span>
-                      Public: an @chainwardai thread on X that tags you
-                      <small>The brief becomes part of the public record.</small>
-                    </span>
-                  </label>
-                </fieldset>
                 <label>
-                  <span>
-                    {form.delivery === 'public'
-                      ? 'Your X handle (we post the brief as a public @chainwardai thread tagging you)'
-                      : 'Your Telegram handle or email (we send the brief there, privately)'}
-                  </span>
+                  <span>Your Telegram handle or email (we send the brief there, privately)</span>
                   <input
                     value={form.contact}
                     onChange={(e) => setForm({ ...form, contact: e.target.value })}
-                    placeholder={form.delivery === 'public' ? '@you' : '@you  or  you@example.com'}
+                    placeholder="@you  or  you@example.com"
                     required
                     autoComplete="off"
                     spellCheck={false}
