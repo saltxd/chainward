@@ -1,6 +1,8 @@
 import { Worker, type Job } from 'bullmq';
 import { RISK_CHAINS, parseRiskChain, type RiskChainId } from '@chainward/common';
 import {
+  alchemyWalletLookupDeps,
+  checkDecoyForReport,
   computeQuickDecodeData,
   deriveRiskFlags,
   fetchFixtures,
@@ -187,7 +189,10 @@ async function runRiskCheck(job: Job<RiskCheckJobData>): Promise<{ persisted: bo
       fixtures,
     });
 
-    const assessment = deriveRiskFlags(data);
+    // A planted look-alike (an address-poisoning decoy) is read from Alchemy's Base transfer
+    // index; the step reads nothing for a wallet that has sent a transaction or has code.
+    const alchemyRpc = chain === 'base' ? sellerDemandRpcUrl('base', process.env) : undefined;
+    const assessment = await checkDecoyForReport(deriveRiskFlags(data), data, chain, alchemyRpc ? alchemyWalletLookupDeps(alchemyRpc) : null);
 
     // Denormalized card columns: top flags by severity, capped to 3 for the preview.
     const topFlags = [...assessment.flags]

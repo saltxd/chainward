@@ -10,11 +10,24 @@ import { alchemyAssetTransfers, type SellerChain } from './seller-demand.js';
 import { isSanctioned } from './ofac.js';
 import { PRIVACY_RELAY_REASON, privacyRelay } from './privacy-relays.js';
 import { publicLabels, type LabelKind, type LabelsFor } from './labels.js';
+import { decoyReason, detectDecoy, type Decoy } from './decoy.js';
 
 
 export type LookupChain = SellerChain;
-/** privacy_relay: a known px402 reserve or relayer (privacy-relays.ts); whoever it pays for is not on chain. */
-export type LookupFlag = 'sanctioned' | 'funded_by_sanctioned' | 'privacy_relay' | 'labeled' | 'no_history' | 'new_wallet' | 'shared_funder' | 'contract';
+/**
+ * privacy_relay: a known px402 reserve or relayer (privacy-relays.ts); whoever it pays for is not on chain.
+ * poisoning_decoy: a look-alike an address-poisoning bot planted in another wallet's history (decoy.ts).
+ */
+export type LookupFlag =
+  | 'sanctioned'
+  | 'funded_by_sanctioned'
+  | 'poisoning_decoy'
+  | 'privacy_relay'
+  | 'labeled'
+  | 'no_history'
+  | 'new_wallet'
+  | 'shared_funder'
+  | 'contract';
 
 export interface WalletLookup {
   address: string;
@@ -38,6 +51,8 @@ export interface WalletLookup {
      */
     funded_wallets: number | null;
   } | null;
+  /** When it looks like an address-poisoning decoy: the real address it copies and the transfers that show it. */
+  decoy: Decoy | null;
   /** Its public labels from ChainWard's investigations and detectors, strongest first. */
   labels: Array<{ kind: LabelKind; strength: 'strong' | 'weak'; sentence: string; source_url: string | null }>;
   flags: LookupFlag[];
@@ -104,11 +119,18 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   const sentTxs = hexToNumber(nonceHex);
   const firstSeen = first?.metadata?.blockTimestamp ?? null;
   const ageDays = firstSeen ? Math.floor((now.getTime() - new Date(firstSeen).getTime()) / 86_400_000) : null;
+  const isWallet = isWalletCode(code);
+  const native = scaled(balanceHex, 18);
+  const usdc = scaled(usdcHex, USDC[chain].decimals);
+
+  // Only a wallet that never sent a transaction can be a planted look-alike; its first
+  // "transfer in" is then a fake, so there is no funder to trace.
+  const decoy = sentTxs === 0 && isWallet ? await detectDecoy(address, chain, deps, { sentTxs, isWallet, native, usdc }) : null;
 
   let funder: WalletLookup['first_funder'] = null;
   // A mint (USDC bridged in by CCTP, say) comes from the zero address, and an OptimismPortal
   // deposit lists as a transfer from the wallet to itself (bridged from L1): no funder to trace.
-  if (first && first.from.toLowerCase() !== ZERO_ADDRESS && first.from.toLowerCase() !== address) {
+  if (!decoy && first && first.from.toLowerCase() !== ZERO_ADDRESS && first.from.toLowerCase() !== address) {
     const f = first.from.toLowerCase();
     const [fNonce, fOut] = await Promise.all([
       deps.rpc('eth_getTransactionCount', [f, 'latest']),
@@ -125,10 +147,11 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   }
 
   const sanctioned = isSanctioned(address);
-  const type = isWalletCode(code) ? 'wallet' : 'contract';
+  const type = isWallet ? 'wallet' : 'contract';
   const flags: LookupFlag[] = [];
   if (sanctioned) flags.push('sanctioned');
   if (funder?.sanctioned) flags.push('funded_by_sanctioned');
+  if (decoy) flags.push('poisoning_decoy');
   if (privacyRelay(address, chain)) flags.push('privacy_relay');
   const labels = publicLabels((await deps.labelsFor?.(address, chain)) ?? []);
   if (labels[0]?.strength === 'strong') flags.push('labeled');
@@ -140,15 +163,16 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   return {
     address,
     chain,
-    verdict: verdictFor(flags, { ageDays, funder, label: labels[0]?.sentence ?? null }),
+    verdict: verdictFor(flags, { ageDays, funder, label: labels[0]?.sentence ?? null, decoy }),
     sanctioned,
     type,
     first_seen: firstSeen,
     age_days: ageDays,
     last_active: lastOut.transfers[0]?.metadata?.blockTimestamp ?? null,
     sent_txs: sentTxs,
-    balances: { native: scaled(balanceHex, 18), usdc: scaled(usdcHex, USDC[chain].decimals) },
+    balances: { native, usdc },
     first_funder: funder,
+    decoy,
     labels: labels.map((l) => ({ kind: l.kind, strength: l.strength, sentence: l.sentence, source_url: l.source_url })),
     flags,
     as_of_block: hexToNumber(blockHex),
@@ -178,10 +202,11 @@ async function countFundedWallets(transfers: Transfer[], funder: string, deps: W
 
 function verdictFor(
   flags: LookupFlag[],
-  ctx: { ageDays: number | null; funder: WalletLookup['first_funder']; label: string | null },
+  ctx: { ageDays: number | null; funder: WalletLookup['first_funder']; label: string | null; decoy: Decoy | null },
 ): WalletLookup['verdict'] {
   if (flags.includes('sanctioned')) return { label: 'hold', reason: 'This address is on the US Treasury OFAC SDN list.' };
   if (flags.includes('funded_by_sanctioned')) return { label: 'hold', reason: 'Its first funds came from an address on the OFAC SDN list.' };
+  if (flags.includes('poisoning_decoy') && ctx.decoy) return { label: 'hold', reason: decoyReason(ctx.decoy) };
   // Below sanctions, above everything else: the relay's own age and funder say nothing about the payer behind it.
   if (flags.includes('privacy_relay')) return { label: 'review', reason: PRIVACY_RELAY_REASON };
   if (flags.includes('labeled') && ctx.label) return { label: 'review', reason: ctx.label };

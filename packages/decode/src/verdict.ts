@@ -163,6 +163,8 @@ export interface CounterpartyActivity {
 
 const COUNTERPARTY_LIMITS = 'On-chain behavior only. Absence of flags is not a clearance of the counterparty.';
 const SANCTIONS_LIMITS = 'Matched against the US Treasury OFAC SDN list only; other countries’ sanctions lists are not checked.';
+const DECOY_LIMITS =
+  'Matched on transfer history: a look-alike that never sent a transaction and appears only in fake transfers. Absence of this flag is not a clearance.';
 
 const SEVERITY_ORDER: Record<RiskFlag['severity'], number> = { high: 3, medium: 2, low: 1, info: 0 };
 /** Silence past which survival classifies a wallet dormant (survival.ts). */
@@ -192,6 +194,10 @@ export function counterpartyVerdict(
   if (assessment.flags.some((f) => f.id === 'privacy_relay')) {
     return { label: 'unknown', text: 'Payer hidden', reason: PRIVACY_RELAY_REASON, limits: PRIVACY_RELAY_LIMITS };
   }
+  // A decoy comes from the check's own reads of the address's transfers, made when the report
+  // was built: it holds even when the activity sources were down. The payer meant someone else.
+  const decoy = assessment.flags.find((f) => f.id === 'poisoning_decoy');
+  if (decoy) return { label: 'hold', text: 'Hold', reason: decoy.summary ?? `${decoy.title}: ${decoy.evidence}`, limits: DECOY_LIMITS };
   // A strong label from our published investigations or detectors is a list match too:
   // it holds without a chain read. A weak one (a known service, a link by timing only) is a note.
   const known = assessment.flags.find((f) => f.id === 'known_label' && f.severity === 'medium');

@@ -5,6 +5,7 @@ import { formatWindowDays, formatWindowSpan } from './rpc-fixtures.js';
 import { OFAC_SEARCH_URL, isSanctioned } from './ofac.js';
 import { privacyRelay } from './privacy-relays.js';
 import { publicLabels, type WalletLabel } from './labels.js';
+import { decoyReason, decoySentence, type Decoy } from './decoy.js';
 
 /**
  * Risk-Check v1 flag derivation.
@@ -40,6 +41,8 @@ export interface RiskFlag {
   evidence: string;
   /** Citation URL (Blockscout / ACP / BaseScan), block-stamped where possible. */
   source: string;
+  /** One sentence for a verdict reason, when the evidence runs long (poisoning_decoy). */
+  summary?: string;
 }
 
 export interface RiskAssessment {
@@ -119,6 +122,7 @@ export type RiskCheckId =
   | 'ofac_sanctioned'
   | 'privacy_relay'
   | 'known_label'
+  | 'poisoning_decoy'
   | 'claim_vs_chain_offline'
   | 'dormant_wallet'
   | 'stranded_value'
@@ -176,6 +180,15 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     title: 'Labeled in our records',
     looks_for:
       'The address in a group our published investigations or detectors found: wallets that appear to be run together, sellers that fund their own buyers, serial token launchers, known services',
+  },
+  {
+    // A reading of the address's own token transfers (decoy.ts), made when the report is built,
+    // through Alchemy's Base transfer index. High severity: the payer is about to pay a copy.
+    id: 'poisoning_decoy',
+    title: 'Looks like an address-poisoning decoy',
+    looks_for:
+      "A look-alike planted in a wallet's history: an address that never sent a transaction, appears only in fake or zero-value token transfers, and shares its first and last characters with an address that wallet really paid or was paid by",
+    base_only: true,
   },
   {
     id: 'claim_vs_chain_offline',
@@ -371,6 +384,27 @@ export function withLabelFlags(assessment: RiskAssessment, labels: readonly Wall
   };
   let at = 0;
   while (at < assessment.flags.length && (assessment.flags[at]!.id === 'ofac_sanctioned' || assessment.flags[at]!.id === 'privacy_relay')) at++;
+  const flags = [...assessment.flags.slice(0, at), flag, ...assessment.flags.slice(at)];
+  return { ...assessment, flags, band: computeBand(flags), signal_density: signalDensity(flags) };
+}
+
+/**
+ * The assessment with the poisoning_decoy flag when decoy.ts found the address to be a
+ * look-alike planted by an address-poisoning bot: after a sanctions flag, otherwise first.
+ * The worker applies it when it builds the report, from its own reads of the address's
+ * transfers. Idempotent; without a finding the assessment comes back unchanged.
+ */
+export function withDecoyFlag(assessment: RiskAssessment, decoy: Decoy | null, address: string, chain: DecodeChain): RiskAssessment {
+  if (!decoy || assessment.flags.some((f) => f.id === 'poisoning_decoy')) return assessment;
+  const flag: RiskFlag = {
+    id: 'poisoning_decoy',
+    severity: 'high',
+    title: CHECK_TITLE.poisoning_decoy,
+    evidence: decoySentence(decoy),
+    summary: decoyReason(decoy),
+    source: chain === 'base' ? blockscoutAddressUrl(address) : riskChainAddressUrl(chain, address),
+  };
+  const at = assessment.flags[0]?.id === 'ofac_sanctioned' ? 1 : 0;
   const flags = [...assessment.flags.slice(0, at), flag, ...assessment.flags.slice(at)];
   return { ...assessment, flags, band: computeBand(flags), signal_density: signalDensity(flags) };
 }
