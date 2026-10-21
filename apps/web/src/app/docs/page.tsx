@@ -279,7 +279,9 @@ export default function DocsPage() {
                 <code>/api/risk/token?address=</code>. People can run it free on the site: paste
                 the token at <a href="/rugcheck">chainward.ai/rugcheck</a>. It also lists the
                 labels our published investigations put on the launch wallet, and a strong one
-                answers <code>review</code>.
+                answers <code>review</code>. A launch wallet that launched 5 or more tokens
+                through Clanker in the day up to a launch it made for itself is labeled a serial
+                launcher until 30 days after that launch, and the other checks show that label.
               </td>
             </tr>
             <tr>

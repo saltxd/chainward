@@ -2,15 +2,22 @@
 //
 // What ChainWard's published investigations and automated detectors found about a
 // wallet: one of a group that appears to be run together, a seller that funds its
-// own buyers, a serial token launcher, a known service. The API keeps the public
-// labels in memory and passes them in; nothing here reads a database or the chain.
+// own buyers, a serial token launcher, a known service. The API looks the public
+// labels up per request and passes them in; nothing here reads a database or the chain.
 //
 // Rules: wallets, contracts and organizations only, never people. "Appear to be run
 // together", never fraud, scam or sybil, and never "safe": a wallet with no label is
 // not cleared. Private labels (from tips sent privately to a program) never reach a
 // public answer; every function here ignores them.
 
-export type LabelKind = 'run_together' | 'self_funded_seller' | 'serial_launcher' | 'launch_dumper' | 'operator_wallet' | 'service';
+export type LabelKind =
+  | 'run_together'
+  | 'hiring_loop'
+  | 'self_funded_seller'
+  | 'serial_launcher'
+  | 'launch_dumper'
+  | 'operator_wallet'
+  | 'service';
 
 export interface WalletLabel {
   chain: string;
@@ -40,18 +47,23 @@ export type LabelsFor = (address: string, chain: string) => readonly WalletLabel
 /** Which kind a payer most needs to hear about first. */
 const KIND_ORDER: Record<LabelKind, number> = {
   run_together: 0,
-  self_funded_seller: 1,
-  launch_dumper: 2,
-  serial_launcher: 3,
-  operator_wallet: 4,
-  service: 5,
+  hiring_loop: 1,
+  self_funded_seller: 2,
+  launch_dumper: 3,
+  serial_launcher: 4,
+  operator_wallet: 5,
+  service: 6,
 };
 
-/** The public labels in the order a check names them: strong first, then by kind. */
+/**
+ * The public labels in the order a check names them: strong first, then by kind, then by
+ * source, so the same labels always lead with the same one whatever order they came in.
+ */
 export function publicLabels(labels: readonly WalletLabel[]): WalletLabel[] {
+  const rank = (l: WalletLabel) => `${l.strength === 'strong' ? 0 : 1}${KIND_ORDER[l.kind] ?? 9}`;
   return labels
     .filter((l) => l.visibility === 'public')
-    .sort((a, b) => (a.strength === b.strength ? KIND_ORDER[a.kind] - KIND_ORDER[b.kind] : a.strength === 'strong' ? -1 : 1));
+    .sort((a, b) => rank(a).localeCompare(rank(b)) || `${a.source_type}:${a.source_ref}:${a.sentence}`.localeCompare(`${b.source_type}:${b.source_ref}:${b.sentence}`));
 }
 
 /** The label a check leads with, or null when the wallet has no public label. */

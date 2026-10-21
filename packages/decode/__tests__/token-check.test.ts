@@ -642,6 +642,26 @@ describe('checkToken', () => {
       expect(r.flags).not.toContain('creator_labeled');
       expect(r.creator?.labels).toEqual([]);
     });
+
+    // A launch service (Clanker's X bot) sends launches for other admins: its labels are not the token admin's.
+    it('does not flag the labels of a wallet that launched for another admin', async () => {
+      const OTHER = `0x${'e'.repeat(40)}`;
+      const chain = {
+        ...deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 20n, clanker: true, originalAdmin: OTHER }),
+        labelsFor: (a: string, c: string) => (a === CREATOR && c === 'base' ? [ring] : []),
+      };
+      const r = await checkToken(TOKEN, chain);
+      expect(r.launch?.token_admin).toBe(OTHER);
+      expect(r.flags).not.toContain('creator_labeled');
+    });
+
+    // The check counts launches itself; its own detector label would only repeat an older count.
+    it('leaves out serial_launcher labels, which the check measures live', async () => {
+      const serial = { ...ring, kind: 'serial_launcher' as never, sentence: 'Launched 97 tokens through Clanker in one day (seen 2026-10-20).' };
+      const r = await checkToken(TOKEN, labelled(serial));
+      expect(r.flags).not.toContain('creator_labeled');
+      expect(r.creator?.labels).toEqual([]);
+    });
   });
 
   // The free check on chainward.ai spends its allowance only on tokens: a wallet pasted

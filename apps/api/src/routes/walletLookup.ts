@@ -27,7 +27,8 @@ const freeDailyMisses = () => Number(process.env.WALLET_FREE_DAILY_LOOKUPS ?? 50
 /** The cached answer, or a fresh lookup; `beforeMiss` runs only when the cache has none. */
 async function cachedLookup(address: string, chain: 'base' | 'bsc', beforeMiss?: () => Promise<void>): Promise<WalletLookup> {
   const redis = getRedis();
-  const cacheKey = `wallet-lookup:v1:${chain}:${address}`;
+  // v2: lookups carry labels; v1 entries (cached before labels) have none.
+  const cacheKey = `wallet-lookup:v2:${chain}:${address}`;
   const hit = await redis.get(cacheKey);
   if (hit) return JSON.parse(hit) as WalletLookup;
   const rpcUrl = sellerDemandRpcUrl(chain, process.env);

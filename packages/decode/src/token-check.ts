@@ -460,7 +460,8 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
       holds_pct,
       launch_tokens: lt?.result ?? null,
       clanker_launches_24h: launchCount,
-      labels: wallet.labels,
+      // The check counts Clanker launches live, so its own detector's serial_launcher labels would only repeat an older count.
+      labels: wallet.labels.filter((l) => l.kind !== 'serial_launcher'),
     };
   }
 
@@ -473,7 +474,9 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   const lb = creator?.launch_tokens;
   if (lb && lb.sent_90pct_after_sec !== null && lb.sent_90pct_after_sec <= SENT_WITHIN_SEC) flags.push('creator_sent_launch_tokens');
   if (creator?.holds_pct !== null && creator?.holds_pct !== undefined && creator.holds_pct >= LARGE_SHARE_PCT) flags.push('creator_holds_large_share');
-  if (creator?.labels[0]?.strength === 'strong') flags.push('creator_labeled');
+  // A launch made for another admin was sent by a launch service: its labels describe the service, not the token's admin.
+  const forAnotherAdmin = launch.token_admin !== null && launch.token_admin !== creatorAddr;
+  if (creator?.labels[0]?.strength === 'strong' && !forAnotherAdmin) flags.push('creator_labeled');
   if (creator?.clanker_launches_24h !== null && creator?.clanker_launches_24h !== undefined && creator.clanker_launches_24h >= SERIAL_LAUNCHES_24H) {
     flags.push('creator_serial_launcher');
   }

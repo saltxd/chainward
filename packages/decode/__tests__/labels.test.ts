@@ -41,6 +41,10 @@ const empty: RiskAssessment = { band: 'low-signal', flags: [], not_assessed: [],
 const activity = { transfers_30d: 40, unique_counterparties_30d: 9, latest_transfer_age_hours: 2 };
 
 describe('sentences', () => {
+  it('titles the flag for investigations and detectors alike', () => {
+    expect(withLabelFlags(empty, [label()]).flags[0]!.title).toBe('Labeled in our records');
+  });
+
   it('words each kind plainly, naming the source', () => {
     expect(runTogetherSentence({ size: 48, program: 'Set and Earn', source: "our decode Set and Earn's First Week" })).toBe(
       "One of 48 wallets that appear to be run together in Set and Earn, from our decode Set and Earn's First Week.",
@@ -95,7 +99,20 @@ describe('withLabelFlags', () => {
 
   it('says how many more labels the wallet has', () => {
     const a = withLabelFlags(empty, [label(), label({ kind: 'serial_launcher', source_ref: 'x', sentence: 'Launched 9 tokens.' })]);
-    expect(a.flags[0]!.evidence).toMatch(/\(and 1 more label\)$/);
+    expect(a.flags[0]!.evidence).toMatch(/from our decode Set and Earn's First Week\. Plus 1 more label\.$/);
+  });
+
+  // The same wallet can be in two published groups: the reason must not flip between reads.
+  it('leads with the same label whatever order the labels come in', () => {
+    const termix = label({ kind: 'hiring_loop', source_ref: 'termix-wallets', sentence: 'One of 5,384 TermiX wallets that hire each other.' });
+    const ring = label({ kind: 'hiring_loop', source_ref: 'set-and-earn-week-one', sentence: 'One of 48 wallets that hire only each other.' });
+    expect(withLabelFlags(empty, [termix, ring]).flags[0]!.evidence).toBe(withLabelFlags(empty, [ring, termix]).flags[0]!.evidence);
+  });
+
+  it('goes after a privacy relay flag too', () => {
+    const relay = '0xdd31c57e8f7cac78090a516292f0c9dea6c6119f';
+    const withRelay = { ...empty, flags: [{ id: 'privacy_relay', severity: 'info' as const, title: 't', evidence: 'e', source: 's' }] };
+    expect(withLabelFlags(withRelay, [label({ address: relay })]).flags.map((f) => f.id)).toEqual(['privacy_relay', 'known_label']);
   });
 
   it('ignores private labels', () => {

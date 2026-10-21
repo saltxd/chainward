@@ -841,13 +841,16 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
 
   // A sanctioned or strongly labeled address is answered Hold from the list alone:
   // unread sources or no history on the chain never turn that into "not charged" or no_history.
-  const sanctioned = await listHold(address, chain);
+  // The labels are read once and used for the answer too: a second read that failed must
+  // not turn this Hold into a charged Pay.
+  const labels = await labelsFor(address, chain);
+  const sanctioned = isSanctioned(address) || labels.some((l) => l.strength === 'strong');
 
   const cached = await latestReport(address, chain);
   // A cached report whose transfer list could not be read is never resold; the
   // sources may be back, so it gets a fresh decode like a stale one.
   if (cached && computeTtlState(cached) === 'fresh' && (sanctioned || !sourcesUnavailable(cached.reportData))) {
-    return c.json({ success: true, data: { status: 'ready', report: await servedReport(cached) } });
+    return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached, labels) } });
   }
 
   if (chain !== CHAIN) {
@@ -896,7 +899,7 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
             'The on-chain sources this check reads were unavailable, so the report could not be built. You were not charged; retry shortly.',
           );
         }
-        return c.json({ success: true, data: { status: 'ready', report: await servedReport(fresh) } });
+        return c.json({ success: true, data: { status: 'ready', report: rowToReport(fresh, labels) } });
       }
       break;
     }

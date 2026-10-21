@@ -95,15 +95,16 @@ describe('publicLabelsFor', () => {
 });
 
 describe('recordSerialLauncher', () => {
+  const LAUNCHED = '2026-10-20T12:00:00.000Z';
   const check = (over: Record<string, unknown> = {}) => ({
     token: `0x${'7'.repeat(40)}`,
     flags: ['creator_serial_launcher'],
-    launch: { tx: `0x${'1'.repeat(64)}`, token_admin: A },
+    launch: { tx: `0x${'1'.repeat(64)}`, token_admin: A, time: LAUNCHED },
     creator: { address: A, clanker_launches_24h: 97 },
     ...over,
   });
 
-  it('labels the launch wallet of a serial launch, public, for 30 days', async () => {
+  it('labels the launch wallet of a serial launch, public, for 30 days from the launch', async () => {
     await recordSerialLauncher(check() as never, NOW);
     expect(db.inserted).toHaveLength(1);
     expect(db.inserted[0]).toMatchObject({
@@ -114,11 +115,24 @@ describe('recordSerialLauncher', () => {
       visibility: 'public',
       sourceType: 'detector',
       sourceRef: 'rugcheck',
-      sentence: 'Launched 97 tokens through Clanker in one day (seen 2026-10-21).',
+      sentence: 'Launched 97 tokens through Clanker in one day (seen 2026-10-20).',
       evidenceUrl: `https://basescan.org/tx/0x${'1'.repeat(64)}`,
-      asOf: '2026-10-21',
-      expiresAt: new Date('2026-11-20T00:00:00Z'),
+      asOf: '2026-10-20',
+      expiresAt: new Date('2026-11-19T12:00:00Z'),
     });
+  });
+
+  // Checking an old token must not make a fresh 30-day label out of old activity.
+  it('writes nothing for a launch more than 30 days old', async () => {
+    await recordSerialLauncher(check({ launch: { tx: `0x${'1'.repeat(64)}`, token_admin: A, time: '2026-09-01T00:00:00Z' } }) as never, NOW);
+    expect(db.inserted).toHaveLength(0);
+  });
+
+  // A launch service sending launches for others would get its whole volume counted.
+  it('writes nothing for a launch made for another admin, or with no admin read', async () => {
+    await recordSerialLauncher(check({ launch: { tx: `0x${'1'.repeat(64)}`, token_admin: B, time: LAUNCHED } }) as never, NOW);
+    await recordSerialLauncher(check({ launch: { tx: `0x${'1'.repeat(64)}`, token_admin: null, time: LAUNCHED } }) as never, NOW);
+    expect(db.inserted).toHaveLength(0);
   });
 
   // A correction stays made: a re-detection refreshes the sentence and dates, never removed_at.

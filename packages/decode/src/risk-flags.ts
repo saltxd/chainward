@@ -173,7 +173,7 @@ export const RISK_CHECKS: readonly RiskCheck[] = [
     // A match on ChainWard's public labels (labels.ts), not a chain reading: the API
     // passes them in on read. Strong labels are medium severity, weak ones info.
     id: 'known_label',
-    title: 'Labeled in our investigations',
+    title: 'Labeled in our records',
     looks_for:
       'The address in a group our published investigations or detectors found: wallets that appear to be run together, sellers that fund their own buyers, serial token launchers, known services',
   },
@@ -366,7 +366,7 @@ export function withLabelFlags(assessment: RiskAssessment, labels: readonly Wall
     id: 'known_label',
     severity: lead.strength === 'strong' ? 'medium' : 'info',
     title: CHECK_TITLE.known_label,
-    evidence: more > 0 ? `${lead.sentence} (and ${more} more label${more === 1 ? '' : 's'})` : lead.sentence,
+    evidence: more > 0 ? `${lead.sentence} Plus ${more} more label${more === 1 ? '' : 's'}.` : lead.sentence,
     source: lead.source_url ?? lead.evidence_url ?? '',
   };
   let at = 0;

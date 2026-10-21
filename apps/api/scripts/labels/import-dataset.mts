@@ -29,8 +29,10 @@ async function main(): Promise<void> {
     for (const e of bad.slice(0, 20)) console.error(e);
     process.exit(1);
   }
-  const strong = labels.filter((l) => l.strength === 'strong').length;
-  console.log(`${slug}: ${rows.length} rows, ${labels.length} labels (${strong} strong, ${labels.length - strong} weak)`);
+  const tally = new Map<string, number>();
+  for (const l of labels) tally.set(`${l.visibility} ${l.strength} ${l.kind}`, (tally.get(`${l.visibility} ${l.strength} ${l.kind}`) ?? 0) + 1);
+  console.log(`${slug}: ${rows.length} rows, ${labels.length} labels`);
+  for (const [k, n] of [...tally].sort()) console.log(`  ${k}: ${n}`);
   if (flags.has('dry-run')) process.exit(0);
   console.log(`${await upsertLabels(db, labels)} labels written`);
   process.exit(0);

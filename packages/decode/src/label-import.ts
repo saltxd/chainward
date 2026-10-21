@@ -12,7 +12,7 @@ export interface LabelRecord extends WalletLabel {
   expires_at: string | null;
 }
 
-const KINDS: ReadonlySet<string> = new Set<LabelKind>(['run_together', 'self_funded_seller', 'serial_launcher', 'launch_dumper', 'operator_wallet', 'service']);
+const KINDS: ReadonlySet<string> = new Set<LabelKind>(['run_together', 'hiring_loop', 'self_funded_seller', 'serial_launcher', 'launch_dumper', 'operator_wallet', 'service']);
 const SOURCE_TYPES: ReadonlySet<string> = new Set(['decode', 'dataset', 'detector', 'tip', 'list']);
 const CHAINS: ReadonlySet<string> = new Set(['base', 'bsc']);
 const ADDRESS_RE = /^0x[0-9a-f]{40}$/;
@@ -37,7 +37,9 @@ export function checkLabel(l: LabelRecord): string[] {
   else if (BANNED.test(sentence)) errors.push('sentence: uses a word labels never use (scam, fraud, sybil, safe)');
   else if (sentence.includes('—')) errors.push('sentence: no em dashes');
   else if (sentence.length > 300) errors.push('sentence: over 300 characters');
-  if (!DATE_RE.test(l.as_of)) errors.push(`as_of: YYYY-MM-DD, not ${l.as_of}`);
+  if (!DATE_RE.test(l.as_of) || Number.isNaN(Date.parse(`${l.as_of}T00:00:00Z`)) || new Date(`${l.as_of}T00:00:00Z`).toISOString().slice(0, 10) !== l.as_of) {
+    errors.push(`as_of: a real YYYY-MM-DD date, not ${l.as_of}`);
+  }
   if (l.group_size !== null && (!Number.isInteger(l.group_size) || l.group_size < 1)) errors.push(`group_size: a whole number, not ${l.group_size}`);
   return errors;
 }
@@ -86,13 +88,18 @@ export function labelsFromCsv(
   text: string,
   source: { visibility: 'public' | 'private'; source_type: WalletLabel['source_type']; source_ref: string; source_url: string | null },
 ): { labels: LabelRecord[]; errors: string[] } {
-  const [head, ...rows] = parseCsv(text);
+  const [head, ...rows] = parseCsv(text.replace(/^\uFEFF/, ''));
   const cols = (head ?? []).map((c) => c.trim().toLowerCase());
+  // labels:screen prints labels with their visibility and source, private ones included: never import that file.
+  if (cols.includes('visibility') || cols.includes('source_type')) {
+    return { labels: [], errors: ['this file has visibility or source_type columns, like labels:screen output; it may hold private labels, so it is never imported'] };
+  }
   const missing = CSV_COLUMNS.filter((c) => !cols.includes(c));
   if (missing.length) return { labels: [], errors: [`missing columns: ${missing.join(', ')}`] };
   const at = (r: string[], c: string) => (r[cols.indexOf(c)] ?? '').trim();
   const labels: LabelRecord[] = [];
   const errors: string[] = [];
+  const seen = new Map<string, number>();
   rows.forEach((r, i) => {
     if (r.every((v) => !v.trim())) return;
     const size = at(r, 'group_size');
@@ -114,6 +121,10 @@ export function labelsFromCsv(
       expires_at: null,
     };
     for (const e of checkLabel(label)) errors.push(`line ${i + 2}: ${e}`);
+    const key = `${label.chain}:${label.address}:${label.kind}`;
+    const first = seen.get(key);
+    if (first !== undefined) errors.push(`line ${i + 2}: same address, chain and kind as line ${first}`);
+    else seen.set(key, i + 2);
     labels.push(label);
   });
   return errors.length ? { labels: [], errors } : { labels, errors };
@@ -131,30 +142,30 @@ const TERMIX_SOURCE = 'https://chainward.ai/decodes/termix-on-chain';
 const SET_AND_EARN_SOURCE = 'https://chainward.ai/decodes/set-and-earn-week-one-closed';
 
 /**
- * Public labels from a published dataset (both have a free per-address lookup, so their
- * members are public already). TermiX: tier A1 (cycling, with a direct on-chain link to
- * another participant) is strong, by cluster; A2 (linked by timing only) is weak; other
- * tiers get none. Set and Earn week one: the 48- and 14-wallet hiring groups.
+ * Labels from a published dataset. Both have a free per-address lookup that shows the tier
+ * only, so a public label says no more than the tier: TermiX tier A1 (cycling, with a direct
+ * on-chain link to another participant) is a strong hiring_loop, A2 (linked by timing only)
+ * a weak one, other tiers none; the cluster is a paid field and stays out. Set and Earn week
+ * one: membership of the 48- and 14-wallet hiring groups is a paid field, so those labels are
+ * private (for paid screens) until a decode publishes the members. The decodes describe money
+ * flows, not who controls the wallets, hence hiring_loop, never run_together.
  */
 export function datasetLabels(slug: string, rows: readonly DatasetRow[]): LabelRecord[] {
   const base = { visibility: 'public' as const, source_type: 'dataset' as const, source_ref: slug, note: null, expires_at: null };
   if (slug === 'termix-wallets') {
-    const clusterSize = new Map<string, number>();
-    for (const r of rows) if (r.tier === 'A1') clusterSize.set(String(r.fields.cluster), (clusterSize.get(String(r.fields.cluster)) ?? 0) + 1);
+    const a1 = rows.filter((r) => r.tier === 'A1').length;
     return rows.flatMap((r): LabelRecord[] => {
       const address = r.address.toLowerCase();
       const common = { ...base, chain: r.chain, address, source_url: TERMIX_SOURCE, evidence_url: null, as_of: '2026-09-29' };
       if (r.tier === 'A1') {
-        const cluster = String(r.fields.cluster);
-        const n = clusterSize.get(cluster) ?? 1;
         return [
           {
             ...common,
-            kind: 'run_together',
+            kind: 'hiring_loop',
             strength: 'strong',
-            group_key: `termix:${cluster}`,
-            group_size: n,
-            sentence: `One of ${n.toLocaleString('en-US')} TermiX wallets (cluster ${cluster}) that hire each other, each with a direct on-chain link to another participant, from our TermiX decode.`,
+            group_key: 'termix:A1',
+            group_size: a1,
+            sentence: `One of ${a1.toLocaleString('en-US')} TermiX wallets that hire each other, each with a direct on-chain link to another participant, from our TermiX decode.`,
           },
         ];
       }
@@ -162,7 +173,7 @@ export function datasetLabels(slug: string, rows: readonly DatasetRow[]): LabelR
         return [
           {
             ...common,
-            kind: 'run_together',
+            kind: 'hiring_loop',
             strength: 'weak',
             group_key: null,
             group_size: null,
@@ -197,9 +208,11 @@ export function datasetLabels(slug: string, rows: readonly DatasetRow[]): LabelR
         .map(
           (g): LabelRecord => ({
             ...base,
+            visibility: 'private',
+            note: 'Group membership is a field of the paid dataset; private until a decode publishes the members.',
             chain: r.chain,
             address: r.address.toLowerCase(),
-            kind: 'run_together',
+            kind: 'hiring_loop',
             strength: 'strong',
             group_key: g.key,
             group_size: g.size,

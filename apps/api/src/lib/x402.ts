@@ -147,6 +147,7 @@ const WALLET_OUTPUT_EXAMPLE = {
       exchange_or_hub: true,
       funded_wallets: null,
     },
+    labels: [],
     flags: [],
     as_of_block: 52553137,
     limits:

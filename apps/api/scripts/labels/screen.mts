@@ -43,6 +43,8 @@ async function main(): Promise<void> {
     );
   }
   const cols = ['address', 'chain', 'kind', 'strength', 'visibility', 'group_key', 'group_size', 'sentence', 'source_type', 'source_ref', 'source_url', 'evidence_url', 'as_of', 'note'];
+  // Not a CSV line on purpose: this file can hold private labels, and labels:import-csv refuses it.
+  console.log('# PRIVATE: may include labels from tips sent privately to programs. Use it only in the paid work it was made for; never publish or import it.');
   console.log(cols.join(','));
   for (const r of found) {
     console.log(

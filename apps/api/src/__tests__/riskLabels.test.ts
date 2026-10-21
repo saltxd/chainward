@@ -37,9 +37,14 @@ const riskCheck = vi.hoisted(() => ({ add: vi.fn(async () => job) }));
 /** latestReport() answers, in order; the last one repeats. */
 const reports = vi.hoisted(() => ({ queue: [] as unknown[][] }));
 
-const labelStore = vi.hoisted(() => ({ map: new Map<string, unknown[]>() }));
+const labelStore = vi.hoisted(() => ({ map: new Map<string, unknown[]>(), reads: 0, onlyFirstRead: false }));
 vi.mock('../lib/labels.js', () => ({
-  labelsFor: async (address: string, chain: string) => labelStore.map.get(`${chain}:${address.toLowerCase()}`) ?? [],
+  labelsFor: async (address: string, chain: string) => {
+    labelStore.reads++;
+    // A read after the first one failing (a database hiccup) answers no labels.
+    if (labelStore.onlyFirstRead && labelStore.reads > 1) return [];
+    return labelStore.map.get(`${chain}:${address.toLowerCase()}`) ?? [];
+  },
   publicLabelsForRows: async (rows: Array<{ chain: string; walletAddress: string }>) =>
     new Map(rows.map((r) => [`${r.chain}:${r.walletAddress.toLowerCase()}`, labelStore.map.get(`${r.chain}:${r.walletAddress.toLowerCase()}`) ?? []])),
 }));
@@ -135,33 +140,14 @@ async function freeCheck(address: string) {
   return { status: res.status, body: (await res.json()) as any };
 }
 
-function expectSanctionsHold(report: any) {
-  expect(report.verdict).toMatchObject({ label: 'hold', text: 'Hold' });
-  expect(report.verdict.reason).toMatch(/US sanctions list \(OFAC\)/);
-  expect(report.flags[0]).toMatchObject({ id: 'ofac_sanctioned', severity: 'high' });
-  expect(report.band).toBe('high-signal');
-  expect(report.coverage.checks.find((c: any) => c.id === 'ofac_sanctioned')).toMatchObject({ status: 'raised' });
-}
-
-beforeEach(() => {
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-  riskCheck.add.mockClear();
-  redis.strings.clear();
-  // Blockscout counters: no transactions, no token transfers.
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ transactions_count: '0', token_transfers_count: '0' }))));
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-});
-
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   riskCheck.add.mockClear();
   redis.strings.clear();
   labelStore.map.clear();
+  labelStore.reads = 0;
+  labelStore.onlyFirstRead = false;
   // Blockscout counters: no transactions, no token transfers.
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ transactions_count: '0', token_transfers_count: '0' }))));
 });
@@ -221,5 +207,29 @@ describe('POST /api/risk/check on a labeled address', () => {
     expect(status).toBe(200);
     expect(riskCheck.add).toHaveBeenCalledTimes(1);
     expect(body.data.status).not.toBe('no_history');
+  });
+});
+
+// One read of the labels per paid check: a second read that failed must not turn the Hold
+// the first one found into a charged Pay.
+describe('the paid check reads the labels once', () => {
+  it('holds even when a later label read would come back empty', async () => {
+    labelStore.map.set(`base:${LABELED}`, [label()]);
+    labelStore.onlyFirstRead = true;
+    reports.queue = [[row(LABELED)]];
+    const { body } = await paid(LABELED);
+    expectLabelHold(body.data.report);
+  });
+});
+
+describe('GET /api/risk/attestation on a labeled address', () => {
+  it('answers Hold while leaving the attested flag ids as they were published', async () => {
+    const dormant = { id: 'dormant_wallet', severity: 'medium', title: 'Wallet is dormant', evidence: 'quiet', source: 's' };
+    labelStore.map.set(`base:${LABELED}`, [label()]);
+    reports.queue = [[row(LABELED, { flags: [dormant], attested: true })]];
+    const res = await app().request(`/api/risk/attestation/${LABELED}`);
+    const body = (await res.json()) as any;
+    expect(body.data.verdict).toMatchObject({ label: 'hold', text: 'Hold', reason: SENTENCE });
+    expect(body.data.flag_ids).toEqual(['dormant_wallet']);
   });
 });

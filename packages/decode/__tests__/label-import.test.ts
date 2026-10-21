@@ -60,6 +60,7 @@ describe('checkLabel', () => {
     ['an unknown chain', { chain: 'eth' }, 'chain'],
     ['an unknown kind', { kind: 'scammer' as never }, 'kind'],
     ['a bad date', { as_of: '20 Oct' }, 'as_of'],
+    ['a date that does not exist', { as_of: '2026-13-45' }, 'as_of'],
     ['an empty sentence', { sentence: ' ' }, 'sentence'],
     ['an accusing word', { sentence: 'A known scam wallet.' }, 'sentence'],
     ['an em dash', { sentence: 'One of 3 wallets — run together.' }, 'sentence'],
@@ -90,10 +91,31 @@ describe('labelsFromCsv', () => {
   it('refuses a file without the expected columns', () => {
     expect(labelsFromCsv('address,kind\n', source).errors[0]).toMatch(/missing columns: chain/);
   });
+
+  // labels:screen prints private labels with their visibility and source: that file must never come back in.
+  it('refuses a file that carries visibility or source columns, as screen output does', () => {
+    const screen = `\uFEFF${header},visibility,source_type\n${A},base,run_together,strong,,,"x.",,2026-10-20,,private,tip\n`;
+    expect(labelsFromCsv(screen, { ...source, visibility: 'public', source_type: 'decode', source_url: 'https://chainward.ai/x' }).errors[0]).toMatch(
+      /screen output/,
+    );
+  });
+
+  it('refuses the same address, chain and kind twice in one file', () => {
+    const row = `${A},base,run_together,strong,,,"One of 3 wallets.",,2026-10-20,`;
+    const { errors } = labelsFromCsv(`${header}\n${row}\n${row}\n`, source);
+    expect(errors[0]).toMatch(/^line 3: same address, chain and kind as line 2/);
+  });
+
+  it('reads a sentence with a line break inside quotes', () => {
+    const { labels, errors } = labelsFromCsv(`${header}\n${A},base,run_together,strong,,,"One of 3\nwallets.",,2026-10-20,\n`, source);
+    expect(errors).toEqual([]);
+    expect(labels[0]!.sentence).toBe('One of 3\nwallets.');
+  });
 });
 
 describe('datasetLabels', () => {
-  it('labels TermiX tier A1 strong, by cluster, and A2 weak; other tiers not at all', () => {
+  // The free lookup shows the tier, not the cluster: a public label says only what is public.
+  it('labels TermiX tier A1 strong and A2 weak, as hiring loops, without the paid cluster field; other tiers not at all', () => {
     const rows = [
       { chain: 'base', address: A, tier: 'A1', fields: { cluster: 'S0010' } },
       { chain: 'bsc', address: B, tier: 'A1', fields: { cluster: 'S0010' } },
@@ -102,13 +124,15 @@ describe('datasetLabels', () => {
     ];
     const labels = datasetLabels('termix-wallets', rows);
     expect(labels).toHaveLength(3);
-    expect(labels[0]).toMatchObject({ kind: 'run_together', strength: 'strong', group_key: 'termix:S0010', group_size: 2, visibility: 'public', source_type: 'dataset', source_ref: 'termix-wallets', source_url: 'https://chainward.ai/decodes/termix-on-chain', as_of: '2026-09-29' });
-    expect(labels[0]!.sentence).toBe('One of 2 TermiX wallets (cluster S0010) that hire each other, each with a direct on-chain link to another participant, from our TermiX decode.');
+    expect(labels[0]).toMatchObject({ kind: 'hiring_loop', strength: 'strong', group_key: 'termix:A1', group_size: 2, visibility: 'public', source_type: 'dataset', source_ref: 'termix-wallets', source_url: 'https://chainward.ai/decodes/termix-on-chain', as_of: '2026-09-29' });
+    expect(labels[0]!.sentence).toBe('One of 2 TermiX wallets that hire each other, each with a direct on-chain link to another participant, from our TermiX decode.');
+    expect(JSON.stringify(labels)).not.toMatch(/S0010/);
     expect(labels[2]).toMatchObject({ strength: 'weak', group_key: null });
     for (const l of labels) expect(checkLabel(l)).toEqual([]);
   });
 
-  it("labels Set and Earn's 48- and 14-wallet hiring groups, and nobody else", () => {
+  // Group membership is a field of the paid file (the free lookup shows only the tier): private until published.
+  it("labels Set and Earn's 48- and 14-wallet hiring groups, privately, and nobody else", () => {
     const rows = [
       { chain: 'bsc', address: A, tier: 'A2', fields: { in_48_wallet_group: true, in_14_wallet_group: false } },
       { chain: 'bsc', address: B, tier: 'A2', fields: { in_48_wallet_group: false, in_14_wallet_group: true } },
@@ -120,6 +144,7 @@ describe('datasetLabels', () => {
       [B, 'set-and-earn:14', 14],
     ]);
     expect(labels[0]!.sentence).toBe("One of 48 wallets that hire only each other's agents in BNB Chain's Set and Earn, from our Set and Earn decode.");
+    expect(labels.every((l) => l.visibility === 'private' && l.kind === 'hiring_loop')).toBe(true);
     expect(labels[0]!.evidence_url).toMatch(/^https:\/\/bscscan\.com\/tx\//);
     for (const l of labels) expect(checkLabel(l)).toEqual([]);
   });

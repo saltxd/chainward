@@ -53,6 +53,8 @@ describe('/docs', () => {
     const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
     expect(paid).toMatch(/a strong label from our published investigations or detectors answers <code>hold<\/code>/i);
     expect(paid).toMatch(/labels our published investigations put on the launch wallet/);
+    // The detector's rule is public: what earns the label, and for how long.
+    expect(paid).toMatch(/labeled a serial\s+launcher until 30 days after that launch/);
   });
 
   // Most Clanker launches come from wallets that launch dozens of tokens a day.

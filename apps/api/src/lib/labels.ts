@@ -13,7 +13,7 @@ import { logger } from './logger.js';
 
 type LabelRow = typeof walletLabels.$inferSelect;
 
-const KINDS: ReadonlySet<string> = new Set<LabelKind>(['run_together', 'self_funded_seller', 'serial_launcher', 'launch_dumper', 'operator_wallet', 'service']);
+const KINDS: ReadonlySet<string> = new Set<LabelKind>(['run_together', 'hiring_loop', 'self_funded_seller', 'serial_launcher', 'launch_dumper', 'operator_wallet', 'service']);
 const SOURCE_TYPES: ReadonlySet<string> = new Set(['decode', 'dataset', 'detector', 'list']);
 
 /** A row as a public check reads it, or null for anything a public answer must not show. */
@@ -83,19 +83,26 @@ export async function labelsFor(address: string, chain: string): Promise<WalletL
   return (await publicLabelsFor(chain, [address])).get(address.toLowerCase()) ?? [];
 }
 
-/** Detector labels last this long after the check that saw them. */
+/** Detector labels last this long after the launch that showed them. */
 const DETECTOR_LABEL_DAYS = 30;
+const DAY_MS = 86_400_000;
 
 /**
  * The rug check as a detector: a launch wallet that launched 5 or more tokens through
- * Clanker in a day (creator_serial_launcher, which the check never raises for a launch
- * made for another admin) gets a public serial_launcher label for 30 days. A re-detection
- * refreshes the sentence and dates; a removal (a correction) stays.
+ * Clanker in the day up to a launch it made for itself (it is the token's admin) gets a
+ * public serial_launcher label until 30 days after that launch. Dated by the launch, not
+ * the check, so checking an old token never makes a fresh label. A re-detection refreshes
+ * the sentence and dates; a removal (a correction) stays.
  */
 export async function recordSerialLauncher(check: TokenCheck, now: Date = new Date()): Promise<void> {
   const launches = check.creator?.clanker_launches_24h;
-  if (!check.flags.includes('creator_serial_launcher') || !check.creator || !launches) return;
-  const day = now.toISOString().slice(0, 10);
+  if (!check.flags.includes('creator_serial_launcher') || !check.creator || !launches || !check.launch?.time) return;
+  // A launch service launching for other admins would get its whole volume counted.
+  if (check.launch.token_admin !== check.creator.address.toLowerCase()) return;
+  const launched = new Date(check.launch.time);
+  const expiresAt = new Date(launched.getTime() + DETECTOR_LABEL_DAYS * DAY_MS);
+  if (Number.isNaN(launched.getTime()) || expiresAt.getTime() <= now.getTime()) return;
+  const day = launched.toISOString().slice(0, 10);
   const values = {
     chain: 'base',
     address: check.creator.address.toLowerCase(),
@@ -108,7 +115,7 @@ export async function recordSerialLauncher(check: TokenCheck, now: Date = new Da
     sourceUrl: 'https://chainward.ai/rugcheck',
     evidenceUrl: check.launch?.tx ? `https://basescan.org/tx/${check.launch.tx}` : null,
     asOf: day,
-    expiresAt: new Date(now.getTime() + DETECTOR_LABEL_DAYS * 86_400_000),
+    expiresAt,
   };
   await getDb()
     .insert(walletLabels)

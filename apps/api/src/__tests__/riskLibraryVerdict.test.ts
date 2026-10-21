@@ -24,6 +24,12 @@ const redis = vi.hoisted(() => {
 /** Each awaited query answers with the next entry. */
 const results = vi.hoisted(() => ({ queue: [] as unknown[] }));
 
+const labelStore = vi.hoisted(() => ({ map: new Map<string, unknown[]>() }));
+vi.mock('../lib/labels.js', () => ({
+  labelsFor: async (address: string, chain: string) => labelStore.map.get(`${chain}:${address.toLowerCase()}`) ?? [],
+  publicLabelsForRows: async (rows: Array<{ chain: string; walletAddress: string }>) =>
+    new Map(rows.map((r) => [`${r.chain}:${r.walletAddress.toLowerCase()}`, labelStore.map.get(`${r.chain}:${r.walletAddress.toLowerCase()}`) ?? []])),
+}));
 vi.mock('../lib/redis.js', () => ({ getRedis: () => redis }));
 vi.mock('../lib/queue.js', () => ({ getQueues: () => ({ riskCheck: { add: vi.fn() } }) }));
 vi.mock('../lib/db.js', () => {
@@ -84,6 +90,7 @@ async function library(query = '') {
 
 beforeEach(() => {
   results.queue = [];
+  labelStore.map.clear();
 });
 
 describe('GET /api/risk/library', () => {
@@ -132,5 +139,41 @@ describe('GET /api/risk/library', () => {
     results.queue = [[row('0x1111111111111111111111111111111111111111', { activity: ACTIVE })], [], [{ total: 1 }]];
     const { body } = await library('&distinct=address');
     expect(body.data.reports[0].verdict).toEqual({ label: 'pay', text: 'Pay' });
+  });
+});
+
+// The label set on the library cards: a strong public label is a list match, applied on read.
+describe('GET /api/risk/library with labels', () => {
+  const L = '0x5555555555555555555555555555555555555555';
+  const strong = {
+    chain: 'base',
+    address: L,
+    kind: 'hiring_loop',
+    strength: 'strong',
+    visibility: 'public',
+    group_key: 'termix:A1',
+    group_size: 5384,
+    sentence: 'One of 5,384 TermiX wallets that hire each other, each with a direct on-chain link to another participant, from our TermiX decode.',
+    source_type: 'dataset',
+    source_ref: 'termix-wallets',
+    source_url: 'https://chainward.ai/decodes/termix-on-chain',
+    evidence_url: null,
+    as_of: '2026-09-29',
+  };
+
+  it('answers Hold with the label flag on top', async () => {
+    labelStore.map.set(`base:${L}`, [strong]);
+    results.queue = [[row(L, { activity: ACTIVE })], [{ total: 1 }]];
+    const { body } = await library();
+    const card = body.data.reports[0];
+    expect(card.verdict).toEqual({ label: 'hold', text: 'Hold' });
+    expect(card.top_flags[0]).toMatchObject({ id: 'known_label', severity: 'medium' });
+  });
+
+  it('does the same in distinct=address mode', async () => {
+    labelStore.map.set(`base:${L}`, [strong]);
+    results.queue = [[row(L, { activity: ACTIVE })], [], [{ total: 1 }]];
+    const { body } = await library('&distinct=address');
+    expect(body.data.reports[0].verdict).toEqual({ label: 'hold', text: 'Hold' });
   });
 });

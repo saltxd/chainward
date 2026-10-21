@@ -3,7 +3,7 @@
 -- buyers, a serial token launcher, a known service), with its evidence.
 --
 -- Two levels. Public labels come from published work or a documented detector and are
--- read by the public checks (the API keeps them in memory). Private labels come from
+-- read by the public checks (the API looks them up per request). Private labels come from
 -- tips sent privately to a program; only our own scripts (paid screens and audits)
 -- read them. The table itself refuses a public label sourced from a tip.
 
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS wallet_labels (
   removed_reason text,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT wallet_labels_kind CHECK (kind IN ('run_together', 'self_funded_seller', 'serial_launcher', 'launch_dumper', 'operator_wallet', 'service')),
+  CONSTRAINT wallet_labels_kind CHECK (kind IN ('run_together', 'hiring_loop', 'self_funded_seller', 'serial_launcher', 'launch_dumper', 'operator_wallet', 'service')),
   CONSTRAINT wallet_labels_strength CHECK (strength IN ('strong', 'weak')),
   CONSTRAINT wallet_labels_visibility CHECK (visibility IN ('public', 'private')),
   CONSTRAINT wallet_labels_source_type CHECK (source_type IN ('decode', 'dataset', 'detector', 'tip', 'list')),
