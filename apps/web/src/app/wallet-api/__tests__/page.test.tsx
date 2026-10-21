@@ -12,7 +12,8 @@ describe('/wallet-api', () => {
   it('documents the address-poisoning decoy hold and its field', () => {
     expect(text).toContain('poisoning_decoy');
     expect(text).toMatch(/never sent a transaction/);
-    expect(text).toContain('decoy.imitates');
+    expect(text).toContain('decoy.copies');
+    expect(text).not.toMatch(/another wallet really paid/);
   });
 
   it('names the product', () => {

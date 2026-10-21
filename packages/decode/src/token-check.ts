@@ -586,7 +586,7 @@ const NFT_REASON = 'This contract is an ERC-721 collection (NFTs), not an ERC-20
 function imitationVerdict(imitation: Imitation): TokenCheck['verdict'] {
   return imitation.real
     ? { label: 'hold', reason: `It passes itself off as ${imitation.imitates}, but it is not: the real ${imitation.imitates} on Base is ${imitation.real}.` }
-    : { label: 'hold', reason: `Its name or symbol spells ${imitation.imitates} with look-alike or hidden characters, which real tokens do not use.` };
+    : { label: 'hold', reason: `Its name or symbol spells ${imitation.imitates} with look-alike or hidden characters, a sign it is posing as ${imitation.imitates}.` };
 }
 const REASONS = {
   not_a_contract: () => 'There is no contract at this address on Base, so it is not a token.',

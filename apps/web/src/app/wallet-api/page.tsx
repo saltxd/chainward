@@ -102,10 +102,12 @@ export default function WalletApiPage() {
               <ul>
                 <li>
                   <strong>hold</strong>: the wallet, or the wallet that first funded it, is on the OFAC
-                  sanctions list (<code>sanctioned</code>, <code>first_funder.sanctioned</code>), or it looks
-                  like an address-poisoning decoy (<code>poisoning_decoy</code>): it never sent a transaction,
-                  only shows fake or zero-value token transfers, and copies the first and last characters of an
-                  address another wallet really paid. <code>decoy.imitates</code> is that real address.
+                  sanctions list (<code>sanctioned</code>, <code>first_funder.sanctioned</code>), or on Base it
+                  looks like an address-poisoning decoy (<code>poisoning_decoy</code>): it never sent a
+                  transaction, its newest token transfers are all fakes, and its first and last characters match
+                  an address that a wallet in those fakes really paid or was paid by. <code>decoy.copies</code> is
+                  that address when exactly one matches: evidence, not the address to pay. Get any address from
+                  whoever you are paying.
                 </li>
                 <li>
                   <strong>review</strong>: first seen less than 7 days ago (<code>age_days</code>), no

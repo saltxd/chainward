@@ -232,7 +232,7 @@ describe('checkToken: tokens passing for a well-known one', () => {
   it('answers hold for a look-alike Tether without naming a contract it cannot vouch for', async () => {
     const r = await checkToken(TOKEN, deps({ symbol: 'ТеthеrՍՏD ​‌​‍​', transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 20n }));
     expect(r.imitation).toEqual({ imitates: 'USDT', real: null });
-    expect(r.verdict).toEqual({ label: 'hold', reason: 'Its name or symbol spells USDT with look-alike or hidden characters, which real tokens do not use.' });
+    expect(r.verdict).toEqual({ label: 'hold', reason: 'Its name or symbol spells USDT with look-alike or hidden characters, a sign it is posing as USDT.' });
   });
 
   // The real fake USDC (0x72846b6b…) only emits Transfer events: totalSupply() reverts.
