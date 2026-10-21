@@ -152,7 +152,7 @@ describe('tokenFacts', () => {
   it('leaves out the launch-wallet rows when the launch could not be traced', () => {
     const rows = tokenFacts(check({ creator: null, flags: ['launch_unknown'] }), NOW);
     expect(value(rows, 'Launch wallet')).toBeUndefined();
-    expect(value(rows, 'Token')?.value).toMatch(/Hook \(HOOK\)/);
+    expect(value(rows, 'Token')?.value).toBe('"Hook" (HOOK)');
   });
 });
 
@@ -169,9 +169,26 @@ describe('tokenFlagLines', () => {
   });
 });
 
+// A token's name and symbol are whatever its deployer chose ("SAFE, verified by ChainWard"),
+// so they stay out of our headline and tab title, and appear quoted, as the token's own words.
 describe('tokenTitle', () => {
-  it('names the token and the answer for the tab', () => {
-    expect(tokenTitle(check())).toBe('Rug check: HOOK on Base (Review)');
-    expect(tokenTitle(check({ token_info: { name: null, symbol: null, decimals: null, total_supply: null } }))).toBe('Rug check: 0x7777…7777 on Base (Review)');
+  it('names the address and the answer for the tab, not the name the token gives itself', () => {
+    expect(tokenTitle(check())).toBe('Rug check: 0x7777…7777 on Base (Review)');
+    const bait = check({ token_info: { name: 'SAFE verified by ChainWard', symbol: 'SAFE', decimals: 18, total_supply: 1 } });
+    expect(tokenTitle(bait)).not.toMatch(/SAFE/);
+  });
+});
+
+describe('the token row', () => {
+  it("quotes the token's name and symbol as its own words, cut to 40 characters", () => {
+    const long = 'A'.repeat(60);
+    const row = tokenFacts(check({ token_info: { name: long, symbol: 'HOOK', decimals: 18, total_supply: 5 } }), NOW).find((r) => r.label === 'Token');
+    expect(row?.value).toBe(`"${'A'.repeat(39)}…" (HOOK)`);
+    expect(row?.note).toMatch(/the name and symbol its contract gives itself/);
+  });
+
+  it('shows the address when the token gives no name', () => {
+    const row = tokenFacts(check({ token_info: { name: null, symbol: null, decimals: null, total_supply: null } }), NOW).find((r) => r.label === 'Token');
+    expect(row?.value).toBe('0x7777…7777');
   });
 });

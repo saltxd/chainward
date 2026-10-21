@@ -361,8 +361,9 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
             Case File <span className="ph-dateline-sep">·</span> {tokenCheck ? 'Rug check' : 'On-chain risk check'}
           </div>
           <h1 className="rr-question press-display">
+            {/* A token's name is its deployer's choice, so the headline names the address. */}
             {tokenCheck
-              ? `Should you buy ${tokenCheck.token_info.symbol ?? `${address.slice(0, 6)}…${address.slice(-4)}`}?`
+              ? `Should you buy ${address.slice(0, 6)}…${address.slice(-4)}?`
               : `Should you pay ${valid ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'this address'}?`}
           </h1>
           <div className="rr-subject mono">{address}</div>

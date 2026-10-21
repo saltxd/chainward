@@ -62,6 +62,8 @@ export interface TokenFact {
 }
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+/** A deployer-chosen string, cut to 40 characters. */
+const cut = (s: string) => (s.length > 40 ? `${s.slice(0, 39)}…` : s);
 const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const plural = (n: number, word: string) => `${num(n)} ${word}${n === 1 ? '' : 's'}`;
 
@@ -81,11 +83,14 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
   const rows: TokenFact[] = [];
   const { token_info: info, launch, creator, supply } = check;
 
-  const name = info.name ?? info.symbol ?? short(check.token);
+  // The name and symbol are whatever the deployer chose, so they appear quoted, as the token's own words.
+  const own = [info.name ? `"${cut(info.name)}"` : null, info.symbol ? `(${cut(info.symbol)})` : null].filter(Boolean);
   rows.push({
     label: 'Token',
-    value: `${name}${info.symbol && info.name ? ` (${info.symbol})` : ''}`,
-    note: info.total_supply !== null ? `${num(info.total_supply)} supply` : undefined,
+    value: own.length ? own.join(' ') : short(check.token),
+    note: [own.length ? 'the name and symbol its contract gives itself' : null, info.total_supply !== null ? `${num(info.total_supply)} supply` : null]
+      .filter(Boolean)
+      .join(', ') || undefined,
     href: base.explorerAddressUrl(check.token),
   });
 
@@ -171,7 +176,7 @@ export function tokenFlagLines(check: TokenReport): Array<{ id: string; title: s
   return check.flags.map((id) => ({ id, ...(FLAG_LINES[id] ?? { title: id, severity: 'medium' as const }) }));
 }
 
-/** The tab title once the check has answered. */
+/** The tab title once the check has answered: the address, never the name the token gives itself. */
 export function tokenTitle(check: TokenReport): string {
-  return `Rug check: ${check.token_info.symbol ?? short(check.token)} on Base (${ANSWER[check.verdict.label].word})`;
+  return `Rug check: ${short(check.token)} on Base (${ANSWER[check.verdict.label].word})`;
 }
