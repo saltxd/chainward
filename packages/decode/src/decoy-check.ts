@@ -6,7 +6,7 @@
 // Alchemy's transfer index. A failed read adds no flag and is named in not_assessed.
 
 import { detectDecoy, type DecoyDeps, type DecoyState } from './decoy.js';
-import { withDecoyFlag, type RiskAssessment } from './risk-flags.js';
+import { loadAllowlist, withDecoyFlag, type RiskAssessment } from './risk-flags.js';
 import type { DecodeChain, QuickDecodeResultData } from './types.js';
 
 /** The parts of a decode this step reads. */
@@ -26,6 +26,8 @@ export async function checkDecoyForReport(
   deps: DecoyDeps | null,
 ): Promise<RiskAssessment> {
   if (chain !== 'base' || !deps) return assessment;
+  // The self-flag guard deriveRiskFlags applies: ChainWard's own wallets and known infra are never flagged.
+  if (loadAllowlist().has(data.target.wallet_address.toLowerCase())) return assessment;
   const unread = new Set(data.fetch_meta.state_unavailable ?? []);
   // A nonce or code we could not read is not a zero: no gate, no read.
   if (unread.has('nonce') || unread.has('code')) return assessment;

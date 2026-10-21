@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { checkDecoyForReport, type DecoyReportData } from '../src/decoy-check.js';
 import type { DecoyDeps, DecoyTransfer } from '../src/decoy.js';
 import type { RiskAssessment } from '../src/risk-flags.js';
@@ -70,6 +70,19 @@ describe('checkDecoyForReport', () => {
     const a = await checkDecoyForReport(assessment, data({ unread: ['usdc_balance'] }), 'base', deps(calls));
     expect(a.flags.map((f) => f.id)).toEqual(['poisoning_decoy']);
     expect(calls).toContain('eth_call');
+  });
+
+  // The self-flag guard: deriveRiskFlags never flags ChainWard's own wallets, and neither does this step.
+  describe('with the self-flag allowlist', () => {
+    afterEach(() => {
+      delete process.env.RISK_SELF_FLAG_ALLOWLIST;
+    });
+    it('reads nothing and flags nothing for an allowlisted address', async () => {
+      process.env.RISK_SELF_FLAG_ALLOWLIST = `0x${'1'.repeat(40)}, ${LOOKALIKE.toUpperCase().replace('0X', '0x')}`;
+      const calls: string[] = [];
+      expect(await checkDecoyForReport(assessment, data(), 'base', deps(calls))).toBe(assessment);
+      expect(calls).toEqual([]);
+    });
   });
 
   it('names the check as not assessed when its reads fail, and adds no flag', async () => {
