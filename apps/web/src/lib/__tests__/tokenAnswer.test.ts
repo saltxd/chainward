@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, type TokenReport } from '../api';
-import { classifyProbe, tokenAnswer, tokenFacts, tokenFlagLines, tokenTitle } from '../tokenAnswer';
+import { classifyProbe, runTokenProbe, tokenAnswer, tokenFacts, tokenFlagLines, tokenTitle } from '../tokenAnswer';
 
 // The rug check on the report page: when someone pastes a Base token, the page shows
 // who launched it, how, and what the launch wallet did next, in plain words. Never "safe".
@@ -60,18 +60,66 @@ describe('classifyProbe', () => {
     expect(classifyProbe(check({ flags: [flag], launch: null, creator: null }), null)).toEqual({ kind: 'not_token' });
   });
 
-  it('says so when the visitor is checking too fast', () => {
-    expect(classifyProbe(null, new ApiError('Too many requests.', 'RATE_LIMITED'))).toEqual({ kind: 'rate_limited' });
+  // The per-minute limit is shared with wallet checks: a wallet must still reach its report.
+  it('falls back to the wallet report when the probe is rate limited', () => {
+    expect(classifyProbe(null, new ApiError('Too many requests.', 'RATE_LIMITED'))).toEqual({ kind: 'unknown' });
+    expect(classifyProbe(null, new ApiError('The free check is busy.', 'PROBES_USED_UP'))).toEqual({ kind: 'unknown' });
   });
 
-  it("passes on the server's words when today's free checks are used up", () => {
+  it.each([['FREE_CHECKS_USED_UP'], ['FREE_HOURLY_LIMIT']])("passes on the server's words when the free token checks are used up (%s)", (code) => {
     const msg = "Today's free rug checks are used up.";
-    expect(classifyProbe(null, new ApiError(msg, 'FREE_CHECKS_USED_UP'))).toEqual({ kind: 'used_up', message: msg });
+    expect(classifyProbe(null, new ApiError(msg, code))).toEqual({ kind: 'used_up', message: msg });
+  });
+
+  // Only a token gets far enough to time out; the run goes on and fills the cache.
+  it('says the check is slow when it ran past its time budget', () => {
+    expect(classifyProbe(null, new ApiError('The check did not finish in time.', 'CHECK_TIMEOUT'))).toEqual({ kind: 'slow' });
   });
 
   it('falls back to the wallet report when the probe fails for any other reason', () => {
     expect(classifyProbe(null, new ApiError('The chain data source did not answer.', 'SOURCES_UNAVAILABLE'))).toEqual({ kind: 'unknown' });
     expect(classifyProbe(null, new Error('network'))).toEqual({ kind: 'unknown' });
+  });
+});
+
+describe('runTokenProbe', () => {
+  const ok = (c: TokenReport) => async () => ({ data: c });
+  const fail = (code: string) => async () => {
+    throw new ApiError('x', code);
+  };
+  const noSleep = async () => {};
+
+  it('does not probe off Base', async () => {
+    let calls = 0;
+    const out = await runTokenProbe('bsc', TOKEN, async () => {
+      calls++;
+      return { data: check() };
+    }, noSleep);
+    expect(out).toBeNull();
+    expect(calls).toBe(0);
+  });
+
+  it('shows a token, and sends a wallet on', async () => {
+    expect(await runTokenProbe('base', TOKEN, ok(check()), noSleep)).toMatchObject({ kind: 'token' });
+    expect(await runTokenProbe('base', TOKEN, ok(check({ flags: ['not_a_contract'], launch: null, creator: null })), noSleep)).toEqual({ kind: 'not_token' });
+  });
+
+  it('asks once more after a check that ran past its time budget', async () => {
+    let calls = 0;
+    let slept = 0;
+    const out = await runTokenProbe('base', TOKEN, async () => {
+      calls++;
+      if (calls === 1) throw new ApiError('slow', 'CHECK_TIMEOUT');
+      return { data: check() };
+    }, async () => {
+      slept++;
+    });
+    expect(out).toMatchObject({ kind: 'token' });
+    expect([calls, slept]).toEqual([2, 1]);
+  });
+
+  it('says the check is slow, rather than showing a wallet report, when it times out twice', async () => {
+    expect(await runTokenProbe('base', TOKEN, fail('CHECK_TIMEOUT'), noSleep)).toEqual({ kind: 'slow' });
   });
 });
 
@@ -143,6 +191,37 @@ describe('tokenFacts', () => {
     expect(row?.href).toBe(`https://basescan.org/tx/0x${'1'.repeat(64)}`);
   });
 
+  // The launch transaction was not found, or could not be read: that is not a direct deploy.
+  it("says the launch was not traced when it wasn't, never 'a direct deploy'", () => {
+    const untraced = { ...check().launch!, tx: null, creator: null, via: null, launcher: null, launcher_note: null };
+    expect(value(tokenFacts(check({ launch: untraced, creator: null }), NOW), 'Launched through')?.value).toBe('not traced');
+    const unread = { ...check().launch!, creator: null, via: null, launcher: null, launcher_note: null };
+    expect(value(tokenFacts(check({ launch: unread, creator: null }), NOW), 'Launched through')?.value).toBe('not traced');
+    const direct = { ...check().launch!, via: null, launcher: null, launcher_note: null };
+    expect(value(tokenFacts(check({ launch: direct }), NOW), 'Launched through')?.value).toBe('a direct deploy');
+  });
+
+  // Clanker's token admin is a launch parameter: the launch can name any wallet.
+  it('words the admin at launch as what the launch named, not as fact', () => {
+    const launch = { ...check().launch!, token_admin: ADMIN };
+    const note = value(tokenFacts(check({ launch }), NOW), 'Admin at launch')?.note ?? '';
+    expect(note).toMatch(/the launch named this wallet as the token's admin/);
+    expect(note).toMatch(/as when a launch service/);
+  });
+
+  it('times send-outs the way the verdict does', () => {
+    const at = (sec: number) =>
+      value(tokenFacts(check({}, { launch_tokens: { received: 10, sent_pct: 100, first_send_after_sec: 1, sent_90pct_after_sec: sec } }), NOW), 'Launch tokens')?.value;
+    expect(at(90)).toMatch(/90% gone 90 seconds after launch/);
+    expect(at(150)).toMatch(/90% gone 3 minutes after launch/);
+    expect(at(7_300)).toMatch(/90% gone 2 hours after launch/);
+  });
+
+  it('marks mint counts as a floor when the mint list was cut short', () => {
+    const supply = { mints_after_launch: 100, minted_after_launch: 5_000, to_creator: 5, minted_to_creator: 400, capped: true };
+    expect(value(tokenFacts(check({ supply }), NOW), 'Mints after launch')?.value).toBe('at least 100, at least 5 of them to the launch wallet');
+  });
+
   it('reports mints after launch, and how many went to the launch wallet', () => {
     const supply = { mints_after_launch: 3, minted_after_launch: 5_000, to_creator: 2, minted_to_creator: 4_000, capped: false };
     expect(value(tokenFacts(check({ supply }), NOW), 'Mints after launch')?.value).toBe('3, 2 of them to the launch wallet');
@@ -185,6 +264,14 @@ describe('the token row', () => {
     const row = tokenFacts(check({ token_info: { name: long, symbol: 'HOOK', decimals: 18, total_supply: 5 } }), NOW).find((r) => r.label === 'Token');
     expect(row?.value).toBe(`"${'A'.repeat(39)}…" (HOOK)`);
     expect(row?.note).toMatch(/the name and symbol its contract gives itself/);
+  });
+
+  // A quote in the name would put the deployer's words outside our quotes; direction
+  // controls could reorder them.
+  it('keeps the quotes around the name and strips direction controls', () => {
+    const name = 'PEPE" verified by ChainWard "\u202eX\u2066';
+    const row = tokenFacts(check({ token_info: { name, symbol: 'P\u200eP', decimals: 18, total_supply: 5 } }), NOW).find((r) => r.label === 'Token');
+    expect(row?.value).toBe('"PEPE verified by ChainWard X" (PP)');
   });
 
   it('shows the address when the token gives no name', () => {

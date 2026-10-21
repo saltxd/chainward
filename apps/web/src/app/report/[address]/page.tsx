@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation';
 import { ReportView } from './report-view';
 import { isThinReport } from '@/lib/risk';
 import { reportPageCopy } from '@/lib/reportPageCopy';
-import type { RiskReport } from '@/lib/api';
+import type { RiskReport, TokenReport } from '@/lib/api';
+import { classifyProbe, tokenAnswer, tokenTitle } from '@/lib/tokenAnswer';
+import { DEFAULT_OG_IMAGE } from '@/lib/siteCopy';
 import { isAddress } from '@/lib/params';
 import { chainMeta, chainQuery, parseChainParam, type RiskChainParam } from '@/lib/chains';
 
@@ -34,6 +36,23 @@ async function fetchReport(address: string, chain: RiskChainParam): Promise<Risk
   }
 }
 
+/** The rug check already in the cache for a Base token, or null. Cache-only: the server render never reads the chain. */
+async function fetchCachedTokenCheck(address: string): Promise<TokenReport | null> {
+  try {
+    // Not kept by Next: a miss cached here would preview a link shared a minute later as a wallet.
+    const res = await fetch(`${API_URL}/api/risk/token-report/${encodeURIComponent(address)}?cached=1`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { success: boolean; data?: TokenReport };
+    if (!json.success || !json.data) return null;
+    const probe = classifyProbe(json.data, null);
+    return probe.kind === 'token' ? probe.check : null;
+  } catch {
+    return null;
+  }
+}
+
 type SearchParams = Promise<{ chain?: string | string[] }>;
 
 export async function generateMetadata({
@@ -56,8 +75,25 @@ export async function generateMetadata({
   }
 
   const chainName = chainMeta(chain).name;
-  const report = await fetchReport(lowered, chain);
   const canonical = `https://chainward.ai/report/${lowered}${chainQuery(chain)}`;
+
+  // A Base token checked in the last few minutes previews as its rug check: named by its
+  // address (a token's own name is its deployer's choice) and not indexed.
+  const tokenCheck = chain === 'base' ? await fetchCachedTokenCheck(lowered) : null;
+  if (tokenCheck) {
+    const title = tokenTitle(tokenCheck);
+    const description = `${tokenAnswer(tokenCheck).word}: ${tokenCheck.verdict.reason}`;
+    return {
+      title,
+      description,
+      alternates: { canonical },
+      robots: { index: false, follow: true },
+      openGraph: { title, description, siteName: 'ChainWard', url: canonical, type: 'website', images: [DEFAULT_OG_IMAGE] },
+      twitter: { card: 'summary_large_image', site: '@chainwardai', title, description, images: [DEFAULT_OG_IMAGE.url] },
+    };
+  }
+
+  const report = await fetchReport(lowered, chain);
   const ogImageUrl = `https://chainward.ai/api/report/${lowered}/og${chainQuery(chain)}`;
 
   // No report yet (teaser/no_history), or an answer that is neither Pay nor Hold → noindex.

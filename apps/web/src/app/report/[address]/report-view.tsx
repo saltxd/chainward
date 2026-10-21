@@ -48,7 +48,7 @@ import {
 import { plainAnswer } from '@/lib/plainAnswer';
 import { reportPageCopy } from '@/lib/reportPageCopy';
 import { isTransient } from '@/lib/checkProgress';
-import { classifyProbe, tokenTitle } from '@/lib/tokenAnswer';
+import { runTokenProbe, tokenTitle } from '@/lib/tokenAnswer';
 import { TokenReportView } from './token-report';
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -188,28 +188,19 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
     setState({ kind: 'loading' });
     startedAtRef.current = Date.now();
     // A Base token gets the rug check instead of the wallet report. A wallet answers
-    // not_a_contract / not_a_token; a failed probe falls back to the wallet report.
-    if (chain === 'base') {
-      let probe: TokenReport | null = null;
-      let probeErr: unknown = null;
-      try {
-        probe = (await publicApi.getTokenReport(lowered)).data;
-      } catch (err) {
-        probeErr = err;
-      }
-      const outcome = classifyProbe(probe, probeErr);
-      if (outcome.kind === 'token') {
-        setState({ kind: 'token', check: outcome.check });
-        return;
-      }
-      if (outcome.kind === 'used_up') {
-        setState({ kind: 'token_used_up', message: outcome.message });
-        return;
-      }
-      if (outcome.kind === 'rate_limited') {
-        setState({ kind: 'rate_limited' });
-        return;
-      }
+    // not_a_contract / not_a_token, and a failed probe falls back to the wallet report.
+    const probe = await runTokenProbe(chain, lowered, publicApi.getTokenReport);
+    if (probe?.kind === 'token') {
+      setState({ kind: 'token', check: probe.check });
+      return;
+    }
+    if (probe?.kind === 'used_up') {
+      setState({ kind: 'token_used_up', message: probe.message });
+      return;
+    }
+    if (probe?.kind === 'slow') {
+      setState({ kind: 'error', message: 'The rug check is taking longer than usual. Retry in a minute and the answer will be here.' });
+      return;
     }
     try {
       const res = await publicApi.getReport(lowered, chain);
@@ -421,7 +412,7 @@ export function ReportView({ address, chain = 'base' }: { address: string; chain
             <div className="rr-notice-tag">Rate limited</div>
             <p>
               Too many checks from this address right now. Wait a moment, then
-              retry — checks are free, just throttled to keep the node honest.
+              retry. Checks are free, just throttled to keep the node honest.
             </p>
             <button className="press-btn press-btn--ghost" onClick={() => load()}>
               Retry

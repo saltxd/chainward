@@ -12,18 +12,50 @@ import { chainMeta } from './chains';
 export type ProbeOutcome =
   | { kind: 'token'; check: TokenReport }
   | { kind: 'not_token' }
-  | { kind: 'rate_limited' }
   | { kind: 'used_up'; message: string }
+  | { kind: 'slow' }
   | { kind: 'unknown' };
 
 const NOT_TOKEN = new Set(['not_a_contract', 'not_a_token']);
+/** The free token allowances: the visitor's for the hour, everyone's for the day. */
+const USED_UP = new Set(['FREE_CHECKS_USED_UP', 'FREE_HOURLY_LIMIT']);
 
 export function classifyProbe(check: TokenReport | null, err: unknown): ProbeOutcome {
   if (check) return check.flags.some((f) => NOT_TOKEN.has(f)) ? { kind: 'not_token' } : { kind: 'token', check };
-  if (err instanceof ApiError && err.code === 'RATE_LIMITED') return { kind: 'rate_limited' };
-  if (err instanceof ApiError && err.code === 'FREE_CHECKS_USED_UP') return { kind: 'used_up', message: err.message };
-  // Unreadable or failed: the wallet report, as before the rug check existed.
+  if (err instanceof ApiError && USED_UP.has(err.code)) return { kind: 'used_up', message: err.message };
+  // Only a token gets far enough to run past the time budget; the run goes on and fills the cache.
+  if (err instanceof ApiError && err.code === 'CHECK_TIMEOUT') return { kind: 'slow' };
+  // Anything else (the per-minute limit, the daily cap on uncached addresses, a failed read):
+  // the wallet report, as before the rug check existed.
   return { kind: 'unknown' };
+}
+
+/** How long the page waits before asking again about a check that ran past its time budget. */
+const RETRY_AFTER_MS = 3_000;
+
+/**
+ * The report page's first question on Base: is this address a token? Null off Base (no rug
+ * check there). A check past its time budget is asked about once more, since it is still
+ * running and fills the cache.
+ */
+export async function runTokenProbe(
+  chain: string,
+  address: string,
+  fetchCheck: (address: string) => Promise<{ data: TokenReport }>,
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<ProbeOutcome | null> {
+  if (chain !== 'base') return null;
+  const ask = async (): Promise<ProbeOutcome> => {
+    try {
+      return classifyProbe((await fetchCheck(address)).data, null);
+    } catch (err) {
+      return classifyProbe(null, err);
+    }
+  };
+  const first = await ask();
+  if (first.kind !== 'slow') return first;
+  await sleep(RETRY_AFTER_MS);
+  return ask();
 }
 
 export interface TokenAnswer {
@@ -62,14 +94,24 @@ export interface TokenFact {
 }
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
-/** A deployer-chosen string, cut to 40 characters. */
-const cut = (s: string) => (s.length > 40 ? `${s.slice(0, 39)}…` : s);
+/**
+ * A deployer-chosen string, made fit to quote: no double quotes (they would end ours) and no
+ * direction controls (they reorder text), cut to 40 characters.
+ */
+const cut = (raw: string) => {
+  const s = raw
+    .replace(/["\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return s.length > 40 ? `${s.slice(0, 39)}…` : s;
+};
 const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const plural = (n: number, word: string) => `${num(n)} ${word}${n === 1 ? '' : 's'}`;
 
+/** The engine's wording for the same spans, so the facts match the verdict's reason. */
 function duration(sec: number): string {
-  if (sec < 60) return plural(sec, 'second');
-  if (sec < 3_600) return plural(Math.round(sec / 60), 'minute');
+  if (sec < 120) return plural(sec, 'second');
+  if (sec < 7_200) return plural(Math.round(sec / 60), 'minute');
   return plural(Math.round(sec / 3_600), 'hour');
 }
 
@@ -102,14 +144,17 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
     });
     rows.push({
       label: 'Launched through',
+      // Without a launch transaction read to one wallet, there is no telling a direct deploy apart.
       value:
         launch.launcher === 'clanker'
           ? 'Clanker'
           : launch.launcher === 'virtuals'
             ? 'Virtuals'
-            : launch.via
-              ? `a contract, ${short(launch.via)}`
-              : 'a direct deploy',
+            : !launch.tx || !launch.creator
+              ? 'not traced'
+              : launch.via
+                ? `a contract, ${short(launch.via)}`
+                : 'a direct deploy',
       note: launch.launcher_note ?? undefined,
     });
   }
@@ -129,7 +174,8 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
         label: 'Admin at launch',
         value: short(admin),
         href: `/report/${admin}`,
-        note: 'not the launch wallet: a launch service sent the launch for this wallet',
+        // Clanker's token admin is a launch parameter: the launch can name any wallet.
+        note: "not the launch wallet: the launch named this wallet as the token's admin, as when a launch service such as Clanker's X bot launches for someone",
       });
     }
 
@@ -153,7 +199,7 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
     value:
       supply.mints_after_launch === 0
         ? 'none'
-        : `${atLeast}${num(supply.mints_after_launch)}${supply.to_creator > 0 ? `, ${num(supply.to_creator)} of them to the launch wallet` : ''}`,
+        : `${atLeast}${num(supply.mints_after_launch)}${supply.to_creator > 0 ? `, ${atLeast}${num(supply.to_creator)} of them to the launch wallet` : ''}`,
   });
   rows.push({ label: 'Read at block', value: num(check.as_of_block) });
   return rows;
