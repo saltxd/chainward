@@ -34,8 +34,8 @@ export interface WalletLabel {
   as_of: string;
 }
 
-/** The labels for one address on one chain; the API's label book answers it. */
-export type LabelsFor = (address: string, chain: string) => readonly WalletLabel[];
+/** The labels for one address on one chain (the API looks them up per request). */
+export type LabelsFor = (address: string, chain: string) => readonly WalletLabel[] | Promise<readonly WalletLabel[]>;
 
 /** Which kind a payer most needs to hear about first. */
 const KIND_ORDER: Record<LabelKind, number> = {

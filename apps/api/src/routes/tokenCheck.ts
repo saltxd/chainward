@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { alchemyTokenCheckDeps, checkToken, sellerDemandRpcUrl, type CheckTokenOptions, type TokenCheck } from '@chainward/decode';
 import { getRedis } from '../lib/redis.js';
+import { labelsFor, recordSerialLauncher } from '../lib/labels.js';
 import { logger } from '../lib/logger.js';
 import { parseTokenInput } from '../lib/paidInput.js';
 import { budget, rateLimit } from '../middleware/rateLimit.js';
@@ -40,21 +41,28 @@ async function readCache(key: string): Promise<TokenCheck | null> {
 // One run per token at a time in this process: a request for a token already being checked
 // waits for that run instead of reading the chain again. The paid and free routes never share
 // a run, so a free run refused by its allowance cannot fail a buyer who paid.
-const running = new Map<string, Promise<TokenCheck>>();
+// A run older than STALE_RUN_MS is not joined (its reads have their own timeouts, so a run
+// that old is stuck): the next request starts a fresh one.
+const running = new Map<string, { started: number; check: Promise<TokenCheck> }>();
+const STALE_RUN_MS = 60_000;
 
 function runCheck(token: string, route: 'paid' | 'free', opts: CheckTokenOptions = {}): Promise<TokenCheck> {
   const key = `${route}:${token}`;
   const already = running.get(key);
-  if (already) return already;
+  if (already && Date.now() - already.started < STALE_RUN_MS) return already.check;
   const rpcUrl = sellerDemandRpcUrl('base', process.env);
   if (!rpcUrl) return Promise.reject(new AppError(503, 'CHECK_UNAVAILABLE', 'The token check is not configured'));
-  const check = checkToken(token, alchemyTokenCheckDeps(rpcUrl), opts)
+  const check = checkToken(token, { ...alchemyTokenCheckDeps(rpcUrl), labelsFor }, opts)
     .then(async (result) => {
       await getRedis().set(sharedKey(token), JSON.stringify(result), 'EX', ttlFor(result));
+      // The check as a detector: a serial launch labels its launch wallet (public, 30 days).
+      recordSerialLauncher(result).catch((err) => logger.warn({ err, token }, 'labels: could not record a serial launcher'));
       return result;
     })
-    .finally(() => running.delete(key));
-  running.set(key, check);
+    .finally(() => {
+      if (running.get(key)?.check === check) running.delete(key);
+    });
+  running.set(key, { started: Date.now(), check });
   return check;
 }
 

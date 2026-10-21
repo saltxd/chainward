@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { alchemyWalletLookupDeps, lookupWallet, sellerDemandRpcUrl, type WalletLookup } from '@chainward/decode';
 import { getRedis } from '../lib/redis.js';
+import { labelsFor } from '../lib/labels.js';
 import { parseCounterpartyInput } from '../lib/paidInput.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
@@ -32,7 +33,8 @@ async function cachedLookup(address: string, chain: 'base' | 'bsc', beforeMiss?:
   const rpcUrl = sellerDemandRpcUrl(chain, process.env);
   if (!rpcUrl) throw new AppError(503, 'LOOKUP_UNAVAILABLE', 'Wallet lookup is not configured for this chain');
   await beforeMiss?.();
-  const lookup = lookupWallet(address, chain, alchemyWalletLookupDeps(rpcUrl)).then(async (result) => {
+  // The wallet's public labels from our investigations and detectors ride along (lib/labels.ts).
+  const lookup = lookupWallet(address, chain, { ...alchemyWalletLookupDeps(rpcUrl), labelsFor }).then(async (result) => {
     await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL_SEC);
     return result;
   });

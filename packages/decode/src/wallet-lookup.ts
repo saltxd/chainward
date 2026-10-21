@@ -130,7 +130,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   if (sanctioned) flags.push('sanctioned');
   if (funder?.sanctioned) flags.push('funded_by_sanctioned');
   if (privacyRelay(address, chain)) flags.push('privacy_relay');
-  const labels = publicLabels(deps.labelsFor?.(address, chain) ?? []);
+  const labels = publicLabels((await deps.labelsFor?.(address, chain)) ?? []);
   if (labels[0]?.strength === 'strong') flags.push('labeled');
   if (!first && sentTxs === 0) flags.push('no_history');
   if (ageDays !== null && ageDays < NEW_WALLET_DAYS) flags.push('new_wallet');

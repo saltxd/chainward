@@ -41,7 +41,7 @@ const redis = vi.hoisted(() => {
     }),
   };
 });
-const lookups = vi.hoisted(() => ({ calls: 0, mode: 'ok' as 'ok' | 'fail' | 'hang' }));
+const lookups = vi.hoisted(() => ({ labelsFor: false as boolean, calls: 0, mode: 'ok' as 'ok' | 'fail' | 'hang' }));
 
 vi.mock('../lib/redis.js', () => ({ getRedis: () => redis }));
 vi.mock('../middleware/apiKeyAuth.js', () => ({
@@ -55,8 +55,9 @@ vi.mock('../middleware/apiKeyAuth.js', () => ({
 }));
 vi.mock('@chainward/decode', async (orig) => ({
   ...(await orig<typeof import('@chainward/decode')>()),
-  lookupWallet: vi.fn(async (address: string, chain: string) => {
+  lookupWallet: vi.fn(async (address: string, chain: string, deps?: { labelsFor?: unknown }) => {
     lookups.calls++;
+    lookups.labelsFor = typeof deps?.labelsFor === 'function';
     if (lookups.mode === 'fail') throw new Error('eth_getCode: Your app has exceeded its compute units per second capacity');
     if (lookups.mode === 'hang') return new Promise(() => {});
     return { address: address.toLowerCase(), chain, verdict: { label: 'no_flags', reason: 'None of the checks matched.' }, flags: [] };
@@ -209,5 +210,14 @@ describe('GET /api/risk/wallet (x402)', () => {
   it('is listed in /.well-known/x402 and /openapi.json', () => {
     expect(x402DiscoveryDocument().resources).toContain('https://api.chainward.ai/api/risk/wallet');
     expect((x402OpenApiDocument().paths as Record<string, unknown>)['/api/risk/wallet']).toBeDefined();
+  });
+});
+
+// The label set: the lookup reads the wallet's public labels.
+describe('labels in the wallet lookup route', () => {
+  it('passes the label lookup to the wallet lookup', async () => {
+    lookups.labelsFor = false;
+    await app.request(`/v1/wallet/0x${'5'.repeat(40)}`, { headers: KEY });
+    expect(lookups.labelsFor).toBe(true);
   });
 });
