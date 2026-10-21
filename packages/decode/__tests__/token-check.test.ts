@@ -603,6 +603,67 @@ describe('checkToken', () => {
     expect(r.token).toBe(TOKEN);
   });
 
+  // The label set: a strong public label on the launch wallet answers review, naming it.
+  describe('labels on the launch wallet', () => {
+    const established = () => deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 20n });
+    const ring = {
+      chain: 'base',
+      address: CREATOR,
+      kind: 'run_together' as const,
+      strength: 'strong' as 'strong' | 'weak',
+      visibility: 'public' as 'public' | 'private',
+      group_key: 'ring-48',
+      group_size: 48,
+      sentence: 'One of 48 wallets that appear to be run together in Set and Earn, from our decode.',
+      source_type: 'dataset' as const,
+      source_ref: 'set-and-earn-week-one',
+      source_url: 'https://chainward.ai/decodes/set-and-earn-week-one',
+      evidence_url: null,
+      as_of: '2026-10-01',
+    };
+    const labelled = (l: typeof ring) => ({ ...established(), labelsFor: (a: string, chain: string) => (a === CREATOR && chain === 'base' ? [l] : []) });
+
+    it('answers review naming a strong public label', async () => {
+      const r = await checkToken(TOKEN, labelled(ring));
+      expect(r.flags).toContain('creator_labeled');
+      expect(r.verdict).toEqual({ label: 'review', reason: `The wallet that launched it is labeled in our investigations: ${ring.sentence}` });
+      expect(r.creator?.labels).toEqual([{ kind: 'run_together', strength: 'strong', sentence: ring.sentence, source_url: ring.source_url }]);
+    });
+
+    it('lists a weak label without a flag', async () => {
+      const r = await checkToken(TOKEN, labelled({ ...ring, strength: 'weak' }));
+      expect(r.flags).not.toContain('creator_labeled');
+      expect(r.verdict.label).toBe('no_flags');
+      expect(r.creator?.labels).toHaveLength(1);
+    });
+
+    it('never shows a private label', async () => {
+      const r = await checkToken(TOKEN, labelled({ ...ring, visibility: 'private' }));
+      expect(r.flags).not.toContain('creator_labeled');
+      expect(r.creator?.labels).toEqual([]);
+    });
+
+    // A launch service (Clanker's X bot) sends launches for other admins: its labels are not the token admin's.
+    it('does not flag the labels of a wallet that launched for another admin', async () => {
+      const OTHER = `0x${'e'.repeat(40)}`;
+      const chain = {
+        ...deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 20n, clanker: true, originalAdmin: OTHER }),
+        labelsFor: (a: string, c: string) => (a === CREATOR && c === 'base' ? [ring] : []),
+      };
+      const r = await checkToken(TOKEN, chain);
+      expect(r.launch?.token_admin).toBe(OTHER);
+      expect(r.flags).not.toContain('creator_labeled');
+    });
+
+    // The check counts launches itself; its own detector label would only repeat an older count.
+    it('leaves out serial_launcher labels, which the check measures live', async () => {
+      const serial = { ...ring, kind: 'serial_launcher' as never, sentence: 'Launched 97 tokens through Clanker in one day (seen 2026-10-20).' };
+      const r = await checkToken(TOKEN, labelled(serial));
+      expect(r.flags).not.toContain('creator_labeled');
+      expect(r.creator?.labels).toEqual([]);
+    });
+  });
+
   // The free check on chainward.ai spends its allowance only on tokens: a wallet pasted
   // into the same box is answered from the first reads, without spending any.
   describe('before the launch search', () => {

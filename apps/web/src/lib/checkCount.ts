@@ -4,7 +4,7 @@
  * app does not bundle @chainward/decode, so the numbers live here, with no
  * imports, and packages/decode/__tests__/check-count.test.ts fails if they drift.
  */
-export const CHECKS_RUN = { base: 10, bsc: 6 } as const;
+export const CHECKS_RUN = { base: 11, bsc: 7 } as const;
 
 /**
  * Days of transfers a check reads, per chain: Base reads the 30-day explorer

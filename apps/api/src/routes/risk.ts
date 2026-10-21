@@ -22,6 +22,8 @@ import {
   isSanctioned,
   LIST_MATCH_FLAG_IDS,
   withListFlags,
+  withLabelFlags,
+  type WalletLabel,
   type RiskAssessment,
 } from '@chainward/decode';
 import {
@@ -44,6 +46,7 @@ import { WalletLookupService } from '../services/walletLookupService.js';
 import { extractProvenance, type ReportProvenance } from '../lib/reportProvenance.js';
 import { buildCoverage, sourcesUnavailable, type ReportCoverage } from '../lib/reportCoverage.js';
 import { reportVerdict } from '../lib/reportVerdict.js';
+import { labelsFor, publicLabelsForRows } from '../lib/labels.js';
 import { parseCounterpartyInput, parseHireInput, parseSanctionsAddress, parseSellerInput } from '../lib/paidInput.js';
 import { sanctionsAnswer } from '../lib/sanctionsCheck.js';
 
@@ -204,11 +207,29 @@ function noHistoryVerdict(windowDays: number): Verdict<CounterpartyVerdictLabel>
   );
 }
 
-function rowToReport(row: RiskReportRow): ReportPayload {
-  // The sanctions list and the px402 relay list are checked on read too, so a
-  // report filed before the address was listed still carries the flag and the
+/**
+ * The list matches applied on read: the sanctions list, the px402 relays, and the
+ * address's public labels, so a report filed before a match still carries it.
+ */
+function onRead(row: RiskReportRow, labels: readonly WalletLabel[]): RiskAssessment {
+  return withLabelFlags(withListFlags(row.riskAssessment as RiskAssessment, row.walletAddress, row.chain), labels);
+}
+
+/** True when the answer is Hold from a list alone (OFAC, or a strong public label): no chain read needed. */
+async function listHold(address: string, chain: string): Promise<boolean> {
+  return isSanctioned(address) || (await labelsFor(address, chain)).some((l) => l.strength === 'strong');
+}
+
+/** A stored report as served, with today's list matches and labels. */
+async function servedReport(row: RiskReportRow): Promise<ReportPayload> {
+  return rowToReport(row, await labelsFor(row.walletAddress, row.chain));
+}
+
+function rowToReport(row: RiskReportRow, labels: readonly WalletLabel[] = []): ReportPayload {
+  // The sanctions list, the px402 relay list and the labels are checked on read too,
+  // so a report filed before the address was listed still carries the flag and the
   // Hold (or Payer hidden).
-  const assessment = withListFlags(row.riskAssessment as RiskAssessment, row.walletAddress, row.chain);
+  const assessment = onRead(row, labels);
   return {
     address: row.walletAddress,
     chain: row.chain,
@@ -257,10 +278,10 @@ function reportPath(address: string, chain: string): string {
   return chain === CHAIN ? `/report/${address}` : `/report/${address}?chain=${chain}`;
 }
 
-function rowToCard(row: RiskReportRow): ReportCard {
+function rowToCard(row: RiskReportRow, labels: readonly WalletLabel[] = []): ReportCard {
   // Same reading as rowToReport: the list matches are applied on read, so a card
   // filed before the address was listed still gives the answer and names why.
-  const assessment = withListFlags(row.riskAssessment as RiskAssessment, row.walletAddress, row.chain);
+  const assessment = onRead(row, labels);
   const { label, text } = reportVerdict(assessment, row.reportData);
   const stored = (row.topFlags as TopFlagPreview[] | null) ?? [];
   const added = assessment.flags
@@ -530,7 +551,7 @@ risk.post(
     if (!force_recheck) {
       const cached = await latestReport(address, chain);
       if (cached) {
-        const report = rowToReport(cached);
+        const report = await servedReport(cached);
         if (report.freshness.ttl_state === 'fresh') {
           return c.json({ success: true, data: { status: 'ready', report } });
         }
@@ -556,8 +577,8 @@ risk.post(
     // Gate on history BEFORE enqueue.
     // Chains without Blockscout / a lookup provider (BSC) gate on one cached RPC
     // fixture fetch — nonce, balances, code, and the bounded transfer window.
-    // A sanctioned address is checked even with no history: the answer is Hold either way.
-    const sanctioned = isSanctioned(address);
+    // A sanctioned or strongly labeled address is checked even with no history: the answer is Hold either way.
+    const sanctioned = await listHold(address, chain);
     let rpcFixtures: RpcFixtures | undefined;
     if (chain !== CHAIN) {
       const pre = await rpcChainPrecheck(chain, address);
@@ -648,7 +669,7 @@ risk.get(
       if (parsedId) {
         const cached = await latestReport(parsedId.address, parsedId.chain);
         if (cached) {
-          return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
+          return c.json({ success: true, data: { status: 'ready', report: await servedReport(cached) } });
         }
       }
       throw new AppError(404, 'NOT_FOUND', 'No such risk check');
@@ -659,7 +680,7 @@ risk.get(
     if (state === 'completed') {
       const cached = await latestReport(job.data.walletAddress, jobChain.success ? jobChain.data : CHAIN);
       if (cached) {
-        return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
+        return c.json({ success: true, data: { status: 'ready', report: await servedReport(cached) } });
       }
       // Completed but the row was suppressed (e.g. lock-held no-op) — treat as ready-less pending.
       return c.json({ success: true, data: { status: 'pending' } });
@@ -728,7 +749,7 @@ risk.get(
       WHERE lower(wallet_address) = ${address} AND chain = ${chain}
     `)) as unknown as Array<{ views: number }>;
     const totalViews = (agg?.views ?? cached.viewCount) + (counted ? 1 : 0);
-    const report = rowToReport({ ...cached, viewCount: totalViews });
+    const report = await servedReport({ ...cached, viewCount: totalViews });
     // Attestation is Base-only (EAS); off-base there is nothing to carry forward.
     if (!report.attestation && RISK_CHAINS[chain].sources.attestation) {
       const [prev] = await db
@@ -791,7 +812,7 @@ risk.get(
       data: {
         address,
         // The verdict follows today's sanctions and px402 relay lists; the attested fields below stay as published.
-        verdict: reportVerdict(withListFlags(assessment, address, row.chain), row.reportData),
+        verdict: reportVerdict(withLabelFlags(withListFlags(assessment, address, row.chain), await labelsFor(address, row.chain)), row.reportData),
         band: assessment.band,
         flag_ids: assessment.flags.map((f) => f.id),
         as_of_block: row.asOfBlock,
@@ -818,15 +839,18 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   // ?chain=bsc checks a BNB Chain address; payment is still USDC on Base.
   const { address, chain } = parseCounterpartyInput(rawAddress, c.req.query('chain'));
 
-  // A sanctioned address is answered Hold from the list alone: unread sources or
-  // no history on the chain never turn that into "not charged" or no_history.
-  const sanctioned = isSanctioned(address);
+  // A sanctioned or strongly labeled address is answered Hold from the list alone:
+  // unread sources or no history on the chain never turn that into "not charged" or no_history.
+  // The labels are read once and used for the answer too: a second read that failed must
+  // not turn this Hold into a charged Pay.
+  const labels = await labelsFor(address, chain);
+  const sanctioned = isSanctioned(address) || labels.some((l) => l.strength === 'strong');
 
   const cached = await latestReport(address, chain);
   // A cached report whose transfer list could not be read is never resold; the
   // sources may be back, so it gets a fresh decode like a stale one.
   if (cached && computeTtlState(cached) === 'fresh' && (sanctioned || !sourcesUnavailable(cached.reportData))) {
-    return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached) } });
+    return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached, labels) } });
   }
 
   if (chain !== CHAIN) {
@@ -875,7 +899,7 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
             'The on-chain sources this check reads were unavailable, so the report could not be built. You were not charged; retry shortly.',
           );
         }
-        return c.json({ success: true, data: { status: 'ready', report: rowToReport(fresh) } });
+        return c.json({ success: true, data: { status: 'ready', report: rowToReport(fresh, labels) } });
       }
       break;
     }
@@ -1088,11 +1112,12 @@ risk.get(
         .where(publicFilter);
       const total = totalRows[0]?.total ?? 0;
 
+      const cardLabels = await publicLabelsForRows(rows);
       return c.json({
         success: true,
         data: {
           reports: rows.map((row) => ({
-            ...rowToCard(row),
+            ...rowToCard(row, cardLabels.get(`${row.chain}:${row.walletAddress.toLowerCase()}`) ?? []),
             report_count: filingCounts.get(`${row.chain}:${row.walletAddress}`) ?? 1,
           })),
           pagination: { limit, offset, total },
@@ -1114,10 +1139,11 @@ risk.get(
       .where(publicFilter);
     const total = countRows[0]?.total ?? 0;
 
+    const cardLabels = await publicLabelsForRows(rows);
     return c.json({
       success: true,
       data: {
-        reports: rows.map(rowToCard),
+        reports: rows.map((row) => rowToCard(row, cardLabels.get(`${row.chain}:${row.walletAddress.toLowerCase()}`) ?? [])),
         pagination: { limit, offset, total },
       },
     });

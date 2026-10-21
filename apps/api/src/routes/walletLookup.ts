@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { alchemyWalletLookupDeps, lookupWallet, sellerDemandRpcUrl, type WalletLookup } from '@chainward/decode';
 import { getRedis } from '../lib/redis.js';
+import { labelsFor } from '../lib/labels.js';
 import { parseCounterpartyInput } from '../lib/paidInput.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
@@ -26,13 +27,15 @@ const freeDailyMisses = () => Number(process.env.WALLET_FREE_DAILY_LOOKUPS ?? 50
 /** The cached answer, or a fresh lookup; `beforeMiss` runs only when the cache has none. */
 async function cachedLookup(address: string, chain: 'base' | 'bsc', beforeMiss?: () => Promise<void>): Promise<WalletLookup> {
   const redis = getRedis();
-  const cacheKey = `wallet-lookup:v1:${chain}:${address}`;
+  // v2: lookups carry labels; v1 entries (cached before labels) have none.
+  const cacheKey = `wallet-lookup:v2:${chain}:${address}`;
   const hit = await redis.get(cacheKey);
   if (hit) return JSON.parse(hit) as WalletLookup;
   const rpcUrl = sellerDemandRpcUrl(chain, process.env);
   if (!rpcUrl) throw new AppError(503, 'LOOKUP_UNAVAILABLE', 'Wallet lookup is not configured for this chain');
   await beforeMiss?.();
-  const lookup = lookupWallet(address, chain, alchemyWalletLookupDeps(rpcUrl)).then(async (result) => {
+  // The wallet's public labels from our investigations and detectors ride along (lib/labels.ts).
+  const lookup = lookupWallet(address, chain, { ...alchemyWalletLookupDeps(rpcUrl), labelsFor }).then(async (result) => {
     await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL_SEC);
     return result;
   });

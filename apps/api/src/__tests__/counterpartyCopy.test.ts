@@ -44,7 +44,9 @@ describe('counterparty check copy', () => {
 describe('wallet lookup copy', () => {
   it('the OpenAPI operation and the x402 listing name the privacy-pool review', () => {
     const op = (x402OpenApiDocument().paths as Record<string, { get: { description: string } }>)['/api/risk/wallet']!.get;
-    expect(op.description).toMatch(/review if it is new, has no history, shares a funder with many wallets, or pays through the px402 privacy pool/);
+    expect(op.description).toMatch(/review if it is new, has no history, shares a funder with many wallets, pays through the px402 privacy pool/);
+    // The label set: a strong public label is a review case too.
+    expect(op.description).toMatch(/or carries a strong label from published ChainWard investigations or detectors \(flag labeled/);
     const route = x402PaidRoutes('0x' + 'f'.repeat(40))[WALLET_ROUTE] as unknown as { description: string };
     expect(route.description).toMatch(/px402 privacy pool/);
   });
