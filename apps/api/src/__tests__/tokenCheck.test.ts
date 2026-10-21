@@ -34,14 +34,27 @@ const redis = vi.hoisted(() => {
     }),
   };
 });
-const checks = vi.hoisted(() => ({ calls: 0, mode: 'ok' as 'ok' | 'fail' | 'hang', last: '', launchTime: '2026-02-02T15:21:13.000Z' as string | null }));
+const checks = vi.hoisted(() => ({
+  calls: 0,
+  mode: 'ok' as 'ok' | 'fail' | 'hang',
+  last: '',
+  launchTime: '2026-02-02T15:21:13.000Z' as string | null,
+  serial: false,
+  labelsFor: false,
+}));
+const recorded = vi.hoisted(() => ({ checks: [] as unknown[] }));
+vi.mock('../lib/labels.js', () => ({
+  labelsFor: async () => [],
+  recordSerialLauncher: vi.fn(async (check: unknown) => void recorded.checks.push(check)),
+}));
 
 vi.mock('../lib/redis.js', () => ({ getRedis: () => redis }));
 vi.mock('@chainward/decode', async (orig) => ({
   ...(await orig<typeof import('@chainward/decode')>()),
-  checkToken: vi.fn(async (token: string) => {
+  checkToken: vi.fn(async (token: string, deps?: { labelsFor?: unknown }) => {
     checks.calls++;
     checks.last = token;
+    checks.labelsFor = typeof deps?.labelsFor === 'function';
     if (checks.mode === 'fail') throw new Error('eth_getCode: Your app has exceeded its compute units per second capacity');
     if (checks.mode === 'hang') return new Promise(() => {});
     return {
@@ -49,7 +62,7 @@ vi.mock('@chainward/decode', async (orig) => ({
       chain: 'base',
       verdict: { label: 'review', reason: 'The wallet that launched it was first seen less than a day before the launch.' },
       launch: { time: checks.launchTime },
-      flags: ['new_creator'],
+      flags: checks.serial ? ['creator_serial_launcher'] : ['new_creator'],
     };
   }),
 }));
@@ -94,6 +107,9 @@ beforeEach(() => {
   checks.mode = 'ok';
   checks.last = '';
   checks.launchTime = '2026-02-02T15:21:13.000Z';
+  checks.serial = false;
+  checks.labelsFor = false;
+  recorded.checks = [];
   redis.set.mockClear();
   vi.useRealTimers();
 });
@@ -212,5 +228,47 @@ describe('the token check handler', () => {
     const res = await pending;
     expect(res.status).toBe(504);
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe('CHECK_TIMEOUT');
+  });
+});
+
+// The label set: the check reads the launch wallet's labels, and labels a serial launcher.
+describe('labels and the token check', () => {
+  // Tokens of their own: an earlier test leaves a check of TOKEN running forever.
+  const T1 = `0x${'1'.repeat(40)}`;
+  const T2 = `0x${'2'.repeat(40)}`;
+
+  it('passes the label lookup to the check', async () => {
+    await open.request(`/api/risk/rugcheck?token=${T1}`);
+    expect(checks.labelsFor).toBe(true);
+  });
+
+  it('records a serial launcher from a fresh check, and nothing for others', async () => {
+    checks.serial = true;
+    await open.request(`/api/risk/rugcheck?token=${T2}`);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(recorded.checks).toHaveLength(1);
+    expect(recorded.checks[0]).toMatchObject({ flags: ['creator_serial_launcher'] });
+  });
+});
+
+// A run that never settles must not hold every later check of that token hostage.
+describe('a run that never finishes', () => {
+  it('is joined while young, and replaced once it is older than a minute', async () => {
+    const T3 = `0x${'3'.repeat(40)}`;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    checks.mode = 'hang';
+    const first = open.request(`/api/risk/rugcheck?token=${T3}`);
+    await vi.advanceTimersByTimeAsync(15_001);
+    expect((await first).status).toBe(504);
+    const joined = open.request(`/api/risk/rugcheck?token=${T3}`);
+    await vi.advanceTimersByTimeAsync(15_001);
+    await joined;
+    expect(checks.calls).toBe(1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    checks.mode = 'ok';
+    const fresh = open.request(`/api/risk/rugcheck?token=${T3}`);
+    await vi.advanceTimersByTimeAsync(10);
+    expect((await fresh).status).toBe(200);
+    expect(checks.calls).toBe(2);
   });
 });

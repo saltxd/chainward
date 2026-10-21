@@ -48,6 +48,15 @@ describe('/docs', () => {
     expect(paid).toMatch(/free on the site/);
   });
 
+  // The label set: what our published investigations found about a wallet.
+  it('says a strong label from our published investigations answers Hold, and the rug check names the launch wallet\'s', () => {
+    const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
+    expect(paid).toMatch(/a strong label from our published investigations or detectors answers <code>hold<\/code>/i);
+    expect(paid).toMatch(/labels our published investigations put on the launch wallet/);
+    // The detector's rule is public: what earns the label, and for how long.
+    expect(paid).toMatch(/labeled a serial\s+launcher until 30 days after that launch/);
+  });
+
   // Most Clanker launches come from wallets that launch dozens of tokens a day.
   it('says the rug check counts Clanker launches by the same wallet, and names the admin behind a service launch', () => {
     const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));

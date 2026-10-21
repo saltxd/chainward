@@ -186,6 +186,16 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
         value: `got ${num(lt.received)}, sent out ${lt.sent_pct}% within a day${lt.sent_90pct_after_sec !== null ? `, 90% gone ${duration(lt.sent_90pct_after_sec)} after launch` : ''}`,
       });
     }
+    const labels = creator.labels ?? [];
+    if (labels[0]) {
+      const more = labels.length - 1;
+      rows.push({
+        label: 'Launch wallet labels',
+        value: labels[0].sentence,
+        href: labels[0].source_url ?? undefined,
+        note: more > 0 ? `and ${more} more label${more === 1 ? '' : 's'}` : undefined,
+      });
+    }
     if (creator.holds_pct !== null) rows.push({ label: 'Launch wallet holds now', value: `${creator.holds_pct}% of the supply` });
     if (creator.clanker_launches_24h !== null) {
       const n = creator.clanker_launches_24h;
@@ -212,6 +222,7 @@ const FLAG_LINES: Record<string, { title: string; severity: 'high' | 'medium' }>
   minted_after_launch: { title: 'More tokens were minted after launch', severity: 'medium' },
   creator_sent_launch_tokens: { title: 'The launch wallet sent out its launch tokens within the hour', severity: 'medium' },
   creator_holds_large_share: { title: 'The launch wallet holds a large share of the supply', severity: 'medium' },
+  creator_labeled: { title: 'The launch wallet is labeled in our investigations', severity: 'medium' },
   creator_serial_launcher: { title: 'The launch wallet launches many tokens through Clanker (5 or more in a day)', severity: 'medium' },
   new_creator: { title: 'The launch wallet was brand new at launch', severity: 'medium' },
   creator_shared_funder: { title: 'The launch wallet was funded by a wallet that funded many others', severity: 'medium' },

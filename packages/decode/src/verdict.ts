@@ -2,6 +2,7 @@ import type { HireSummary } from './hire-check.js';
 import type { RiskBand, RiskFlag } from './risk-flags.js';
 import { formatWindowSpan } from './rpc-fixtures.js';
 import { PRIVACY_RELAY_LIMITS, PRIVACY_RELAY_REASON } from './privacy-relays.js';
+import { LABEL_LIMITS } from './labels.js';
 
 // One line a buyer can act on, on top of each check. The evidence sits under it
 // and the limits one line below, so the verdict never claims more than the
@@ -191,6 +192,10 @@ export function counterpartyVerdict(
   if (assessment.flags.some((f) => f.id === 'privacy_relay')) {
     return { label: 'unknown', text: 'Payer hidden', reason: PRIVACY_RELAY_REASON, limits: PRIVACY_RELAY_LIMITS };
   }
+  // A strong label from our published investigations or detectors is a list match too:
+  // it holds without a chain read. A weak one (a known service, a link by timing only) is a note.
+  const known = assessment.flags.find((f) => f.id === 'known_label' && f.severity === 'medium');
+  if (known) return { label: 'hold', text: 'Hold', reason: known.evidence, limits: LABEL_LIMITS };
   if (opts.transfersUnavailable) {
     return {
       label: 'unknown',

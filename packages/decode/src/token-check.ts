@@ -73,6 +73,7 @@ export type TokenFlag =
   | 'minted_after_launch'
   | 'creator_sent_launch_tokens'
   | 'creator_holds_large_share'
+  | 'creator_labeled'
   | 'new_creator'
   | 'creator_shared_funder'
   | 'creator_serial_launcher';
@@ -120,6 +121,8 @@ export interface TokenCheck {
      * when this launch did not go straight from it to the factory (a router, multicall or smart wallet).
      */
     clanker_launches_24h: number | null;
+    /** The launch wallet's public labels from ChainWard's investigations and detectors, strongest first. */
+    labels: WalletLookup['labels'];
   } | null;
   supply: {
     /** Mints after the first issuance (the transaction of the first mint). A floor when `capped`. */
@@ -457,6 +460,8 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
       holds_pct,
       launch_tokens: lt?.result ?? null,
       clanker_launches_24h: launchCount,
+      // The check counts Clanker launches live, so its own detector's serial_launcher labels would only repeat an older count.
+      labels: wallet.labels.filter((l) => l.kind !== 'serial_launcher'),
     };
   }
 
@@ -469,6 +474,9 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   const lb = creator?.launch_tokens;
   if (lb && lb.sent_90pct_after_sec !== null && lb.sent_90pct_after_sec <= SENT_WITHIN_SEC) flags.push('creator_sent_launch_tokens');
   if (creator?.holds_pct !== null && creator?.holds_pct !== undefined && creator.holds_pct >= LARGE_SHARE_PCT) flags.push('creator_holds_large_share');
+  // A launch made for another admin was sent by a launch service: its labels describe the service, not the token's admin.
+  const forAnotherAdmin = launch.token_admin !== null && launch.token_admin !== creatorAddr;
+  if (creator?.labels[0]?.strength === 'strong' && !forAnotherAdmin) flags.push('creator_labeled');
   if (creator?.clanker_launches_24h !== null && creator?.clanker_launches_24h !== undefined && creator.clanker_launches_24h >= SERIAL_LAUNCHES_24H) {
     flags.push('creator_serial_launcher');
   }
@@ -601,6 +609,9 @@ function verdictFor(
   }
   if (flags.includes('creator_holds_large_share') && creator?.holds_pct !== null && creator?.holds_pct !== undefined) {
     return { label: 'review', reason: `The wallet that launched it still holds ${creator.holds_pct}% of the supply.` };
+  }
+  if (flags.includes('creator_labeled') && creator?.labels[0]) {
+    return { label: 'review', reason: `The wallet that launched it is labeled in our investigations: ${creator.labels[0].sentence}` };
   }
   if (flags.includes('creator_serial_launcher') && creator?.clanker_launches_24h) {
     const n = creator.clanker_launches_24h;

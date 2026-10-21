@@ -38,6 +38,7 @@ function check(over: Partial<TokenReport> = {}, creator: Partial<NonNullable<Tok
       holds_pct: 0,
       launch_tokens: { received: 1_200_000_000, sent_pct: 100, first_send_after_sec: 20, sent_90pct_after_sec: 26 },
       clanker_launches_24h: 1,
+      labels: [],
       ...creator,
     },
     supply: { mints_after_launch: 0, minted_after_launch: null, to_creator: 0, minted_to_creator: null, capped: false },
@@ -232,6 +233,24 @@ describe('tokenFacts', () => {
     const rows = tokenFacts(check({ creator: null, flags: ['launch_unknown'] }), NOW);
     expect(value(rows, 'Launch wallet')).toBeUndefined();
     expect(value(rows, 'Token')?.value).toBe('"Hook" (HOOK)');
+  });
+});
+
+describe('labels on the launch wallet', () => {
+  const ring = { kind: 'run_together', strength: 'strong' as const, sentence: 'One of 48 wallets that appear to be run together in Set and Earn, from our decode.', source_url: 'https://chainward.ai/decodes/set-and-earn-week-one-closed' };
+
+  it('shows the strongest label with its source', () => {
+    const rows = tokenFacts(check({}, { labels: [ring, { ...ring, strength: 'weak', sentence: 'x' }] }), NOW);
+    const row = rows.find((r) => r.label === 'Launch wallet labels');
+    expect(row).toMatchObject({ value: ring.sentence, href: ring.source_url, note: 'and 1 more label' });
+  });
+
+  it('has no labels row without labels', () => {
+    expect(tokenFacts(check({}, { labels: [] }), NOW).find((r) => r.label === 'Launch wallet labels')).toBeUndefined();
+  });
+
+  it('words the creator_labeled flag', () => {
+    expect(tokenFlagLines(check({ flags: ['creator_labeled'] }))[0]).toMatchObject({ severity: 'medium', title: 'The launch wallet is labeled in our investigations' });
   });
 });
 

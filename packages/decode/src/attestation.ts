@@ -123,9 +123,9 @@ export function encodeAttestationData(r: AttestableReport): Hex {
  * move ETH, so it never goes on-chain by itself. */
 export const ABSENCE_FLAG_IDS: ReadonlySet<string> = new Set(['inactive_no_history', 'activity_truncated']);
 
-/** Flags that record a match on a list (OFAC's, or our px402 relays), not observed
- * behavior. A list match rides along on an attestation but never triggers one. */
-export const LIST_MATCH_FLAG_IDS: ReadonlySet<string> = new Set(['ofac_sanctioned', 'privacy_relay']);
+/** Flags that record a match on a list (OFAC's, our px402 relays, our labels), not
+ * observed behavior. A list match rides along on an attestation but never triggers one. */
+export const LIST_MATCH_FLAG_IDS: ReadonlySet<string> = new Set(['ofac_sanctioned', 'privacy_relay', 'known_label']);
 
 /** Only reports filed within this window are attested; older ones wait for a re-check. */
 export const ATTEST_MAX_REPORT_AGE_MS = 7 * 24 * 60 * 60 * 1000;

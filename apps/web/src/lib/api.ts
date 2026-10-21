@@ -678,6 +678,8 @@ export interface TokenReport {
     holds_pct: number | null;
     launch_tokens: { received: number; sent_pct: number; first_send_after_sec: number | null; sent_90pct_after_sec: number | null } | null;
     clanker_launches_24h: number | null;
+    /** Its public labels from our investigations and detectors, strongest first (absent on answers cached before labels). */
+    labels?: Array<{ kind: string; strength: 'strong' | 'weak'; sentence: string; source_url: string | null }>;
   } | null;
   supply: { mints_after_launch: number; minted_after_launch: number | null; to_creator: number; minted_to_creator: number | null; capped: boolean };
   flags: string[];
