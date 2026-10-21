@@ -17,6 +17,7 @@ export * from './wallet-lookup.js';
 export * from './token-check.js';
 export * from './privacy-relays.js';
 export * from './labels.js';
+export * from './label-import.js';
 export { OFAC_SNAPSHOT } from './ofac-snapshot.js';
 export * from './attestation.js';
 export * from './data-fetch.js';
