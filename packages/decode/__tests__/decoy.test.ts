@@ -60,7 +60,7 @@ function deps(w: World, calls: string[] = [], queries: Array<Record<string, unkn
       throw new Error(`unexpected ${method}`);
     },
     transfers: async (params) => {
-      const q = params as { fromAddress?: string; toAddress?: string; contractAddresses?: string[]; excludeZeroValue?: boolean; maxCount?: string; fromBlock?: string; toBlock?: string };
+      const q = params as { fromAddress?: string; toAddress?: string; contractAddresses?: string[]; excludeZeroValue?: boolean; maxCount?: string; fromBlock?: string; toBlock?: string; category?: string[] };
       calls.push(`transfers:${q.fromAddress ? `from:${q.fromAddress}` : `to:${q.toAddress}`}`);
       queries.push(q);
       const max = q.maxCount ? parseInt(q.maxCount, 16) : 1000;
@@ -68,6 +68,7 @@ function deps(w: World, calls: string[] = [], queries: Array<Record<string, unkn
       const hi = q.toBlock ? parseInt(q.toBlock, 16) : Infinity;
       const hits = w.transfers
         .filter((t) => (q.fromAddress ? t.from === q.fromAddress : true) && (q.toAddress ? t.to === q.toAddress : true))
+        .filter((t) => !q.category || q.category.includes(t.category ?? 'erc20'))
         .filter((t) => !q.contractAddresses || q.contractAddresses.map((c) => c.toLowerCase()).includes((t.rawContract?.address ?? '').toLowerCase()))
         .filter((t) => !q.excludeZeroValue || (t.value ?? 0) > 0)
         .filter((t) => { const b = t.blockNum ? parseInt(t.blockNum, 16) : 0; return b >= lo && b <= hi; })
@@ -96,6 +97,18 @@ describe('detectDecoy', () => {
   it('finds the look-alike of the payer planted in the payee history', async () => {
     const d = await detectDecoy(PAYER_LOOKALIKE, 'base', deps({ transfers: TODAY }));
     expect(d).toMatchObject({ role: 'payer', copies: PAYER, counterparty: PAYEE, echoes_tx: REAL_TX, fake_tx: FAKE_TX });
+  });
+
+  // 58% of this operator's fakes imitate ETH, and its biggest catches (0.5 and 0.25 ETH) came
+  // through them: the original is a native ETH payment, which has no token contract to trace.
+  it('finds a look-alike planted with imitation ETH, from the payer native ETH payments', async () => {
+    const FAKE_ETH = `0x${'e'.repeat(40)}`;
+    const ethPay: DecoyTransfer = { from: PAYER, to: PAYEE, hash: '0xethpay', value: 0.05, asset: 'ETH', category: 'external', blockNum: `0x${(FAKE_BLOCK - 40).toString(16)}`, rawContract: { address: null, value: '0xb1a2bc2ec50000' }, metadata: { blockTimestamp: '2026-10-21T15:43:40.000Z' } };
+    const fakeEth: DecoyTransfer = { from: PAYER, to: PAYEE_LOOKALIKE, hash: '0xfakeeth', value: 0.05, asset: 'EṬH', category: 'erc20', blockNum: `0x${FAKE_BLOCK.toString(16)}`, rawContract: { address: FAKE_ETH, value: '0xb1a2bc2ec50000' }, metadata: { blockTimestamp: '2026-10-21T15:45:01.000Z' } };
+    const queries: Array<Record<string, unknown>> = [];
+    const d = await detectDecoy(PAYEE_LOOKALIKE, 'base', deps({ transfers: [ethPay, fakeEth] }, [], queries));
+    expect(d).toMatchObject({ role: 'payee', copies: PAYEE, counterparty: PAYER, token: 'ETH', echoes_tx: '0xethpay', fake_tokens: [{ contract: FAKE_ETH, imitates: 'ETH' }] });
+    expect(queries.find((q) => (q.category as string[] | undefined)?.includes('external'))).toMatchObject({ fromAddress: PAYER, category: ['external'] });
   });
 
   it('finds a look-alike planted with a zero-value transfer of the real USDC, even when the value reads null', async () => {

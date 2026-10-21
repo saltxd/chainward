@@ -13,7 +13,7 @@
 // one decoy has a decoy among its payees, so when several match none is named, and no
 // verdict text ever points at an address to pay.
 
-import { imitatedToken, realToken, sharesEnds, type Imitation } from './lookalike.js';
+import { imitatedToken, nativeToken, realToken, sharesEnds, type Imitation } from './lookalike.js';
 import type { SellerChain } from './seller-demand.js';
 
 /** An Alchemy alchemy_getAssetTransfers row, as much of it as this reads. */
@@ -103,11 +103,14 @@ async function readState(address: string, chain: SellerChain, deps: DecoyDeps): 
   return { sentTxs: hexToNumber(nonce), isWallet: isWalletCode(code), native: hexToNumber(balance) / 1e18, usdc: hexToNumber(usdc) / 10 ** USDC_DECIMALS[chain] };
 }
 
+/** Stands for the chain's native coin where a plant's real token would be a contract address. */
+const NATIVE = 'native';
+
 interface Plant {
   transfer: DecoyTransfer;
   side: 'in' | 'out';
   imitation: Imitation | null;
-  /** The real listed token whose payments it copies. */
+  /** The real listed token whose payments it copies, or NATIVE for an imitation ETH. */
   realToken: string;
   token: string;
 }
@@ -137,6 +140,8 @@ export async function detectDecoy(rawAddress: string, chain: SellerChain, deps: 
       const imitation = imitatedToken({ symbol: t.asset ?? null, contract, chain });
       if (imitation) {
         if (imitation.real) plants.push({ transfer: t, side, imitation, realToken: lower(imitation.real), token: imitation.imitates });
+        // An imitation ETH copies a native ETH payment, which has no token contract: trace native transfers.
+        else if (imitation.imitates === nativeToken(chain).symbol) plants.push({ transfer: t, side, imitation, realToken: NATIVE, token: imitation.imitates });
         continue;
       }
       const listed = realToken(contract, chain);
@@ -165,7 +170,8 @@ export async function detectDecoy(rawAddress: string, chain: SellerChain, deps: 
       const counterparty = lower(p.side === 'in' ? p.transfer.from : p.transfer.to);
       const at = hexToNumber(p.transfer.blockNum);
       const window = at > 0 ? { fromBlock: hex(Math.max(0, at - ECHO_WINDOW_BLOCKS[chain])), toBlock: hex(at) } : {};
-      const query = { category: ['erc20'], contractAddresses: [p.realToken], excludeZeroValue: true, withMetadata: true, order: 'desc', maxCount: hex(COUNTERPARTY_PAGE), ...window };
+      const asset = p.realToken === NATIVE ? { category: ['external'] } : { category: ['erc20'], contractAddresses: [p.realToken] };
+      const query = { ...asset, excludeZeroValue: true, withMetadata: true, order: 'desc', maxCount: hex(COUNTERPARTY_PAGE), ...window };
       // A payee look-alike matches someone the counterparty paid; a payer look-alike, someone who paid it.
       const { transfers } = await deps.transfers(p.side === 'in' ? { ...query, fromAddress: counterparty } : { ...query, toAddress: counterparty });
       return { p, counterparty, transfers };
@@ -173,7 +179,7 @@ export async function detectDecoy(rawAddress: string, chain: SellerChain, deps: 
   );
 
   for (const { p, counterparty, transfers } of traced) {
-    const dust = realToken(p.realToken, chain)?.dust ?? 0;
+    const dust = p.realToken === NATIVE ? nativeToken(chain).dust : (realToken(p.realToken, chain)?.dust ?? 0);
     const other = (t: DecoyTransfer) => lower(p.side === 'in' ? t.to : t.from);
     const matches = transfers.filter((t) => typeof t.value === 'number' && t.value > dust && sharesEnds(other(t), address));
     if (matches.length === 0) continue;
