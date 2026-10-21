@@ -1,6 +1,17 @@
 {
   "decodes": [
     {
+      "slug": "venice-on-chain",
+      "title": "Venice's On-Chain Credit Burn Grew 2.35x Since July",
+      "subtitle": "A viral chart says Venice's API calls are up 400% since July. On Base, the swaps Venice runs to burn VVV for credit purchases grew about 2.35x in the same months. Its x402 payments stayed small and uneven, and staked DIEM stayed flat.",
+      "date": "2026-10-21",
+      "url": "https://chainward.ai/decodes/venice-on-chain",
+      "addresses": [
+        "0x4d65504418147bfa6c58c0cc070b46d6762bf225",
+        "0x35bc2414335180e2faf6bef3f85c79e5e24a6370"
+      ]
+    },
+    {
       "slug": "px402-private-payments",
       "title": "Private Agent Payments Are Live, and the Pool Has One Paying User",
       "subtitle": "Two weeks in, px402's pool on Base has two funded reserves, one of them PRXVT's own $1 test. Privacy needs a crowd.",
@@ -617,6 +628,12 @@
     }
   ],
   "byAddress": {
+    "0x4d65504418147bfa6c58c0cc070b46d6762bf225": [
+      "venice-on-chain"
+    ],
+    "0x35bc2414335180e2faf6bef3f85c79e5e24a6370": [
+      "venice-on-chain"
+    ],
     "0xdd31c57e8f7cac78090a516292f0c9dea6c6119f": [
       "px402-private-payments"
     ],
