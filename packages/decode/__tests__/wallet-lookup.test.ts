@@ -262,3 +262,59 @@ describe('lookupWallet on a px402 privacy relay', () => {
     expect(r.verdict.label).toBe('no_flags');
   });
 });
+
+// The label set: a strong public label answers review with its sentence; a weak one is
+// listed but changes nothing; a private label never shows.
+describe('labels in the wallet lookup', () => {
+  const established = () => deps({ nonce: { [A]: 41, [FUNDER]: 3 }, firstIn: { from: FUNDER, ts: days(200), hash: '0xabc' }, lastOut: days(1) });
+  const ring = {
+    chain: 'base',
+    address: A,
+    kind: 'run_together' as const,
+    strength: 'strong' as const,
+    visibility: 'public' as const,
+    group_key: 'ring-48',
+    group_size: 48,
+    sentence: 'One of 48 wallets that appear to be run together in Set and Earn, from our decode.',
+    source_type: 'dataset' as const,
+    source_ref: 'set-and-earn-week-one',
+    source_url: 'https://chainward.ai/decodes/set-and-earn-week-one',
+    evidence_url: null,
+    as_of: '2026-10-01',
+  };
+  const withLabels = (labels: Array<typeof ring | (Omit<typeof ring, 'strength' | 'visibility'> & { strength: 'strong' | 'weak'; visibility: 'public' | 'private' })>) => ({
+    ...established(),
+    labelsFor: (address: string, chain: string) => labels.filter((l) => l.address === address && l.chain === chain),
+  });
+
+  it('answers review with the label sentence for a strong public label', async () => {
+    const r = await lookupWallet(A, 'base', withLabels([ring]));
+    expect(r.flags).toContain('labeled');
+    expect(r.verdict).toEqual({ label: 'review', reason: ring.sentence });
+    expect(r.labels).toEqual([{ kind: 'run_together', strength: 'strong', sentence: ring.sentence, source_url: ring.source_url }]);
+  });
+
+  it('lists a weak label without changing the verdict', async () => {
+    const r = await lookupWallet(A, 'base', withLabels([{ ...ring, strength: 'weak' }]));
+    expect(r.flags).not.toContain('labeled');
+    expect(r.verdict.label).toBe('no_flags');
+    expect(r.labels).toHaveLength(1);
+  });
+
+  it('never shows a private label', async () => {
+    const r = await lookupWallet(A, 'base', withLabels([{ ...ring, visibility: 'private' }]));
+    expect(r.labels).toEqual([]);
+    expect(r.flags).not.toContain('labeled');
+  });
+
+  it('answers sanctions before a label', async () => {
+    const listed = OFAC_SNAPSHOT.addresses[0]!;
+    const r = await lookupWallet(listed, 'base', withLabels([{ ...ring, address: listed }]));
+    expect(r.verdict.label).toBe('hold');
+  });
+
+  it('has no labels when none are passed in', async () => {
+    const r = await lookupWallet(A, 'base', established());
+    expect(r.labels).toEqual([]);
+  });
+});
