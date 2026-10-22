@@ -1,6 +1,45 @@
 {
   "decodes": [
     {
+      "slug": "address-poisoning-base",
+      "title": "A Look-Alike of Our Wallet Showed Up 104 Seconds After We Got Paid",
+      "subtitle": "One Base wallet copied about 439,000 payments in a week with look-alike addresses, for $53 of gas. It copies plain sends, not x402 payments.",
+      "date": "2026-10-22",
+      "url": "https://chainward.ai/decodes/address-poisoning-base",
+      "addresses": [
+        "0x43b2f01186fda9814c5f40770554ac68fd8304bd",
+        "0xcec19f99cfdaf19108dc7313855f2fe0eff23b9f",
+        "0x49652a25ec3aadf5b4abe30fcb3c61777593989d",
+        "0xfb329dcb45f3e01ef2d65ac9b5404dad3513c57e",
+        "0xd317b0263ae08a0983e45bc8fe4f049f8d861f26",
+        "0xaab62106e03a4a6b5cd7cc0dfc8a76bcb35514aa",
+        "0x5bf08d61e2504f9061a550af8d59a9446c584129",
+        "0x37e06e9414f47c276689e03cac4c1fbf83582080",
+        "0xf66a2af625a26275632cd61ce58531802e306d3c",
+        "0xe181e9466726e97c0d8515d2a26fb0cb8c9995d8",
+        "0xcbd4ce20181059d649a166b68d4152c62bdb355b",
+        "0x5866df92aecf2a262742e36110632735a529e98f",
+        "0x365cfe467f25fd6c46f34fa1dcae39e613a0b975",
+        "0x00045b02d01c66c6262b4fd355180bf9736c52ec",
+        "0xe0a9e6e7e8758a63e5e694480f24e9b19ae78716",
+        "0xda5eaccfd930f5533cdfa4e017e88727fedbf223",
+        "0x4972c8308f3103c9c4f1fe68b47b74daa4d1cd0f",
+        "0xb8ce0d7d9563e21da826d10b14ccd7e079196f49",
+        "0xfc2d416d91198b7e8fde0c2a052a8ebc9372c208",
+        "0x1762abd83b883d68a6d5feb9c2362f90d8ea6944",
+        "0x4660ae05016acc1e28bacad235c645cac831fde2",
+        "0x9a5281d6792e06f010b5f827c16b5ca71bc8f06b",
+        "0x3d8adf8d9abbc822eee3dd5ca2bd2144211091c2",
+        "0xb29fc5f3a4b5bb485fcfc7de5eeaeb53bffce1c7",
+        "0xe594c7dff5130f39aa7f38d946df7fb735f9e5ef",
+        "0x1b1d2149d656f8ca33fb633e6f642b5a2426b53d",
+        "0xd8a366b83fe08be62efec0a3ea548be75c68a070",
+        "0xf9a316b8044e757cf709f390583e671e0c087338",
+        "0x3363ca1cd47afdc1a324572b214be13964e150d5",
+        "0x4f6cc4efbb7d6dbf9bc0fb839e397d373361d75f"
+      ]
+    },
+    {
       "slug": "venice-on-chain",
       "title": "Venice's On-Chain Credit Burn Grew 2.35x Since July",
       "subtitle": "A viral chart says Venice's API calls are up 400% since July. On Base, the swaps Venice runs to burn VVV for credit purchases grew about 2.35x in the same months. Its x402 payments stayed small and uneven, and staked DIEM stayed flat.",
@@ -628,6 +667,96 @@
     }
   ],
   "byAddress": {
+    "0x43b2f01186fda9814c5f40770554ac68fd8304bd": [
+      "address-poisoning-base"
+    ],
+    "0xcec19f99cfdaf19108dc7313855f2fe0eff23b9f": [
+      "address-poisoning-base"
+    ],
+    "0x49652a25ec3aadf5b4abe30fcb3c61777593989d": [
+      "address-poisoning-base"
+    ],
+    "0xfb329dcb45f3e01ef2d65ac9b5404dad3513c57e": [
+      "address-poisoning-base"
+    ],
+    "0xd317b0263ae08a0983e45bc8fe4f049f8d861f26": [
+      "address-poisoning-base"
+    ],
+    "0xaab62106e03a4a6b5cd7cc0dfc8a76bcb35514aa": [
+      "address-poisoning-base"
+    ],
+    "0x5bf08d61e2504f9061a550af8d59a9446c584129": [
+      "address-poisoning-base"
+    ],
+    "0x37e06e9414f47c276689e03cac4c1fbf83582080": [
+      "address-poisoning-base"
+    ],
+    "0xf66a2af625a26275632cd61ce58531802e306d3c": [
+      "address-poisoning-base"
+    ],
+    "0xe181e9466726e97c0d8515d2a26fb0cb8c9995d8": [
+      "address-poisoning-base"
+    ],
+    "0xcbd4ce20181059d649a166b68d4152c62bdb355b": [
+      "address-poisoning-base"
+    ],
+    "0x5866df92aecf2a262742e36110632735a529e98f": [
+      "address-poisoning-base"
+    ],
+    "0x365cfe467f25fd6c46f34fa1dcae39e613a0b975": [
+      "address-poisoning-base"
+    ],
+    "0x00045b02d01c66c6262b4fd355180bf9736c52ec": [
+      "address-poisoning-base"
+    ],
+    "0xe0a9e6e7e8758a63e5e694480f24e9b19ae78716": [
+      "address-poisoning-base"
+    ],
+    "0xda5eaccfd930f5533cdfa4e017e88727fedbf223": [
+      "address-poisoning-base"
+    ],
+    "0x4972c8308f3103c9c4f1fe68b47b74daa4d1cd0f": [
+      "address-poisoning-base"
+    ],
+    "0xb8ce0d7d9563e21da826d10b14ccd7e079196f49": [
+      "address-poisoning-base"
+    ],
+    "0xfc2d416d91198b7e8fde0c2a052a8ebc9372c208": [
+      "address-poisoning-base"
+    ],
+    "0x1762abd83b883d68a6d5feb9c2362f90d8ea6944": [
+      "address-poisoning-base"
+    ],
+    "0x4660ae05016acc1e28bacad235c645cac831fde2": [
+      "address-poisoning-base"
+    ],
+    "0x9a5281d6792e06f010b5f827c16b5ca71bc8f06b": [
+      "address-poisoning-base"
+    ],
+    "0x3d8adf8d9abbc822eee3dd5ca2bd2144211091c2": [
+      "address-poisoning-base"
+    ],
+    "0xb29fc5f3a4b5bb485fcfc7de5eeaeb53bffce1c7": [
+      "address-poisoning-base"
+    ],
+    "0xe594c7dff5130f39aa7f38d946df7fb735f9e5ef": [
+      "address-poisoning-base"
+    ],
+    "0x1b1d2149d656f8ca33fb633e6f642b5a2426b53d": [
+      "address-poisoning-base"
+    ],
+    "0xd8a366b83fe08be62efec0a3ea548be75c68a070": [
+      "address-poisoning-base"
+    ],
+    "0xf9a316b8044e757cf709f390583e671e0c087338": [
+      "address-poisoning-base"
+    ],
+    "0x3363ca1cd47afdc1a324572b214be13964e150d5": [
+      "address-poisoning-base"
+    ],
+    "0x4f6cc4efbb7d6dbf9bc0fb839e397d373361d75f": [
+      "address-poisoning-base"
+    ],
     "0x4d65504418147bfa6c58c0cc070b46d6762bf225": [
       "venice-on-chain"
     ],
