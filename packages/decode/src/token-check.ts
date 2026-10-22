@@ -75,6 +75,18 @@ const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523
  */
 const POOL_MINT = '0x4c209b5fc8ad50758f13e2e1088ba56a560dff690a1c6fef26394f4c03821c4f';
 const POOL_BURNS = new Set(['0xdccd412f0b1252819cb1fd330b93224ca42612892bb3f4f789976e6d81936496', '0x5d624aa9c148153ab3446c1b154f660ee7701e549fe9b62dab7171b1c80e6fa2']);
+/** A pool read the chain source refused: the answer says the liquidity was not read. */
+const POOLS_UNREAD = 'unread' as const;
+const LIQUIDITY_UNREAD = 'This time the liquidity of its pools could not be read, so liquidity the launch wallet removed would not show here.';
+/**
+ * A provider that refuses a log query's block range (Alchemy's free tier allows 10 blocks) refuses it every time, so the
+ * check answers with the liquidity unread. Anything else, such as a throughput limit, is passing: it is thrown again,
+ * the check fails as sources unavailable, and a retry gets the full answer instead of a cached partial one.
+ */
+function unreadOnRangeRefusal(err: unknown): typeof POOLS_UNREAD {
+  if (err instanceof Error && /block range|query returned more than/i.test(err.message)) return POOLS_UNREAD;
+  throw err;
+}
 /** A token's pools read: the first this many created. */
 const POOL_CAP = 10;
 /** The launch wallet sent back to the pool at least this share of the LP tokens it was minted: creator_removed_liquidity. */
@@ -884,7 +896,9 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   // Clanker, Zora, Doppler and Virtuals hold the liquidity of their launches: the launch wallet cannot pull it, so no pool reads.
   const launchpad = launchpadOf(who.logs, token);
   const lockedBy = launcher ?? launchpad;
-  const poolsRead = !lockedBy && creatorAddr && launch.tx ? readPools(deps, token, launch.block) : Promise.resolve(null);
+  // Alchemy's free tier refuses eth_getLogs over more than 10 blocks (see data-fetch.ts): a pool read that fails leaves
+  // the liquidity unread and the rest of the check answering, instead of failing the whole check.
+  const poolsRead = !lockedBy && creatorAddr && launch.tx ? readPools(deps, token, launch.block).catch(unreadOnRangeRefusal) : Promise.resolve(null);
   const vestingRead = launchpad === 'doppler' && creatorAddr ? readVesting(deps, token, code, creatorAddr) : Promise.resolve(null);
   const extensions = clanker ? clankerExtensions(who.logs, token) : null;
   const extensionsRead = extensions
@@ -987,12 +1001,18 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   }
   const liquidity: NonNullable<TokenCheck['liquidity']> = { locked_by: lockedBy, pools: null, capped: false };
   let removalsByPool = new Map<string, number>();
-  if (pools && creatorAddr) {
+  let liquidityUnread = pools === POOLS_UNREAD;
+  if (pools && pools !== POOLS_UNREAD && creatorAddr) {
     const own = [...(inflows?.transfers ?? []), ...(outflows?.transfers ?? [])];
-    const facts = await liquidityFacts(deps, pools, creatorAddr, decimals, launchSec, own);
-    liquidity.pools = facts.pools;
-    liquidity.capped = pools.capped;
-    removalsByPool = facts.removals;
+    try {
+      const facts = await liquidityFacts(deps, pools, creatorAddr, decimals, launchSec, own);
+      liquidity.pools = facts.pools;
+      liquidity.capped = pools.capped;
+      removalsByPool = facts.removals;
+    } catch (err) {
+      unreadOnRangeRefusal(err);
+      liquidityUnread = true;
+    }
   }
   const creatorMintPct = mintSharePct(laterToCreator, supplyRaw, supply.minted_to_creator, token_info.total_supply);
 
@@ -1096,7 +1116,7 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     liquidity,
     flags,
     as_of_block: head,
-    limits: LIMITS,
+    limits: liquidityUnread ? `${LIMITS} ${LIQUIDITY_UNREAD}` : LIMITS,
   };
 }
 

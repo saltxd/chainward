@@ -465,6 +465,25 @@ describe('rug check QA: liquidity the launch wallet removed, and supply it will 
     expect(r.creator?.extensions_pct).toBe(0);
   });
 
+  it('P1: still answers when the chain source refuses the pool log reads, and says the liquidity was not read', async () => {
+    // Alchemy's free tier refuses eth_getLogs over more than 10 blocks (production, 2026-10-22): the pool scan must not
+    // turn a whole check into "sources unavailable".
+    const deps = chainOf(QA.P1!);
+    const refusing: TokenCheckDeps = {
+      ...deps,
+      rpc: async (method, params) => {
+        if (method === 'eth_getLogs') throw new Error('eth_getLogs: Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range.');
+        return deps.rpc(method, params);
+      },
+    };
+    const r = await checkToken(QA.P1!.token, refusing);
+    expect(r.liquidity).toEqual({ locked_by: null, pools: null, capped: false });
+    expect(r.flags).not.toContain('creator_removed_liquidity');
+    expect(r.flags).toContain('new_creator');
+    expect(r.verdict.label).toBe('review');
+    expect(r.limits).toMatch(/liquidity of its pools could not be read/);
+  });
+
   it('says what the liquidity read covers, in plain words', async () => {
     const r = await check('P1');
     expect(r.limits).not.toMatch(/liquidity-lock check/);
