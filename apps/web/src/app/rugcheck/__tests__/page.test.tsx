@@ -22,6 +22,10 @@ describe('/rugcheck', () => {
     expect(text).toMatch(/who launched it/i);
     expect(text).toMatch(/within the hour/);
     expect(text).toMatch(/Clanker/);
+    expect(text).toMatch(/Clanker, Zora, Doppler or Virtuals/);
+    expect(text).toMatch(/launched through Clanker, Zora and Doppler/);
+    expect(text).toMatch(/took liquidity out/);
+    expect(text).toMatch(/passes for USDC/);
   });
 
   it('says what it does not do', () => {
