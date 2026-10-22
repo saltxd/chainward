@@ -41,9 +41,9 @@ export function CheckForm({ initialChain, variant = 'wallet' }: { initialChain?:
   return (
     <form onSubmit={handleSubmit} className="intake" aria-label={variant === 'token' ? 'Run a rug check' : 'Run a risk check'}>
       <div className="intake-head">
-        <span className="intake-head-org">ChainWard · Forensic Intake</span>
+        <span className="intake-head-org">ChainWard · Free check</span>
         <span className="intake-head-file">
-          File № <b>opened on submit</b>
+          Answer in <b>about a minute</b>
         </span>
       </div>
 

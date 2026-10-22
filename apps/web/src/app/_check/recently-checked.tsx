@@ -7,7 +7,7 @@ import { reportPath } from '@/lib/risk';
 import { VerdictStamp } from '@/components/press/VerdictStamp';
 import { chainMeta } from '@/lib/chains';
 import { isPlaceholderAddress } from '@/lib/params';
-import { cardHeadline } from '@/lib/cardFlag';
+import { cardHeadline, plainFlagTitle } from '@/lib/cardFlag';
 
 function truncate(addr: string): string {
   if (!addr || addr.length < 12) return addr;
@@ -58,7 +58,7 @@ export function RecentRow({ card }: { card: RiskReportCard }) {
             {topFlag ? (
               <>
                 <span className="recent-sev-mark" style={{ background: sevColor }} aria-hidden />
-                {topFlag.title}
+                {plainFlagTitle(topFlag)}
                 {more && <span className="recent-more mono">{more}</span>}
               </>
             ) : card.flag_count === 0 || head.known ? (
@@ -84,11 +84,19 @@ export function RecentRow({ card }: { card: RiskReportCard }) {
   );
 }
 
+const FRESH_DAYS = 14;
+
+/** Checks filed in the last `days` days, in the order given: an old list reads as a quiet site. */
+export function freshCards(cards: RiskReportCard[], now: Date = new Date(), days: number = FRESH_DAYS): RiskReportCard[] {
+  const cutoff = now.getTime() - days * 86_400_000;
+  return cards.filter((card) => new Date(card.as_of_date).getTime() >= cutoff);
+}
+
 /**
- * "Recently filed" — the latest public reports, one per address
- * (distinct=address server-side so re-checks don't duplicate rows), each row
- * led by its answer. Social proof, not a critical path: renders nothing while
- * loading or on error so the hero never shows a broken state.
+ * "Recent wallet checks": the latest public reports from the last 14 days, one
+ * per address (distinct=address server-side so re-checks don't duplicate rows),
+ * each row led by its answer. Social proof, not a critical path: renders nothing
+ * while loading, on error, or when nothing recent was filed.
  */
 export function RecentlyChecked() {
   const { data, loading, error } = useApi<RiskLibraryResult>(
@@ -96,7 +104,7 @@ export function RecentlyChecked() {
     [],
   );
 
-  const reports = data?.reports.filter((card) => !isPlaceholderAddress(card.address)).slice(0, 5) ?? [];
+  const reports = freshCards(data?.reports.filter((card) => !isPlaceholderAddress(card.address)) ?? []).slice(0, 5);
   if (loading || error || reports.length === 0) {
     return null;
   }
@@ -104,7 +112,7 @@ export function RecentlyChecked() {
   return (
     <div className="recent">
       <div className="recent-head">
-        <span className="press-label">Recently filed</span>
+        <span className="press-label">Recent wallet checks</span>
         <Link href="/reports" className="press-link">
           The full record →
         </Link>
