@@ -11,6 +11,7 @@ import { isSanctioned } from './ofac.js';
 import { PRIVACY_RELAY_REASON, privacyRelay } from './privacy-relays.js';
 import { publicLabels, type LabelKind, type LabelsFor } from './labels.js';
 import { decoyReason, detectDecoy, type Decoy } from './decoy.js';
+import { nativeToken, realToken } from './lookalike.js';
 
 
 export type LookupChain = SellerChain;
@@ -66,6 +67,9 @@ interface Transfer {
   from: string;
   to: string | null;
   hash: string;
+  category?: string;
+  value?: number | null;
+  rawContract?: { address?: string | null; value?: string | null };
   metadata?: { blockTimestamp?: string };
 }
 
@@ -84,6 +88,8 @@ export const SHARED_FUNDER_MIN = 5;
 /** Sent transactions at which a funder counts as an exchange, bridge or other hub. */
 export const LOOKUP_HUB_NONCE = 10_000;
 const FUNDER_PAGE = 1000;
+/** Its first transfers in, oldest first, searched for the first one that funded it. */
+const FIRST_IN_PAGE = 50;
 const FUNDER_CODE_CHECKS = 20;
 const FUNDER_CODE_BATCH = 5;
 const ZERO_ADDRESS = `0x${'0'.repeat(40)}`;
@@ -117,11 +123,12 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
     deps.rpc('eth_getBalance', [address, 'latest']),
     deps.rpc('eth_call', [{ to: USDC[chain].address, data: balanceOfData(address) }, 'latest']),
     deps.rpc('eth_blockNumber', []),
-    deps.transfers({ ...transferBase, toAddress: address, order: 'asc', maxCount: '0x1' }),
+    deps.transfers({ ...transferBase, toAddress: address, order: 'asc', maxCount: `0x${FIRST_IN_PAGE.toString(16)}` }),
     deps.transfers({ ...transferBase, fromAddress: address, order: 'desc', maxCount: '0x1' }),
   ]);
 
   const first = firstIn.transfers[0] ?? null;
+  const funding = firstIn.transfers.find((t) => funds(t, chain)) ?? null;
   const sentTxs = hexToNumber(nonceHex);
   const firstSeen = first?.metadata?.blockTimestamp ?? null;
   const ageDays = firstSeen ? Math.floor((now.getTime() - new Date(firstSeen).getTime()) / 86_400_000) : null;
@@ -145,8 +152,8 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   let funder: WalletLookup['first_funder'] = null;
   // A mint (USDC bridged in by CCTP, say) comes from the zero address, and an OptimismPortal
   // deposit lists as a transfer from the wallet to itself (bridged from L1): no funder to trace.
-  if (!decoy && first && first.from.toLowerCase() !== ZERO_ADDRESS && first.from.toLowerCase() !== address) {
-    const f = first.from.toLowerCase();
+  if (!decoy && funding && funding.from.toLowerCase() !== ZERO_ADDRESS && funding.from.toLowerCase() !== address) {
+    const f = funding.from.toLowerCase();
     const [fNonce, fOut] = await Promise.all([
       deps.rpc('eth_getTransactionCount', [f, 'latest']),
       deps.transfers({ ...transferBase, fromAddress: f, order: 'desc', maxCount: `0x${FUNDER_PAGE.toString(16)}` }),
@@ -154,7 +161,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
     const hub = hexToNumber(fNonce) >= LOOKUP_HUB_NONCE || fOut.transfers.length >= FUNDER_PAGE;
     funder = {
       address: f,
-      tx: first.hash,
+      tx: funding.hash,
       sanctioned: isSanctioned(f),
       exchange_or_hub: hub,
       funded_wallets: hub ? null : await countFundedWallets(fOut.transfers, f, deps),
@@ -196,6 +203,20 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
       'On-chain facts only. A shared funder is not proof of one owner, and exchanges and other hubs hide who funded a wallet. no_flags means none of these checks matched; it is not a clearance.' +
       (decoy ? DECOY_LIMITS : ''),
   };
+}
+
+/**
+ * A transfer that funded the wallet: the chain's coin (ETH, BNB) or a listed token (USDC, WETH...)
+ * above its dust floor. Airdrops of other tokens and dust fund nothing, so their sender is not its
+ * first funder. A transfer the provider did not describe (no category) still counts.
+ */
+function funds(t: Transfer, chain: LookupChain): boolean {
+  if (!t.category) return true;
+  const value = typeof t.value === 'number' ? t.value : null;
+  if (t.category === 'external' || t.category === 'internal') return value === null || value > nativeToken(chain).dust;
+  if (t.category !== 'erc20') return false;
+  const listed = realToken(t.rawContract?.address, chain);
+  return listed !== null && (value === null || value > listed.dust);
 }
 
 function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {

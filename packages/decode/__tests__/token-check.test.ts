@@ -85,6 +85,14 @@ interface Chain {
   failFactory?: boolean;
   /** Every eth_call made, as `to:selector`. */
   calls?: string[];
+  /** Block timestamps (seconds) by block number; without it every block reads as the launch's. */
+  timestampOf?: (block: number) => number;
+  head?: number;
+  now?: Date;
+  /** The launch wallet's nonce and code at any past block (the reads a week before the launch). */
+  weekBefore?: { nonce: number; code?: string };
+  /** Every read made at a past block, as `method:address:block` (balanceOf as `balanceOf:address:block`). */
+  pastReads?: string[];
 }
 
 function deps(c: Chain, log: string[] = []): WalletLookupDeps {
@@ -100,26 +108,40 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
     blockNum: `0x${t.block.toString(16)}`,
     metadata: { blockTimestamp: t.time },
   });
+  const head = c.head ?? HEAD;
   return {
-    now: () => NOW,
+    now: () => c.now ?? NOW,
     rpc: async (method, params) => {
       log.push(method);
       const p = params as unknown[];
+      if ((method === 'eth_getTransactionCount' || method === 'eth_getCode') && p[0] === CREATOR && p[1] !== 'latest') {
+        c.pastReads?.push(`${method}:${CREATOR}:${p[1]}`);
+        return method === 'eth_getCode' ? (c.weekBefore?.code ?? c.creatorCode ?? '0x') : `0x${(c.weekBefore?.nonce ?? c.creatorNonce ?? 40).toString(16)}`;
+      }
       switch (method) {
         case 'eth_blockNumber':
-          return `0x${HEAD.toString(16)}`;
+          return `0x${head.toString(16)}`;
         case 'eth_getCode': {
           const [addr, block] = p as [string, string];
           if (addr === TOKEN) {
             if (c.code === false) return '0x';
-            const b = block === 'latest' ? HEAD : Number(BigInt(block));
+            const b = block === 'latest' ? head : Number(BigInt(block));
             return b >= codeFrom ? '0x6080' : '0x';
           }
           if (addr === CREATOR) return c.creatorCode ?? '0x';
           return '0x';
         }
         case 'eth_call': {
-          const [{ to, data }] = p as [{ to: string; data: string }];
+          const [{ to, data }, tag] = p as [{ to: string; data: string }, string];
+          // A balance at a past block: what the token's transfers had left the address with by then.
+          if (to === TOKEN && data.startsWith('0x70a08231') && tag !== 'latest') {
+            if (c.failCalls?.includes('0x70a08231')) throw new Error('eth_call: Your app has exceeded its compute units per second capacity');
+            const who = `0x${data.slice(-40)}`;
+            c.pastReads?.push(`balanceOf:${who}:${tag}`);
+            const upTo = tokenTransfers.filter((t) => t.block <= Number(BigInt(tag)));
+            const held = upTo.reduce((s, t) => s + (t.to === who ? rawOf(t) : 0n) - (t.from === who ? rawOf(t) : 0n), 0n);
+            return `0x${word(held)}`;
+          }
           c.calls?.push(`${to}:${data.slice(0, 10)}`);
           const key = to === CLANKER_V4_FACTORY.toLowerCase() ? 'registry' : to === TOKEN ? data.slice(0, 10) : null;
           if (key && c.failCalls?.includes(key)) throw new Error('eth_call: Your app has exceeded its compute units per second capacity');
@@ -160,8 +182,11 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
           return c.receipts ?? [];
         case 'eth_getTransactionReceipt':
           return { transactionHash: p[0], logs: (c.launchReceiptLogs ?? []).map((l) => ({ data: '0x', ...l })) };
-        case 'eth_getBlockByNumber':
-          return { timestamp: `0x${Math.floor(new Date(LAUNCH_TIME).getTime() / 1000).toString(16)}` };
+        case 'eth_getBlockByNumber': {
+          const b = p[0] === 'latest' ? head : Number(BigInt(p[0] as string));
+          const sec = c.timestampOf ? c.timestampOf(b) : Math.floor(new Date(LAUNCH_TIME).getTime() / 1000);
+          return { timestamp: `0x${Math.floor(sec).toString(16)}` };
+        }
         case 'eth_getTransactionCount': {
           const addr = p[0] as string;
           if (addr === CREATOR) return `0x${(c.creatorNonce ?? 40).toString(16)}`;
@@ -904,5 +929,145 @@ describe('checkToken', () => {
     ])('fails rather than guess when the provider refuses the %s read', async (_name, extra) => {
       await expect(checkToken(TOKEN, clankerLaunch({ factoryLaunches: 96, ...extra }))).rejects.toThrow(/capacity/);
     });
+  });
+});
+
+// The reads a week before and an hour after the launch are placed by measured block times, so they
+// hold when Base moves from 2 s to 200 ms blocks (Denim, November 2026).
+describe('checkToken: reads placed by block time', () => {
+  const LAUNCH_SEC = new Date(LAUNCH_TIME).getTime() / 1000;
+  const WEEK = 7 * 86_400;
+  const at = (blocks: number) => `0x${(LAUNCH_BLOCK + blocks).toString(16)}`;
+  const buyAndSell = (sellBlocks: number, sellSec: number): Transfer[] => [
+    mint(POOL, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX),
+    { from: POOL, to: CREATOR, value: 10_000, hash: LAUNCH_TX, block: LAUNCH_BLOCK, time: LAUNCH_TIME },
+    { from: CREATOR, to: POOL, value: 10_000, hash: '0xsell', block: LAUNCH_BLOCK + sellBlocks, time: ts(LAUNCH_TIME, sellSec) },
+  ];
+  // Two hours after a launch on 2 s blocks.
+  const twoSecond = (extra: Partial<Chain> = {}): Chain => ({
+    timestampOf: (b) => LAUNCH_SEC + (b - LAUNCH_BLOCK) * 2,
+    head: LAUNCH_BLOCK + 3_600,
+    now: new Date((LAUNCH_SEC + 7_200) * 1000),
+    transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+    ...extra,
+  });
+
+  it('reads 3,024,000 blocks back for the week and 18,000 on for the hour on 200 ms blocks', async () => {
+    const pastReads: string[] = [];
+    await checkToken(
+      TOKEN,
+      deps({
+        timestampOf: (b) => LAUNCH_SEC + (b - LAUNCH_BLOCK) * 0.2,
+        head: LAUNCH_BLOCK + 36_000,
+        now: new Date((LAUNCH_SEC + 7_200) * 1000),
+        transfers: buyAndSell(100, 20),
+        weekBefore: { nonce: 3 },
+        pastReads,
+      }),
+    );
+    expect(pastReads).toEqual(
+      expect.arrayContaining([
+        `eth_getTransactionCount:${CREATOR}:${at(-3_024_000)}`,
+        `eth_getCode:${CREATOR}:${at(-3_024_000)}`,
+        `balanceOf:${CREATOR}:${at(0)}`,
+        `balanceOf:${CREATOR}:${at(18_000)}`,
+      ]),
+    );
+  });
+
+  // Blocks went from 2 s to 200 ms a day before the launch: a week of 200 ms blocks reaches back 61 days.
+  it('never reads further back than a week, or further on than an hour, when the block time changed in between', async () => {
+    const FORK = LAUNCH_BLOCK - 432_000;
+    const FORK_SEC = LAUNCH_SEC - 86_400;
+    const timestampOf = (b: number) => (b >= FORK ? LAUNCH_SEC + (b - LAUNCH_BLOCK) * 0.2 : FORK_SEC - (FORK - b) * 2);
+    const pastReads: string[] = [];
+    await checkToken(
+      TOKEN,
+      deps({ timestampOf, head: LAUNCH_BLOCK + 36_000, now: new Date((LAUNCH_SEC + 7_200) * 1000), transfers: buyAndSell(100, 20), weekBefore: { nonce: 0 }, pastReads }),
+    );
+    const blockOf = (prefix: string) => Number(BigInt(pastReads.find((r) => r.startsWith(prefix))!.split(':')[2]!));
+    const weekRead = blockOf('eth_getTransactionCount');
+    expect(LAUNCH_SEC - timestampOf(weekRead)).toBeLessThanOrEqual(WEEK);
+    const hourRead = Math.max(...pastReads.filter((r) => r.startsWith('balanceOf')).map((r) => Number(BigInt(r.split(':')[2]!))));
+    expect(timestampOf(hourRead) - LAUNCH_SEC).toBeLessThanOrEqual(3_600);
+  });
+
+  // An airdrop 200 days before the launch made the wallet look old; it had sent nothing a week before.
+  it('flags a wallet with no transactions and no code a week before the launch, without claiming the age of its first transfer in', async () => {
+    const r = await checkToken(TOKEN, deps(twoSecond({ weekBefore: { nonce: 0 } })));
+    expect(r.creator?.week_before_launch).toEqual({ block: LAUNCH_BLOCK - 302_400, sent_txs: 0, has_code: false });
+    expect(r.flags).toContain('new_creator');
+    expect(r.creator?.age_days_at_launch).toBeNull();
+    expect(r.verdict.reason).toBe('The wallet that launched it had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.');
+  });
+
+  // A smart wallet deployed months ago whose first transfer in came two days before the launch.
+  it('does not flag a wallet that had sent transactions a week before the launch, whatever its first transfer in says', async () => {
+    const r = await checkToken(TOKEN, deps(twoSecond({ weekBefore: { nonce: 1, code: '0x6080' }, creatorFirstInbound: { from: FUNDER, time: days(2), hash: '0xf2' } })));
+    expect(r.flags).not.toContain('new_creator');
+    expect(r.creator?.age_days_at_launch).toBeNull();
+    expect(r.creator?.week_before_launch).toMatchObject({ sent_txs: 1, has_code: true });
+  });
+
+  it('keeps the age from its first transfer in when its own activity agrees', async () => {
+    const r = await checkToken(TOKEN, deps(twoSecond({ weekBefore: { nonce: 0 }, creatorFirstInbound: { from: FUNDER, time: days(2), hash: '0xf2' } })));
+    expect(r.creator?.age_days_at_launch).toBe(2);
+    expect(r.verdict.reason).toBe('The wallet that launched it was first seen 2 days before the launch.');
+  });
+
+  // 150 sends of one token each, then the rest sold 10 minutes in: the first 100 transfers show 1%.
+  it('reads the share gone from the balance an hour in, and says so, when small sends fill the first transfers', async () => {
+    const dust = Array.from({ length: 150 }, (_, i): Transfer => ({ from: CREATOR, to: `0x${(i + 1).toString(16).padStart(40, '0')}`, value: 1, hash: `0xd${i}`, block: LAUNCH_BLOCK + 10 + i, time: ts(LAUNCH_TIME, 20 + 2 * i) }));
+    const r = await checkToken(
+      TOKEN,
+      deps(
+        twoSecond({
+          weekBefore: { nonce: 9 },
+          transfers: [
+            mint(POOL, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX),
+            { from: POOL, to: CREATOR, value: 10_000, hash: LAUNCH_TX, block: LAUNCH_BLOCK, time: LAUNCH_TIME },
+            ...dust,
+            { from: CREATOR, to: POOL, value: 9_350, hash: '0xsell', block: LAUNCH_BLOCK + 300, time: ts(LAUNCH_TIME, 600) },
+          ],
+        }),
+      ),
+    );
+    expect(r.creator?.launch_tokens).toMatchObject({ received: 10_000, held_at_launch: 10_000, held_1h: 500, held_1h_after_sec: 3_600, sent_1h_pct: 95, sent_pct: 95, first_send_after_sec: 20, sent_90pct_after_sec: null });
+    expect(r.flags).toContain('creator_sent_launch_tokens');
+    expect(r.verdict.reason).toBe('The wallet that launched it received 10,000 tokens in the launch transaction and an hour later held only 5% of them.');
+  });
+
+  it('reads a token under an hour old as of now, with no read past the head', async () => {
+    const pastReads: string[] = [];
+    const r = await checkToken(
+      TOKEN,
+      deps({ ...twoSecond(), head: LAUNCH_BLOCK + 900, now: new Date((LAUNCH_SEC + 1_800) * 1000), transfers: buyAndSell(100, 200), creatorBalance: 0n, weekBefore: { nonce: 4 }, pastReads }),
+    );
+    expect(pastReads.filter((x) => x.startsWith('balanceOf'))).toEqual([`balanceOf:${CREATOR}:${at(0)}`]);
+    expect(r.creator?.launch_tokens).toMatchObject({ held_1h: 0, held_1h_after_sec: 1_800, sent_1h_pct: 100 });
+  });
+
+  it('does not read balances for a launch wallet that got no tokens in the launch transaction', async () => {
+    const pastReads: string[] = [];
+    await checkToken(TOKEN, deps(twoSecond({ weekBefore: { nonce: 4 }, pastReads })));
+    expect(pastReads.some((x) => x.startsWith('balanceOf'))).toBe(false);
+  });
+
+  // Several smart wallets' operations in one bundle; the logs arrive out of order.
+  it('names the smart wallet whose UserOperationEvent first follows the token\'s first log', async () => {
+    const entryPoint = '0x0000000071727de22e5e9d8baf0edac6f37da032';
+    const userOp = '0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f';
+    const [a, b, d] = ['a', 'b', 'd'].map((x) => `0x${x.repeat(40)}`);
+    const op = (sender: string, i: number) => ({ address: entryPoint, topics: [userOp, `0x${String(i).repeat(64)}`, topic(sender!), topic(ZERO)], logIndex: `0x${i.toString(16)}` });
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        launchTx: { hash: LAUNCH_TX, from: `0x${'e'.repeat(40)}`, to: entryPoint },
+        launchReceiptLogs: [op(d!, 9), op(b!, 7), { address: TOKEN, topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'], logIndex: '0x5' }, op(a!, 3)],
+        transfers: [mint(POOL, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+      }),
+    );
+    expect(r.launch?.creator).toBe(b);
+    expect(r.flags).not.toContain('launch_unknown');
   });
 });

@@ -93,6 +93,30 @@ describe('imitatedToken', () => {
   });
 });
 
+// A QA run over 34 tokens launched on Base on 2026-10-21 found a USDT spelled with N'Ko and
+// Armenian letters (0x6da26e91…) that the hand-picked table missed: the table now carries every
+// look-alike Unicode's confusables.txt lists for the letters these symbols and names use.
+describe("imitatedToken: look-alikes from Unicode's confusables table", () => {
+  const C4 = '0x6da26e91cd05277924b4b8458246d18439382b07';
+
+  it("reads N'Ko Na Woloso as T, so ՍՏDߠ and ߠеthеr USD are a USDT imitation", () => {
+    expect(symbolSkeleton('ՍՏDߠ')).toBe('USDT');
+    expect(imitatedToken({ symbol: 'ՍՏDߠ', name: 'ߠеthеr USD', contract: C4, chain: 'base' })).toEqual({ imitates: 'USDT', real: null });
+    expect(imitatedToken({ name: 'ߠеthеr USD', contract: C4, chain: 'base' })).toEqual({ imitates: 'USDT', real: null });
+  });
+
+  it('catches look-alikes from scripts the hand-picked table never listed', () => {
+    expect(symbolSkeleton('ᎠΑΙ')).toBe('DAI'); // Cherokee Da, Greek Alpha and Iota
+    expect(imitatedToken({ symbol: 'ѡΕΤН', contract: FAKE_CONTRACT, chain: 'base' })?.imitates).toBe('WETH'); // Cyrillic omega as W
+  });
+
+  // Real tokens spell these with their own characters: Tether's USD₮ and USD₮0, Overnight's USD+,
+  // World Liberty's USD1, the bridged and wrapped USDCs, and the plain-letter majors.
+  it.each(['USD₮', 'USD₮0', 'USD+', 'USD1', 'USDbC', 'USDC.e', 'axlUSDC', 'USDT', 'ETH', 'WETH', 'DAI', 'cbBTC'])('leaves %s alone', (symbol) => {
+    expect(imitatedToken({ symbol, contract: FAKE_CONTRACT, chain: 'base' })).toBeNull();
+  });
+});
+
 describe('sharesEnds', () => {
   it('matches a look-alike sharing the first 4 and last 4 hex characters, in any case', () => {
     expect(sharesEnds('0xf7eea0bae744497d7e7dcf93c7bc4a46b61667cd', '0xf7ee65130fb2b3bb42cc5cbfed085d7d482667cd')).toBe(true);
