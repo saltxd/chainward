@@ -22,6 +22,13 @@ const redis = vi.hoisted(() => {
       return 'OK';
     }),
     zrem: vi.fn(async (k: string, m: string) => (z(k).delete(m) ? 1 : 0)),
+    // ZRANGE key start stop WITHSCORES, lowest score first.
+    zrange: vi.fn(async (k: string, start: number, stop: number) =>
+      [...z(k)]
+        .sort((a, b) => a[1] - b[1])
+        .slice(start, stop + 1)
+        .flatMap(([m, s]) => [m, String(s)]),
+    ),
     del: vi.fn(async (k: string) => (store.delete(k) ? 1 : 0)),
     pipeline: vi.fn(() => {
       const ops: Array<() => unknown> = [];
@@ -98,8 +105,8 @@ const IP = '203.0.113.7';
 const HOURLY = `bud:token-report:ip:${IP}`;
 const DAILY = 'bud:token-report-day:global';
 const PROBES = 'bud:token-probe-day:global';
-const SHARED = `token-check:v3:base:${TOKEN}`;
-const RECENT = `token-report:recent:${TOKEN}`;
+const SHARED = `token-check:v4:base:${TOKEN}`;
+const RECENT = `token-report:v2:recent:${TOKEN}`;
 
 function facilitatorFetch(url: string | URL | Request): Promise<Response> {
   const href = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
@@ -151,6 +158,16 @@ describe('GET /api/risk/token-report/:address (free, for chainward.ai)', () => {
     expect(body.data).toMatchObject({ token: TOKEN, verdict: { label: 'review' } });
   });
 
+  // The same freshness fields as the paid check, so the page and agents can tell a cached answer from a fresh one.
+  it('says whether the answer came from the cache, when it was read and how old it is', async () => {
+    const fresh = (await (await get(TOKEN)).json()) as { data: { checked_at: string; cached: boolean; age_seconds: number } };
+    expect(fresh.data).toMatchObject({ cached: false, age_seconds: 0 });
+    expect(new Date(fresh.data.checked_at).toISOString()).toBe(fresh.data.checked_at);
+    const repeat = (await (await get(TOKEN)).json()) as { data: { checked_at: string; cached: boolean } };
+    expect(repeat.data).toMatchObject({ checked_at: fresh.data.checked_at, cached: true });
+    expect(checks.calls).toBe(1);
+  });
+
   it.each([['0xzz'], ['0x0000000000000000000000000000000000000000']])('refuses %s with 400', async (address) => {
     const res = await get(address);
     expect(res.status).toBe(400);
@@ -176,7 +193,8 @@ describe('GET /api/risk/token-report/:address (free, for chainward.ai)', () => {
     checks.kind = 'wallet';
     const res = await get(TOKEN);
     expect(res.status).toBe(200);
-    expect(((await res.json()) as { data: { flags: string[] } }).data.flags).toEqual(['not_a_contract']);
+    // The page shows the wallet report from this flag, so a wallet still answers 200 here.
+    expect(((await res.json()) as { data: { flags: string[]; cached: boolean } }).data).toMatchObject({ flags: ['not_a_contract'], cached: false });
     expect(redis.z(HOURLY).size).toBe(0);
     expect(redis.z(DAILY).size).toBe(0);
   });
@@ -191,6 +209,10 @@ describe('GET /api/risk/token-report/:address (free, for chainward.ai)', () => {
     expect(body.error.message).toContain('$0.02');
     // The visitor's own allowance is given back.
     expect(redis.z(HOURLY).size).toBe(0);
+    // The headers describe the daily allowance that refused it.
+    expect(res.headers.get('x-ratelimit-limit')).toBe(String(FREE_TOKEN_CHECKS_PER_DAY));
+    expect(res.headers.get('x-ratelimit-remaining')).toBe('0');
+    expect(Number(res.headers.get('retry-after'))).toBeGreaterThan(86_000);
   });
 
   it('still answers a wallet when the free token checks are used up', async () => {
@@ -209,6 +231,21 @@ describe('GET /api/risk/token-report/:address (free, for chainward.ai)', () => {
     expect(body.error.code).toBe('FREE_HOURLY_LIMIT');
     expect(body.error.message).toContain('https://api.chainward.ai/api/risk/rugcheck');
     expect(redis.z(DAILY).size).toBe(0);
+  });
+
+  // The QA run saw this 429 with no Retry-After and the per-minute limit's headers ("remaining 15" while blocked).
+  it("says when this hour's next free check frees, with the hourly limit in the headers", async () => {
+    const now = Date.now();
+    const oldest = now - 50 * 60_000;
+    for (let i = 0; i < FREE_TOKEN_CHECKS_PER_HOUR; i++) redis.z(HOURLY).set(`seed:${i}`, oldest + i * 60_000);
+    const res = await get(TOKEN);
+    expect(res.status).toBe(429);
+    const retryAfter = Number(res.headers.get('retry-after'));
+    expect(retryAfter).toBeGreaterThanOrEqual(599);
+    expect(retryAfter).toBeLessThanOrEqual(600);
+    expect(res.headers.get('x-ratelimit-limit')).toBe(String(FREE_TOKEN_CHECKS_PER_HOUR));
+    expect(res.headers.get('x-ratelimit-remaining')).toBe('0');
+    expect(res.headers.get('x-ratelimit-reset')).toBe(String(Math.ceil((oldest + 3_600_000) / 1000)));
   });
 
   // A token in its first two hours is re-read every minute for the paid check; the free page
@@ -251,6 +288,7 @@ describe('GET /api/risk/token-report/:address (free, for chainward.ai)', () => {
     checks.fail = true;
     const res = await get(TOKEN);
     expect(res.status).toBe(503);
+    expect(res.headers.get('retry-after')).toBe('60');
     expect(redis.z(HOURLY).size).toBe(0);
     expect(redis.z(DAILY).size).toBe(0);
     checks.fail = false;

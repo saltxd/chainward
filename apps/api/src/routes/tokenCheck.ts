@@ -4,6 +4,7 @@ import { getRedis } from '../lib/redis.js';
 import { labelsFor, recordSerialLauncher } from '../lib/labels.js';
 import { logger } from '../lib/logger.js';
 import { parseTokenInput } from '../lib/paidInput.js';
+import { notATokenError, rememberKind, requireToken, type NotATokenFlag } from '../lib/tokenKind.js';
 import { budget, rateLimit } from '../middleware/rateLimit.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -13,7 +14,8 @@ import { AppError } from '../middleware/errorHandler.js';
 // paid per call over x402 (app.ts mounts the payment middleware): who launched a Base
 // token, how, and what the launch wallet and the supply did afterwards, with a verdict.
 // GET /api/risk/token-report/:address is the same check, free, for the report page on
-// chainward.ai, where people paste a token; both share one cache.
+// chainward.ai, where people paste a token; both share one cache. Every answer says when it
+// was read (checked_at), whether it came from the cache (cached) and how old it is (age_seconds).
 
 const CACHE_TTL_SEC = 600;
 // In a token's first hours the launch-hour send-out can change within minutes: re-read it sooner.
@@ -27,26 +29,52 @@ const ttlFor = (r: TokenCheck) => {
 // RPC, takes longer. Past this the caller gets a 504 (an x402 payment is not settled on
 // any error), and a check that finishes later still fills the cache.
 const CHECK_BUDGET_MS = 15_000;
+// When to ask again after a 503 or a 504: the source has had a minute, or the finished answer is cached.
+const RETRY_AFTER = { 'Retry-After': '60' };
 
 /** The token: ?token=, or ?address= for clients that always send that name. */
 export const tokenParam = (c: Context): string | undefined => c.req.query('token') ?? c.req.query('address');
 
-const sharedKey = (token: string) => `token-check:v3:base:${token}`;
-
-async function readCache(key: string): Promise<TokenCheck | null> {
-  const hit = await getRedis().get(key);
-  return hit ? (JSON.parse(hit) as TokenCheck) : null;
+/**
+ * The paid routes' input check, ahead of the payment middleware: a token on Base, or a 400
+ * (NOT_A_TOKEN for an address that is not a token), so nobody signs a payment for that.
+ */
+export async function parsePaidTokenInput(c: Context): Promise<void> {
+  const { token } = parseTokenInput(tokenParam(c), c.req.query('chain'));
+  await requireToken(c, token);
 }
+
+// v4: the cached check carries checked_at.
+const sharedKey = (token: string) => `token-check:v4:base:${token}`;
+
+/** A check as the cache keeps it: the answer, and when it was read. */
+type StoredCheck = TokenCheck & { checked_at: string };
+
+async function readCache(key: string): Promise<StoredCheck | null> {
+  const hit = await getRedis().get(key);
+  return hit ? (JSON.parse(hit) as StoredCheck) : null;
+}
+
+/**
+ * The answer as sent, with whether it came from the cache and its age in seconds, so a caller
+ * can tell a cached answer from a fresh one. Fields are only added: outside agents, the MCP
+ * server and the report page read the rest.
+ */
+const answer = (check: StoredCheck, cached: boolean) => ({
+  ...check,
+  cached,
+  age_seconds: Math.max(0, Math.floor((Date.now() - Date.parse(check.checked_at)) / 1000)),
+});
 
 // One run per token at a time in this process: a request for a token already being checked
 // waits for that run instead of reading the chain again. The paid and free routes never share
 // a run, so a free run refused by its allowance cannot fail a buyer who paid.
 // A run older than STALE_RUN_MS is not joined (its reads have their own timeouts, so a run
 // that old is stuck): the next request starts a fresh one.
-const running = new Map<string, { started: number; check: Promise<TokenCheck> }>();
+const running = new Map<string, { started: number; check: Promise<StoredCheck> }>();
 const STALE_RUN_MS = 60_000;
 
-function runCheck(token: string, route: 'paid' | 'free', opts: CheckTokenOptions = {}): Promise<TokenCheck> {
+function runCheck(token: string, route: 'paid' | 'free', opts: CheckTokenOptions = {}): Promise<StoredCheck> {
   const key = `${route}:${token}`;
   const already = running.get(key);
   if (already && Date.now() - already.started < STALE_RUN_MS) return already.check;
@@ -54,10 +82,11 @@ function runCheck(token: string, route: 'paid' | 'free', opts: CheckTokenOptions
   if (!rpcUrl) return Promise.reject(new AppError(503, 'CHECK_UNAVAILABLE', 'The token check is not configured'));
   const check = checkToken(token, { ...alchemyTokenCheckDeps(rpcUrl), labelsFor }, opts)
     .then(async (result) => {
-      await getRedis().set(sharedKey(token), JSON.stringify(result), 'EX', ttlFor(result));
+      const stored: StoredCheck = { ...result, checked_at: new Date().toISOString() };
+      await getRedis().set(sharedKey(token), JSON.stringify(stored), 'EX', ttlFor(result));
       // The check as a detector: a serial launch labels its launch wallet (public, 30 days).
       recordSerialLauncher(result).catch((err) => logger.warn({ err, token }, 'labels: could not record a serial launcher'));
-      return result;
+      return stored;
     })
     .finally(() => {
       if (running.get(key)?.check === check) running.delete(key);
@@ -67,11 +96,11 @@ function runCheck(token: string, route: 'paid' | 'free', opts: CheckTokenOptions
 }
 
 /** The run within its time budget: 504 past it (the run goes on and fills the cache), 503 when the chain source fails. */
-async function withinBudget(token: string, check: Promise<TokenCheck>): Promise<TokenCheck> {
+async function withinBudget(token: string, check: Promise<StoredCheck>): Promise<StoredCheck> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const budget = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; try again in a minute.')),
+      () => reject(new AppError(504, 'CHECK_TIMEOUT', 'The check did not finish in time. You were not charged; try again in a minute.', undefined, RETRY_AFTER)),
       CHECK_BUDGET_MS,
     );
   });
@@ -81,21 +110,40 @@ async function withinBudget(token: string, check: Promise<TokenCheck>): Promise<
     if (err instanceof AppError) throw err;
     // Provider error text can name the provider and the plan: the logs get it, the caller does not.
     logger.warn({ err, token }, 'token check: chain source failed');
-    throw new AppError(503, 'SOURCES_UNAVAILABLE', 'The chain data source did not answer. You were not charged; try again in a minute.');
+    throw new AppError(503, 'SOURCES_UNAVAILABLE', 'The chain data source did not answer. You were not charged; try again in a minute.', undefined, RETRY_AFTER);
   } finally {
     clearTimeout(timer);
     check.catch(() => {});
   }
 }
 
-async function cachedCheck(token: string): Promise<TokenCheck> {
-  return (await readCache(sharedKey(token))) ?? withinBudget(token, runCheck(token, 'paid'));
+async function paidCheck(token: string): Promise<{ check: StoredCheck; cached: boolean }> {
+  const hit = await readCache(sharedKey(token));
+  return hit ? { check: hit, cached: true } : { check: await withinBudget(token, runCheck(token, 'paid')), cached: false };
+}
+
+const NOT_A_TOKEN_FLAGS: NotATokenFlag[] = ['not_a_contract', 'not_a_token'];
+
+/**
+ * A check that found no token is refused with 400, so the payment middleware settles nothing:
+ * an NFT collection answers totalSupply() and passes the read before payment, and so does any
+ * address when that read could not run. A look-alike's hold is an answer, and is sent.
+ */
+async function refuseNotAToken(token: string, check: TokenCheck): Promise<void> {
+  if (check.flags.includes('imitates_known_token')) return;
+  const flag = NOT_A_TOKEN_FLAGS.find((f) => check.flags.includes(f));
+  if (!flag) return;
+  // Refused before payment from now on.
+  await rememberKind(token, flag).catch((err) => logger.warn({ err, token }, 'token kind: could not keep a non-token'));
+  throw notATokenError(flag, check.verdict.reason);
 }
 
 const tokenCheck = new Hono();
 tokenCheck.get('/', rateLimit({ max: 60, windowSec: 60, prefix: 'rl:token-check-x402' }), async (c: Context) => {
   const { token } = parseTokenInput(tokenParam(c), c.req.query('chain'));
-  return c.json({ success: true, data: await cachedCheck(token) });
+  const { check, cached } = await paidCheck(token);
+  await refuseNotAToken(token, check);
+  return c.json({ success: true, data: answer(check, cached) });
 });
 
 // The free check for people, on the same provider plan the paid checks use, so three allowances
@@ -116,19 +164,23 @@ const FREE_YOUNG_TTL_SEC = 180;
 const freeProbes = budget({ max: FREE_PROBES_PER_DAY, windowSec: 86_400, prefix: 'bud:token-probe-day', scope: 'global' });
 const freeHourly = budget({ max: FREE_TOKEN_CHECKS_PER_HOUR, windowSec: 3_600, prefix: 'bud:token-report' });
 const freeDaily = budget({ max: FREE_TOKEN_CHECKS_PER_DAY, windowSec: 86_400, prefix: 'bud:token-report-day', scope: 'global' });
-const recentKey = (token: string) => `token-report:recent:${token}`;
+// v2: the cached check carries checked_at.
+const recentKey = (token: string) => `token-report:v2:recent:${token}`;
 const chargedKey = (token: string) => `token-report:charged:${token}`;
 const PAID_CHECK = 'use the paid check: GET https://api.chainward.ai/api/risk/rugcheck?address=… ($0.02 over x402).';
 const FREE_USED_UP = `Today's free rug checks are used up. Try again tomorrow, or ${PAID_CHECK}`;
 const FREE_HOURLY_USED_UP = `You have used this hour's free rug checks. Try again later, or ${PAID_CHECK}`;
 const PROBES_USED_UP = 'The free check is busy. Try again later.';
 
-/** Spends one unit, or answers 429 with this route's own code and words. */
+/**
+ * Spends one unit, or answers 429 with this route's own code and words, and headers for the
+ * allowance that refused it: its limit, and Retry-After until its next unit frees.
+ */
 async function spendOr(allowance: ReturnType<typeof budget>, c: Context, code: string, message: string): Promise<() => Promise<void>> {
   try {
     return await allowance.spend(c);
   } catch (err) {
-    if (err instanceof AppError && err.statusCode === 429) throw new AppError(429, code, message);
+    if (err instanceof AppError && err.statusCode === 429) throw new AppError(429, code, message, undefined, await allowance.refusalHeaders(c));
     throw err;
   }
 }
@@ -155,7 +207,7 @@ const tokenReport = new Hono();
 tokenReport.get('/:address', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:token-report' }), async (c: Context) => {
   const { token } = parseTokenInput(c.req.param('address'), 'base');
   const hit = (await readCache(sharedKey(token))) ?? (await readCache(recentKey(token)));
-  if (hit) return c.json({ success: true, data: hit });
+  if (hit) return c.json({ success: true, data: answer(hit, true) });
   // ?cached=1: the report page's server render, for the link preview; it never reads the chain.
   if (c.req.query('cached') === '1') throw new AppError(404, 'NOT_FOUND', 'No recent check for this address');
   await spendOr(freeProbes, c, 'PROBES_USED_UP', PROBES_USED_UP);
@@ -163,7 +215,7 @@ tokenReport.get('/:address', rateLimit({ max: 30, windowSec: 60, prefix: 'rl:tok
   try {
     const data = await withinBudget(token, runCheck(token, 'free', { beforeLaunchSearch: () => chargeFreeCheck(c, token, giveBack) }));
     await getRedis().set(recentKey(token), JSON.stringify(data), 'EX', ttlFor(data) === YOUNG_TOKEN_TTL_SEC ? FREE_YOUNG_TTL_SEC : CACHE_TTL_SEC);
-    return c.json({ success: true, data });
+    return c.json({ success: true, data: answer(data, false) });
   } catch (err) {
     // A check past its time budget keeps running and fills the cache, so it keeps what it was charged.
     if (err instanceof AppError && err.code === 'SOURCES_UNAVAILABLE') await Promise.all(giveBack.map((give) => give()));
