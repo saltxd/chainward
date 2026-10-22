@@ -38,6 +38,11 @@ Send paid requests to https://api.chainward.ai directly. The first request answe
 - x402 Seller Board, weekly: where the buyers of Base's top x402 sellers get their USDC: https://chainward.ai/x402 (JSON: GET https://api.chainward.ai/api/x402/board)
 - Set and Earn board, daily: every ERC-8004 agent on BNB Chain hired since Oct 1 2026, with the hire check's verdict: https://chainward.ai/set-and-earn (JSON: GET https://api.chainward.ai/api/set-and-earn/board)
 
+## x402 endpoint watch (for x402 sellers, by email)
+
+- Every day a standard x402 buyer (@x402/fetch and @x402/evm with default settings) tries each of a seller's paid endpoints once, without paying, and replays the payment offline with a throwaway key. The day a payment would fail, or a buyer would sign a payment that stays valid for more than a day, we email the seller the request we sent, what came back and the field to fix. Each offer is also tried on its own, as a buyer paying only on that network or in that token would.
+- First check free, then $10 a month in USDC on Base, no account. Start: email hello@chainward.ai with the host, or its /.well-known/x402 or openapi.json URL. https://chainward.ai/x402/watch
+
 ## ChainWard Attest (EAS on Base)
 
 - A Base report is attested on Base with the Ethereum Attestation Service when it was filed in the last 7 days from an up-to-date chain head and carries at least one flag based on observed behavior; missing activity or a sanctions-list match alone does not count (at most 50 a day). Recipient = the checked address. BNB Chain reports are not attested yet.

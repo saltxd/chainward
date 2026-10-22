@@ -19,6 +19,7 @@ const PUBLIC_PAGES = [
   'reports/page.tsx',
   'set-and-earn/page.tsx',
   'x402/page.tsx',
+  'x402/watch/page.tsx',
   'attest/page.tsx',
   'mcp/page.tsx',
   'hyperliquid/page.tsx',

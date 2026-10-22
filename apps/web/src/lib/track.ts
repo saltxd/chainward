@@ -17,7 +17,8 @@ export type TrackEvent =
   | 'brief_order_created'
   | 'brief_paid'
   | 'paid_file_bought'
-  | 'paid_file_lookup';
+  | 'paid_file_lookup'
+  | 'watch_cta_click';
 
 export type TrackData = Record<string, string | number | boolean>;
 
