@@ -48,6 +48,12 @@ describe('/docs', () => {
     expect(paid).toMatch(/free on the site/);
   });
 
+  it('sends x402 sellers to the endpoint watch from the paid section', () => {
+    const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
+    expect(paid).toContain('href="/x402/watch"');
+    expect(paid).toContain('Sell over x402 yourself?');
+  });
+
   // The label set: what our published investigations found about a wallet.
   it('says a strong label from our published investigations answers Hold, and the rug check names the launch wallet\'s', () => {
     const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));

@@ -370,6 +370,12 @@ export default function DocsPage() {
         <a href="/.well-known/x402">/.well-known/x402</a> and{' '}
         <a href="/openapi.json">/openapi.json</a>.
       </p>
+      <p>
+        Sell over x402 yourself? A standard buyer (<code>@x402/fetch</code> with its default
+        settings) can try your paid endpoints every day, without paying, and we email you the day a
+        payment would fail, with the field to fix: the{' '}
+        <a href="/x402/watch">x402 endpoint watch</a>. First check free, then $10 a month in USDC on Base.
+      </p>
       <h3>Or pay from this page</h3>
       <p>
         Run the counterparty check with a wallet that holds USDC on Base. You sign

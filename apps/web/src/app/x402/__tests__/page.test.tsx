@@ -69,6 +69,17 @@ describe('/x402', () => {
     expect(html).toContain('built before verdicts');
   });
 
+  // Sellers who find their own payTo on the board get the daily payment check.
+  it('points sellers at the endpoint watch under the hero, with or without a board', async () => {
+    for (const data of [board, null]) {
+      vi.stubGlobal('fetch', vi.fn(async () => (data ? new Response(JSON.stringify({ success: true, data })) : new Response('', { status: 503 }))));
+      const html = renderToStaticMarkup(await X402BoardPage());
+      expect(html).toContain('Is one of these yours? We can check it daily.');
+      expect(html).toContain('href="/x402/watch"');
+      expect(html.indexOf('href="/x402/watch"')).toBeLessThan(html.indexOf('<hr'));
+    }
+  });
+
   it('offers the seller check on every board row, paid from the wallet', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, data: board }))));
     const html = renderToStaticMarkup(await X402BoardPage());

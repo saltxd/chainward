@@ -109,6 +109,17 @@ export default async function X402BoardPage() {
               <span>{board.check_window_days}-day funding window</span>
             </div>
           )}
+          <aside className="xb-seller" aria-label="x402 endpoint watch">
+            <span className="press-label">For x402 sellers</span>
+            <p className="xb-seller-p">
+              <strong>Is one of these yours? We can check it daily.</strong> A standard x402 buyer tries each
+              of your paid endpoints every day, without paying, and we email you the day a payment would fail,
+              with the field to fix. First check free, then $10 a month.{' '}
+              <Link className="press-link" href="/x402/watch">
+                x402 endpoint watch →
+              </Link>
+            </p>
+          </aside>
         </section>
 
         <hr className="press-rule" />
@@ -292,6 +303,9 @@ export default async function X402BoardPage() {
         .xb-verdict .xb-sub { display: block; font-weight: 400; margin-top: 2px; }
         .xb-verdict--self_funded_demand { color: var(--oxblood); }
         .xb-none { color: var(--ink-faint); }
+        .xb-seller { margin-top: 26px; max-width: 760px; border: 1px solid var(--rule-strong); padding: 16px 20px; }
+        .xb-seller-p { margin: 8px 0 0; font-family: var(--font-text); font-size: 16px; line-height: 1.55; color: var(--ink-soft); }
+        .xb-seller-p strong { color: var(--ink); font-weight: 640; }
       `}</style>
     </PressShell>
   );
