@@ -1,0 +1,21 @@
+{
+  "url": "https://api.example.com/api/data",
+  "method": "POST",
+  "sentAt": "2026-10-21T19:03:48Z",
+  "request": {
+    "headers": {
+      "user-agent": "chainward-x402-lint/1.0 (+https://chainward.ai)",
+      "accept": "application/json, */*;q=0.5",
+      "content-type": "application/json"
+    },
+    "body": "{}"
+  },
+  "status": 402,
+  "headers": {
+    "content-type": "application/json",
+    "server": "Vercel",
+    "x-vercel-error": "DEPLOYMENT_DISABLED"
+  },
+  "headerBytes": 85,
+  "bodyText": "{\"error\": {\"code\": \"402\", \"message\": \"Payment required\"}}"
+}

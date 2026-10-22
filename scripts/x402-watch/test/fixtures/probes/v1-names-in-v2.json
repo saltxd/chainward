@@ -1,0 +1,18 @@
+{
+  "url": "https://api.example.com/v1/quote",
+  "method": "GET",
+  "sentAt": "2026-10-21T19:02:49Z",
+  "request": {
+    "headers": {
+      "user-agent": "chainward-x402-lint/1.0 (+https://chainward.ai)",
+      "accept": "application/json, */*;q=0.5"
+    }
+  },
+  "status": 402,
+  "headers": {
+    "content-type": "application/json",
+    "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vdjEvcXVvdGUiLCJkZXNjcmlwdGlvbiI6IkV4YW1wbGUgcGFpZCBlbmRwb2ludCIsIm1pbWVUeXBlIjoiYXBwbGljYXRpb24vanNvbiJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJiYXNlIiwiYW1vdW50IjoiMTAwMDAiLCJtYXhBbW91bnRSZXF1aXJlZCI6IjEwMDAwIiwiYXNzZXQiOiIweDgzMzU4OWZDRDZlRGI2RTA4ZjRjN0MzMkQ0ZjcxYjU0YmRBMDI5MTMiLCJtYXhUaW1lb3V0U2Vjb25kcyI6MzAwLCJwYXlUbyI6IjB4MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn0sInJlc291cmNlIjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vdjEvcXVvdGUiLCJkZXNjcmlwdGlvbiI6IkV4YW1wbGUgcGFpZCBlbmRwb2ludCIsIm1pbWVUeXBlIjoiYXBwbGljYXRpb24vanNvbiJ9XX0="
+  },
+  "headerBytes": 780,
+  "bodyText": "{}"
+}

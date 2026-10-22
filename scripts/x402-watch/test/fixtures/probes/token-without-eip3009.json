@@ -1,0 +1,20 @@
+{
+  "url": "https://api.example.com/v1/credit",
+  "method": "POST",
+  "sentAt": "2026-10-21T19:03:45Z",
+  "request": {
+    "headers": {
+      "user-agent": "chainward-x402-lint/1.0 (+https://chainward.ai)",
+      "accept": "application/json, */*;q=0.5",
+      "content-type": "application/json"
+    },
+    "body": "{}"
+  },
+  "status": 402,
+  "headers": {
+    "content-type": "application/json",
+    "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vdjEvY3JlZGl0IiwiZGVzY3JpcHRpb24iOiJFeGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24ifSwiYWNjZXB0cyI6W3sic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZWlwMTU1Ojg0NTMiLCJhbW91bnQiOiI1MDAwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZmNkNmVkYjZlMDhmNGM3YzMyZDRmNzFiNTRiZGEwMjkxMyIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwicGF5VG8iOiIweDExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fSx7InNjaGVtZSI6ImV4YWN0IiwibmV0d29yayI6ImVpcDE1NTo4NDUzIiwiYW1vdW50IjoiNTAwMDAwMDAwMDAwMDAwMDAwIiwiYXNzZXQiOiIweDUwYzU3MjU5NDlBNkYwYzcyRTZDNGE2NDFGMjQwNDlBOTE3REIwQ2IiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsInBheVRvIjoiMHgxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiZXh0cmEiOnsibmFtZSI6IkRhaSBTdGFibGVjb2luIiwidmVyc2lvbiI6IjIifX0seyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6MTM3IiwiYW1vdW50IjoiNTAwMDAwIiwiYXNzZXQiOiIweDNjNDk5YzU0MmNlZjVlMzgxMWUxMTkyY2U3MGQ4Y2MwM2Q1YzMzNTkiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsInBheVRvIjoiMHgxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX0seyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6MTM3IiwiYW1vdW50IjoiNTAwMDAwMDAwMDAwMDAwMDAwIiwiYXNzZXQiOiIweDhmM0NmN2FkMjNDZDNDYURiRDk3MzVBRmY5NTgwMjMyMzljNkEwNjMiLCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsInBheVRvIjoiMHgxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiZXh0cmEiOnsibmFtZSI6IihQb1MpIERhaSBTdGFibGVjb2luIiwidmVyc2lvbiI6IjIifX0seyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6NTkxNDQiLCJhbW91bnQiOiI1MDAwMDAiLCJhc3NldCI6IjB4MTc2MjExODY5Y2EyYjU2OGYyYTdkNGVlOTQxZTA3M2E4MjFlZTFmZiIsIm1heFRpbWVvdXRTZWNvbmRzIjo2MCwicGF5VG8iOiIweDExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJleHRyYSI6eyJuYW1lIjoiVVNEIENvaW4iLCJ2ZXJzaW9uIjoiMiJ9fV19"
+  },
+  "headerBytes": 1856,
+  "bodyText": "{}"
+}

@@ -1,0 +1,17 @@
+{
+  "url": "https://api.example.com/v1/check",
+  "method": "GET",
+  "sentAt": "2026-10-21T19:02:55Z",
+  "request": {
+    "headers": {
+      "user-agent": "chainward-x402-lint/1.0 (+https://chainward.ai)",
+      "accept": "application/json, */*;q=0.5"
+    }
+  },
+  "status": 402,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "headerBytes": 32,
+  "bodyText": "{\"x402Version\":2,\"error\":\"Payment required\",\"resource\":{\"url\":\"https://api.example.com/v1/check\",\"description\":\"Example paid endpoint\",\"mimeType\":\"application/json\"},\"accepts\":[{\"scheme\":\"exact\",\"network\":\"eip155:8453\",\"amount\":\"50000\",\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"maxTimeoutSeconds\":300,\"payTo\":\"0x1111111111111111111111111111111111111111\",\"extra\":{\"name\":\"USDC\",\"version\":\"2\"}}]}"
+}
