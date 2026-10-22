@@ -1,0 +1,64 @@
+name: Publish MCP server
+
+# Pushing a tag like mcp-server-v0.3.0 publishes packages/mcp-server to npm and to
+# the MCP Registry. npm trusted publishing (OIDC): no npm token and no 2FA prompt;
+# the package's trusted publisher on npmjs.com names this repo and this file. The
+# tag must match package.json and server.json, so a stray tag publishes nothing.
+on:
+  push:
+    tags: ['mcp-server-v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: mcp-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Tag, package.json and server.json agree
+        working-directory: packages/mcp-server
+        run: |
+          v=$(node -p "require('./package.json').version")
+          test "mcp-server-v$v" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME does not match package.json $v"; exit 1; }
+          node -e "const s = require('./server.json'); const p = s.packages.find((x) => x.registryType === 'npm'); if (s.version !== '$v' || !p || p.version !== '$v') { console.error('server.json does not say $v'); process.exit(1); }"
+
+      - name: Test and build
+        working-directory: packages/mcp-server
+        run: |
+          pnpm test
+          pnpm typecheck
+          pnpm build
+
+      # Trusted publishing needs npm 11.5.1 or later; provenance is added automatically.
+      - name: Publish to npm
+        working-directory: packages/mcp-server
+        run: |
+          node -e "const [a, b, c] = process.argv[1].split('.').map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)" "$(npm --version)" || npm install -g npm@11
+          npm --version
+          npm publish --access public
+
+      - name: Publish to the MCP Registry
+        working-directory: packages/mcp-server
+        run: |
+          curl -fsSL -o /tmp/mcp-publisher.tgz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  /tmp/mcp-publisher.tgz" | sha256sum -c -
+          tar xzf /tmp/mcp-publisher.tgz -C /tmp mcp-publisher
+          /tmp/mcp-publisher login github-oidc
+          /tmp/mcp-publisher publish
