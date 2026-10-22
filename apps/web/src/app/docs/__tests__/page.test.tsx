@@ -75,8 +75,8 @@ describe('/docs', () => {
   // Most Clanker launches come from wallets that launch dozens of tokens a day.
   it('says the rug check counts Clanker launches by the same wallet, and names the admin behind a service launch', () => {
     const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
-    expect(paid).toMatch(/how many tokens it\s+launched through Clanker in the 24 hours up to this one/);
-    expect(paid).toMatch(/the token(&#x27;|')s admin at launch is named/i);
+    expect(paid).toMatch(/how many tokens it\s+launched through Clanker, Doppler and Zora in the busiest 24 hours around this one/);
+    expect(paid).toMatch(/made for another wallet \(Clanker(&#x27;|')s\s+token admin, Zora(&#x27;|')s payout recipient or Doppler(&#x27;|')s vesting beneficiary\), the\s+wallet checks run on that wallet/);
   });
 });
 

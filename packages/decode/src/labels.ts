@@ -82,7 +82,7 @@ export function selfFundedSellerSentence(source: string): string {
 }
 
 export function serialLauncherSentence(launches: number, seen: string): string {
-  return `Launched ${launches.toLocaleString('en-US')} tokens through Clanker in one day (seen ${day(seen)}).`;
+  return `Launched ${launches.toLocaleString('en-US')} tokens through Clanker, Doppler or Zora in one day (seen ${day(seen)}).`;
 }
 
 export function launchDumperSentence(launches: number, seen: string): string {
