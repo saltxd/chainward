@@ -1090,7 +1090,7 @@ describe('checkToken: reads placed by block time', () => {
     expect(r.creator?.week_before_launch).toEqual({ block: LAUNCH_BLOCK - 302_400, sent_txs: 0, has_code: false });
     expect(r.flags).toContain('new_creator');
     expect(r.creator?.age_days_at_launch).toBeNull();
-    expect(r.verdict.reason).toBe('The wallet that launched it had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.');
+    expect(r.verdict.reason).toBe('The wallet that launched it had not sent a single transaction a week before the launch, so its own activity began less than 7 days before the launch.');
   });
 
   // A smart wallet deployed months ago whose first transfer in came two days before the launch.

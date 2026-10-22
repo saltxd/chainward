@@ -1451,7 +1451,11 @@ function verdictFor(
     return { label: 'review', reason: `${who} was first seen ${d === 0 ? 'less than a day' : plural(d, 'day')} before the launch.` };
   }
   if (flags.includes('new_creator')) {
-    return { label: 'review', reason: `${who} had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.` };
+    // A plain wallet that has still sent nothing has no activity at all, not a week's worth.
+    if (creator?.type === 'wallet' && creator.sent_txs === 0) {
+      return { label: 'review', reason: `${who} has never sent a transaction of its own, so it has no history to judge.` };
+    }
+    return { label: 'review', reason: `${who} had not sent a single transaction a week before the launch, so its own activity began less than 7 days before the launch.` };
   }
   if (flags.includes('creator_shared_funder')) {
     const recent = creator?.first_funder?.recent_recipients;
