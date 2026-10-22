@@ -1,0 +1,18 @@
+{
+  "url": "https://api.example.com/v1/ticket",
+  "method": "GET",
+  "sentAt": "2026-10-21T19:03:31Z",
+  "request": {
+    "headers": {
+      "user-agent": "chainward-x402-lint/1.0 (+https://chainward.ai)",
+      "accept": "application/json, */*;q=0.5"
+    }
+  },
+  "status": 402,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20vdjEvdGlja2V0IiwiZGVzY3JpcHRpb24iOiJFeGFtcGxlIHBhaWQgZW5kcG9pbnQiLCJtaW1lVHlwZSI6ImFwcGxpY2F0aW9uL2pzb24ifSwiYWNjZXB0cyI6W3sic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZWlwMTU1Ojg0NTMiLCJhbW91bnQiOiI1MDAwIiwiYXNzZXQiOiIweDgzMzU4OWZDRDZlRGI2RTA4ZjRjN0MzMkQ0ZjcxYjU0YmRBMDI5MTMiLCJtYXhUaW1lb3V0U2Vjb25kcyI6MzAwLCJwYXlUbyI6IjB4MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19LHsic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZWlwMTU1OjEzNyIsImFtb3VudCI6IjUwMDAiLCJhc3NldCI6IjB4M2M0OTljNTQyY0VGNUUzODExZTExOTJjZTcwZDhjQzAzZDVjMzM1OSIsIm1heFRpbWVvdXRTZWNvbmRzIjozMDAsInBheVRvIjoiMHgxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX0seyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6NDIxNjEiLCJhbW91bnQiOiI1MDAwIiwiYXNzZXQiOiIweGFmODhkMDY1ZTc3YzhjQzIyMzkzMjdDNUVEYjNBNDMyMjY4ZTU4MzEiLCJtYXhUaW1lb3V0U2Vjb25kcyI6MzAwLCJwYXlUbyI6IjB4MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19LHsic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZWlwMTU1OjQ4MCIsImFtb3VudCI6IjUwMDAiLCJhc3NldCI6IjB4NzlBMDI0ODJBODgwYkNFM0YxM2UwOURhOTcwZEMzNGRiNENEMjRkMSIsIm1heFRpbWVvdXRTZWNvbmRzIjozMDAsInBheVRvIjoiMHgxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX1dfQ=="
+  },
+  "headerBytes": 1539,
+  "bodyText": "{}"
+}
