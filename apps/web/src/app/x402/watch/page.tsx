@@ -41,7 +41,7 @@ async function getTreasury(): Promise<string | null> {
   }
 }
 
-// The six things that stopped a stock buyer on 2026-10-21, with the endpoint counts
+// The six problems a stock buyer ran into on 2026-10-21 (five fail the payment, one over-authorizes), with the endpoint counts
 // from that run (ops lint summary, outcomes_all_live).
 const CHECKS: { plain: string; name: string; oct21: number }[] = [
   {
@@ -138,11 +138,11 @@ export default async function X402WatchPage() {
               <ul>
                 <li>
                   39 of them would make the buyer&apos;s payment fail (33) or have it sign a payment that stays
-                  open for more than a day (6). Every one of the 39 sat on a host that a catalog had already
-                  flagged, and it was still broken on Oct 21.
+                  open for more than a day (6). Every one of the 39 sat on a host whose catalog listing already
+                  showed a mistake, and it was still broken on Oct 21.
                 </li>
                 <li>
-                  On hosts no catalog had flagged, the buyer tried to pay 1,267 endpoints, and none failed on an
+                  On hosts whose listings showed no mistake, the buyer tried to pay 1,267 endpoints, and none failed on an
                   x402 mistake. The only 2 failures there were paused deployments that answered 402 with no x402
                   offer at all.
                 </li>
@@ -150,7 +150,7 @@ export default async function X402WatchPage() {
               <p>
                 The sample leaned on purpose toward hosts whose listings showed a problem, so these counts are
                 not a rate for x402 as a whole. What they do show: most sellers are fine, and the broken ones
-                were flagged in a listing and stayed broken. A catalog listing doesn&apos;t reach your inbox.
+                already showed the mistake in their listing and stayed broken. A catalog listing doesn&apos;t reach your inbox.
                 This does.
               </p>
 
@@ -158,7 +158,8 @@ export default async function X402WatchPage() {
               <p>
                 Each day the buyer requests each of your endpoints once, without paying, reads the 402 the way
                 @x402/fetch does and signs the payment it would send, offline. Then we check that payment
-                against the token&apos;s contract on its chain. These six things stopped it on Oct 21:
+                against the token&apos;s contract on its chain. On Oct 21 it ran into these six problems. Five make the payment fail; the
+                sixth has the buyer sign a payment that stays open for more than a day:
               </p>
               <ul className="wa-checks">
                 {CHECKS.map((c) => (

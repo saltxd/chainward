@@ -69,7 +69,10 @@ describe('/x402/watch', () => {
     expect(text).toContain(
       "39 of them would make the buyer's payment fail (33) or have it sign a payment that stays open for more than a day (6)",
     );
-    expect(text).toContain('Every one of the 39 sat on a host that a catalog had already flagged');
+    expect(text).toContain('Every one of the 39 sat on a host whose catalog listing already showed a mistake');
+    expect(text).toContain('On hosts whose listings showed no mistake, the buyer tried to pay 1,267 endpoints');
+    expect(text).toContain('the broken ones already showed the mistake in their listing and stayed broken');
+    expect(text).not.toContain('a catalog had already flagged');
     expect(text).toContain('the buyer tried to pay 1,267 endpoints, and none failed on an x402 mistake');
     expect(text).toContain('The only 2 failures there were paused deployments');
     expect(text).toContain('not a rate for x402 as a whole');
@@ -81,6 +84,8 @@ describe('/x402/watch', () => {
   it('lists the six classes in plain words with the technical name in parentheses', async () => {
     stubConfig({ success: true, treasuryAddress: TREASURY, available: true });
     const { text } = await render();
+    expect(text).toContain('Five make the payment fail; the sixth has the buyer sign a payment that stays open for more than a day');
+    expect(text).not.toContain('These six things stopped it');
     for (const [name, n] of [
       ['v1 network names in a v2 challenge', 16],
       ['wrong EIP-712 domain in extra.name or extra.version', 12],
