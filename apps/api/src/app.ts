@@ -29,7 +29,7 @@ import { x402InFlightLock } from './middleware/x402InFlight.js';
 import { logger } from './lib/logger.js';
 import { apiHomePage, x402DiscoveryDocument, x402OpenApiDocument, x402PublicUrl } from './lib/x402.js';
 import { walletPaid, walletV1 } from './routes/walletLookup.js';
-import { tokenCheck, tokenParam, tokenReport } from './routes/tokenCheck.js';
+import { parsePaidTokenInput, tokenCheck, tokenReport } from './routes/tokenCheck.js';
 import {
   checkPaidInput,
   parseCounterpartyInput,
@@ -37,7 +37,6 @@ import {
   parseHireInput,
   parseSanctionsAddress,
   parseSellerInput,
-  parseTokenInput,
 } from './lib/paidInput.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { createServer as createMcpServer } from 'chainward-mcp-server/server';
@@ -155,8 +154,9 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
       ['/api/risk/counterparty', checkPaidInput((c) => parseCounterpartyInput(c.req.query('address'), c.req.query('chain')))],
       ['/api/risk/ofac', checkPaidInput((c) => parseSanctionsAddress(c.req.query('address')))],
       ['/api/risk/wallet', checkPaidInput((c) => parseCounterpartyInput(c.req.query('address'), c.req.query('chain')))],
-      ['/api/risk/rugcheck', checkPaidInput((c) => parseTokenInput(tokenParam(c), c.req.query('chain')))],
-      ['/api/risk/token', checkPaidInput((c) => parseTokenInput(tokenParam(c), c.req.query('chain')))],
+      // The rug check also refuses an address that is not a token (400 NOT_A_TOKEN) here.
+      ['/api/risk/rugcheck', checkPaidInput(parsePaidTokenInput)],
+      ['/api/risk/token', checkPaidInput(parsePaidTokenInput)],
       ['/api/paid/:slug/file', checkPaidInput((c) => requireKnownSlug(c.req.param('slug')))],
       [
         '/api/paid/:slug/check',

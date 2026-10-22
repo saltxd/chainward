@@ -10,6 +10,8 @@ export class AppError extends Error {
     public code: string,
     message: string,
     public details?: unknown,
+    /** Headers the client needs with this error, such as Retry-After. */
+    public headers?: Record<string, string>,
   ) {
     super(message);
     this.name = 'AppError';
@@ -22,6 +24,7 @@ const HTTP_EXCEPTION_ERRORS: Partial<Record<number, { code: string; message: str
 
 export function handleError(err: Error, c: Context): Response {
   if (err instanceof AppError) {
+    for (const [name, value] of Object.entries(err.headers ?? {})) c.header(name, value);
     const body: ApiErrorResponse = {
       success: false,
       error: {

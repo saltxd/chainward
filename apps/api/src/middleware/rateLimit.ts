@@ -181,5 +181,23 @@ export function budget(options: BudgetOptions) {
       }
       return refund;
     },
+
+    /**
+     * Headers for a 429 from this allowance: its own limit, nothing remaining, and
+     * when its oldest use leaves the window (Retry-After, in seconds; X-RateLimit-Reset,
+     * as a Unix time). Without them a 429 carried the per-minute limit's headers.
+     */
+    async refusalHeaders(c: Context): Promise<Record<string, string>> {
+      const { key, max } = bucket(c);
+      const now = Date.now();
+      const [, oldestScore] = await getRedis().zrange(key, 0, 0, 'WITHSCORES');
+      const freesAt = oldestScore === undefined ? now : Number(oldestScore) + windowSec * 1000;
+      return {
+        'Retry-After': String(Math.max(1, Math.ceil((freesAt - now) / 1000))),
+        'X-RateLimit-Limit': String(max),
+        'X-RateLimit-Remaining': '0',
+        'X-RateLimit-Reset': String(Math.ceil(freesAt / 1000)),
+      };
+    },
   };
 }

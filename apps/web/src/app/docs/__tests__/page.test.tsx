@@ -41,6 +41,15 @@ describe('/docs', () => {
     expect(paid).toContain('not a honeypot');
   });
 
+  // An agent pays nothing for an address that is not a token, and can tell a cached answer from a fresh one.
+  it('says the rug check refuses a non-token before payment and dates every answer', () => {
+    const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
+    expect(paid).toContain('NOT_A_TOKEN');
+    expect(paid).toMatch(/before payment/);
+    expect(paid).not.toMatch(/that\s+answer is charged/);
+    for (const field of ['checked_at', 'cached', 'age_seconds']) expect(paid).toContain(`<code>${field}</code>`);
+  });
+
   // People paste a token on chainward.ai for free; the paid route is for bots and apps.
   it('says people can run the rug check free on the site', () => {
     const paid = html.slice(html.indexOf('Pay per request over x402'), html.indexOf('<h2>Datasets</h2>'));
