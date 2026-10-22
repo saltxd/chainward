@@ -6,14 +6,18 @@
 // launch transaction, the launch wallet (the fast wallet lookup, and its nonce and
 // code a week before the launch), mints after the first issuance, the launch
 // wallet's balance, and what it did with tokens it got in the launch transaction
-// (its transfers, and its balance at the launch and an hour later). For a token
-// outside the launchpads that lock its liquidity, the liquidity the launch wallet
-// added to and removed from its Uniswap v2 and Aerodrome pools; for a Doppler
-// launch, the supply still vesting to the launch wallet; for a Clanker launch, the
-// supply in Clanker's vault and airdrop. Never says "safe": no_flags means
-// nothing matched.
+// (its transfers, and its balance at the launch, an hour later and now), and its
+// own launches around this one. When the launch receipt names the wallet a launch
+// service launched it for (Clanker's token admin, Zora's payout recipient, the one
+// wallet a Doppler token vests to), the wallet facts describe that wallet. For a
+// token outside the launchpads that lock its liquidity, the liquidity the launch
+// wallet added to and removed from its Uniswap v2 and Aerodrome pools; for a
+// Doppler launch, the supply still vesting to the launch wallet; for a Clanker
+// launch, the supply in Clanker's vault and airdrop. No eth_getLogs: Alchemy's free
+// tier refuses ranges over 10 blocks. Never says "safe": no_flags means nothing matched.
 
-import { lookupWallet, type WalletLookup, type WalletLookupDeps } from './wallet-lookup.js';
+import { decodeFunctionResult, encodeFunctionData, parseAbi } from 'viem';
+import { freshWallets, lookupWallet, type WalletLookup, type WalletLookupDeps } from './wallet-lookup.js';
 import { imitatedToken, type Imitation } from './lookalike.js';
 import { alchemyWalletLookupDeps } from './wallet-lookup.js';
 import { alchemyAssetTransfers } from './seller-demand.js';
@@ -26,12 +30,19 @@ const TOKEN_DEPLOYMENT_INFO = '0x22adcdb1';
  * service sends it on that wallet's behalf). Later updateAdmin calls change admin() but not this.
  */
 const ORIGINAL_ADMIN = '0x1c7b2ff4';
-/** A launch wallet that launched at least this many tokens through Clanker in the 24 hours up to a launch is a serial launcher. */
+/**
+ * Clanker's factory logs TokenCreated(msgSender, tokenAddress indexed, tokenAdmin indexed, ...) for each launch: the admin
+ * is the wallet the launch was made for, which a launch service names when it launches for someone.
+ */
+const TOKEN_CREATED = '0x9299d1d1a88d8e1abdc591ae7a167a6bc63a8f17d695804e9091ee33aa89fb67';
+/** Doppler's clone token logs, per vesting beneficiary, (beneficiary indexed, scheduleId indexed, amount) at launch. */
+const DOPPLER_VESTING_ALLOCATED = '0x6b467f0a76daac5283d2251b6e7660fed01ea99dbd70aa7092f3318731690c9d';
+/** A wallet with at least this many launches in 24 hours that include this one is a serial launcher. */
 export const SERIAL_LAUNCHES_24H = 5;
 const DAY_SEC = 86_400;
 /** Blocks searched back for a day of launches: a day at 5 blocks a second (Base's Denim upgrade); the day itself is cut by block time. */
 const DAY_BLOCKS_MAX = 432_000;
-/** The launch wallet's transactions to Clanker's factory are read from their newest this many records. */
+/** The launch wallet's own transactions around the launch are read from their newest this many records. */
 const LAUNCH_COUNT_PAGE = 1000;
 /** ERC-4337 EntryPoints v0.6 to v0.9: a launch sent through one came from a smart wallet. */
 const ENTRY_POINTS = new Set([
@@ -60,38 +71,46 @@ const VIRTUALS_BONDING_V5 = '0x1a540088125d00dd3990f9da45ca0859af4d3b01';
  */
 const DOPPLER_AIRLOCK = '0x660eaaedebc968f8f3694354fa8ec0b4c5ba8d12';
 const ZORA_FACTORY = '0x777777751622c0d3258f214f9df38e35bf45baf3';
+type Launchpad = 'clanker' | 'doppler' | 'zora' | 'virtuals';
 /**
- * Uniswap v2's factory and Aerodrome's basic-pool factory log PairCreated(token0 indexed, token1 indexed, pair, n) and
- * PoolCreated(token0 indexed, token1 indexed, stable indexed, pool, n): the pool is the first data word of both.
+ * Where a wallet's own launch transactions go: each transaction to one of these creates a token (Doppler's Airlock also
+ * takes the call that moves a finished sale to its pool). Virtuals' bonding curve is not here: purchases and sales on it
+ * go to the same contract as launches.
+ */
+const LAUNCH_CONTRACTS: Record<string, Exclude<Launchpad, 'virtuals'>> = {
+  [CLANKER_V4_FACTORY.toLowerCase()]: 'clanker',
+  [DOPPLER_AIRLOCK]: 'doppler',
+  [ZORA_FACTORY]: 'zora',
+};
+const LAUNCHPAD_NAMES: Array<[Launchpad, string]> = [
+  ['clanker', 'Clanker'],
+  ['doppler', 'Doppler'],
+  ['zora', 'Zora'],
+  ['virtuals', 'Virtuals'],
+];
+/**
+ * Uniswap v2's factory answers getPair(a, b) and Aerodrome's basic-pool factory getPool(a, b, stable): one Multicall3
+ * eth_call asks both for the token against each paired token named below (volatile pools on Aerodrome).
  */
 const POOL_FACTORIES = [
-  { address: '0x8909dc15e40173ff4699343b6eb8132c65e18ec6', topic: '0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9', dex: 'uniswap_v2' },
-  { address: '0x420dd381b31aef6683db6b902084cb0ffece40da', topic: '0x2128d88d14c80cb081c1252a5acff7a264671bf199ce226b53788fb26065005e', dex: 'aerodrome' },
+  { address: '0x8909dc15e40173ff4699343b6eb8132c65e18ec6', dex: 'uniswap_v2', lookup: (a: string, b: string) => `0xe6a43905${pad(a)}${pad(b)}` },
+  { address: '0x420dd381b31aef6683db6b902084cb0ffece40da', dex: 'aerodrome', lookup: (a: string, b: string) => `0x79bc57d5${pad(a)}${pad(b)}${'0'.repeat(64)}` },
 ] as const;
-const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const MULTICALL3 = '0xca11bde05977b3631167028862be2a173976ca11';
+const AGGREGATE3 = parseAbi(['function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[] returnData)']);
 /**
  * Both pools log Mint(sender indexed, amount0, amount1); Burn is (sender indexed, amount0, amount1, to indexed) on
  * Uniswap v2 and (sender indexed, to indexed, amount0, amount1) on Aerodrome. The amounts are the data either way.
  */
 const POOL_MINT = '0x4c209b5fc8ad50758f13e2e1088ba56a560dff690a1c6fef26394f4c03821c4f';
 const POOL_BURNS = new Set(['0xdccd412f0b1252819cb1fd330b93224ca42612892bb3f4f789976e6d81936496', '0x5d624aa9c148153ab3446c1b154f660ee7701e549fe9b62dab7171b1c80e6fa2']);
-/** A pool read the chain source refused: the answer says the liquidity was not read. */
-const POOLS_UNREAD = 'unread' as const;
-const LIQUIDITY_UNREAD = 'This time the liquidity of its pools could not be read, so liquidity the launch wallet removed would not show here.';
-/**
- * A provider that refuses a log query's block range (Alchemy's free tier allows 10 blocks) refuses it every time, so the
- * check answers with the liquidity unread. Anything else, such as a throughput limit, is passing: it is thrown again,
- * the check fails as sources unavailable, and a retry gets the full answer instead of a cached partial one.
- */
-function unreadOnRangeRefusal(err: unknown): typeof POOLS_UNREAD {
-  if (err instanceof Error && /block range|query returned more than/i.test(err.message)) return POOLS_UNREAD;
-  throw err;
-}
-/** A token's pools read: the first this many created. */
+/** A token's pools read: at most this many. */
 const POOL_CAP = 10;
+/** The pools' LP-token transfers read: the first this many. */
+const LP_PAGE = 1000;
 /** The launch wallet sent back to the pool at least this share of the LP tokens it was minted: creator_removed_liquidity. */
 export const LIQUIDITY_REMOVED_PCT = 50;
-/** Paired tokens named without a read; any other has its decimals read. */
+/** The paired tokens its pools are looked up against, named without a read. */
 const PAIRED: Record<string, { symbol: string; decimals: number }> = {
   '0x4200000000000000000000000000000000000006': { symbol: 'WETH', decimals: 18 },
   '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': { symbol: 'USDC', decimals: 6 },
@@ -101,8 +120,6 @@ const PAIRED: Record<string, { symbol: string; decimals: number }> = {
   '0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b': { symbol: 'VIRTUAL', decimals: 18 },
   '0x940181a94a35a4569e4529a3cdfb74e38fd98631': { symbol: 'AERO', decimals: 18 },
 };
-/** The provider refusing a log read for its size: the pool's activity outgrew one read, which is not a failed read. */
-const TOO_MANY_LOGS = /response size exceeded|returned more than|more than [\d,]+ (?:results|logs)/i;
 /** Doppler's token: getVestingDataOf(account) answers (totalAmount, releasedAmount), vesting linearly from vestingStart() over vestingDuration(). */
 const GET_VESTING_DATA_OF = '0xf6939d34';
 const VESTING_START = '0x254800d4';
@@ -192,9 +209,18 @@ export interface TokenCheck {
      * the launch was sent for it, as when Clanker's X bot launches for someone.
      */
     token_admin: string | null;
+    /**
+     * The wallet the launch was made for, when the launch receipt names one that did not send it: Clanker's token admin
+     * (TokenCreated), Zora's payout recipient (the coin's creation log), or the one wallet a Doppler clone token vests
+     * to (its vesting allocation log), as when a launch service launches for someone. The creator facts describe this
+     * wallet; `creator` above stays the wallet that sent the launch. Null when the receipt names none, or names the sender.
+     */
+    made_for: { address: string; named_as: 'token_admin' | 'payout_recipient' | 'vesting_beneficiary' } | null;
   } | null;
   creator: {
     address: string;
+    /** Which wallet these facts describe: the wallet that sent the launch, or the wallet it was made for (launch.made_for). */
+    role: 'launch_wallet' | 'made_for';
     type: WalletLookup['type'];
     sanctioned: boolean;
     first_seen: string | null;
@@ -230,7 +256,8 @@ export interface TokenCheck {
      * The share and timings come from its first 100 transfers; the held_ fields from its balance
      * at the end of the launch block and about an hour later (by measured block time, or now for
      * a token under an hour old), which no number of small sends can hide. sent_pct is the larger
-     * of the two shares. Amounts in token units.
+     * of the two shares. held_now and sent_now_pct: its balance at this check against what it got,
+     * held_now_after_sec after the launch, whatever came in or went out since. Amounts in token units.
      */
     launch_tokens: {
       received: number;
@@ -242,13 +269,27 @@ export interface TokenCheck {
       held_1h_after_sec: number | null;
       /** The share of the launch tokens it no longer held at the second balance read, in percent. */
       sent_1h_pct: number | null;
+      held_now: number | null;
+      held_now_after_sec: number | null;
+      /** The share of the launch tokens it no longer holds at this check, in percent (a floor: tokens it got later count as kept). */
+      sent_now_pct: number | null;
     } | null;
-    /**
-     * Clanker launches it made for itself: the transactions it sent straight to Clanker's factory in the
-     * 24 hours up to and including this launch, by block time (a floor at 1,000). Null when not read, or
-     * when this launch did not go straight from it to the factory (a router, multicall or smart wallet).
-     */
+    /** Clanker launches: launches_24h.by_launchpad.clanker. Null off Clanker, or when the launches were not read. */
     clanker_launches_24h: number | null;
+    /**
+     * Its launches in the 24 hours with the most of them that include this one: its own transactions to Clanker's
+     * factory, Doppler's Airlock and Zora's factory from a day before the launch to a day after it or this check,
+     * whichever is sooner (the newest 1,000), and this launch, whoever sent it. By launchpad (`other`: this launch,
+     * when it is not on one of them), seconds from the first to the last, and the time the read ran to. A floor when
+     * `capped`. Null when not read.
+     */
+    launches_24h: {
+      total: number;
+      by_launchpad: Record<Launchpad | 'other', number>;
+      span_sec: number;
+      read_to: string;
+      capped: boolean;
+    } | null;
     /** The launch wallet's public labels from ChainWard's investigations and detectors, strongest first. */
     labels: WalletLookup['labels'];
   } | null;
@@ -282,9 +323,9 @@ export interface TokenCheck {
   /**
    * The token's liquidity. locked_by: the launchpad that launched it, when that launchpad holds the pool's liquidity
    * so the launch wallet cannot withdraw it (Clanker, Zora, Doppler, Virtuals); its pools are not read. pools: its
-   * Uniswap v2 and Aerodrome basic pools created since the launch, and what the launch wallet put in and took out of
-   * each; null when not read (a launchpad's lock, or no launch wallet). capped: more pools than were read, or LP logs
-   * too many to read at once (the launch wallet's part is then null). Null when the address is not a token.
+   * Uniswap v2 and Aerodrome basic pools against the paired tokens named in PAIRED, and what the launch wallet put in
+   * and took out of each; null when not read (a launchpad's lock, or no launch wallet). capped: more LP-token transfers
+   * than one read returns (the launch wallet's part is then null). Null when the address is not a token.
    */
   liquidity: { locked_by: 'clanker' | 'zora' | 'doppler' | 'virtuals' | null; pools: LiquidityPool[] | null; capped: boolean } | null;
   flags: TokenFlag[];
@@ -300,10 +341,11 @@ export interface LiquidityPool {
   paired_symbol: string | null;
   /**
    * What the launch wallet put in, through LP tokens minted to it, and took out, through LP tokens it sent back to
-   * the pool to burn: amounts of the paired token and of this token. removed_pct: the share of its LP tokens it sent
-   * back, in percent. pool_pct: the share of the pool's liquidity its removals took, what they burned against that
-   * plus what the pool had left after its last removal. Times in seconds after the launch, from the block time of
-   * its own token transfer in that transaction (null without one). Null when it added and removed none.
+   * the pool to burn: amounts of the paired token and of this token, from the pool's Mint and Burn logs in the receipt
+   * of its one add and its one removal (null when it made several, or for a pool other than the one it took the most
+   * out of). removed_pct: the share of its LP tokens it sent back, in percent. pool_pct: the share of the pool's
+   * liquidity its removals took, what they burned against that plus what the pool had left after its last removal.
+   * Times in seconds after the launch, from the block time of the LP transfers. Null when it added and removed none.
    */
   launch_wallet: {
     added: number | null;
@@ -326,6 +368,8 @@ export interface TokenTransfer {
   value?: number | null;
   /** The amount in raw units, as hex; Alchemy leaves `value` null for tokens it has no decimals for. */
   rawContract?: { value?: string | null; address?: string | null };
+  /** Alchemy's id for a token transfer: `<tx>:log:<logIndex>`. */
+  uniqueId?: string;
   metadata?: { blockTimestamp?: string };
 }
 
@@ -335,7 +379,7 @@ export interface TokenCheckDeps extends WalletLookupDeps {
 }
 
 const LIMITS =
-  "On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else; in a bundle of several smart wallets' operations, it is the one whose operation the token's first log came in. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. What it sent out is read from its balance at the end of the launch block and about an hour later, and from its first 100 transfers. Its age is its own activity, its transactions and code a week before the launch, where that was read, and otherwise its first transfer in; its first funder is the first wallet that sent it ETH or a listed token above a dust floor, not an airdrop of another token. Its share of the supply is its balance plus, for a Doppler launch, the tokens still vesting to it (Doppler's vesting data for it, from up to 3 schedules); for a Clanker launch, the supply in Clanker's vault and airdrop contracts is reported apart and not counted in it. Liquidity: Clanker, Zora, Doppler and Virtuals hold the liquidity of their launches, so those pools are not read. For any other token, the check reads the Uniswap v2 and Aerodrome basic pools created since the launch (the first 10) and what the launch wallet put in and took out of each, through LP tokens minted to it and LP tokens it sent back to the pool; LP tokens it passed to another wallet or a locker are not followed, and Uniswap v3 and v4 pools, Aerodrome concentrated pools and other exchanges are not read. It does not check whether liquidity is locked or how much a pool holds today, does not simulate a sale (a honeypot check), and does not measure holder concentration. Mints are read from their first 100 records. For a Clanker launch, the launches of the launch wallet are the transactions it sent straight to the Clanker factory in the 24 hours up to and including this one (the newest 1,000); launches through another contract, and launches made for another admin, are not counted. no_flags means none of these checks matched; it is not a clearance.";
+  "On-chain facts about the launch, the supply and the wallet behind it: the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else (in a bundle of several smart wallets' operations, the one whose operation the token's first log came in), or the wallet the launch receipt says it was made for: Clanker's token admin, Zora's payout recipient, or the one wallet a Doppler token vests to, when that is not the sender (launch.creator stays the sender). Tokens that wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. What it sent out is read from its balance at the end of the launch block, about an hour later and at this check, and from its first 100 transfers. Its age is its own activity, its transactions and code a week before the launch, where that was read, and otherwise its first transfer in; its first funder is the first wallet that sent it ETH or a listed token above a dust floor, not an airdrop of another token. A funder counts as an exchange only when ChainWard's labels name it one; a busy funder is judged by how many of the 20 wallets it most recently sent funds to had never been used before. Its share of the supply is its balance plus, for a Doppler launch, the tokens still vesting to it (Doppler's vesting data for it, from up to 3 schedules); for a Clanker launch, the supply in Clanker's vault and airdrop contracts is reported apart and not counted in it. Its launches are its own transactions to Clanker's factory, Doppler's Airlock and Zora's factory (the newest 1,000) from a day before the launch to a day after it or this check, whichever is sooner, plus this launch, counted over the 24 hours with the most of them that include this one; launches it made through a smart wallet's operations, a router or another contract, launches others sent for it (other than this one) and its other Virtuals launches are not counted, since purchases on Virtuals' bonding curve go to the same contract. Liquidity: Clanker, Zora, Doppler and Virtuals hold the liquidity of their launches, so those pools are not read. For any other token, the check looks up its Uniswap v2 and Aerodrome basic pools against WETH, USDC, USDbC, cbBTC, DAI, VIRTUAL and AERO, and what the launch wallet put in and took out of each, through LP tokens minted to it and LP tokens it sent back to the pool (the first 1,000 LP transfers), with amounts from the receipts of its add and removal in the pool it took the most out of; LP tokens it passed to another wallet or a locker are not followed, and pools against other tokens, Uniswap v3 and v4 pools, Aerodrome concentrated pools and other exchanges are not read. It does not check whether liquidity is locked or how much a pool holds today, does not simulate a sale (a honeypot check), and does not measure holder concentration. Mints are read from their first 100 records. no_flags means none of these checks matched; it is not a clearance.";
 const CLANKER_NOTE =
   "Launched through Clanker's current factory, which deploys every token from one verified template with no owner mint, pause, blacklist or transfer tax.";
 const VIRTUALS_NOTE =
@@ -546,7 +590,9 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 /** Two decimals, and tiny amounts to four significant digits, so a real mint never reads "0". */
 const amount = (n: number) =>
   n > 0 && n < 0.01 ? n.toLocaleString('en-US', { maximumSignificantDigits: 4 }) : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
-const duration = (sec: number) => (sec < 120 ? plural(sec, 'second') : sec < 7200 ? plural(Math.round(sec / 60), 'minute') : plural(Math.round(sec / 3600), 'hour'));
+/** Seconds, minutes, hours, and days past two days. */
+const duration = (sec: number) =>
+  sec < 120 ? plural(sec, 'second') : sec < 7200 ? plural(Math.round(sec / 60), 'minute') : sec < 172_800 ? plural(Math.round(sec / 3600), 'hour') : plural(Math.round(sec / 86_400), 'day');
 
 const words = (h: string | null | undefined): string[] => h?.slice(2).match(/.{64}/g) ?? [];
 const uint = (w: string | undefined): bigint => (w ? BigInt(`0x${w}`) : 0n);
@@ -562,152 +608,157 @@ function launchpadOf(logs: ReceiptLog[], token: string): 'doppler' | 'zora' | nu
   return from(DOPPLER_AIRLOCK) ? 'doppler' : from(ZORA_FACTORY) ? 'zora' : null;
 }
 
-interface RpcLog {
-  address: string;
-  topics: string[];
-  data: string;
-  blockNumber: string;
-  transactionHash: string;
-  logIndex: string;
-  removed?: boolean;
-  /** Some providers add the block's time (hex seconds). */
-  blockTimestamp?: string;
-}
 interface PoolRef {
   address: string;
   dex: LiquidityPool['dex'];
   paired: string;
   tokenIs0: boolean;
-  block: number;
-}
-
-async function getLogs(deps: TokenCheckDeps, filter: Record<string, unknown>): Promise<RpcLog[]> {
-  const logs = (await deps.rpc('eth_getLogs', [filter])) as RpcLog[] | null;
-  return (logs ?? []).filter((l) => !l.removed).sort((a, b) => hexToNumber(a.blockNumber) - hexToNumber(b.blockNumber) || hexToNumber(a.logIndex) - hexToNumber(b.logIndex));
 }
 
 /**
- * The token's Uniswap v2 and Aerodrome basic pools created since the launch (two log reads: the token as token0, then
- * as token1), and their LP Transfer, Mint and Burn logs since the first was created (one more). LP logs too many for
- * one read leave `logs` null; any other refusal throws, as every read here does.
+ * The token's Uniswap v2 and Aerodrome basic (volatile) pools against each paired token in PAIRED: one Multicall3
+ * eth_call asking both factories (no log reads, which Alchemy's free tier refuses over 10 blocks). Any refusal throws.
  */
-async function readPools(deps: TokenCheckDeps, token: string, fromBlock: number): Promise<{ refs: PoolRef[]; logs: RpcLog[] | null; capped: boolean }> {
-  const tokenTopic = `0x${pad(token)}`;
-  const base = { address: POOL_FACTORIES.map((f) => f.address), fromBlock: hex(fromBlock), toBlock: 'latest' };
-  const created = POOL_FACTORIES.map((f) => f.topic);
-  const [as0, as1] = await Promise.all([getLogs(deps, { ...base, topics: [created, tokenTopic] }), getLogs(deps, { ...base, topics: [created, null, tokenTopic] })]);
-  const found = new Map<string, PoolRef>();
-  for (const l of [...as0, ...as1].sort((a, b) => hexToNumber(a.blockNumber) - hexToNumber(b.blockNumber) || hexToNumber(a.logIndex) - hexToNumber(b.logIndex))) {
-    const factory = POOL_FACTORIES.find((f) => f.address === lower(l.address) && f.topic === l.topics[0]?.toLowerCase());
-    const [t0, t1, address] = [wordAddr(l.topics[1]), wordAddr(l.topics[2]), wordAddr(words(l.data)[0])];
-    if (!factory || !t0 || !t1 || !address || found.has(address) || (t0 !== token && t1 !== token)) continue;
-    found.set(address, { address, dex: factory.dex, paired: t0 === token ? t1 : t0, tokenIs0: t0 === token, block: hexToNumber(l.blockNumber) });
-  }
-  const refs = [...found.values()].slice(0, POOL_CAP);
-  const capped = found.size > POOL_CAP;
-  if (!refs.length) return { refs, logs: [], capped };
-  try {
-    const topics = [[TRANSFER, POOL_MINT, ...POOL_BURNS]];
-    const logs = await getLogs(deps, { address: refs.map((r) => r.address), fromBlock: hex(Math.min(...refs.map((r) => r.block))), toBlock: 'latest', topics });
-    return { refs, logs, capped };
-  } catch (err) {
-    if (err instanceof Error && TOO_MANY_LOGS.test(err.message)) return { refs, logs: null, capped: true };
-    throw err;
-  }
+async function findPools(deps: TokenCheckDeps, token: string): Promise<PoolRef[]> {
+  const asks = POOL_FACTORIES.flatMap((factory) => Object.keys(PAIRED).filter((p) => p !== token).map((paired) => ({ factory, paired })));
+  const data = encodeFunctionData({
+    abi: AGGREGATE3,
+    functionName: 'aggregate3',
+    args: [asks.map((a) => ({ target: a.factory.address as `0x${string}`, allowFailure: true, callData: a.factory.lookup(token, a.paired) as `0x${string}` }))],
+  });
+  const answer = await deps.rpc('eth_call', [{ to: MULTICALL3, data }, 'latest']);
+  const results = decodeFunctionResult({ abi: AGGREGATE3, functionName: 'aggregate3', data: answer as `0x${string}` });
+  const refs: PoolRef[] = [];
+  results.forEach((r, i) => {
+    const address = r.success ? wordAddr(r.returnData.slice(2, 66)) : null;
+    const ask = asks[i]!;
+    if (!address || address === ZERO || refs.some((x) => x.address === address)) return;
+    // token0 is the lower address on both exchanges.
+    refs.push({ address, dex: ask.factory.dex, paired: ask.paired, tokenIs0: token < ask.paired });
+  });
+  return refs.slice(0, POOL_CAP);
+}
+
+/** The pools' LP-token transfers since the launch, oldest first (one asset-transfer read, no log ranges). */
+async function readPoolLp(deps: TokenCheckDeps, refs: PoolRef[], fromBlock: number): Promise<{ transfers: TokenTransfer[]; capped: boolean }> {
+  if (!refs.length) return { transfers: [], capped: false };
+  const page = await deps.transfers({
+    fromBlock: hex(fromBlock),
+    toBlock: 'latest',
+    contractAddresses: refs.map((r) => r.address),
+    category: ['erc20'],
+    order: 'asc',
+    maxCount: hex(LP_PAGE),
+    withMetadata: true,
+    excludeZeroValue: false,
+  });
+  const logIndex = (t: TokenTransfer) => {
+    const m = t.uniqueId?.match(/:log:(0x[0-9a-f]+|\d+)$/i);
+    return m?.[1] ? Number(m[1]) : 0;
+  };
+  const transfers = [...page.transfers].sort((a, b) => hexToNumber(a.blockNum) - hexToNumber(b.blockNum) || logIndex(a) - logIndex(b));
+  return { transfers, capped: page.transfers.length >= LP_PAGE };
 }
 
 /**
- * What the launch wallet put into one pool and took out, in raw units: LP tokens minted to it (the Mint in the same
- * transaction gives the amounts), and LP tokens it sent back to the pool (the Burn in the same transaction gives what
- * came out). The pool's LP supply is followed through every mint and burn, for the share its removals took.
+ * What the launch wallet did in one pool, from its LP-token transfers: LP minted to it (its adds), LP it sent back to the
+ * pool (its removals), and the pool's LP supply through every mint and burn, for the share its removals took.
  */
-function poolActivity(ref: PoolRef, logs: RpcLog[], wallet: string) {
-  const mine = logs.filter((l) => lower(l.address) === ref.address);
+function poolActivity(ref: PoolRef, transfers: TokenTransfer[], wallet: string) {
   let supply = 0n;
   let minted = 0n;
   let returned = 0n;
   let burned = 0n;
   let left: bigint | null = null;
-  const added: [bigint, bigint] = [0n, 0n];
-  const removed: [bigint, bigint] = [0n, 0n];
   const adds = new Set<string>();
   const removals = new Set<string>();
-  let firstAdd: RpcLog | null = null;
-  let lastRemoval: RpcLog | null = null;
-  for (const l of mine) {
-    const topic = l.topics[0]?.toLowerCase();
-    const tx = l.transactionHash.toLowerCase();
-    const w = words(l.data);
-    if (topic === TRANSFER) {
-      const [from, to, value] = [wordAddr(l.topics[1]), wordAddr(l.topics[2]), uint(w[0])];
-      if (from === ZERO) {
-        supply += value;
-        if (to === wallet) {
-          minted += value;
-          adds.add(tx);
-        }
-      } else if (to === ZERO) {
-        supply -= value;
-        if (removals.has(tx)) {
-          burned += value;
-          left = supply;
-          lastRemoval = l;
-        }
+  let firstAdd: TokenTransfer | null = null;
+  let lastRemoval: TokenTransfer | null = null;
+  for (const t of transfers) {
+    if (lower(t.rawContract?.address) !== ref.address) continue;
+    const value = rawOf(t) ?? 0n;
+    const [from, to, tx] = [lower(t.from), lower(t.to), t.hash.toLowerCase()];
+    if (from === ZERO) {
+      supply += value;
+      if (to === wallet) {
+        minted += value;
+        adds.add(tx);
+        firstAdd ??= t;
       }
-      if (from === wallet && to === ref.address) {
-        returned += value;
-        removals.add(tx);
+    } else if (to === ZERO) {
+      supply -= value;
+      if (removals.has(tx)) {
+        burned += value;
+        left = supply;
+        lastRemoval = t;
       }
-    } else if (topic === POOL_MINT && adds.has(tx)) {
-      added[0] += uint(w[0]);
-      added[1] += uint(w[1]);
-      firstAdd ??= l;
-    } else if (topic && POOL_BURNS.has(topic) && removals.has(tx)) {
-      removed[0] += uint(w[0]);
-      removed[1] += uint(w[1]);
+    }
+    if (from === wallet && to === ref.address) {
+      returned += value;
+      removals.add(tx);
     }
   }
   if (minted === 0n && returned === 0n) return null;
-  const [t, p] = ref.tokenIs0 ? ([0, 1] as const) : ([1, 0] as const);
   return {
     minted,
     returned,
+    removed_pct: minted > 0n ? Math.min(100, pctOf(returned, minted)!) : null,
     pool_pct: burned > 0n && left !== null ? pctOf(burned, burned + (left > 0n ? left : 0n)) : null,
-    added: { paired: added[p], tokens: added[t] },
-    removed: returned > 0n ? { paired: removed[p], tokens: removed[t] } : null,
+    adds: [...adds],
+    removals: [...removals],
     firstAdd,
     lastRemoval,
-    removals: removals.size,
   };
 }
 
-/** Pools and what the launch wallet did in each, with amounts in token units and times from its own token transfers. */
+/** The pool's Mint or Burn amounts in one transaction's receipt, as [amount0, amount1]; null when the receipt has none. */
+async function poolAmounts(deps: TokenCheckDeps, tx: string, pool: string, kind: 'mint' | 'burn'): Promise<[bigint, bigint] | null> {
+  const receipt = (await deps.rpc('eth_getTransactionReceipt', [tx])) as { logs?: ReceiptLog[] } | null;
+  const matches = (receipt?.logs ?? []).filter((l) => {
+    const topic = l.topics?.[0]?.toLowerCase();
+    return lower(l.address) === pool && (kind === 'mint' ? topic === POOL_MINT : !!topic && POOL_BURNS.has(topic));
+  });
+  if (!matches.length) return null;
+  return matches.reduce<[bigint, bigint]>((sum, l) => [sum[0] + uint(words(l.data)[0]), sum[1] + uint(words(l.data)[1])], [0n, 0n]);
+}
+
+/**
+ * Pools and what the launch wallet did in each. Amounts come from at most two receipts: the one add and the one removal
+ * of the pool it took the largest share out of (or, when it removed none, of the first pool it added to).
+ */
 async function liquidityFacts(
   deps: TokenCheckDeps,
-  read: { refs: PoolRef[]; logs: RpcLog[] | null; capped: boolean },
+  refs: PoolRef[],
+  lp: { transfers: TokenTransfer[]; capped: boolean },
   wallet: string,
   decimals: number | null,
   launchSec: number | null,
-  ownTransfers: TokenTransfer[],
 ): Promise<{ pools: LiquidityPool[]; removals: Map<string, number> }> {
-  const activity = read.refs.map((ref) => (read.logs ? poolActivity(ref, read.logs, wallet) : null));
-  // The decimals of a paired token not named without a read, for the first pool the launch wallet used: one read at most.
-  const unnamed = read.refs.find((ref, i) => activity[i] && !PAIRED[ref.paired])?.paired;
-  const unnamedDecimals = unnamed ? await safeCall(deps, unnamed, SEL.decimals) : null;
-  const decimalsOf = (addr: string) => PAIRED[addr]?.decimals ?? (addr === unnamed && unnamedDecimals ? Number(BigInt(unnamedDecimals)) : null);
+  const activity = refs.map((ref) => (lp.capped ? null : poolActivity(ref, lp.transfers, wallet)));
+  const ranked = activity
+    .map((a, i) => ({ a, i }))
+    .filter((x) => x.a)
+    .sort((x, y) => (y.a!.removed_pct ?? 0) - (x.a!.removed_pct ?? 0));
+  const target = ranked[0];
+  const [mintAmounts, burnAmounts] = target
+    ? await Promise.all([
+        target.a!.adds.length === 1 ? poolAmounts(deps, target.a!.adds[0]!, refs[target.i]!.address, 'mint') : Promise.resolve(null),
+        target.a!.removals.length === 1 ? poolAmounts(deps, target.a!.removals[0]!, refs[target.i]!.address, 'burn') : Promise.resolve(null),
+      ])
+    : [null, null];
   const units = (raw: bigint, d: number | null) => (d !== null && d <= 77 ? scaleUnits(raw, d) : null);
-  // When: the block time of the launch wallet's own transfer of this token in that transaction, else the log's own block time.
-  const timeOf = new Map(ownTransfers.filter((t) => t.metadata?.blockTimestamp).map((t) => [t.hash.toLowerCase(), new Date(t.metadata!.blockTimestamp!).getTime() / 1000]));
-  const after = (l: RpcLog | null) => {
-    if (!l || launchSec === null) return null;
-    const sec = timeOf.get(l.transactionHash.toLowerCase()) ?? (l.blockTimestamp ? hexToNumber(l.blockTimestamp) : null);
-    return sec === null ? null : Math.round(sec - launchSec);
+  const after = (t: TokenTransfer | null) => {
+    const at = t?.metadata?.blockTimestamp ? new Date(t.metadata.blockTimestamp).getTime() / 1000 : null;
+    return at === null || launchSec === null ? null : Math.round(at - launchSec);
   };
   const removals = new Map<string, number>();
-  const pools = read.refs.map((ref, i): LiquidityPool => {
+  const pools = refs.map((ref, i): LiquidityPool => {
     const a = activity[i];
-    if (a) removals.set(ref.address, a.removals);
-    const d = decimalsOf(ref.paired);
+    if (a) removals.set(ref.address, a.removals.length);
+    const d = PAIRED[ref.paired]?.decimals ?? null;
+    const [t, p] = ref.tokenIs0 ? ([0, 1] as const) : ([1, 0] as const);
+    const mint = target?.i === i ? mintAmounts : null;
+    const burn = target?.i === i ? burnAmounts : null;
     return {
       address: ref.address,
       dex: ref.dex,
@@ -715,15 +766,15 @@ async function liquidityFacts(
       paired_symbol: PAIRED[ref.paired]?.symbol ?? null,
       launch_wallet: a
         ? {
-            added: units(a.added.paired, d),
-            added_tokens: units(a.added.tokens, decimals),
+            added: mint ? units(mint[p], d) : null,
+            added_tokens: mint ? units(mint[t], decimals) : null,
             added_after_sec: after(a.firstAdd),
-            removed: a.removed ? units(a.removed.paired, d) : null,
-            removed_tokens: a.removed ? units(a.removed.tokens, decimals) : null,
-            removed_pct: a.minted > 0n ? Math.min(100, pctOf(a.returned, a.minted)!) : null,
+            removed: burn ? units(burn[p], d) : null,
+            removed_tokens: burn ? units(burn[t], decimals) : null,
+            removed_pct: a.removed_pct,
             pool_pct: a.pool_pct,
             removed_after_sec: after(a.lastRemoval),
-            removal_tx: a.lastRemoval?.transactionHash.toLowerCase() ?? null,
+            removal_tx: a.lastRemoval?.hash.toLowerCase() ?? null,
           }
         : null,
     };
@@ -877,6 +928,8 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   ]);
   const timing = blockTiming(launch0.block, launchSec, nowSec, head, weekGuess, guessHeader);
   const launcher = clankerRegistryMatches(clankerHex, token) ? 'clanker' : who.launcher;
+  // A launch service's launch names the wallet it was made for: the wallet facts below describe that wallet.
+  const madeFor = launchMadeFor(who.logs, token, who.creator);
   const launch: NonNullable<TokenCheck['launch']> = {
     block: launch0.block,
     time: launch0.time,
@@ -886,8 +939,9 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     launcher,
     launcher_note: launcher === 'clanker' ? CLANKER_NOTE : who.note,
     token_admin: null,
+    made_for: madeFor,
   };
-  const creatorAddr = who.creator;
+  const creatorAddr = madeFor?.address ?? who.creator;
   // Nothing precedes the launch, and reading from genesis made Alchemy fail on busy tokens.
   const transferBase = { fromBlock: hex(launch.block), toBlock: 'latest', contractAddresses: [token], category: ['erc20'], order: 'asc', excludeZeroValue: false };
   const mintsFrom = (block: number) => deps.transfers({ ...transferBase, fromBlock: hex(block), fromAddress: ZERO, maxCount: hex(PAGE), withMetadata: false });
@@ -896,9 +950,9 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   // Clanker, Zora, Doppler and Virtuals hold the liquidity of their launches: the launch wallet cannot pull it, so no pool reads.
   const launchpad = launchpadOf(who.logs, token);
   const lockedBy = launcher ?? launchpad;
-  // Alchemy's free tier refuses eth_getLogs over more than 10 blocks (see data-fetch.ts): a pool read that fails leaves
-  // the liquidity unread and the rest of the check answering, instead of failing the whole check.
-  const poolsRead = !lockedBy && creatorAddr && launch.tx ? readPools(deps, token, launch.block).catch(unreadOnRangeRefusal) : Promise.resolve(null);
+  // Its pools from one eth_call, then their LP-token transfers from the transfer index: no log ranges.
+  const poolsRead =
+    !lockedBy && creatorAddr && launch.tx ? findPools(deps, token).then(async (refs) => ({ refs, lp: await readPoolLp(deps, refs, launch.block) })) : Promise.resolve(null);
   const vestingRead = launchpad === 'doppler' && creatorAddr ? readVesting(deps, token, code, creatorAddr) : Promise.resolve(null);
   const extensions = clanker ? clankerExtensions(who.logs, token) : null;
   const extensionsRead = extensions
@@ -923,22 +977,23 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
       : Promise.resolve(null);
   // The wallet lookup's own head read would repeat this check's.
   const walletDeps: TokenCheckDeps = { ...deps, rpc: (method, params) => (method === 'eth_blockNumber' ? Promise.resolve(headHex) : deps.rpc(method, params)) };
-  const [wallet, mintsPage, balanceHex, inflows, outflows, adminHex, factoryTxs, held, week, pools, vestingRaw, extensionBalances] = await Promise.all([
-    creatorAddr ? lookupWallet(creatorAddr, 'base', walletDeps) : Promise.resolve(null),
+  const [wallet, mintsPage, balanceHex, inflows, outflows, adminHex, ownTxs, held, week, pools, vestingRaw, extensionBalances] = await Promise.all([
+    // No decoy reads: a planted look-alike is a payment risk, and a wallet a launch was made for can be one that never sent a transaction.
+    creatorAddr ? lookupWallet(creatorAddr, 'base', walletDeps, { decoy: false }) : Promise.resolve(null),
     mintsFrom(launch.block),
     balanceNow,
     inflowsRead,
     creatorAddr && launch.tx ? deps.transfers({ ...transferBase, fromAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null),
     clanker ? safeCall(deps, token, ORIGINAL_ADMIN) : Promise.resolve(null),
-    // Its launches through Clanker's factory up to this one, newest first (each launch is one transaction to it).
-    clanker && creatorAddr && launch.tx
+    // Its own transactions from a day before the launch to a day after it, or now, newest first: its launches are the
+    // ones to a launchpad. A day after is counted at the pace since the launch, which never falls short: blocks only get faster.
+    creatorAddr && launch.tx && launchSec !== null
       ? deps.transfers({
           fromAddress: creatorAddr,
-          toAddress: CLANKER_V4_FACTORY.toLowerCase(),
           category: ['external'],
           excludeZeroValue: false,
           fromBlock: hex(Math.max(0, launch.block - DAY_BLOCKS_MAX)),
-          toBlock: hex(launch.block),
+          toBlock: nowSec - launchSec > DAY_SEC ? hex(launch.block + Math.ceil((DAY_SEC * Math.max(1, head - launch.block)) / Math.max(1, nowSec - launchSec))) : 'latest',
           order: 'desc',
           maxCount: hex(LAUNCH_COUNT_PAGE),
           withMetadata: true,
@@ -952,12 +1007,15 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   ]);
   const admin = clanker ? wordAddr(adminHex ?? undefined) : null;
   launch.token_admin = admin && admin !== ZERO ? admin : null;
-  // Launched for another admin, as a launch service does: its own launch count would describe the service.
+  // An admin the receipt did not name (no TokenCreated log): the facts still describe the sender, a launch service whose
+  // own launch count would describe the service.
   const forAnother = creatorAddr !== null && launch.token_admin !== null && launch.token_admin !== creatorAddr;
   if (forAnother) {
     launch.launcher_note = `${CLANKER_NOTE} The token's admin at launch, ${launch.token_admin}, is not the wallet that sent the launch, as when a launch service such as Clanker's X bot launches for someone. The launch-wallet facts below describe the wallet that sent the launch.`;
+  } else if (clanker && madeFor?.named_as === 'token_admin') {
+    launch.launcher_note = `${CLANKER_NOTE} The token's admin at launch, ${madeFor.address}, is not the wallet that sent the launch, ${launch.creator}, as when a launch service such as Clanker's X bot launches for someone. The facts below describe the token's admin, not the wallet that sent the launch.`;
   }
-  const launchCount = forAnother ? null : countLaunches(factoryTxs?.transfers ?? null, launch);
+  const launches = forAnother ? null : countLaunches(ownTxs?.transfers ?? null, launch, launcher ?? launchpad, nowSec * 1000);
 
   // Supply: every mint after the transaction of the first mint (the first issuance).
   const mints = mintsPage.transfers;
@@ -1001,18 +1059,11 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   }
   const liquidity: NonNullable<TokenCheck['liquidity']> = { locked_by: lockedBy, pools: null, capped: false };
   let removalsByPool = new Map<string, number>();
-  let liquidityUnread = pools === POOLS_UNREAD;
-  if (pools && pools !== POOLS_UNREAD && creatorAddr) {
-    const own = [...(inflows?.transfers ?? []), ...(outflows?.transfers ?? [])];
-    try {
-      const facts = await liquidityFacts(deps, pools, creatorAddr, decimals, launchSec, own);
-      liquidity.pools = facts.pools;
-      liquidity.capped = pools.capped;
-      removalsByPool = facts.removals;
-    } catch (err) {
-      unreadOnRangeRefusal(err);
-      liquidityUnread = true;
-    }
+  if (pools && creatorAddr) {
+    const facts = await liquidityFacts(deps, pools.refs, pools.lp, creatorAddr, decimals, launchSec);
+    liquidity.pools = facts.pools;
+    liquidity.capped = pools.lp.capped;
+    removalsByPool = facts.removals;
   }
   const creatorMintPct = mintSharePct(laterToCreator, supplyRaw, supply.minted_to_creator, token_info.total_supply);
 
@@ -1044,10 +1095,11 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
       : null;
     // What it holds and what still vests to it, as one share of the supply (each alone when the other was not read).
     const holdsWithVesting = balance !== null || vestingRaw ? pctOf((balance ?? 0n) + (vestingRaw?.left ?? 0n), supplyRaw) : null;
-    const lt = launchTokens(launch, launchMs, inflows?.transfers ?? [], outflows?.transfers ?? [], decimals, held);
+    const lt = launchTokens(launch, launchMs, inflows?.transfers ?? [], outflows?.transfers ?? [], decimals, held, { balance: balanceHex, afterSec: launchSec !== null ? Math.round(nowSec - launchSec) : null });
     sentPctAt90 = lt?.pctAt90 ?? null;
     creator = {
       address: creatorAddr,
+      role: madeFor ? 'made_for' : 'launch_wallet',
       type: wallet.type,
       sanctioned: wallet.sanctioned,
       first_seen: wallet.first_seen,
@@ -1060,7 +1112,8 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
       holds_with_vesting_pct: holdsWithVesting,
       extensions_pct: extensionsHeld !== null ? pctOf(extensionsHeld, supplyRaw) : null,
       launch_tokens: lt?.result ?? null,
-      clanker_launches_24h: launchCount,
+      clanker_launches_24h: clanker && launches ? launches.by_launchpad.clanker : null,
+      launches_24h: launches,
       // The check counts Clanker launches live, so its own detector's serial_launcher labels would only repeat an older count.
       labels: wallet.labels.filter((l) => l.kind !== 'serial_launcher'),
     };
@@ -1080,17 +1133,16 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   if (creatorMintPct !== null && creatorMintPct >= CREATOR_MINT_HOLD_PCT) flags.push('creator_minted_after_launch');
   else if (supply.mints_after_launch > 0) flags.push('minted_after_launch');
   const lb = creator?.launch_tokens;
-  // 90% gone within the hour: by its transfers, or by its balance an hour after the launch (which dust sends cannot hide).
-  if (lb && ((lb.sent_90pct_after_sec !== null && lb.sent_90pct_after_sec <= SENT_WITHIN_SEC) || goneByBalance(lb))) flags.push('creator_sent_launch_tokens');
+  // 90% gone: by its transfers within the day, by its balance an hour after the launch (which dust sends cannot hide),
+  // or by its balance at this check, however long after the launch.
+  if (lb && (lb.sent_90pct_after_sec !== null || goneByBalance(lb) || goneNow(lb))) flags.push('creator_sent_launch_tokens');
   // Held and still vesting to it: the share it will control.
   const share = creator?.holds_with_vesting_pct;
   if (share !== null && share !== undefined && share >= LARGE_SHARE_PCT) flags.push('creator_holds_large_share');
   // A launch made for another admin was sent by a launch service: its labels describe the service, not the token's admin.
   const forAnotherAdmin = launch.token_admin !== null && launch.token_admin !== creatorAddr;
   if (creator?.labels[0]?.strength === 'strong' && !forAnotherAdmin) flags.push('creator_labeled');
-  if (creator?.clanker_launches_24h !== null && creator?.clanker_launches_24h !== undefined && creator.clanker_launches_24h >= SERIAL_LAUNCHES_24H) {
-    flags.push('creator_serial_launcher');
-  }
+  if ((creator?.launches_24h?.total ?? 0) >= SERIAL_LAUNCHES_24H) flags.push('creator_serial_launcher');
   const wb = creator?.week_before_launch;
   const ageNew = creator?.age_days_at_launch !== null && creator?.age_days_at_launch !== undefined && creator.age_days_at_launch < NEW_CREATOR_DAYS;
   if (wb ? wb.sent_txs === 0 && !wb.has_code : ageNew) flags.push('new_creator');
@@ -1116,25 +1168,69 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     liquidity,
     flags,
     as_of_block: head,
-    limits: liquidityUnread ? `${LIMITS} ${LIQUIDITY_UNREAD}` : LIMITS,
+    limits: LIMITS,
   };
 }
 
 /**
- * Launches in the 24 hours up to and including this one, by block time, from the launch wallet's newest
- * transactions to the factory. Null unless this launch is among them: a launch through a router, multicall
- * or smart wallet is not a transaction to the factory, and the rest of its launches would not be either.
+ * The wallet a launch was made for, when the launch receipt names one that is not the sender: Clanker's token admin
+ * (its factory's TokenCreated log for the token), Zora's payout recipient (the coin's creation log, caller,
+ * payoutRecipient and platformReferrer indexed), or the one wallet a Doppler clone token vests to (its vesting
+ * allocation logs, when they name exactly one wallet).
  */
-function countLaunches(rows: TokenTransfer[] | null, launch: NonNullable<TokenCheck['launch']>): number | null {
+function launchMadeFor(logs: ReceiptLog[], token: string, sender: string | null): NonNullable<TokenCheck['launch']>['made_for'] {
+  if (!sender) return null;
+  const named = (address: string | null, as: 'token_admin' | 'payout_recipient' | 'vesting_beneficiary') =>
+    address && address !== ZERO && address !== sender ? { address, named_as: as } : null;
+  const created = logs.find((l) => lower(l.address) === CLANKER_V4_FACTORY.toLowerCase() && l.topics?.[0]?.toLowerCase() === TOKEN_CREATED && wordAddr(l.topics[1]) === token);
+  if (created) return named(wordAddr(created.topics![2]), 'token_admin');
+  const coin = logs.find((l) => lower(l.address) === ZORA_FACTORY && l.topics?.length === 4 && words(l.data).some((w) => wordAddr(w) === token));
+  if (coin) return named(wordAddr(coin.topics![2]), 'payout_recipient');
+  const vests = logs.filter((l) => lower(l.address) === token && l.topics?.[0]?.toLowerCase() === DOPPLER_VESTING_ALLOCATED && uint(words(l.data)[0]) > 0n);
+  const beneficiaries = new Set(vests.map((l) => wordAddr(l.topics?.[1])));
+  return beneficiaries.size === 1 ? named([...beneficiaries][0]!, 'vesting_beneficiary') : null;
+}
+
+/**
+ * Its launches in the 24 hours with the most of them that include this one, from its own transactions to a launchpad
+ * (newest first, from a day before the launch to a day after it or now) and this launch, whoever sent it. Null when
+ * they were not read.
+ */
+function countLaunches(
+  rows: TokenTransfer[] | null,
+  launch: NonNullable<TokenCheck['launch']>,
+  pad: Launchpad | null,
+  nowMs: number,
+): NonNullable<TokenCheck['creator']>['launches_24h'] {
   if (!rows || !launch.tx || !launch.time) return null;
-  if (!rows.some((t) => t.hash.toLowerCase() === launch.tx)) return null;
-  const end = new Date(launch.time).getTime();
-  const start = end - DAY_SEC * 1000;
-  const inDay = rows.filter((t) => {
-    const at = t.metadata?.blockTimestamp ? new Date(t.metadata.blockTimestamp).getTime() : NaN;
-    return at >= start && at <= end;
-  });
-  return new Set(inDay.map((t) => t.hash.toLowerCase())).size;
+  const at = new Date(launch.time).getTime();
+  const end = Math.min(nowMs, at + DAY_SEC * 1000);
+  const found = new Map<string, { ms: number; pad: Launchpad | 'other' }>();
+  for (const t of rows) {
+    const where = LAUNCH_CONTRACTS[lower(t.to) ?? ''];
+    const ms = t.metadata?.blockTimestamp ? new Date(t.metadata.blockTimestamp).getTime() : NaN;
+    if (where && ms >= at - DAY_SEC * 1000 && ms <= end) found.set(t.hash.toLowerCase(), { ms, pad: where });
+  }
+  // This launch, through a router, a smart wallet or a launch service too: then it is not one of the wallet's own transactions.
+  if (!found.has(launch.tx)) found.set(launch.tx, { ms: at, pad: pad ?? 'other' });
+  const list = [...found.values()].sort((a, b) => a.ms - b.ms);
+  let best = { from: 0, to: 0 };
+  for (let i = 0, j = 0; i < list.length && list[i]!.ms <= at; i++) {
+    j = Math.max(j, i);
+    while (j + 1 < list.length && list[j + 1]!.ms <= list[i]!.ms + DAY_SEC * 1000) j++;
+    // The 24 hours from list[i] hold this launch: list[i] is at or before it and no more than a day before.
+    if (list[i]!.ms >= at - DAY_SEC * 1000 && j - i > best.to - best.from) best = { from: i, to: j };
+  }
+  const span = list.slice(best.from, best.to + 1);
+  const by_launchpad: Record<Launchpad | 'other', number> = { clanker: 0, doppler: 0, zora: 0, virtuals: 0, other: 0 };
+  for (const l of span) by_launchpad[l.pad]++;
+  return {
+    total: span.length,
+    by_launchpad,
+    span_sec: Math.round((span[span.length - 1]!.ms - span[0]!.ms) / 1000),
+    read_to: new Date(end).toISOString(),
+    capped: rows.length >= LAUNCH_COUNT_PAGE,
+  };
 }
 
 /** The registry answers a tuple (offset, token, hook, ...) for its own launches, zeros otherwise. */
@@ -1164,8 +1260,11 @@ function launchTokensIn(inflows: TokenTransfer[], tx: string | null, decimals: n
   return inLaunch;
 }
 
+type LaunchTokens = NonNullable<NonNullable<TokenCheck['creator']>['launch_tokens']>;
 /** At least 90% of the launch tokens gone from its balance by the read an hour after the launch. */
-const goneByBalance = (lb: NonNullable<NonNullable<TokenCheck['creator']>['launch_tokens']>) => lb.sent_1h_pct !== null && lb.sent_1h_pct >= SENT_LAUNCH_SHARE * 100;
+const goneByBalance = (lb: LaunchTokens) => lb.sent_1h_pct !== null && lb.sent_1h_pct >= SENT_LAUNCH_SHARE * 100;
+/** At least 90% of the launch tokens gone from its balance at this check. */
+const goneNow = (lb: LaunchTokens) => lb.sent_now_pct !== null && lb.sent_now_pct >= SENT_LAUNCH_SHARE * 100;
 
 /**
  * What the launch wallet did with tokens it received in the launch transaction from other
@@ -1181,7 +1280,8 @@ function launchTokens(
   outflows: TokenTransfer[],
   decimals: number | null,
   held: { atLaunch: string | null; later: string | null; afterSec: number | null } | null,
-): { result: NonNullable<NonNullable<TokenCheck['creator']>['launch_tokens']>; pctAt90: number | null } | null {
+  current: { balance: string | null; afterSec: number | null },
+): { result: LaunchTokens; pctAt90: number | null } | null {
   const inLaunch = launchTokensIn(inflows, launch.tx, decimals);
   if (launchMs === null || !inLaunch) return null;
   const received = sumAmounts(inLaunch, decimals);
@@ -1201,7 +1301,9 @@ function launchTokens(
   const later = held?.later ? BigInt(held.later) : null;
   const got = rawSum(inLaunch);
   const base = got !== null && (atLaunch === null || got > atLaunch) ? got : atLaunch;
-  const gonePct = base !== null && base > 0n && later !== null ? Number(((base - (later < base ? later : base)) * 10_000n) / base) / 100 : null;
+  const gone = (left: bigint | null) => (base !== null && base > 0n && left !== null ? Number(((base - (left < base ? left : base)) * 10_000n) / base) / 100 : null);
+  const gonePct = gone(later);
+  const now = current.balance ? BigInt(current.balance) : null;
   const units = (raw: bigint | null) => (raw !== null && decimals !== null ? scaleUnits(raw, decimals) : null);
   return {
     result: {
@@ -1214,6 +1316,9 @@ function launchTokens(
       held_1h: units(later),
       held_1h_after_sec: later !== null ? (held?.afterSec ?? null) : null,
       sent_1h_pct: gonePct,
+      held_now: units(now),
+      held_now_after_sec: now !== null ? current.afterSec : null,
+      sent_now_pct: gone(now),
     },
     pctAt90: at90?.pct ?? null,
   };
@@ -1276,9 +1381,11 @@ function verdictFor(
 ): TokenCheck['verdict'] {
   const { supply, creator, imitation } = ctx;
   const atLeast = supply.capped ? 'at least ' : '';
-  if (flags.includes('creator_sanctioned')) return { label: 'hold', reason: 'The wallet that launched it is on the US Treasury OFAC SDN list.' };
+  // The wallet the facts describe: the one that sent the launch, or the one a launch service launched it for.
+  const who = creator?.role === 'made_for' ? 'The wallet it was launched for' : 'The wallet that launched it';
+  if (flags.includes('creator_sanctioned')) return { label: 'hold', reason: `${who} is on the US Treasury OFAC SDN list.` };
   if (flags.includes('creator_funded_by_sanctioned')) {
-    return { label: 'hold', reason: 'The wallet that launched it got its first funds from an address on the OFAC SDN list.' };
+    return { label: 'hold', reason: `${who} got its first funds from an address on the OFAC SDN list.` };
   }
   // Whoever launched it, a token passing for USDC is not USDC: holding or paying with it is the trap.
   if (flags.includes('imitates_known_token') && imitation) return imitationVerdict(imitation);
@@ -1286,7 +1393,7 @@ function verdictFor(
   if (flags.includes('creator_minted_after_launch') && supply.minted_to_creator !== null && ctx.creatorMintPct !== null) {
     return {
       label: 'hold',
-      reason: `After the first issuance, ${atLeast}${amount(supply.minted_to_creator)} more tokens were minted to the wallet that launched it in ${atLeast}${plural(supply.to_creator, 'mint')}, ${amount(ctx.creatorMintPct)}% of the supply today.`,
+      reason: `After the first issuance, ${atLeast}${amount(supply.minted_to_creator)} more tokens were minted to ${who.charAt(0).toLowerCase()}${who.slice(1)} in ${atLeast}${plural(supply.to_creator, 'mint')}, ${amount(ctx.creatorMintPct)}% of the supply today.`,
     };
   }
   if (flags.includes('minted_after_launch') && supply.minted_after_launch !== null) {
@@ -1297,51 +1404,62 @@ function verdictFor(
     };
   }
   const lb = creator?.launch_tokens;
-  if (flags.includes('creator_sent_launch_tokens') && lb && lb.sent_90pct_after_sec !== null && lb.sent_90pct_after_sec <= SENT_WITHIN_SEC && ctx.sentPctAt90 !== null) {
-    return {
-      label: 'review',
-      reason: `The wallet that launched it received ${amount(lb.received)} tokens in the launch transaction and had sent out ${ctx.sentPctAt90}% of them ${duration(lb.sent_90pct_after_sec)} later.`,
-    };
-  }
-  if (flags.includes('creator_sent_launch_tokens') && lb && lb.sent_1h_pct !== null) {
-    // Its balance is the measure here: its first transfers did not reach 90%, as when many small sends come first.
-    const when = lb.held_1h_after_sec !== null && lb.held_1h_after_sec < SENT_WITHIN_SEC - 60 ? `${duration(lb.held_1h_after_sec)} later` : 'an hour later';
-    const kept = Math.round((100 - lb.sent_1h_pct) * 100) / 100;
-    return {
-      label: 'review',
-      reason: `The wallet that launched it received ${amount(lb.received)} tokens in the launch transaction and ${when} held ${kept > 0 ? `only ${amount(kept)}% of them` : 'none of them'}.`,
-    };
+  if (flags.includes('creator_sent_launch_tokens') && lb) {
+    const got = `${who} received ${amount(lb.received)} tokens in the launch transaction and`;
+    const at90 = lb.sent_90pct_after_sec;
+    // Within the hour first, by its transfers, then by its balance an hour in (its first transfers did not reach 90%, as
+    // when many small sends come first); then later, by its transfers within the day, then by its balance at this check.
+    if (at90 !== null && at90 <= SENT_WITHIN_SEC && ctx.sentPctAt90 !== null) {
+      return { label: 'review', reason: `${got} had sent out ${ctx.sentPctAt90}% of them ${duration(at90)} later.` };
+    }
+    if (goneByBalance(lb)) {
+      const when = lb.held_1h_after_sec !== null && lb.held_1h_after_sec < SENT_WITHIN_SEC - 60 ? `${duration(lb.held_1h_after_sec)} later` : 'an hour later';
+      return { label: 'review', reason: `${got} ${when} held ${keptClause(lb.sent_1h_pct!)}.` };
+    }
+    if (at90 !== null && ctx.sentPctAt90 !== null) {
+      return { label: 'review', reason: `${got} had sent out ${ctx.sentPctAt90}% of them ${duration(at90)} later.` };
+    }
+    if (goneNow(lb) && lb.held_now_after_sec !== null) {
+      return { label: 'review', reason: `${got} ${duration(Math.max(0, lb.held_now_after_sec))} after the launch held ${keptClause(lb.sent_now_pct!)}.` };
+    }
   }
   const vestingPct = creator?.vesting?.pct ?? 0;
   if (flags.includes('creator_holds_large_share') && creator && vestingPct > 0) {
-    return { label: 'review', reason: `The wallet that launched it ${vestingClause(creator.holds_pct ?? 0, vestingPct, creator.vesting!.end, ctx.nowMs)}.` };
+    return { label: 'review', reason: `${who} ${vestingClause(creator.holds_pct ?? 0, vestingPct, creator.vesting!.end, ctx.nowMs)}.` };
   }
   if (flags.includes('creator_holds_large_share') && creator?.holds_pct !== null && creator?.holds_pct !== undefined) {
-    return { label: 'review', reason: `The wallet that launched it still holds ${creator.holds_pct}% of the supply.` };
+    return { label: 'review', reason: `${who} still holds ${creator.holds_pct}% of the supply.` };
   }
   if (flags.includes('creator_labeled') && creator?.labels[0]) {
-    return { label: 'review', reason: `The wallet that launched it is labeled in our investigations: ${creator.labels[0].sentence}` };
+    return { label: 'review', reason: `${who} is labeled in our investigations: ${creator.labels[0].sentence}` };
   }
-  if (flags.includes('creator_serial_launcher') && creator?.clanker_launches_24h) {
-    const n = creator.clanker_launches_24h;
+  if (flags.includes('creator_serial_launcher') && creator?.launches_24h) {
+    const c = creator.launches_24h;
+    const n = `${c.capped ? 'at least ' : ''}${c.total.toLocaleString('en-US')}`;
+    const where = LAUNCHPAD_NAMES.filter(([k]) => c.by_launchpad[k] > 0).map(([k, name]) => `${c.by_launchpad[k].toLocaleString('en-US')} through ${name}`);
+    if (c.by_launchpad.other > 0) where.push(`${c.by_launchpad.other} outside these launchpads`);
+    const within = `within ${duration(Math.max(1, c.span_sec))}`;
+    const list = where.length > 1 ? `${where.slice(0, -1).join(', ')} and ${where[where.length - 1]}` : where.join('');
+    // Launched for it: this launch counts as one of its launches, though a launch service sent it.
     return {
       label: 'review',
-      reason: `The wallet that launched it launched ${n >= LAUNCH_COUNT_PAGE ? 'at least ' : ''}${n.toLocaleString('en-US')} tokens through Clanker in the 24 hours up to and including this one.`,
+      reason: creator.role === 'made_for' ? `${who} has ${n} launches ${within}, this one included: ${list}.` : `${who} launched ${n} tokens ${within}, this one included: ${list}.`,
     };
   }
   if (flags.includes('new_creator') && creator?.age_days_at_launch !== null && creator?.age_days_at_launch !== undefined) {
     const d = creator.age_days_at_launch;
-    return { label: 'review', reason: `The wallet that launched it was first seen ${d === 0 ? 'less than a day' : plural(d, 'day')} before the launch.` };
+    return { label: 'review', reason: `${who} was first seen ${d === 0 ? 'less than a day' : plural(d, 'day')} before the launch.` };
   }
   if (flags.includes('new_creator')) {
-    return {
-      label: 'review',
-      reason: 'The wallet that launched it had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.',
-    };
+    return { label: 'review', reason: `${who} had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.` };
   }
   if (flags.includes('creator_shared_funder')) {
+    const recent = creator?.first_funder?.recent_recipients;
+    if (recent) {
+      return { label: 'review', reason: `${who} was first funded by a busy wallet that is not a known exchange, and ${freshWallets(recent)} it most recently sent funds to had never been used before.` };
+    }
     const n = creator?.first_funder?.funded_wallets ?? 0;
-    return { label: 'review', reason: `The wallet that launched it was first funded by a wallet that funded at least ${n} wallets and is not an exchange.` };
+    return { label: 'review', reason: `${who} was first funded by a wallet that funded at least ${n} wallets and is not an exchange.` };
   }
   if (flags.includes('launch_unknown')) {
     return { label: 'review', reason: 'The launch transaction could not be traced to one wallet, so the launch wallet was not checked.' };
@@ -1350,6 +1468,12 @@ function verdictFor(
     label: 'no_flags',
     reason: "None of the checks matched: sanctions, mints after the first issuance, and the launch wallet's age, funder, holdings and send-outs after launch.",
   };
+}
+
+/** What it still held of the launch tokens: only a share of them, or none. */
+function keptClause(sentPct: number): string {
+  const kept = Math.round((100 - sentPct) * 100) / 100;
+  return kept > 0 ? `only ${amount(kept)}% of them` : 'none of them';
 }
 
 /** Deps that read Base through an Alchemy URL. */

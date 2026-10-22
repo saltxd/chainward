@@ -194,6 +194,34 @@ describe('tokenFacts', () => {
     expect(value(tokenFacts(check({}, { clanker_launches_24h: null }), NOW), 'Clanker launches, 24 hours')).toBeUndefined();
   });
 
+  it('names the launch service and the wallet it launched for, whose facts the rows describe', () => {
+    const launch = { ...check().launch!, creator: ADMIN, token_admin: CREATOR, made_for: { address: CREATOR, named_as: 'token_admin' as const } };
+    const rows = tokenFacts(check({ launch }, { role: 'made_for' }), NOW);
+    expect(value(rows, 'Launch wallet')).toMatchObject({ href: `/report/${ADMIN}`, note: 'sent the launch for the wallet below, as a launch service does' });
+    expect(value(rows, 'Launched for')?.href).toBe(`/report/${CREATOR}`);
+    expect(value(rows, 'Launched for')?.note).toMatch(/^the token's admin at launch, first seen less than a day before the launch/);
+    expect(value(rows, 'Admin at launch')).toBeUndefined();
+  });
+
+  it('counts launches within 24 hours across launchpads, by launchpad', () => {
+    const launches_24h = { total: 31, by_launchpad: { clanker: 0, doppler: 30, zora: 1, virtuals: 0, other: 0 }, span_sec: 20_000, capped: false };
+    const row = value(tokenFacts(check({}, { launches_24h }), NOW), 'Launches within 24 hours');
+    expect(row).toMatchObject({ value: '31, this one included', note: '30 through Doppler, 1 through Zora' });
+    expect(value(tokenFacts(check({}, { launches_24h }), NOW), 'Clanker launches, 24 hours')).toBeUndefined();
+  });
+
+  it('calls a busy funder busy, and only a labeled one an exchange', () => {
+    const busy = { address: FUNDER, tx: `0x${'2'.repeat(64)}`, sanctioned: false, exchange_or_hub: false, busy: true, funded_wallets: 13 };
+    expect(value(tokenFacts(check({}, { first_funder: busy }), NOW), 'Launch wallet')?.note).toMatch(/first funded by a busy wallet, 0xffff…ffff/);
+    const labeled = { ...busy, exchange_or_hub: true, funded_wallets: null };
+    expect(value(tokenFacts(check({}, { first_funder: labeled }), NOW), 'Launch wallet')?.note).toMatch(/first funded by a known exchange or service/);
+  });
+
+  it('says how much of the launch tokens is gone now', () => {
+    const lt = { received: 1_000, sent_pct: 0, first_send_after_sec: null, sent_90pct_after_sec: null, sent_now_pct: 100 };
+    expect(value(tokenFacts(check({}, { launch_tokens: lt }), NOW), 'Launch tokens')?.value).toBe('got 1,000, sent out 0% within a day, 100% gone now');
+  });
+
   it('names the admin at launch only when a launch service sent the launch for it', () => {
     expect(value(tokenFacts(check(), NOW), 'Admin at launch')).toBeUndefined();
     const launch = { ...check().launch!, token_admin: ADMIN };
@@ -282,7 +310,17 @@ describe('tokenFlagLines', () => {
     const lines = tokenFlagLines(check({ flags: ['creator_sanctioned', 'creator_serial_launcher'] }));
     expect(lines[0]).toMatchObject({ id: 'creator_sanctioned', severity: 'high' });
     expect(lines[1]).toMatchObject({ id: 'creator_serial_launcher', severity: 'medium' });
-    expect(lines[1]!.title).toMatch(/Clanker/);
+    // Counted across Clanker, Doppler and Zora now, not Clanker alone.
+    expect(lines[1]!.title).toBe('The launch wallet launches many tokens (5 or more in a day)');
+  });
+
+  it('words the send-out without "within the hour": it is flagged hours later too', () => {
+    expect(tokenFlagLines(check({ flags: ['creator_sent_launch_tokens'] }))[0]!.title).toBe('The launch wallet sent out the tokens it got at launch');
+  });
+
+  it('names the wallet a launch service launched it for in the flag titles', () => {
+    const c = check({ flags: ['creator_serial_launcher', 'new_creator'] }, { role: 'made_for' });
+    expect(tokenFlagLines(c).map((l) => l.title)).toEqual(['The wallet it was launched for launches many tokens (5 or more in a day)', 'The wallet it was launched for was brand new at launch']);
   });
 
   it('words the liquidity removal as high severity, since it answers hold', () => {

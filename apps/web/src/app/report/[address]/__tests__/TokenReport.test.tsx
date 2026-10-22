@@ -63,7 +63,7 @@ describe('TokenReportView', () => {
   });
 
   it('lists what came up, in plain words', () => {
-    expect(html).toContain('The launch wallet sent out its launch tokens within the hour');
+    expect(html).toContain('The launch wallet sent out the tokens it got at launch');
     expect(html).toContain('The launch wallet was brand new at launch');
   });
 
