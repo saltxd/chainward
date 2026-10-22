@@ -55,7 +55,7 @@ Send paid requests to https://api.chainward.ai directly. The first request answe
 ## MCP server
 
 - Hosted, nothing to install: https://api.chainward.ai/mcp (Streamable HTTP, no API key)
-- For Claude, Cursor and any MCP client: npx -y chainward-mcp-server (npm: https://www.npmjs.com/package/chainward-mcp-server; MCP Registry: io.github.saltxd/chainward). Tools include check_counterparty, lookup_agent, get_agent_economics, list_decodes and find_decodes_for_address. https://chainward.ai/mcp
+- For Claude, Cursor and any MCP client: npx -y chainward-mcp-server (npm: https://www.npmjs.com/package/chainward-mcp-server; MCP Registry: io.github.saltxd/chainward). Tools include check_counterparty, rug_check, lookup_agent, get_agent_economics, list_decodes and find_decodes_for_address. https://chainward.ai/mcp
 
 ## Docs and contact
 
