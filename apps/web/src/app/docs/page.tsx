@@ -267,13 +267,13 @@ export default function DocsPage() {
                 their contracts confirm the token), mints after the first issuance and how many
                 went to the launch wallet, and what the launch wallet did: sanctions, its age at
                 launch, its first funder, the share of supply it holds, whether it sent out 90%
-                or more of the tokens it got at launch within the hour, and how many tokens it
-                launched through Clanker in the 24 hours up to this one (5 or more answers{' '}
-                <code>review</code>). The token&apos;s admin at launch is named; when it is not
-                the launch wallet, as when Clanker&apos;s X bot launches for someone, its launches
-                are not counted. Verdict{' '}
+                or more of the tokens it got at launch (within the hour or later), and how many tokens it
+                launched through Clanker, Doppler and Zora in the busiest 24 hours around this one (5 or more answers{' '}
+                <code>review</code>). When a launch was made for another wallet (Clanker&apos;s
+                token admin, Zora&apos;s payout recipient or Doppler&apos;s vesting beneficiary), the
+                wallet checks run on that wallet. Verdict{' '}
                 <code>hold</code>, <code>review</code> or <code>no_flags</code>, which is not a
-                clearance. It is not a honeypot, liquidity or holder check. An address that is not
+                clearance. It reads liquidity the launch wallet pulled from its pool (<code>hold</code> when it took back most of it); it is not a honeypot or holder check. An address that is not
                 a token answers 400 <code>NOT_A_TOKEN</code> and is never charged: an empty
                 address, or a contract that is not an ERC-20, is refused before payment. A token
                 whose name or symbol passes for USDC, USDT or another well-known token through
@@ -285,7 +285,7 @@ export default function DocsPage() {
                 the token at <a href="/rugcheck">chainward.ai/rugcheck</a>. It also lists the
                 labels our published investigations put on the launch wallet, and a strong one
                 answers <code>review</code>. A launch wallet that launched 5 or more tokens
-                through Clanker in the day up to a launch it made for itself is labeled a serial
+                through Clanker, Doppler or Zora within a day of a launch is labeled a serial
                 launcher until 30 days after that launch, and the other checks show that label.
               </td>
             </tr>

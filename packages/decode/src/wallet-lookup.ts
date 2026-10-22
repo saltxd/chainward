@@ -47,12 +47,23 @@ export interface WalletLookup {
     address: string;
     tx: string;
     sanctioned: boolean;
+    /** ChainWard's labels name it an exchange or other known service (a public `service` label). Nothing else makes it one. */
     exchange_or_hub: boolean;
+    /** 10,000 or more sent transactions, or 1,000 or more transfers out in the latest read: too busy to read each recipient. */
+    busy: boolean;
     /**
      * Wallets (no contract code) among the first 20 distinct recipients of the
-     * funder's latest 1,000 outgoing transfers: a floor. null for an exchange or hub.
+     * funder's latest 1,000 outgoing transfers: a floor. For a busy funder, the
+     * brand-new ones (recent_recipients.fresh). null for a known exchange or
+     * service, or when its recipients were not read.
      */
     funded_wallets: number | null;
+    /**
+     * A busy funder that is not a known exchange (Base): of the first 20 distinct wallets it sent funds to in its
+     * latest transfers out (`checked`), how many had no ETH, no transactions and no code at `before_block`, the
+     * block before the earliest of those sends (`fresh`). Null when not read.
+     */
+    recent_recipients: RecentRecipients | null;
   } | null;
   /** When it looks like an address-poisoning decoy: the real address it copies and the transfers that show it. */
   decoy: Decoy | null;
@@ -63,10 +74,17 @@ export interface WalletLookup {
   limits: string;
 }
 
+export interface RecentRecipients {
+  checked: number;
+  fresh: number;
+  before_block: number;
+}
+
 interface Transfer {
   from: string;
   to: string | null;
   hash: string;
+  blockNum?: string;
   category?: string;
   value?: number | null;
   rawContract?: { address?: string | null; value?: string | null };
@@ -85,8 +103,10 @@ export interface WalletLookupDeps {
 export const NEW_WALLET_DAYS = 7;
 /** A funder that funded this many wallets, and is not an exchange or hub, is worth a look. */
 export const SHARED_FUNDER_MIN = 5;
-/** Sent transactions at which a funder counts as an exchange, bridge or other hub. */
+/** Sent transactions at which a funder is busy: too busy to read each of its recipients. */
 export const LOOKUP_HUB_NONCE = 10_000;
+/** A busy funder is a shared funder when at least this share of its recent recipients, and SHARED_FUNDER_MIN of them, were brand new. */
+export const BUSY_FRESH_SHARE = 0.75;
 const FUNDER_PAGE = 1000;
 /** Its first transfers in, oldest first, searched for the first one that funded it. */
 const FIRST_IN_PAGE = 50;
@@ -108,8 +128,16 @@ const hexToNumber = (h: unknown) => (typeof h === 'string' && h.startsWith('0x')
 const isWalletCode = (c: unknown) => c === '0x' || c === null || c === undefined || (typeof c === 'string' && /^0xef0100[0-9a-f]{40}$/i.test(c));
 const scaled = (h: unknown, decimals: number) => (typeof h === 'string' && h.startsWith('0x') && h !== '0x' ? Number(BigInt(h)) / 10 ** decimals : 0);
 const balanceOfData = (addr: string) => `0x70a08231${addr.slice(2).toLowerCase().padStart(64, '0')}`;
+/**
+ * Init code for a deployless eth_call (no `to`): for each 32-byte address appended to it, EXTCODEHASH, one word each.
+ * EXTCODEHASH is 0 for an account with no ETH, no transactions and no code, so one call at a past block tells which
+ * addresses had never been used by then. Program: off = 43; while off < codesize { mem[32 + off - 43] =
+ * extcodehash(code[off:off+32]); off += 32 }; return mem[32 : 32 + codesize - 43].
+ */
+const EXTCODEHASH_PROGRAM = '0x602b5b388110156023576020816000396000513f81602b9003602001526020016002565b602b90036020f3';
 
-export async function lookupWallet(rawAddress: string, chain: LookupChain, deps: WalletLookupDeps): Promise<WalletLookup> {
+/** decoy: false skips the address-poisoning reads, for a caller that is not about to pay the address (the rug check). */
+export async function lookupWallet(rawAddress: string, chain: LookupChain, deps: WalletLookupDeps, opts: { decoy?: boolean } = {}): Promise<WalletLookup> {
   const address = rawAddress.toLowerCase();
   const now = deps.now();
   // Bridge fills, disperse contracts and smart wallets move ETH by internal call. Alchemy
@@ -141,7 +169,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   // or slow read does not fail the lookup: it says it could not check.
   let decoy: Decoy | null = null;
   let decoyUnchecked = false;
-  if (chain === 'base' && sentTxs === 0 && isWallet) {
+  if (chain === 'base' && sentTxs === 0 && isWallet && opts.decoy !== false) {
     try {
       decoy = await withTimeout(detectDecoy(address, chain, deps, { sentTxs, isWallet, native, usdc }), DECOY_TIMEOUT_MS);
     } catch {
@@ -154,17 +182,24 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   // deposit lists as a transfer from the wallet to itself (bridged from L1): no funder to trace.
   if (!decoy && funding && funding.from.toLowerCase() !== ZERO_ADDRESS && funding.from.toLowerCase() !== address) {
     const f = funding.from.toLowerCase();
-    const [fNonce, fOut] = await Promise.all([
+    const [fNonce, fOut, fLabels] = await Promise.all([
       deps.rpc('eth_getTransactionCount', [f, 'latest']),
       deps.transfers({ ...transferBase, fromAddress: f, order: 'desc', maxCount: `0x${FUNDER_PAGE.toString(16)}` }),
+      Promise.resolve(deps.labelsFor?.(f, chain) ?? []),
     ]);
-    const hub = hexToNumber(fNonce) >= LOOKUP_HUB_NONCE || fOut.transfers.length >= FUNDER_PAGE;
+    // Only ChainWard's labels make a funder an exchange: a busy wallet is not one by being busy (launch mills fund from busy wallets too).
+    const service = publicLabels(fLabels).some((l) => l.kind === 'service');
+    const busy = hexToNumber(fNonce) >= LOOKUP_HUB_NONCE || fOut.transfers.length >= FUNDER_PAGE;
+    // A busy funder's recipients are judged in one read, on Base; on BNB Chain they are not read.
+    const recent = !service && busy && chain === 'base' ? await freshRecipients(fOut.transfers, f, deps) : null;
     funder = {
       address: f,
       tx: funding.hash,
       sanctioned: isSanctioned(f),
-      exchange_or_hub: hub,
-      funded_wallets: hub ? null : await countFundedWallets(fOut.transfers, f, deps),
+      exchange_or_hub: service,
+      busy,
+      funded_wallets: service || (busy && !recent) ? null : busy ? recent!.fresh : await countFundedWallets(fOut.transfers, f, deps),
+      recent_recipients: recent,
     };
   }
 
@@ -180,7 +215,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
   if (labels[0]?.strength === 'strong') flags.push('labeled');
   if (!first && sentTxs === 0) flags.push('no_history');
   if (ageDays !== null && ageDays < NEW_WALLET_DAYS) flags.push('new_wallet');
-  if (funder && !funder.exchange_or_hub && (funder.funded_wallets ?? 0) >= SHARED_FUNDER_MIN) flags.push('shared_funder');
+  if (funder && sharedFunder(funder)) flags.push('shared_funder');
   if (type === 'contract') flags.push('contract');
 
   return {
@@ -200,7 +235,7 @@ export async function lookupWallet(rawAddress: string, chain: LookupChain, deps:
     flags,
     as_of_block: hexToNumber(blockHex),
     limits:
-      'On-chain facts only. A shared funder is not proof of one owner, and exchanges and other hubs hide who funded a wallet. no_flags means none of these checks matched; it is not a clearance.' +
+      "On-chain facts only. A shared funder is not proof of one owner, and exchanges and other hubs hide who funded a wallet. A funder counts as an exchange only when ChainWard's labels name it one. A busy funder (10,000 or more transactions, or 1,000 or more recent transfers out) without such a label is read once, on Base: how many of the 20 wallets it most recently sent funds to had no ETH, transactions or code before the earliest of those sends. no_flags means none of these checks matched; it is not a clearance." +
       (decoy ? DECOY_LIMITS : ''),
   };
 }
@@ -225,6 +260,57 @@ function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
     timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
   });
   return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * A funder that funded wallets together: an ordinary one that funded SHARED_FUNDER_MIN wallets, or a busy one whose recent
+ * recipients were mostly brand new (BUSY_FRESH_SHARE, and SHARED_FUNDER_MIN of them). Never a known exchange or service.
+ */
+export function sharedFunder(funder: NonNullable<WalletLookup['first_funder']>): boolean {
+  if (funder.exchange_or_hub) return false;
+  const recent = funder.recent_recipients;
+  if (recent) return recent.fresh >= SHARED_FUNDER_MIN && recent.fresh >= recent.checked * BUSY_FRESH_SHARE;
+  return !funder.busy && (funder.funded_wallets ?? 0) >= SHARED_FUNDER_MIN;
+}
+
+/** How many of a busy funder's recent recipients were brand new, in words: "all 13 wallets", "15 of the 20 wallets". */
+export function freshWallets(recent: RecentRecipients): string {
+  return recent.fresh === recent.checked ? `all ${recent.checked} wallets` : `${recent.fresh} of the ${recent.checked} wallets`;
+}
+
+/** The plain words for a shared funder: how many wallets it funded, or how many of a busy funder's recent recipients were brand new. */
+export function sharedFunderClause(funder: NonNullable<WalletLookup['first_funder']>): string {
+  const recent = funder.recent_recipients;
+  if (!recent) return `has funded at least ${funder.funded_wallets ?? 0} wallets and is not an exchange`;
+  return `is a busy wallet that is not a known exchange, and ${freshWallets(recent)} it most recently sent funds to had never been used before`;
+}
+
+/**
+ * A busy funder's first FUNDER_CODE_CHECKS distinct recipients (most recent first): how many were brand new, with no
+ * ETH, no transactions and no code at the block before the earliest send among those read. One deployless eth_call at
+ * that block. Null when there are no recipients, or the transfers carry no block numbers.
+ */
+async function freshRecipients(transfers: Transfer[], funder: string, deps: WalletLookupDeps): Promise<RecentRecipients | null> {
+  const recipients: string[] = [];
+  let earliest: number | null = null;
+  for (const t of transfers) {
+    const to = t.to?.toLowerCase();
+    if (!to || to === funder || to === ZERO_ADDRESS) continue;
+    if (!recipients.includes(to)) {
+      if (recipients.length === FUNDER_CODE_CHECKS) break;
+      recipients.push(to);
+    }
+    const block = hexToNumber(t.blockNum);
+    if (!block) return null;
+    earliest = earliest === null ? block : Math.min(earliest, block);
+  }
+  if (!recipients.length || earliest === null || earliest < 1) return null;
+  const before = earliest - 1;
+  const data = EXTCODEHASH_PROGRAM + recipients.map((r) => r.slice(2).padStart(64, '0')).join('');
+  const answer = await deps.rpc('eth_call', [{ data }, `0x${before.toString(16)}`]);
+  const words = typeof answer === 'string' ? (answer.slice(2).match(/.{64}/g) ?? []) : [];
+  if (words.length !== recipients.length) return null;
+  return { checked: recipients.length, fresh: words.filter((w) => /^0+$/.test(w)).length, before_block: before };
 }
 
 /**
@@ -263,7 +349,7 @@ function verdictFor(
     return { label: 'review', reason: `First seen ${d === 0 ? 'today' : `${d} day${d === 1 ? '' : 's'} ago`}.` };
   }
   if (flags.includes('shared_funder')) {
-    return { label: 'review', reason: `Its first funder has funded at least ${ctx.funder!.funded_wallets} wallets and is not an exchange.` };
+    return { label: 'review', reason: `Its first funder ${sharedFunderClause(ctx.funder!)}.` };
   }
   return { label: 'no_flags', reason: 'None of the checks matched: sanctions, age, history and first funder.' };
 }

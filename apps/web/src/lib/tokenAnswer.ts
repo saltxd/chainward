@@ -162,12 +162,19 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
 
   if (creator) {
     const funder = creator.first_funder;
+    const madeFor = creator.role === 'made_for' ? launch?.made_for : null;
     const notes = [
       creator.type === 'contract' ? 'a contract' : null,
       ageAtLaunch(creator.age_days_at_launch),
-      funder ? `first funded by ${funder.exchange_or_hub ? 'an exchange or hub' : short(funder.address)}` : null,
+      funder ? `first funded by ${funder.exchange_or_hub ? 'a known exchange or service' : funder.busy ? `a busy wallet, ${short(funder.address)}` : short(funder.address)}` : null,
     ].filter(Boolean);
-    rows.push({ label: 'Launch wallet', value: short(creator.address), href: `/report/${creator.address}`, note: notes.join(', ') || undefined });
+    if (madeFor && launch?.creator) {
+      // A launch service sent it: the facts describe the wallet it was made for, and the sender is named apart.
+      rows.push({ label: 'Launch wallet', value: short(launch.creator), href: `/report/${launch.creator}`, note: 'sent the launch for the wallet below, as a launch service does' });
+      rows.push({ label: 'Launched for', value: short(creator.address), href: `/report/${creator.address}`, note: [MADE_FOR_AS[madeFor.named_as], ...notes].join(', ') });
+    } else {
+      rows.push({ label: 'Launch wallet', value: short(creator.address), href: `/report/${creator.address}`, note: notes.join(', ') || undefined });
+    }
 
     const admin = launch?.token_admin;
     if (admin && admin !== creator.address) {
@@ -184,7 +191,7 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
     if (lt) {
       rows.push({
         label: 'Launch tokens',
-        value: `got ${num(lt.received)}, sent out ${lt.sent_pct}% within a day${lt.sent_90pct_after_sec !== null ? `, 90% gone ${duration(lt.sent_90pct_after_sec)} after launch` : ''}`,
+        value: `got ${num(lt.received)}, sent out ${lt.sent_pct}% within a day${lt.sent_90pct_after_sec !== null ? `, 90% gone ${duration(lt.sent_90pct_after_sec)} after launch` : ''}${lt.sent_now_pct ? `, ${lt.sent_now_pct}% gone now` : ''}`,
       });
     }
     const labels = creator.labels ?? [];
@@ -198,7 +205,11 @@ export function tokenFacts(check: TokenReport, now: Date = new Date()): TokenFac
       });
     }
     if (creator.holds_pct !== null) rows.push({ label: 'Launch wallet holds now', value: `${creator.holds_pct}% of the supply` });
-    if (creator.clanker_launches_24h !== null) {
+    const launches = creator.launches_24h;
+    if (launches) {
+      const where = LAUNCHPADS.filter(([k]) => launches.by_launchpad[k] > 0).map(([k, name]) => `${num(launches.by_launchpad[k])} ${name}`);
+      rows.push({ label: 'Launches within 24 hours', value: `${launches.capped ? 'at least ' : ''}${num(launches.total)}, this one included`, note: where.join(', ') || undefined });
+    } else if (creator.clanker_launches_24h !== null) {
       const n = creator.clanker_launches_24h;
       rows.push({ label: 'Clanker launches, 24 hours', value: `${n >= 1_000 ? 'at least 1,000' : num(n)}, this one included` });
     }
@@ -223,17 +234,36 @@ const FLAG_LINES: Record<string, { title: string; severity: 'high' | 'medium' }>
   creator_removed_liquidity: { title: 'The launch wallet took most of its liquidity back out of the pool', severity: 'high' },
   creator_minted_after_launch: { title: 'More tokens were minted to the launch wallet after launch', severity: 'high' },
   minted_after_launch: { title: 'More tokens were minted after launch', severity: 'medium' },
-  creator_sent_launch_tokens: { title: 'The launch wallet sent out its launch tokens within the hour', severity: 'medium' },
+  creator_sent_launch_tokens: { title: 'The launch wallet sent out the tokens it got at launch', severity: 'medium' },
   creator_holds_large_share: { title: 'The launch wallet holds, or will receive as it vests, a large share of the supply', severity: 'medium' },
   creator_labeled: { title: 'The launch wallet is labeled in our investigations', severity: 'medium' },
-  creator_serial_launcher: { title: 'The launch wallet launches many tokens through Clanker (5 or more in a day)', severity: 'medium' },
+  creator_serial_launcher: { title: 'The launch wallet launches many tokens (5 or more in a day)', severity: 'medium' },
   new_creator: { title: 'The launch wallet was brand new at launch', severity: 'medium' },
   creator_shared_funder: { title: 'The launch wallet was funded by a wallet that funded many others', severity: 'medium' },
   launch_unknown: { title: "The launch couldn't be traced to one wallet", severity: 'medium' },
 };
 
+/** How the launch named the wallet it was made for. */
+const MADE_FOR_AS: Record<'token_admin' | 'payout_recipient' | 'vesting_beneficiary', string> = {
+  token_admin: "the token's admin at launch",
+  payout_recipient: "the coin's payout recipient",
+  vesting_beneficiary: 'the wallet the token vests to',
+};
+const LAUNCHPADS: Array<['clanker' | 'doppler' | 'zora' | 'virtuals' | 'other', string]> = [
+  ['clanker', 'through Clanker'],
+  ['doppler', 'through Doppler'],
+  ['zora', 'through Zora'],
+  ['virtuals', 'through Virtuals'],
+  ['other', 'outside these launchpads'],
+];
+
 export function tokenFlagLines(check: TokenReport): Array<{ id: string; title: string; severity: 'high' | 'medium' }> {
-  return check.flags.map((id) => ({ id, ...(FLAG_LINES[id] ?? { title: id, severity: 'medium' as const }) }));
+  // When a launch service sent the launch, the launch-wallet flags describe the wallet it was launched for.
+  const who = check.creator?.role === 'made_for' ? 'The wallet it was launched for' : null;
+  return check.flags.map((id) => {
+    const line = FLAG_LINES[id] ?? { title: id, severity: 'medium' as const };
+    return { id, ...line, title: who ? line.title.replace(/^The launch wallet/, who) : line.title };
+  });
 }
 
 /** The tab title once the check has answered: the address, never the name the token gives itself. */

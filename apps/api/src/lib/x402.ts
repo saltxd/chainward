@@ -183,9 +183,11 @@ const TOKEN_CHECK_OUTPUT_EXAMPLE = {
       launcher: 'clanker',
       launcher_note: "Launched through Clanker's current factory, which deploys every token from one verified template with no owner mint, pause, blacklist or transfer tax.",
       token_admin: '0xdbd1c0e6c6252492bd5b99da162558de7f08d68b',
+      made_for: null,
     },
     creator: {
       address: '0xdbd1c0e6c6252492bd5b99da162558de7f08d68b',
+      role: 'launch_wallet',
       type: 'wallet',
       sanctioned: false,
       first_seen: '2026-02-02T14:39:03.000Z',
@@ -197,7 +199,9 @@ const TOKEN_CHECK_OUTPUT_EXAMPLE = {
         tx: '0x2353f506566e79dc6dd4c35fbebe065373d78c7a5010f48f5dcd76d6e2a476dd',
         sanctioned: false,
         exchange_or_hub: true,
+        busy: true,
         funded_wallets: null,
+        recent_recipients: null,
       },
       holds_pct: 0,
       vesting: null,
@@ -212,8 +216,12 @@ const TOKEN_CHECK_OUTPUT_EXAMPLE = {
         held_1h: 0,
         held_1h_after_sec: 3600,
         sent_1h_pct: 100,
+        held_now: 0,
+        held_now_after_sec: 86400,
+        sent_now_pct: 100,
       },
       clanker_launches_24h: 1,
+      launches_24h: { total: 1, by_launchpad: { clanker: 1, doppler: 0, zora: 0, virtuals: 0, other: 0 }, span_sec: 0, read_to: '2026-10-20T16:42:07.000Z', capped: false },
     },
     supply: {
       mints_after_launch: 0,
@@ -699,7 +707,7 @@ function x402OpenApiBase() {
           operationId: 'tokenRugCheck',
           summary: 'Rug check for a Base token: who launched it and what the launch wallet and the supply did after, with a hold / review / no_flags verdict',
           description:
-            "For an ERC-20 token on Base: the launch block and transaction and the wallet that launched it: the sender, the smart wallet behind an ERC-4337 bundle, or for a Virtuals agent token the prototype's creator (a buyer's purchase graduates it). Clanker's factory and Virtuals' bonding curve are named when their contracts confirm the token. Then the launch wallet: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, whether it had sent out 90% or more of the tokens it received at launch within the hour, and for a Clanker launch it made for itself, how many tokens it launched straight through Clanker's factory in the 24 hours up to this one. token_admin is the token's admin at launch; when it is not the launch wallet (as when Clanker's X bot launches for someone), its launches are not counted. And the supply: mints after the first issuance, and how many went to the launch wallet. hold if the launch wallet or its first funder is sanctioned, mints after launch gave it 1% or more of today's supply, or it took back most of the liquidity it added (creator_removed_liquidity); review for other mints after launch, a fast send-out, a large holding, a serial launcher (5 or more tokens through Clanker in 24 hours), a launch wallet with a strong label from ChainWard's published investigations or detectors (creator_labeled; its labels are listed in creator.labels), a new launch wallet, a shared funder or a launch it could not trace; no_flags otherwise, which is not a clearance. An address that is not a token answers 400 NOT_A_TOKEN and is never charged: an empty address, or a contract without totalSupply(), is refused before the 402, and an NFT collection once the check has read it. A token whose name or symbol passes for USDC, USDT or another well-known token through look-alike or hidden characters answers hold (imitates_known_token), even when it is not a full ERC-20. Every answer carries checked_at, cached and age_seconds: when it was read, whether it came from the cache, and its age in seconds. It also reads whether the launch wallet removed the liquidity it added to the token's Uniswap v2 or Aerodrome pool, and supply still vesting to it from a Doppler launch, which counts in its share. Not a honeypot or sell simulation, and not a holder-concentration check. The launch wallet can be a bot or launch service acting for someone else. Not charged if the check fails.",
+            "For an ERC-20 token on Base: the launch block and transaction and the wallet that launched it: the sender, the smart wallet behind an ERC-4337 bundle, or for a Virtuals agent token the prototype's creator (a buyer's purchase graduates it). Clanker's factory and Virtuals' bonding curve are named when their contracts confirm the token. Then the launch wallet: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, whether it had sent out 90% or more of the tokens it received at launch (within the hour, or later, read from its balance now), and how many tokens it launched through Clanker, Doppler and Zora in the busiest 24 hours that include this launch, read through to the time of the check (creator.launches_24h). When the launch receipt names one other wallet the launch was made for (Clanker's token_admin, Zora's payout recipient, or the one wallet a Doppler token vests to), the wallet checks run on that wallet: launch.made_for names it and creator.role says which wallet the facts describe. And the supply: mints after the first issuance, and how many went to the launch wallet. hold if the launch wallet or its first funder is sanctioned, mints after launch gave it 1% or more of today's supply, or it took back most of the liquidity it added (creator_removed_liquidity); review for other mints after launch, a fast send-out, a large holding, a serial launcher (5 or more launches through Clanker, Doppler or Zora in 24 hours), a launch wallet with a strong label from ChainWard's published investigations or detectors (creator_labeled; its labels are listed in creator.labels), a new launch wallet, a shared funder (a first funder whose recent recipients were mostly brand-new wallets) or a launch it could not trace; no_flags otherwise, which is not a clearance. An address that is not a token answers 400 NOT_A_TOKEN and is never charged: an empty address, or a contract without totalSupply(), is refused before the 402, and an NFT collection once the check has read it. A token whose name or symbol passes for USDC, USDT or another well-known token through look-alike or hidden characters answers hold (imitates_known_token), even when it is not a full ERC-20. Every answer carries checked_at, cached and age_seconds: when it was read, whether it came from the cache, and its age in seconds. It also reads whether the launch wallet removed the liquidity it added to the token's Uniswap v2 or Aerodrome pool, and supply still vesting to it from a Doppler launch, which counts in its share. Not a honeypot or sell simulation, and not a holder-concentration check. The launch wallet can be a bot or launch service acting for someone else. Not charged if the check fails.",
           parameters: [
             {
               name: 'token',
@@ -1104,7 +1112,7 @@ export function x402PaidRoutes(payTo: string): Record<string, RouteConfig> {
     price: x402TokenCheckPrice(),
     serviceName: 'ChainWard rug check',
     description:
-      "Rug check for a Base token before you buy it: who launched it and how (Clanker's factory and Virtuals' bonding curve named when their contracts confirm it), mints after the first issuance and how many went to the launch wallet, and what the launch wallet did: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, whether it sent out 90% or more of the tokens it received at launch within the hour, and how many tokens it launched through Clanker in the 24 hours up to this one. Verdict hold / review / no_flags with one reason. Not a honeypot, liquidity or holder check.",
+      "Rug check for a Base token before you buy it: who launched it and how (Clanker's factory and Virtuals' bonding curve named when their contracts confirm it), mints after the first issuance and how many went to the launch wallet, and what the launch wallet did: OFAC sanctions, its age at launch, its first funder, the share of supply it holds, whether it sent out 90% or more of the tokens it received at launch (within the hour or later), and how many tokens it launched through Clanker, Doppler and Zora in the busiest 24 hours around this one; for a launch made for another wallet, the wallet checks run on that wallet. Verdict hold / review / no_flags with one reason. It reads liquidity the launch wallet pulled from its pool (hold when it took back most of it); not a honeypot or holder check.",
     tags: ['base', 'token', 'erc20', 'rugcheck', 'rug', 'launch', 'creator', 'deployer', 'mint', 'clanker', 'memecoin', 'due-diligence', 'agents', 'trading'],
     whatYouGet:
       'A verdict (hold / review / no_flags) with its reason, then the launch (block, transaction, launch wallet, launcher), the launch wallet facts and the supply after launch, JSON. Cached for ten minutes (one minute for a token under two hours old); checked_at, cached and age_seconds say how fresh it is. An address that is not a token is refused with 400 NOT_A_TOKEN before payment. Not charged if the check fails.',

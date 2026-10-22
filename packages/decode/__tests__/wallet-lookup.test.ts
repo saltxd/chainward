@@ -20,16 +20,39 @@ interface Chain {
   funderRecipients?: number;
   /** The funder's recipients are contracts (DEX routers, pools), not wallets. */
   recipientsAreContracts?: boolean;
+  /** The funder's transfers carry block numbers (Alchemy's do): one block each, newest first, from this block down. */
+  funderFromBlock?: number;
+  /** How many of the funder's recipients (the first ones, newest first) had never been used at the block the read names. */
+  freshRecipients?: number;
+  /** Every deployless eth_call made: its block and the addresses it read. */
+  deployless?: Array<{ block: string; addresses: string[] }>;
 }
 
 const ZERO = `0x${'0'.repeat(40)}`;
 const recipient = (i: number) => `0x${(i + 1).toString(16).padStart(40, '0')}`;
+/** A busy funder (20,707 sent transactions) with 1,000 recent sends, `fresh` of its recipients brand new. */
+const busyChain = (fresh: number, deployless: Array<{ block: string; addresses: string[] }>): Chain => ({
+  nonce: { [A]: 2, [FUNDER]: 20_707 },
+  firstIn: { from: FUNDER, ts: days(60), hash: '0x6' },
+  funderRecipients: 1000,
+  funderFromBlock: 52_916_274,
+  freshRecipients: fresh,
+  deployless,
+});
 
 function deps(c: Chain, calls: string[] = []): WalletLookupDeps {
   return {
     now: () => NOW,
     rpc: async (method, params) => {
       const p = params as string[];
+      calls.push(method);
+      // The deployless EXTCODEHASH read: one word per address, zero for an address never used by that block.
+      const callArg = (params as Array<{ to?: string; data?: string }>)[0];
+      if (method === 'eth_call' && typeof callArg === 'object' && callArg !== null && callArg.to === undefined) {
+        const addresses = (callArg.data!.slice(2 + 86).match(/.{64}/g) ?? []).map((w) => `0x${w.slice(24)}`);
+        c.deployless?.push({ block: (params as string[])[1]!, addresses });
+        return `0x${addresses.map((a, i) => (i < (c.freshRecipients ?? 0) ? '0'.repeat(64) : 'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470')).join('')}`;
+      }
       if (method === 'eth_getCode') {
         if (c.recipientsAreContracts && p[0]!.startsWith('0x00000000')) return '0x6080';
         return c.code?.[p[0]!] ?? '0x';
@@ -47,7 +70,15 @@ function deps(c: Chain, calls: string[] = []): WalletLookupDeps {
       if (q.fromAddress === A) return { transfers: c.lastOut ? [{ from: A, to: FUNDER, hash: '0x1', metadata: { blockTimestamp: c.lastOut } }] : [] };
       if (q.fromAddress === c.firstIn?.from) {
         const n = c.funderRecipients ?? 1;
-        return { transfers: Array.from({ length: n }, (_, i) => ({ from: q.fromAddress!, to: recipient(i), hash: `0x${i}`, metadata: { blockTimestamp: days(1) } })) };
+        return {
+          transfers: Array.from({ length: n }, (_, i) => ({
+            from: q.fromAddress!,
+            to: recipient(i),
+            hash: `0x${i}`,
+            ...(c.funderFromBlock ? { blockNum: `0x${(c.funderFromBlock - i).toString(16)}` } : {}),
+            metadata: { blockTimestamp: days(1) },
+          })),
+        };
       }
       return { transfers: [] };
     },
@@ -102,12 +133,81 @@ describe('lookupWallet', () => {
     expect(r.verdict.reason).toMatch(/14/);
   });
 
-  it('treats a busy funder (an exchange or hub) as no signal', async () => {
-    const r = await lookupWallet(A, 'base', deps({ nonce: { [A]: 9, [FUNDER]: 250_000 }, firstIn: { from: FUNDER, ts: days(60), hash: '0x5' }, funderRecipients: 900 }));
+  // Busy is not an exchange: only ChainWard's labels make a funder one. Without block numbers its recipients are not read.
+  it('reports a busy funder as busy, not as an exchange, and reads nothing it cannot place', async () => {
+    const calls: string[] = [];
+    const r = await lookupWallet(A, 'base', deps({ nonce: { [A]: 9, [FUNDER]: 250_000 }, firstIn: { from: FUNDER, ts: days(60), hash: '0x5' }, funderRecipients: 900 }, calls));
     expect(r.verdict.label).toBe('no_flags');
-    expect(r.first_funder?.exchange_or_hub).toBe(true);
-    expect(r.first_funder?.funded_wallets).toBeNull();
+    expect(r.first_funder).toMatchObject({ exchange_or_hub: false, busy: true, funded_wallets: null, recent_recipients: null });
     expect(r.flags).not.toContain('shared_funder');
+    expect(calls.filter((m) => m === 'eth_getCode')).toHaveLength(1);
+  });
+
+  // Launch mills fund their deployers from busy vanity wallets (2026-10-21: three funded 50 of 59 plain-deploy launch
+  // wallets in 6 hours); exchanges send to wallets that mostly existed before (Coinbase's hot wallet: 5 of 12).
+  describe('a busy funder that is not a known exchange', () => {
+    const busy = (fresh: number, extra: Partial<Chain> = {}) =>
+      deps({ nonce: { [A]: 2, [FUNDER]: 20_707 }, firstIn: { from: FUNDER, ts: days(60), hash: '0x6' }, funderRecipients: 1000, funderFromBlock: 52_916_274, freshRecipients: fresh, ...extra });
+
+    it('answers review when most of the wallets it most recently sent funds to were brand new', async () => {
+      const deployless: Array<{ block: string; addresses: string[] }> = [];
+      const calls: string[] = [];
+      const r = await lookupWallet(A, 'base', deps(busyChain(18, deployless), calls));
+      expect(r.first_funder).toMatchObject({ exchange_or_hub: false, busy: true, funded_wallets: 18, recent_recipients: { checked: 20, fresh: 18, before_block: 52_916_254 } });
+      expect(r.flags).toContain('shared_funder');
+      expect(r.verdict).toEqual({
+        label: 'review',
+        reason: 'Its first funder is a busy wallet that is not a known exchange, and 18 of the 20 wallets it most recently sent funds to had never been used before.',
+      });
+      // One read for all 20, at the block before the earliest of their sends, and no code read per recipient.
+      expect(deployless).toEqual([{ block: `0x${(52_916_254).toString(16)}`, addresses: Array.from({ length: 20 }, (_, i) => recipient(i)) }]);
+      expect(calls.filter((m) => m === 'eth_getCode')).toHaveLength(1);
+    });
+
+    it('does not flag a busy funder whose recent recipients were mostly wallets used before, as an exchange\'s are', async () => {
+      const r = await lookupWallet(A, 'base', busy(8));
+      expect(r.first_funder?.recent_recipients).toEqual({ checked: 20, fresh: 8, before_block: 52_916_254 });
+      expect(r.flags).not.toContain('shared_funder');
+      expect(r.verdict.label).toBe('no_flags');
+    });
+
+    it('calls the funder an exchange, and reads nothing more, when ChainWard labels it a service', async () => {
+      const deployless: Array<{ block: string; addresses: string[] }> = [];
+      const label = {
+        chain: 'base',
+        address: FUNDER,
+        kind: 'service' as const,
+        strength: 'weak' as const,
+        visibility: 'public' as const,
+        group_key: null,
+        group_size: null,
+        sentence: 'A known exchange hot wallet.',
+        source_type: 'list' as const,
+        source_ref: 'test',
+        source_url: 'https://chainward.ai',
+        evidence_url: null,
+        as_of: '2026-10-22',
+      };
+      const r = await lookupWallet(A, 'base', { ...busy(18, { deployless }), labelsFor: (address: string) => (address === FUNDER ? [label] : []) });
+      expect(r.first_funder).toMatchObject({ exchange_or_hub: true, busy: true, funded_wallets: null, recent_recipients: null });
+      expect(r.flags).not.toContain('shared_funder');
+      expect(deployless).toHaveLength(0);
+    });
+
+    it('does not read a busy funder\'s recipients on BNB Chain', async () => {
+      const deployless: Array<{ block: string; addresses: string[] }> = [];
+      const r = await lookupWallet(A, 'bsc', busy(18, { deployless }));
+      expect(r.first_funder).toMatchObject({ busy: true, exchange_or_hub: false, recent_recipients: null, funded_wallets: null });
+      expect(r.flags).not.toContain('shared_funder');
+      expect(deployless).toHaveLength(0);
+    });
+
+    it('says what a busy funder is checked for', async () => {
+      const r = await lookupWallet(A, 'base', busy(18));
+      expect(r.limits).toMatch(/only when ChainWard's labels name it one/);
+      expect(r.limits).toMatch(/20 wallets it most recently sent funds to/);
+      expect(JSON.stringify(r)).not.toMatch(/\b(safe|scam|fraud)\b|—/i);
+    });
   });
 
   // An active trader's outgoing transfers go to routers and pools: those are not wallets it funded.

@@ -1,3 +1,4 @@
+import { decodeFunctionData, encodeFunctionResult, parseAbi } from 'viem';
 import { describe, expect, it } from 'vitest';
 import { OFAC_SNAPSHOT } from '../src/ofac-snapshot.js';
 import { CLANKER_V4_FACTORY, checkToken } from '../src/token-check.js';
@@ -95,8 +96,10 @@ interface Chain {
   pastReads?: string[];
   /** Logs eth_getLogs answers from, filtered as a node filters them; or a refusal. */
   logs?: RpcLog[];
-  /** A refusal of the eth_getLogs reads it names: the factories' creation logs, or the pools' LP logs. */
-  failLogs?: { on: 'factories' | 'pools'; message: string };
+  /** A refusal of the pool reads it names: the pool lookup (the multicall eth_call), or the pools' LP-token transfers. */
+  failPools?: { on: 'lookup' | 'lp'; message: string };
+  /** The pools' LP-token transfers fill the read's page (1,000), so the read is capped. */
+  lpPageFull?: boolean;
   /** Doppler's legacy vesting data on the token: getVestingDataOf(launch wallet), vestingStart, vestingDuration. */
   vesting?: { total: bigint; released: bigint; start: number; duration: number };
   /** decimals() of other contracts (a pool's paired token). */
@@ -161,6 +164,20 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         }
         case 'eth_call': {
           const [{ to, data }, tag] = p as [{ to: string; data: string }, string];
+          // Multicall3 over the pool factories: each answers the pool its creation log names for the pair, or none.
+          if (to === MULTICALL3) {
+            c.calls?.push(`${to}:aggregate3`);
+            if (c.failPools?.on === 'lookup') throw new Error(c.failPools.message);
+            const { args } = decodeFunctionData({ abi: AGGREGATE3, data: data as `0x${string}` });
+            const result = (args[0] as ReadonlyArray<{ target: string; callData: string }>).map((call) => {
+              const [a, b] = [`0x${call.callData.slice(34, 74)}`, `0x${call.callData.slice(98, 138)}`];
+              const created = (c.logs ?? []).find(
+                (l) => l.address === call.target.toLowerCase() && [T.pairCreated, T.poolCreated].includes(l.topics[0]!) && [a, b].every((x) => l.topics.slice(1, 3).includes(topic(x))),
+              );
+              return { success: true, returnData: `0x${(created ? created.data.slice(26, 66) : '0'.repeat(40)).padStart(64, '0')}` as `0x${string}` };
+            });
+            return encodeFunctionResult({ abi: AGGREGATE3, functionName: 'aggregate3', result });
+          }
           // A balance at a past block: what the token's transfers had left the address with by then.
           if (to === TOKEN && data.startsWith('0x70a08231') && tag !== 'latest') {
             if (c.failCalls?.includes('0x70a08231')) throw new Error('eth_call: Your app has exceeded its compute units per second capacity');
@@ -213,6 +230,7 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         case 'eth_getBlockReceipts':
           return c.receipts ?? [];
         case 'eth_getTransactionReceipt':
+          if (p[0] !== (c.launchTx?.hash ?? LAUNCH_TX)) return { transactionHash: p[0], logs: (c.logs ?? []).filter((l) => l.transactionHash === p[0]) };
           return { transactionHash: p[0], logs: (c.launchReceiptLogs ?? []).map((l) => ({ data: '0x', ...l })) };
         case 'eth_getBlockByNumber': {
           const b = p[0] === 'latest' ? head : Number(BigInt(p[0] as string));
@@ -227,22 +245,41 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         }
         case 'eth_getBalance':
           return '0x0';
-        case 'eth_getLogs':
-          if (c.failLogs) {
-            const q = p[0] as { address?: string | string[] };
-            const onFactories = [q.address ?? []].flat().some((a) => a.toLowerCase() === UNI_V2_FACTORY);
-            if ((c.failLogs.on === 'factories') === onFactories) throw new Error(c.failLogs.message);
-          }
-          return filterLogs(c.logs ?? [], p[0] as Parameters<typeof filterLogs>[1], head);
+        case 'eth_getLogs': {
+          // Alchemy's free tier, which production runs on, refuses ranges over 10 blocks.
+          const q = p[0] as Parameters<typeof filterLogs>[1];
+          const at = (tag: string | undefined) => (tag === undefined || tag === 'latest' ? head : Number(BigInt(tag)));
+          if (at(q.toBlock) - at(q.fromBlock) >= 10) throw new Error('eth_getLogs: Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range.');
+          return filterLogs(c.logs ?? [], q, head);
+        }
         default:
           throw new Error(`unexpected ${method}`);
       }
     },
     transfers: async (raw) => {
       c.queries?.push(raw);
-      const q = raw as { contractAddresses?: string[]; fromAddress?: string; toAddress?: string; order?: string; maxCount?: string; fromBlock?: string };
+      const q = raw as { contractAddresses?: string[]; fromAddress?: string; toAddress?: string; order?: string; maxCount?: string; fromBlock?: string; category?: string[] };
       log.push(`transfers:${q.contractAddresses ? 'token' : 'wallet'}:${q.fromAddress === ZERO ? 'mints' : q.fromAddress ? 'from' : q.toAddress ? 'to' : 'all'}`);
       const max = q.maxCount ? Number(BigInt(q.maxCount)) : 1000;
+      // The pools' LP-token transfers, oldest first, from their Transfer logs.
+      if (q.contractAddresses && !q.contractAddresses.includes(TOKEN)) {
+        if (c.failPools?.on === 'lp') throw new Error(c.failPools.message);
+        const pools = q.contractAddresses.map((a) => a.toLowerCase());
+        const rows = (c.logs ?? [])
+          .filter((l) => pools.includes(l.address) && l.topics[0] === T.transfer)
+          .map((l) => ({
+            from: `0x${l.topics[1]!.slice(26)}`,
+            to: `0x${l.topics[2]!.slice(26)}`,
+            value: null,
+            rawContract: { value: `0x${BigInt(l.data).toString(16)}`, address: l.address },
+            hash: l.transactionHash,
+            blockNum: l.blockNumber,
+            uniqueId: `${l.transactionHash}:log:${l.logIndex}`,
+            metadata: { blockTimestamp: ts(LAUNCH_TIME, (Number(BigInt(l.blockNumber)) - LAUNCH_BLOCK) * 2) },
+          }));
+        const filler = c.lpPageFull ? Array.from({ length: 1000 - rows.length }, (_, i) => ({ ...rows[0]!, hash: `0xlp${i}`, uniqueId: `0xlp${i}:log:0x0` })) : [];
+        return { transfers: [...rows, ...filler].slice(0, max) };
+      }
       if (q.contractAddresses) {
         let list = tokenTransfers;
         if (q.fromBlock) list = list.filter((t) => t.block >= Number(BigInt(q.fromBlock!)));
@@ -251,8 +288,9 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         if (q.order === 'desc') list = [...list].reverse();
         return { transfers: list.slice(0, max).map(asAlchemy) };
       }
-      // The launch wallet's own transactions to Clanker's factory, newest first, with block times.
-      if (q.toAddress === CLANKER_V4_FACTORY.toLowerCase()) {
+      // A wallet's own transactions around the launch (external only), newest first, with block times: its launches
+      // straight to Clanker's factory.
+      if (q.fromAddress && q.category?.length === 1 && q.category[0] === 'external' && q.fromBlock) {
         if (c.failFactory) throw new Error('alchemy_getAssetTransfers: Your app has exceeded its compute units per second capacity');
         const owner = c.factoryWallet ?? c.launchTx?.from ?? CREATOR;
         if (q.fromAddress !== owner) return { transfers: [] };
@@ -261,7 +299,7 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         for (let i = 0; i < within; i++) rows.push({ hash: i === 0 && !c.factoryOmitsLaunch ? LAUNCH_TX : `0xl${i}`, sec: -Math.floor((i * 86_000) / within) });
         for (let j = 0; j < (c.factoryOlder ?? 0); j++) rows.push({ hash: `0xo${j}`, sec: -86_400 - 3_600 * (j + 1) });
         return {
-          transfers: rows.slice(0, max).map((r) => ({ from: owner, to: q.toAddress!, hash: r.hash, value: 0, metadata: { blockTimestamp: ts(LAUNCH_TIME, r.sec) } })),
+          transfers: rows.slice(0, max).map((r) => ({ from: owner, to: CLANKER_V4_FACTORY.toLowerCase(), hash: r.hash, value: 0, metadata: { blockTimestamp: ts(LAUNCH_TIME, r.sec) } })),
         };
       }
       // The wallet lookup of the creator and its funder (no contract filter).
@@ -505,14 +543,15 @@ describe('checkToken', () => {
           mint(CLANKER_V4_FACTORY.toLowerCase(), 100_000_000_000, LAUNCH_BLOCK, LAUNCH_TX),
           { from: POOL, to: CREATOR, value: 1_000, hash: LAUNCH_TX, block: LAUNCH_BLOCK, time: LAUNCH_TIME },
         ],
+        creatorBalance: 1_000n * 10n ** 18n,
       }),
     );
     expect(r.flags).not.toContain('creator_sent_launch_tokens');
-    expect(r.creator?.launch_tokens).toMatchObject({ received: 1_000, sent_pct: 0, first_send_after_sec: null });
+    expect(r.creator?.launch_tokens).toMatchObject({ received: 1_000, sent_pct: 0, first_send_after_sec: null, held_now: 1_000, sent_now_pct: 0 });
   });
 
-  // 1% sent five minutes in and the rest 22 hours later is not a dump within the hour.
-  it('flags a send-out only when most of the launch tokens left within the hour', async () => {
+  // 1% sent five minutes in and the rest 22 hours later: flagged, and the reason says it was 22 hours later, not within the hour.
+  it('flags launch tokens sent out after the first hour, and says when', async () => {
     const r = await checkToken(
       TOKEN,
       deps({
@@ -526,8 +565,9 @@ describe('checkToken', () => {
         ],
       }),
     );
-    expect(r.flags).not.toContain('creator_sent_launch_tokens');
+    expect(r.flags).toContain('creator_sent_launch_tokens');
     expect(r.creator?.launch_tokens).toMatchObject({ received: 10_000, sent_pct: 100, first_send_after_sec: 300, sent_90pct_after_sec: 79_200 });
+    expect(r.verdict.reason).toBe('The wallet that launched it received 10,000 tokens in the launch transaction and had sent out 100% of them 22 hours later.');
   });
 
   // Its sends could be the minted supply (liquidity, say), not the tokens it got from others.
@@ -827,22 +867,30 @@ describe('checkToken', () => {
           { from: POOL, to: CREATOR, value: 9_948.97, hash: LAUNCH_TX, block: LAUNCH_BLOCK, time: LAUNCH_TIME },
         ],
         creatorFirstInbound: { from: FUNDER, time: days(31), hash: '0xf1' },
+        // It still holds the tokens it got at launch.
+        creatorBalance: 9_948_970_000n * 10n ** 12n,
         ...extra,
       });
 
     // 0x1afab1f6...: two same-name tokens every 30 minutes, about 96 a day, admin and fee recipient of each.
-    it('answers review when the launch wallet launched many tokens through Clanker in the 24 hours up to this one', async () => {
+    it('answers review when the launch wallet launched many tokens through Clanker in 24 hours that include this one', async () => {
       const queries: Array<Record<string, unknown>> = [];
       const r = await checkToken(TOKEN, clankerLaunch({ factoryLaunches: 96, queries }));
       expect(r.flags).toContain('creator_serial_launcher');
       expect(r.creator?.clanker_launches_24h).toBe(96);
+      expect(r.creator?.launches_24h).toMatchObject({ total: 96, by_launchpad: { clanker: 96, doppler: 0, zora: 0, virtuals: 0, other: 0 }, span_sec: 85_104, capped: false });
       expect(r.launch?.token_admin).toBe(CREATOR);
-      expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it launched 96 tokens through Clanker in the 24 hours up to and including this one.' });
-      const q = queries.find((x) => x.toAddress === CLANKER_V4_FACTORY.toLowerCase())!;
-      expect(q).toMatchObject({ fromAddress: CREATOR, category: ['external'], excludeZeroValue: false, order: 'desc', withMetadata: true });
+      expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it launched 96 tokens within 24 hours, this one included: 96 through Clanker.' });
+      // One read of its own transactions, any destination: launches to any launchpad, before and after this one.
+      const q = queries.find((x) => x.fromAddress === CREATOR && Array.isArray(x.category) && x.category.length === 1 && x.category[0] === 'external')!;
+      expect(q).toMatchObject({ category: ['external'], excludeZeroValue: false, order: 'desc', withMetadata: true });
+      expect(q.toAddress).toBeUndefined();
       // Wide enough for a day at 5 blocks a second (Denim); the day itself is cut by block time.
       expect(q.fromBlock).toBe(`0x${(LAUNCH_BLOCK - 432_000).toString(16)}`);
-      expect(q.toBlock).toBe(`0x${LAUNCH_BLOCK.toString(16)}`);
+      // A day after the launch at the pace since, which a later speed-up can only lengthen.
+      const launchSec = new Date(LAUNCH_TIME).getTime() / 1000;
+      const dayAfter = Math.ceil((86_400 * (HEAD - LAUNCH_BLOCK)) / (NOW.getTime() / 1000 - launchSec));
+      expect(q.toBlock).toBe(`0x${(LAUNCH_BLOCK + dayAfter).toString(16)}`);
     });
 
     it('does not flag a launch wallet below the threshold', async () => {
@@ -861,14 +909,16 @@ describe('checkToken', () => {
     it('says at least when the launch count fills a page', async () => {
       const r = await checkToken(TOKEN, clankerLaunch({ factoryLaunches: 5_000 }));
       expect(r.creator?.clanker_launches_24h).toBe(1_000);
-      expect(r.verdict.reason).toBe('The wallet that launched it launched at least 1,000 tokens through Clanker in the 24 hours up to and including this one.');
+      expect(r.creator?.launches_24h).toMatchObject({ total: 1_000, capped: true });
+      expect(r.verdict.reason).toBe('The wallet that launched it launched at least 1,000 tokens within 5 hours, this one included: 1,000 through Clanker.');
     });
 
-    // A launch through a router or multicall is not a transaction to the factory: the count would read too low.
-    it('leaves the count unknown when this launch did not go straight from the launch wallet to the factory', async () => {
+    // A launch through a router or multicall is not a transaction to the factory: it is counted as this launch, on top of
+    // the wallet's own launches straight to the factory.
+    it('counts this launch when it did not go straight from the launch wallet to the factory', async () => {
       const r = await checkToken(TOKEN, clankerLaunch({ factoryLaunches: 96, factoryOmitsLaunch: true }));
-      expect(r.creator?.clanker_launches_24h).toBeNull();
-      expect(r.flags).not.toContain('creator_serial_launcher');
+      expect(r.creator?.clanker_launches_24h).toBe(97);
+      expect(r.flags).toContain('creator_serial_launcher');
     });
 
     it('leaves the count unknown for a smart-wallet launch through an EntryPoint', async () => {
@@ -884,7 +934,9 @@ describe('checkToken', () => {
         }),
       );
       expect(r.launch?.creator).toBe(smartWallet);
-      expect(r.creator?.clanker_launches_24h).toBeNull();
+      // A smart wallet sends no transactions of its own: this launch is the one counted.
+      expect(r.creator?.launches_24h).toMatchObject({ total: 1, by_launchpad: { clanker: 1 } });
+      expect(r.flags).not.toContain('creator_serial_launcher');
     });
 
     // Clanker's X bot sends the launch for whoever asked it; the admin at launch is that wallet.
@@ -935,13 +987,14 @@ describe('checkToken', () => {
       expect(r.launch?.launcher_note).not.toMatch(/is not the wallet that sent the launch/);
     });
 
-    it('neither reads an admin nor counts launches for a token Clanker did not launch', async () => {
-      const queries: Array<Record<string, unknown>> = [];
+    // A plain deploy by a wallet that also launches through Clanker: its Clanker launches count, and this one as outside them.
+    it('reads no admin for a token Clanker did not launch, and counts the wallet\'s Clanker launches with this one', async () => {
       const calls: string[] = [];
-      const r = await checkToken(TOKEN, deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], factoryLaunches: 96, queries, calls }));
+      const r = await checkToken(TOKEN, deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], factoryLaunches: 96, factoryOmitsLaunch: true, calls }));
       expect(r.launch?.token_admin).toBeNull();
       expect(r.creator?.clanker_launches_24h).toBeNull();
-      expect(queries.some((x) => x.toAddress === CLANKER_V4_FACTORY.toLowerCase())).toBe(false);
+      expect(r.creator?.launches_24h).toMatchObject({ total: 97, by_launchpad: { clanker: 96, other: 1 } });
+      expect(r.verdict.reason).toBe('The wallet that launched it launched 97 tokens within 24 hours, this one included: 96 through Clanker and 1 outside these launchpads.');
       expect(calls.some((c) => c.endsWith(':0x1c7b2ff4') || c.endsWith(':0xf851a440'))).toBe(false);
     });
 
@@ -1113,6 +1166,8 @@ describe('checkToken: reads placed by block time', () => {
 
 // Liquidity the launch wallet added to and removed from the token's v2-style pools, read from the factories'
 // creation logs and the pools' LP logs; and supply vesting to it on a Doppler token.
+const MULTICALL3 = '0xca11bde05977b3631167028862be2a173976ca11';
+const AGGREGATE3 = parseAbi(['function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[] returnData)']);
 const UNI_V2_FACTORY = '0x8909dc15e40173ff4699343b6eb8132c65e18ec6';
 const AERO_FACTORY = '0x420dd381b31aef6683db6b902084cb0ffece40da';
 const T = {
@@ -1191,8 +1246,9 @@ describe('checkToken: liquidity the launch wallet removed', () => {
         added: 2,
         added_tokens: 500_000,
         added_after_sec: 10,
-        removed: 1.22,
-        removed_tokens: 290_000,
+        // Two removals: their amounts are not read (one receipt each); the shares come from the LP transfers.
+        removed: null,
+        removed_tokens: null,
         removed_pct: 60,
         pool_pct: 59.99,
         removed_after_sec: 1200,
@@ -1202,7 +1258,7 @@ describe('checkToken: liquidity the launch wallet removed', () => {
     expect(r.flags).toContain('creator_removed_liquidity');
     expect(r.verdict).toEqual({
       label: 'hold',
-      reason: "The wallet that launched it removed 60% of its liquidity from the token's Aerodrome pool by 20 minutes after the launch: it took out 1.22 WETH, 59.99% of what the pool held, after putting in 2 WETH.",
+      reason: "The wallet that launched it removed 60% of its liquidity from the token's Aerodrome pool by 20 minutes after the launch: it took out 59.99% of what the pool held, after putting in 2 WETH.",
     });
   });
 
@@ -1251,42 +1307,30 @@ describe('checkToken: liquidity the launch wallet removed', () => {
     expect(r.liquidity).toEqual({ locked_by: null, capped: false, pools: [{ address: POOL, dex: 'uniswap_v2', paired_with: WETH, paired_symbol: 'WETH', launch_wallet: null }] });
   });
 
-  // A token paired with something other than WETH, USDC and the other listed assets: one decimals() read for it.
-  it('reads the decimals of an unlisted paired token, and names it by address', async () => {
+  // A token paired with something other than WETH, USDC and the other listed assets: no pool lookup asks for it.
+  it('does not look up pools against an unlisted paired token', async () => {
     const paired = `0x${'5'.repeat(40)}`;
     const calls: string[] = [];
     const r = await checkToken(
       TOKEN,
       deps({
         calls,
-        decimalsOf: { [paired]: 6 },
-        logs: [
-          created(UNI_V2_FACTORY, paired, LAUNCH_BLOCK + 5),
-          ...add(1000n * E18, 1_000n * 10n ** 6n, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd'),
-          ...remove(1000n * E18, 1_500n * 10n ** 6n, 400_000n * E18, LAUNCH_BLOCK + 30, '0xrm', 'v2'),
-        ],
-        transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX), ...moves([[POOL, CREATOR, 400_000, LAUNCH_BLOCK + 30, '0xrm', 60]])],
+        logs: [created(UNI_V2_FACTORY, paired, LAUNCH_BLOCK + 5), ...add(1000n * E18, 1_000n * 10n ** 6n, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd')],
+        transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
       }),
     );
-    expect(r.liquidity?.pools?.[0]).toMatchObject({ paired_with: paired, paired_symbol: null, launch_wallet: { added: 1000, removed: 1500, removed_pct: 100, pool_pct: 100 } });
-    expect(calls.filter((c) => c === `${paired}:0x313ce567`)).toHaveLength(1);
-    expect(r.verdict).toEqual({
-      label: 'hold',
-      reason: `The wallet that launched it removed its liquidity from the token's Uniswap v2 pool 60 seconds after the launch: it took out 1,500 of the paired token ${paired}, 100% of what the pool held, after putting in 1,000.`,
-    });
+    expect(r.liquidity).toEqual({ locked_by: null, pools: [], capped: false });
+    expect(calls.filter((c) => c.endsWith(':aggregate3'))).toHaveLength(1);
+    expect(calls.some((c) => c.endsWith(':0x313ce567') && !c.startsWith(TOKEN))).toBe(false);
   });
 
-  // A pool with more LP logs than the provider returns at once: listed, its launch-wallet part unread, never a guess.
-  it("lists the pools but leaves the launch wallet's part unread when their LP logs are too many", async () => {
+  // LP transfers that fill one read: the pools are listed, the launch wallet's part unread, never a guess.
+  it("lists the pools but leaves the launch wallet's part unread when their LP transfers fill the read", async () => {
     const r = await checkToken(
       TOKEN,
       deps({
-        logs: [created(UNI_V2_FACTORY, WETH, LAUNCH_BLOCK + 5)],
-        failLogs: {
-          on: 'pools',
-          message:
-            'Log response size exceeded. You can make eth_getLogs requests with up to a 2K block range and no limit on the response size, or you can request any block range with a cap of 10K logs in the response.',
-        },
+        logs: [created(UNI_V2_FACTORY, WETH, LAUNCH_BLOCK + 5), ...add(1000n * E18, 2n * E18, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd')],
+        lpPageFull: true,
         transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
       }),
     );
@@ -1294,13 +1338,42 @@ describe('checkToken: liquidity the launch wallet removed', () => {
     expect(r.flags).not.toContain('creator_removed_liquidity');
   });
 
-  it('fails rather than guess when the provider refuses the pool read', async () => {
+  it.each([
+    ['pool lookup', 'lookup'],
+    ['LP transfers', 'lp'],
+  ] as const)('fails rather than guess when the provider refuses the %s read', async (_name, on) => {
     await expect(
       checkToken(
         TOKEN,
-        deps({ failLogs: { on: 'factories', message: 'eth_getLogs: Your app has exceeded its compute units per second capacity' }, transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)] }),
+        deps({
+          logs: [created(UNI_V2_FACTORY, WETH, LAUNCH_BLOCK + 5)],
+          failPools: { on, message: 'Your app has exceeded its compute units per second capacity' },
+          transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+        }),
       ),
     ).rejects.toThrow(/capacity/);
+  });
+
+  // Alchemy's free tier refuses eth_getLogs over more than 10 blocks: the liquidity read uses none.
+  it('reads the liquidity without eth_getLogs', async () => {
+    const log: string[] = [];
+    const r = await checkToken(
+      TOKEN,
+      deps(
+        {
+          logs: [
+            created(UNI_V2_FACTORY, WETH, LAUNCH_BLOCK + 5),
+            ...add(1000n * E18, 2n * E18, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd'),
+            ...remove(1000n * E18, 3n * E18, 450_000n * E18, LAUNCH_BLOCK + 30, '0xrm', 'v2'),
+          ],
+          transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+        },
+        log,
+      ),
+    );
+    expect(r.flags[0]).toBe('creator_removed_liquidity');
+    expect(r.liquidity?.pools?.[0]?.launch_wallet).toMatchObject({ added: 2, added_tokens: 500_000, removed: 3, removed_tokens: 450_000, removed_pct: 100, pool_pct: 100, removed_after_sec: 60 });
+    expect(log).not.toContain('eth_getLogs');
   });
 
   it('reads no pools when the launch wallet is unknown', async () => {
@@ -1340,5 +1413,106 @@ describe('checkToken: supply vesting to the launch wallet (Doppler)', () => {
     );
     expect(r.creator?.vesting).toEqual({ amount: 0, pct: 0, released: 0, start: null, cliff_end: null, end: null });
     expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it still holds 25% of the supply.' });
+  });
+});
+
+describe('checkToken: the wallet a launch was made for', () => {
+  const SERVICE = `0x${'5'.repeat(40)}`;
+  const FOR = `0x${'6'.repeat(40)}`;
+  const ZORA = '0x777777751622c0d3258f214f9df38e35bf45baf3';
+  const AIRLOCK = '0x660eaaedebc968f8f3694354fa8ec0b4c5ba8d12';
+  const TOKEN_CREATED = '0x9299d1d1a88d8e1abdc591ae7a167a6bc63a8f17d695804e9091ee33aa89fb67';
+  const COIN_CREATED = '0x2de436107c2096e039c98bbcc3c5a2560583738ce15c234557eecb4d3221aa81';
+  const VESTING_ALLOCATED = '0x6b467f0a76daac5283d2251b6e7660fed01ea99dbd70aa7092f3318731690c9d';
+  const words = (...ws: string[]) => `0x${ws.join('')}`;
+  const addrWord = (a: string) => a.slice(2).padStart(64, '0');
+
+  // A launch service sends Clanker launches for other wallets: TokenCreated names the admin.
+  it("describes Clanker's token admin when a launch service sent the launch, and counts the admin's own launches", async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        clanker: true,
+        launchTx: { hash: LAUNCH_TX, from: SERVICE, to: CLANKER_V4_FACTORY.toLowerCase() },
+        launchReceiptLogs: [{ address: CLANKER_V4_FACTORY.toLowerCase(), topics: [TOKEN_CREATED, topic(TOKEN), topic(FOR)], data: words(addrWord(SERVICE)) }],
+        originalAdmin: FOR,
+        transfers: [mint(CLANKER_V4_FACTORY.toLowerCase(), 100_000_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+        factoryWallet: FOR,
+        factoryLaunches: 5,
+        factoryOmitsLaunch: true,
+      }),
+    );
+    expect(r.launch).toMatchObject({ creator: SERVICE, token_admin: FOR, made_for: { address: FOR, named_as: 'token_admin' } });
+    expect(r.launch?.launcher_note).toContain(`The token's admin at launch, ${FOR}, is not the wallet that sent the launch, ${SERVICE}`);
+    expect(r.creator).toMatchObject({ address: FOR, role: 'made_for', clanker_launches_24h: 6 });
+    expect(r.flags).toContain('creator_serial_launcher');
+    expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet it was launched for has 6 launches within 19 hours, this one included: 6 through Clanker.' });
+  });
+
+  it("describes Zora's payout recipient when another wallet created the coin", async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        launchTx: { hash: LAUNCH_TX, from: SERVICE, to: ZORA },
+        launchReceiptLogs: [{ address: ZORA, topics: [COIN_CREATED, topic(SERVICE), topic(FOR), topic(ZERO)], data: words(addrWord(WETH), addrWord(TOKEN)) }],
+        transfers: [mint(ZORA, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+      }),
+    );
+    expect(r.launch).toMatchObject({ creator: SERVICE, made_for: { address: FOR, named_as: 'payout_recipient' } });
+    expect(r.creator).toMatchObject({ address: FOR, role: 'made_for' });
+    expect(r.liquidity?.locked_by).toBe('zora');
+  });
+
+  it('describes the sender when the Zora coin pays the wallet that created it', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        launchTx: { hash: LAUNCH_TX, from: CREATOR, to: ZORA },
+        launchReceiptLogs: [{ address: ZORA, topics: [COIN_CREATED, topic(CREATOR), topic(CREATOR), topic(ZERO)], data: words(addrWord(WETH), addrWord(TOKEN)) }],
+        transfers: [mint(ZORA, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+      }),
+    );
+    expect(r.launch?.made_for).toBeNull();
+    expect(r.creator).toMatchObject({ address: CREATOR, role: 'launch_wallet' });
+  });
+
+  // Several wallets vest: none of them is the wallet it was made for.
+  it('describes the sender when a Doppler token vests to several wallets', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        launchTx: { hash: LAUNCH_TX, from: SERVICE, to: AIRLOCK },
+        launchReceiptLogs: [
+          { address: AIRLOCK, topics: ['0x68ff1cfc', topic(WETH)], data: words(addrWord(TOKEN), addrWord(POOL), addrWord(TOKEN)) },
+          { address: TOKEN, topics: [VESTING_ALLOCATED, topic(FOR), topic(ZERO)], data: words(word(10n ** 27n)) },
+          { address: TOKEN, topics: [VESTING_ALLOCATED, topic(FUNDER), topic(ZERO)], data: words(word(10n ** 27n)) },
+        ],
+        transfers: [mint(AIRLOCK, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+      }),
+    );
+    expect(r.launch?.made_for).toBeNull();
+    expect(r.creator?.address).toBe(SERVICE);
+  });
+});
+
+describe('checkToken: launch tokens sent out long after the launch', () => {
+  // Past the day its transfers are read for: only its balance at this check shows them gone.
+  it('flags launch tokens gone from its balance at this check, and says how long after the launch', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        clanker: true,
+        launchTx: { hash: LAUNCH_TX, from: CREATOR, to: CLANKER_V4_FACTORY.toLowerCase() },
+        transfers: [
+          mint(CLANKER_V4_FACTORY.toLowerCase(), 100_000_000_000, LAUNCH_BLOCK, LAUNCH_TX),
+          { from: POOL, to: CREATOR, value: 1_000, hash: LAUNCH_TX, block: LAUNCH_BLOCK, time: LAUNCH_TIME },
+          { from: CREATOR, to: POOL, value: 1_000, hash: '0xlate', block: LAUNCH_BLOCK + 130_000, time: ts(LAUNCH_TIME, 3 * 86_400) },
+        ],
+        creatorBalance: 0n,
+      }),
+    );
+    expect(r.creator?.launch_tokens).toMatchObject({ sent_90pct_after_sec: null, held_now: 0, sent_now_pct: 100 });
+    expect(r.flags).toContain('creator_sent_launch_tokens');
+    expect(r.verdict.reason).toBe('The wallet that launched it received 1,000 tokens in the launch transaction and 163 days after the launch held none of them.');
   });
 });

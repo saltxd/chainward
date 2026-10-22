@@ -45,7 +45,7 @@ export async function parsePaidTokenInput(c: Context): Promise<void> {
 }
 
 // v4: the cached check carries checked_at.
-const sharedKey = (token: string) => `token-check:v6:base:${token}`;
+const sharedKey = (token: string) => `token-check:v7:base:${token}`;
 
 /** A check as the cache keeps it: the answer, and when it was read. */
 type StoredCheck = TokenCheck & { checked_at: string };
@@ -165,7 +165,7 @@ const freeProbes = budget({ max: FREE_PROBES_PER_DAY, windowSec: 86_400, prefix:
 const freeHourly = budget({ max: FREE_TOKEN_CHECKS_PER_HOUR, windowSec: 3_600, prefix: 'bud:token-report' });
 const freeDaily = budget({ max: FREE_TOKEN_CHECKS_PER_DAY, windowSec: 86_400, prefix: 'bud:token-report-day', scope: 'global' });
 // v2: the cached check carries checked_at.
-const recentKey = (token: string) => `token-report:v4:recent:${token}`;
+const recentKey = (token: string) => `token-report:v5:recent:${token}`;
 const chargedKey = (token: string) => `token-report:charged:${token}`;
 const PAID_CHECK = 'use the paid check: GET https://api.chainward.ai/api/risk/rugcheck?address=… ($0.02 over x402).';
 const FREE_USED_UP = `Today's free rug checks are used up. Try again tomorrow, or ${PAID_CHECK}`;

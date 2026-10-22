@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { decodeFunctionData, encodeFunctionResult, parseAbi } from 'viem';
 import { describe, expect, it } from 'vitest';
 import { CLANKER_V4_FACTORY, checkToken, type TokenCheckDeps } from '../src/token-check.js';
 
@@ -19,6 +20,25 @@ interface Move {
   time: string;
   hash: string;
 }
+/** A wallet the check reads: the launch wallet, or the wallet a launch was made for. */
+interface Wallet {
+  address: string;
+  kind: string;
+  code: string;
+  nonce: number;
+  weekBefore: { block: number; nonce: number; has_code: boolean };
+  tokenBalance: string;
+  inbound: Array<{
+    from: string;
+    hash: string;
+    category: string;
+    asset: string | null;
+    value: number | null;
+    rawContract: { address: string | null; value: string | null };
+    blockNum: string;
+    metadata: { blockTimestamp: string };
+  }>;
+}
 interface Fixture {
   token: string;
   symbol: string;
@@ -27,7 +47,7 @@ interface Fixture {
   supply: string;
   head: number;
   now: string;
-  launch: { block: number; time: string; tx: string; from: string; to: string };
+  launch: { block: number; time: string; tx: string; from: string; to: string | null };
   logs: Array<{ address: string; topics: string[]; data?: string; logIndex: number }>;
   clanker: boolean;
   clankerLaunches24h: number | null;
@@ -40,31 +60,21 @@ interface Fixture {
   pairLogs?: RpcLog[];
   /** The launch wallet's transactions to Clanker's factory in the 24 hours up to the launch, newest first. Default: this launch. */
   factoryTxs?: Array<{ hash: string; block: number }>;
+  /** Its own transactions to launchpad contracts around the launch, as recorded. Default: the launch transaction, when it sent it. */
+  launchTxs?: Array<{ hash: string; block: number; to: string }>;
   /** First funders the QA run's answer called an exchange or hub. */
   hubFunders?: string[];
-  creator: {
-    address: string;
-    kind: string;
-    code: string;
-    nonce: number;
-    weekBefore: { block: number; nonce: number; has_code: boolean };
-    tokenBalance: string;
-    inbound: Array<{
-      from: string;
-      hash: string;
-      category: string;
-      asset: string | null;
-      value: number;
-      rawContract: { address: string | null; value: string };
-      blockNum: string;
-      metadata: { blockTimestamp: string };
-    }>;
-  };
+  /** The wallet whose facts the check reads: the launch wallet, or for a launch made for another wallet, that wallet. */
+  creator: Wallet;
+  /** The wallet a launch was made for, when the fixture's `creator` is the launch wallet. */
+  madeFor?: Wallet;
   firstTransfer: Move;
   mints: Move[];
   inflows: Move[];
   outflows: Move[];
   balanceDeltas: Array<[number, string]>;
+  /** D6 and D8 at the second QA run: the launch wallet's transfers of the token since the first run's head, and its balance then. */
+  later?: { head: number; now: string; outflows: Move[]; inflows: Move[]; tokenBalance: string };
 }
 
 interface RpcLog {
@@ -75,20 +85,29 @@ interface RpcLog {
   transactionHash: string;
   logIndex: string;
 }
+/** A funder's latest sends as the explorer listed them, and one EXTCODEHASH read of its recipients at the block before the earliest. */
+interface FunderRecord {
+  sends: Array<{ hash: string; block: number; to: string; eth: number }>;
+  fresh: { before_block: number; recipients: string[]; answer: string };
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
-const QA = (JSON.parse(readFileSync(join(here, 'fixtures', 'rugcheck-qa-2026-10-21.json'), 'utf8')) as { tokens: Record<string, Fixture> }).tokens;
+const FILE = JSON.parse(readFileSync(join(here, 'fixtures', 'rugcheck-qa-2026-10-21.json'), 'utf8')) as { tokens: Record<string, Fixture>; funders: Record<string, FunderRecord> };
+const QA = FILE.tokens;
 
 const ZERO = `0x${'0'.repeat(40)}`;
 /** Base block 0. Every block since has come 2 s after the last (52,911,567 was 2026-10-21T19:54:41Z). */
 const GENESIS = 1_686_789_347;
 const hex = (n: number | bigint) => `0x${n.toString(16)}`;
 const word = (n: bigint) => n.toString(16).padStart(64, '0');
+const isoAt = (block: number) => new Date((GENESIS + 2 * block) * 1000).toISOString();
 const abiString = (s: string) => {
   const h = Buffer.from(s, 'utf8').toString('hex');
   return `0x${word(32n)}${word(BigInt(Buffer.byteLength(s, 'utf8')))}${h.padEnd(Math.ceil(h.length / 64) * 64 || 64, '0')}`;
 };
 const blockOf = (tag: unknown, head: number) => (tag === 'latest' || tag === undefined ? head : Number(BigInt(tag as string)));
+/** Alchemy's free tier, which production runs on, refuses eth_getLogs over more than 10 blocks. */
+const FREE_TIER_LOG_BLOCKS = 10;
 /** eth_getLogs as a node answers it: address (one or several), topics by position (null = any, a list = any of), block range. */
 function filterLogs(logs: RpcLog[], q: { address?: string | string[]; topics?: Array<string | string[] | null>; fromBlock?: string; toBlock?: string }, head: number): RpcLog[] {
   const addrs = q.address === undefined ? null : (Array.isArray(q.address) ? q.address : [q.address]).map((a) => a.toLowerCase());
@@ -104,19 +123,56 @@ function filterLogs(logs: RpcLog[], q: { address?: string | string[]; topics?: A
 const RECORDED_ONLY = new Set(['0xf6939d34', '0x254800d4', '0x1514617e', '0xd2482469', '0x6f503e67', '0x6d3cbe21', '0x70a08231']);
 /** The funders the QA run's answers named, by whether the check called them an exchange or hub. */
 const HUB_FUNDERS = new Set(['0x3aadcd657aa9d270da0f92e95bf9830f961b4f2e']);
+const MULTICALL3 = '0xca11bde05977b3631167028862be2a173976ca11';
+const POOL_FACTORIES = ['0x8909dc15e40173ff4699343b6eb8132c65e18ec6', '0x420dd381b31aef6683db6b902084cb0ffece40da'];
+const AGGREGATE3 = parseAbi(['function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[] returnData)']);
+const PAIR_CREATED = '0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9';
+/** Init code of the deployless EXTCODEHASH read, which the recorded answers belong to. */
+const EXTCODEHASH_PROGRAM = '0x602b5b388110156023576020816000396000513f81602b9003602001526020016002565b602b90036020f3';
+const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
-function chainOf(f: Fixture, calls: string[] = []): TokenCheckDeps {
+/** The chain as the QA recordings show it, answering each read the check makes; anything unrecorded is refused. */
+function chainOf(f: Fixture, calls: string[] = [], opts: { wideLogs?: boolean } = {}): TokenCheckDeps {
+  const wallets = new Map<string, Wallet>([[f.creator.address, f.creator]]);
+  if (f.madeFor) wallets.set(f.madeFor.address, f.madeFor);
   const w = f.creator.address;
   const asAlchemy = (m: Move) => ({
     from: m.from,
     to: m.to,
     value: Number(BigInt(m.raw)) / 10 ** f.decimals,
-    rawContract: { value: hex(BigInt(m.raw)) },
+    rawContract: { value: hex(BigInt(m.raw)), address: f.token },
     hash: m.hash,
     blockNum: hex(m.block),
     metadata: { blockTimestamp: m.time },
   });
   const heldAt = (block: number) => f.balanceDeltas.filter(([b]) => b <= block).reduce((s, [, d]) => s + BigInt(d), 0n);
+  const pairLogs = f.pairLogs ?? [];
+  const lpTransfers = (pools: string[], fromBlock: number) =>
+    pairLogs
+      .filter((l) => pools.includes(l.address.toLowerCase()) && l.topics[0] === TRANSFER && Number(BigInt(l.blockNumber)) >= fromBlock)
+      .map((l) => ({
+        from: `0x${l.topics[1]!.slice(26)}`,
+        to: `0x${l.topics[2]!.slice(26)}`,
+        value: null,
+        rawContract: { value: hex(BigInt(l.data)), address: l.address.toLowerCase() },
+        hash: l.transactionHash,
+        blockNum: l.blockNumber,
+        uniqueId: `${l.transactionHash}:log:${l.logIndex}`,
+        metadata: { blockTimestamp: isoAt(Number(BigInt(l.blockNumber))) },
+      }));
+  // The pool each factory answers for (token, paired): the PairCreated logs recorded for the token.
+  const poolFor = (factory: string, a: string, b: string) => {
+    const hit = (f.factoryLogs ?? []).find(
+      (l) => l.address.toLowerCase() === factory && l.topics[0] === PAIR_CREATED && [a, b].every((x) => l.topics.slice(1, 3).some((t) => t.slice(26) === x.slice(2))),
+    );
+    return hit ? `0x${hit.data.slice(26, 66)}` : ZERO;
+  };
+  const ownTxs = (wallet: string) => {
+    if (wallet !== w) return [];
+    if (f.launchTxs) return f.launchTxs;
+    if (f.factoryTxs) return f.factoryTxs.map((t) => ({ ...t, to: CLANKER_V4_FACTORY.toLowerCase() }));
+    return f.launch.from === w ? [{ hash: f.launch.tx, block: f.launch.block, to: f.launch.to ?? '' }] : [];
+  };
   return {
     now: () => new Date(f.now),
     rpc: async (method, params) => {
@@ -130,26 +186,47 @@ function chainOf(f: Fixture, calls: string[] = []): TokenCheckDeps {
         case 'eth_getCode': {
           const [addr, tag] = p as [string, string];
           if (addr === f.token) return blockOf(tag, f.head) >= f.launch.block ? (f.code ?? '0x6080') : '0x';
-          if (addr === w) {
-            if (tag === 'latest') return f.creator.code;
-            if (blockOf(tag, f.head) !== f.creator.weekBefore.block) throw new Error(`no recorded code for the launch wallet at block ${blockOf(tag, f.head)}`);
-            return f.creator.weekBefore.has_code ? f.creator.code : '0x';
+          const wallet = wallets.get(addr);
+          if (wallet) {
+            if (tag === 'latest') return wallet.code;
+            if (blockOf(tag, f.head) !== wallet.weekBefore.block) throw new Error(`no recorded code for ${addr} at block ${blockOf(tag, f.head)}`);
+            return wallet.weekBefore.has_code ? wallet.code : '0x';
           }
           return '0x';
         }
         case 'eth_getTransactionCount': {
           const [addr, tag] = p as [string, string];
-          if (addr === w) {
-            if (tag === 'latest') return hex(f.creator.nonce);
-            if (blockOf(tag, f.head) !== f.creator.weekBefore.block) throw new Error(`no recorded nonce for the launch wallet at block ${blockOf(tag, f.head)}`);
-            return hex(f.creator.weekBefore.nonce);
+          const wallet = wallets.get(addr);
+          if (wallet) {
+            if (tag === 'latest') return hex(wallet.nonce);
+            if (blockOf(tag, f.head) !== wallet.weekBefore.block) throw new Error(`no recorded nonce for ${addr} at block ${blockOf(tag, f.head)}`);
+            return hex(wallet.weekBefore.nonce);
           }
           return hex(HUB_FUNDERS.has(addr) || f.hubFunders?.includes(addr) ? 10_000 : 0);
         }
         case 'eth_getBalance':
           return '0x0';
         case 'eth_call': {
-          const [{ to, data }, tag] = p as [{ to: string; data: string }, string];
+          const [{ to, data }, tag] = p as [{ to?: string; data: string }, string];
+          // The deployless EXTCODEHASH read of a funder's recipients: answered from the recording, at the block it was made at.
+          if (to === undefined) {
+            const rec = Object.values(FILE.funders ?? {}).find(
+              (r) => data === EXTCODEHASH_PROGRAM + r.fresh.recipients.map((a) => a.slice(2).padStart(64, '0')).join('') && blockOf(tag, f.head) === r.fresh.before_block,
+            );
+            if (!rec) throw new Error(`no recorded deployless read for ${data.slice(0, 140)} at ${tag}`);
+            return rec.fresh.answer;
+          }
+          // Multicall3 over the pool factories: each answers the pool recorded for the pair, or none.
+          if (to === MULTICALL3) {
+            const { args } = decodeFunctionData({ abi: AGGREGATE3, data: data as `0x${string}` });
+            const result = (args[0] as ReadonlyArray<{ target: string; callData: string }>).map((c) => {
+              const target = c.target.toLowerCase();
+              if (!POOL_FACTORIES.includes(target)) throw new Error(`unexpected multicall target ${target}`);
+              const [a, b] = [`0x${c.callData.slice(34, 74)}`, `0x${c.callData.slice(98, 138)}`];
+              return { success: true, returnData: `0x${poolFor(target, a, b).slice(2).padStart(64, '0')}` as `0x${string}` };
+            });
+            return encodeFunctionResult({ abi: AGGREGATE3, functionName: 'aggregate3', result });
+          }
           if (to === CLANKER_V4_FACTORY.toLowerCase()) return `0x${word(32n)}${f.clanker ? f.token.slice(2).padStart(64, '0') : word(0n)}${word(0n)}${word(0n)}`;
           if (to !== f.token) return `0x${word(0n)}`; // the wallet's USDC balance
           if (data === '0x18160ddd') return `0x${word(BigInt(f.supply))}`;
@@ -157,7 +234,7 @@ function chainOf(f: Fixture, calls: string[] = []): TokenCheckDeps {
           if (data === '0x95d89b41') return abiString(f.symbol);
           if (data === '0x06fdde03') return abiString(f.name);
           if (data.startsWith('0x01ffc9a7')) return `0x${word(0n)}`;
-          if (data === '0x1c7b2ff4') return `0x${w.slice(2).padStart(64, '0')}`; // Clanker's originalAdmin: the launch wallet
+          if (data === '0x1c7b2ff4') return `0x${w.slice(2).padStart(64, '0')}`; // Clanker's originalAdmin: the fixture's wallet
           if (data === `0x70a08231${w.slice(2).padStart(64, '0')}`) return `0x${word(tag === 'latest' ? BigInt(f.creator.tokenBalance) : heldAt(blockOf(tag, f.head)))}`;
           if (f.calls && data in f.calls) {
             if (f.calls[data] === null) throw new Error('execution reverted');
@@ -168,40 +245,88 @@ function chainOf(f: Fixture, calls: string[] = []): TokenCheckDeps {
         }
         case 'eth_getTransactionByHash':
           return p[0] === f.launch.tx ? { hash: f.launch.tx, from: f.launch.from, to: f.launch.to } : null;
-        case 'eth_getTransactionReceipt':
-          return p[0] === f.launch.tx ? { transactionHash: f.launch.tx, logs: f.logs.map((l) => ({ ...l, logIndex: hex(l.logIndex), data: l.data ?? '0x' })) } : null;
-        case 'eth_getLogs':
-          return filterLogs([...(f.factoryLogs ?? []), ...(f.pairLogs ?? [])], p[0] as Parameters<typeof filterLogs>[1], f.head);
+        case 'eth_getTransactionReceipt': {
+          if (p[0] === f.launch.tx) return { transactionHash: f.launch.tx, logs: f.logs.map((l) => ({ ...l, logIndex: hex(l.logIndex), data: l.data ?? '0x' })) };
+          const logs = pairLogs.filter((l) => l.transactionHash === p[0]);
+          if (!logs.length) throw new Error(`no recorded receipt for ${String(p[0])}`);
+          return { transactionHash: p[0], logs };
+        }
+        case 'eth_getLogs': {
+          const q = p[0] as Parameters<typeof filterLogs>[1];
+          const span = blockOf(q.toBlock, f.head) - blockOf(q.fromBlock, f.head);
+          if (!opts.wideLogs && span >= FREE_TIER_LOG_BLOCKS) throw new Error('eth_getLogs: Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range.');
+          return filterLogs([...(f.factoryLogs ?? []), ...pairLogs], q, f.head);
+        }
         default:
           throw new Error(`unexpected ${method}`);
       }
     },
     transfers: async (raw) => {
       calls.push('transfers');
-      const q = raw as { contractAddresses?: string[]; fromAddress?: string; toAddress?: string; maxCount?: string; fromBlock?: string };
+      const q = raw as { contractAddresses?: string[]; fromAddress?: string; toAddress?: string; maxCount?: string; fromBlock?: string; toBlock?: string; category?: string[]; order?: string };
       const max = q.maxCount ? Number(BigInt(q.maxCount)) : 1000;
       if (q.contractAddresses) {
+        const contracts = q.contractAddresses.map((c) => c.toLowerCase());
+        if (!contracts.includes(f.token)) return { transfers: lpTransfers(contracts, blockOf(q.fromBlock, f.head)).slice(0, max) };
         if (q.fromBlock === '0x0') return { transfers: [asAlchemy(f.firstTransfer)] };
         if (q.fromAddress === ZERO) return { transfers: f.mints.slice(0, max).map(asAlchemy) };
         if (q.toAddress === w) return { transfers: f.inflows.slice(0, max).map(asAlchemy) };
         if (q.fromAddress === w) return { transfers: f.outflows.slice(0, max).map(asAlchemy) };
         return { transfers: [] };
       }
-      // The launch wallet's transactions to Clanker's factory: this launch only.
+      // Main's read: the launch wallet's transactions to Clanker's factory up to the launch, newest first.
       if (q.toAddress === CLANKER_V4_FACTORY.toLowerCase()) {
         if (q.fromAddress !== w || !f.clanker) return { transfers: [] };
-        const rows = f.factoryTxs ?? [{ hash: f.launch.tx, block: f.launch.block }];
-        const [lo, hi] = [blockOf(q.fromBlock, f.head), blockOf((q as { toBlock?: string }).toBlock, f.head)];
+        const rows = f.launchTxs?.filter((t) => t.to === q.toAddress) ?? f.factoryTxs ?? [{ hash: f.launch.tx, block: f.launch.block }];
+        const [lo, hi] = [blockOf(q.fromBlock, f.head), blockOf(q.toBlock, f.head)];
         return {
           transfers: rows
             .filter((r) => r.block >= lo && r.block <= hi)
+            .sort((a, b) => b.block - a.block)
             .slice(0, max)
-            .map((r) => ({ from: w, to: q.toAddress!, hash: r.hash, metadata: { blockTimestamp: new Date((GENESIS + 2 * r.block) * 1000).toISOString() } })),
+            .map((r) => ({ from: w, to: q.toAddress!, hash: r.hash, metadata: { blockTimestamp: isoAt(r.block) } })),
         };
       }
-      if (q.toAddress === w) return { transfers: f.creator.inbound.slice(0, max).map((t) => ({ ...t, to: w })) };
+      // A wallet's own transactions (external only) over a block range: what it sent to launchpad contracts, as recorded.
+      if (q.fromAddress && q.category?.length === 1 && q.category[0] === 'external' && q.fromBlock) {
+        const [lo, hi] = [blockOf(q.fromBlock, f.head), blockOf(q.toBlock, f.head)];
+        const rows = ownTxs(q.fromAddress)
+          .filter((r) => r.block >= lo && r.block <= hi)
+          .sort((a, b) => (q.order === 'desc' ? b.block - a.block : a.block - b.block));
+        return {
+          transfers: rows.slice(0, max).map((r) => ({ from: q.fromAddress!, to: r.to || null, hash: r.hash, blockNum: hex(r.block), category: 'external', metadata: { blockTimestamp: isoAt(r.block) } })),
+        };
+      }
+      const wallet = q.toAddress ? wallets.get(q.toAddress) : undefined;
+      if (wallet) return { transfers: wallet.inbound.slice(0, max).map((t) => ({ ...t, to: wallet.address })) };
+      // A funder's latest sends, newest first, as the explorer listed them.
+      const funder = q.fromAddress ? FILE.funders?.[q.fromAddress] : undefined;
+      if (funder) {
+        return {
+          transfers: funder.sends
+            .slice(0, max)
+            .map((s) => ({ from: q.fromAddress!, to: s.to, hash: s.hash, blockNum: hex(s.block), category: 'external', value: s.eth, metadata: { blockTimestamp: isoAt(s.block) } })),
+        };
+      }
       return { transfers: [] };
     },
+  };
+}
+
+/** D6 and D8 as the second QA run read them: the transfers since the first run's head added, at the second run's head. */
+function atRerun(f: Fixture): Fixture {
+  const later = f.later!;
+  const deltas = new Map(f.balanceDeltas.map(([b, d]) => [b, BigInt(d)] as const));
+  for (const m of later.inflows) deltas.set(m.block, (deltas.get(m.block) ?? 0n) + BigInt(m.raw));
+  for (const m of later.outflows) deltas.set(m.block, (deltas.get(m.block) ?? 0n) - BigInt(m.raw));
+  return {
+    ...f,
+    head: later.head,
+    now: later.now,
+    inflows: [...f.inflows, ...later.inflows],
+    outflows: [...f.outflows, ...later.outflows],
+    balanceDeltas: [...deltas.entries()].sort(([a], [b]) => a - b).map(([b, d]) => [b, d.toString()] as [number, string]),
+    creator: { ...f.creator, tokenBalance: later.tokenBalance },
   };
 }
 
@@ -221,11 +346,11 @@ describe('rug check QA regressions (Base, 2026-10-21)', () => {
     });
   });
 
-  // BLOHARD and BOAT (Bankr) and LEAK (Virtuals): EIP-7702 accounts whose gas was sponsored, so no
-  // transfer ever reached them; each had nonce 0 and no code a week before, and became active at launch.
+  // BLOHARD (Bankr) and LEAK (Virtuals): EIP-7702 accounts whose gas was sponsored, so no transfer ever
+  // reached them; each had nonce 0 and no code a week before, and became active at launch. (BOAT's launch
+  // was made for another wallet: see the launch-services cases.)
   it.each([
     ['D2', '0xb250d2d6a2441dc5c18d641f809b26a626e159f2'],
-    ['D7', '0x346549f6921a02d7de98530ffecf23c6e225a2bf'],
     ['V1', '0x4c58d4688bf6800919a97643db4d9f765e716a31'],
   ])('%s: flags a launch wallet with no transactions a week before the launch, though no transfer ever reached it', async (id, wallet) => {
     const r = await check(id);
@@ -289,10 +414,13 @@ describe('rug check QA regressions (Base, 2026-10-21)', () => {
     expect(r.flags).not.toContain('new_creator');
   });
 
-  // The check's cost: at most 4 more provider reads than main before the liquidity and vesting reads.
-  it.each(Object.keys(QA))('%s: stays within the read budget', async (id) => {
+  // The check's cost: at most 4 more provider reads than main (6ec33d3), with the liquidity read reworked to work on
+  // Alchemy's free tier, and never an eth_getLogs over more than 10 blocks (the mock refuses it, as production does).
+  it.each([...Object.keys(QA), 'D6@rerun', 'D8@rerun'])('%s: stays within the read budget', async (id) => {
+    const f = id.endsWith('@rerun') ? atRerun(QA[id.split('@')[0]!]!) : QA[id]!;
     const calls: string[] = [];
-    await check(id, calls);
+    await checkToken(f.token, chainOf(f, calls));
+    expect(MAIN_READS[id]).toBeDefined();
     expect(calls.length).toBeLessThanOrEqual(MAIN_READS[id]! + 4);
   });
 });
@@ -341,8 +469,10 @@ describe('rug check QA: liquidity the launch wallet removed, and supply it will 
         label: 'hold',
         reason: `The wallet that launched it removed its liquidity from the token's Uniswap v2 pool ${when} after the launch: it took out ${removedText} WETH, ${poolPct}% of what the pool held, after putting in ${addedText} WETH.`,
       });
-      // The factories' creation logs (the token as token0, then as token1) and the pair's LP logs; WETH needs no decimals read.
-      expect(calls.filter((m) => m === 'eth_getLogs')).toHaveLength(3);
+      // No log reads (Alchemy's free tier refuses ranges over 10 blocks): the pools from one multicall, the LP token's
+      // transfers from the transfer index, and the add's and the removal's amounts from their two receipts.
+      expect(calls).not.toContain('eth_getLogs');
+      expect(calls.filter((m) => m === 'eth_getTransactionReceipt')).toHaveLength(3);
     },
   );
 
@@ -409,7 +539,7 @@ describe('rug check QA: liquidity the launch wallet removed, and supply it will 
     expect(r.flags).not.toContain('creator_holds_large_share');
   });
 
-  it.each(['D7', 'D10', 'D5'])('%s: reports nothing vesting to a launch wallet without a schedule', async (id) => {
+  it.each(['D10', 'D5'])('%s: reports nothing vesting to a launch wallet without a schedule', async (id) => {
     const r = await check(id);
     expect(r.creator?.vesting).toEqual({ amount: 0, pct: 0, released: 0, start: null, cliff_end: null, end: null });
   });
@@ -450,7 +580,9 @@ describe('rug check QA: liquidity the launch wallet removed, and supply it will 
     ]);
     expect(r.creator).toMatchObject({ holds_pct: 0, vesting: null, holds_with_vesting_pct: 0, extensions_pct: 87 });
     expect(r.flags).toEqual(['creator_serial_launcher']);
-    expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it launched 169 tokens through Clanker in the 24 hours up to and including this one.' });
+    expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it launched 169 tokens within 24 hours, this one included: 169 through Clanker.' });
+    expect(r.creator?.launches_24h).toMatchObject({ total: 169, by_launchpad: { clanker: 169, doppler: 0, zora: 0, virtuals: 0, other: 0 }, span_sec: 86_396, capped: false });
+    expect(r.creator?.clanker_launches_24h).toBe(169);
   });
 
   it.each(['P1', 'D6', 'Z1'])('%s: reads no Clanker extensions off Clanker', async (id) => {
@@ -465,9 +597,9 @@ describe('rug check QA: liquidity the launch wallet removed, and supply it will 
     expect(r.creator?.extensions_pct).toBe(0);
   });
 
-  it('P1: still answers when the chain source refuses the pool log reads, and says the liquidity was not read', async () => {
-    // Alchemy's free tier refuses eth_getLogs over more than 10 blocks (production, 2026-10-22): the pool scan must not
-    // turn a whole check into "sources unavailable".
+  it('P1: still answers hold on a chain source that refuses every eth_getLogs, since the liquidity read makes none', async () => {
+    // Alchemy's free tier refuses eth_getLogs over more than 10 blocks (production, 2026-10-22), which made PR #80's pool
+    // scan fail every plain-deploy check; PR #81 left the liquidity unread. The read now needs no log range at all.
     const deps = chainOf(QA.P1!);
     const refusing: TokenCheckDeps = {
       ...deps,
@@ -477,11 +609,10 @@ describe('rug check QA: liquidity the launch wallet removed, and supply it will 
       },
     };
     const r = await checkToken(QA.P1!.token, refusing);
-    expect(r.liquidity).toEqual({ locked_by: null, pools: null, capped: false });
-    expect(r.flags).not.toContain('creator_removed_liquidity');
-    expect(r.flags).toContain('new_creator');
-    expect(r.verdict.label).toBe('review');
-    expect(r.limits).toMatch(/liquidity of its pools could not be read/);
+    expect(r.liquidity?.pools?.[0]?.launch_wallet?.removed_pct).toBe(100);
+    expect(r.flags[0]).toBe('creator_removed_liquidity');
+    expect(r.verdict.label).toBe('hold');
+    expect(r.limits).not.toMatch(/could not be read/);
   });
 
   it('says what the liquidity read covers, in plain words', async () => {
@@ -493,26 +624,188 @@ describe('rug check QA: liquidity the launch wallet removed, and supply it will 
 });
 
 /**
- * Provider reads per fresh check on main before the liquidity and vesting reads, counted with this replay.
- * The QA fixes (PR #79) were held to +4 over the check before them; these reads are held to +4 over main.
+ * Provider reads per fresh check on main (6ec33d3: PR #80's liquidity and vesting reads included, its pool logs read
+ * over the full range), counted with this replay. The QA-gap fixes and the liquidity rework are held to +4 over these.
  */
 const MAIN_READS: Record<string, number> = {
-  D4: 28,
-  D2: 24,
-  D7: 24,
+  D4: 31,
+  D2: 28,
+  D7: 25,
   V1: 24,
   C4: 28,
   V2: 26,
   Z1: 26,
   Z2: 26,
   Z6: 26,
-  D10: 24,
-  D5: 24,
-  P1: 26,
-  P2: 26,
-  P3: 26,
-  P4: 26,
-  D6: 28,
-  D8: 28,
-  C1: 30,
+  D10: 25,
+  D5: 25,
+  P1: 29,
+  P2: 29,
+  P3: 29,
+  P4: 29,
+  D6: 31,
+  D8: 31,
+  C1: 32,
+  C7: 31,
+  C8: 28,
+  D3: 27,
+  'D6@rerun': 31,
+  'D8@rerun': 31,
 };
+
+describe('rug check QA gaps (Base, 2026-10-22 re-run)', () => {
+  // MONERO: the launch wallet sold its whole 16.2% dev buy 20,326 s after the launch (0x2d8f6fce…); XTO sold 90% of its
+  // buy 19,870 to 19,886 s after (0x851ab0b1…, 0x534dd481…, 0xee9e08b2…). The send rule covered the first hour only, so an
+  // agent checking at hour six got no flag.
+  it.each([
+    ['D6', 100, 20_326, 0, 100, 34_948, 'The wallet that launched it received 1,621,899,961.11 tokens in the launch transaction and had sent out 100% of them 6 hours later.'],
+    ['D8', 90, 19_886, 159_230_552.304712, 90.17, 35_630, 'The wallet that launched it received 1,621,352,078.11 tokens in the launch transaction and had sent out 90% of them 6 hours later.'],
+  ] as const)('%s: flags the launch tokens it sent out hours after the launch, and says when', async (id, sentPct, at90, heldNow, sentNowPct, nowAfter, reason) => {
+    const f = atRerun(QA[id]!);
+    const calls: string[] = [];
+    const r = await checkToken(f.token, chainOf(f, calls));
+    expect(r.flags).toEqual(expect.arrayContaining(['creator_sent_launch_tokens', 'creator_holds_large_share']));
+    expect(r.creator?.launch_tokens).toMatchObject({ sent_pct: sentPct, sent_90pct_after_sec: at90, held_now: heldNow, sent_now_pct: sentNowPct, held_now_after_sec: nowAfter });
+    expect(r.verdict).toEqual({ label: 'review', reason });
+  });
+
+  it.each(['D6', 'D8'])('%s: reads the later sends from what the check already reads: no more reads than at the first run', async (id) => {
+    const [first, again] = [[] as string[], [] as string[]];
+    await checkToken(QA[id]!.token, chainOf(QA[id]!, first));
+    const f = atRerun(QA[id]!);
+    await checkToken(f.token, chainOf(f, again));
+    expect(again.length).toBe(first.length);
+  });
+
+  it('D6: does not flag the launch tokens while the launch wallet still holds them (the first run)', async () => {
+    const r = await check('D6');
+    expect(r.creator?.launch_tokens).toMatchObject({ sent_now_pct: 0 });
+    expect(r.flags).not.toContain('creator_sent_launch_tokens');
+  });
+
+  // SUPERUSOR: sent by launch service blokeys.eth (0x3a08…) for admin 0x1705…, which launched 6 Clanker tokens itself in
+  // the day before and USOR² (C9) 22 minutes after. The answer described the service.
+  it('C8: reads the wallet facts of the token admin a launch service launched it for, and keeps the sender', async () => {
+    const r = await check('C8');
+    const admin = '0x170503c5548cc9bc89d7f3bb0e35faf7f4d1f924';
+    expect(r.launch).toMatchObject({ creator: '0x3a08520042b20604c10ca225c40fd224d2244535', token_admin: admin, made_for: { address: admin, named_as: 'token_admin' } });
+    expect(r.launch?.launcher_note).toMatch(/The facts below describe the token's admin, not the wallet that sent the launch\.$/);
+    expect(r.creator).toMatchObject({ address: admin, role: 'made_for', week_before_launch: { block: 52_613_158, sent_txs: 1, has_code: true }, clanker_launches_24h: 8 });
+    expect(r.creator?.first_funder?.address).toBe('0x6128d63647679c581f111c524c7d3f25d8d200c6');
+    expect(r.creator?.launches_24h).toEqual({ total: 8, by_launchpad: { clanker: 8, doppler: 0, zora: 0, virtuals: 0, other: 0 }, span_sec: 83_832, read_to: '2026-10-22T01:18:47.000Z', capped: false });
+    expect(r.flags).toContain('creator_serial_launcher');
+    expect(r.flags).not.toContain('creator_shared_funder');
+    expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet it was launched for has 8 launches within 23 hours, this one included: 8 through Clanker.' });
+  });
+
+  // BOAT (Bankr): its clone token's launch receipt names one vesting beneficiary, 0x6d00…, not the 7702 account that sent
+  // the launch (3 launches in 8 minutes). The beneficiary had never been used.
+  it('D7: reads the wallet facts of the one wallet the Doppler token vests to, when that is not the sender', async () => {
+    const r = await check('D7');
+    const beneficiary = '0x6d00826a21a1684ef35f3281dc020d794d5df6c0';
+    expect(r.launch).toMatchObject({ creator: '0x346549f6921a02d7de98530ffecf23c6e225a2bf', made_for: { address: beneficiary, named_as: 'vesting_beneficiary' } });
+    expect(r.creator).toMatchObject({ address: beneficiary, role: 'made_for', first_seen: null, week_before_launch: { block: QA.D7!.creator.weekBefore.block, sent_txs: 0, has_code: false } });
+    expect(r.creator?.vesting).toEqual({ amount: 15_000_000_000, pct: 15, released: 0, start: '2026-10-21T22:12:59.000Z', cliff_end: '2026-11-20T22:12:59.000Z', end: '2027-10-21T22:12:59.000Z' });
+    expect(r.flags).toContain('new_creator');
+    expect(r.verdict).toEqual({
+      label: 'review',
+      reason: 'The wallet it was launched for had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.',
+    });
+  });
+
+  it.each(['C7', 'C1', 'C4', 'D2', 'Z1', 'V2', 'P1'])('%s: describes the launch wallet when the receipt names no other wallet', async (id) => {
+    const r = await check(id);
+    expect(r.launch?.made_for).toBeNull();
+    expect(r.creator?.role).toBe('launch_wallet');
+  });
+
+  // LEAK: the launch wallet launched 9 tokens through Clanker in 45 minutes; checked after, the count stopped at 4.
+  it('C7: counts the launch wallet\'s launches through to the check, not only up to this one', async () => {
+    const r = await check('C7');
+    expect(r.creator?.launches_24h).toEqual({ total: 9, by_launchpad: { clanker: 9, doppler: 0, zora: 0, virtuals: 0, other: 0 }, span_sec: 2_726, read_to: '2026-10-22T01:18:43.000Z', capped: false });
+    expect(r.creator?.clanker_launches_24h).toBe(9);
+    expect(r.flags).toEqual(expect.arrayContaining(['creator_sent_launch_tokens', 'new_creator', 'creator_serial_launcher']));
+    expect(r.verdict.reason).toBe('The wallet that launched it received 893,885.25 tokens in the launch transaction and had sent out 100% of them 22 minutes later.');
+  });
+
+  // BSC (Doppler): a service EOA sending launches straight to Doppler's Airlock, 30 in the QA run's 6-hour window.
+  it('D3: counts launches through Doppler\'s Airlock, and names the launchpad', async () => {
+    const r = await check('D3');
+    expect(r.creator?.launches_24h).toEqual({ total: 30, by_launchpad: { clanker: 0, doppler: 30, zora: 0, virtuals: 0, other: 0 }, span_sec: 20_024, read_to: '2026-10-22T00:16:47.000Z', capped: false });
+    expect(r.creator?.clanker_launches_24h).toBeNull();
+    expect(r.flags).toContain('creator_serial_launcher');
+    expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it launched 30 tokens within 6 hours, this one included: 30 through Doppler.' });
+  });
+
+  it.each(['D2', 'Z1', 'V2', 'D6'])('%s: counts this launch for a launch wallet with no launches straight to a launchpad', async (id) => {
+    const r = await check(id);
+    expect(r.creator?.launches_24h?.total).toBe(1);
+    expect(r.flags).not.toContain('creator_serial_launcher');
+  });
+
+  // ANTHROPIC, LIQUIDBGT and ANTHROPIC: funded by unlabeled vanity EOAs that first-funded 50 of 59 plain-deploy launch
+  // wallets in 6 hours. We called them an exchange or hub, which switched the shared-funder signal off.
+  it.each([
+    ['P1', '0xb3adbcff9100f2291c4e778bda2679e45f900000', 52_910_401],
+    ['P2', '0xb3adbcff9100f2291c4e778bda2679e45f900000', 52_910_401],
+    ['P4', '0x0e6e91775d24d34b90e0f3d806a90705f0199999', 52_913_939],
+  ])('%s: reports a busy unlabeled funder as busy, and flags it when its recent recipients were brand new', async (id, funder, before) => {
+    const calls: string[] = [];
+    const r = await check(id, calls);
+    expect(r.creator?.first_funder).toMatchObject({
+      address: funder,
+      exchange_or_hub: false,
+      busy: true,
+      funded_wallets: 13,
+      recent_recipients: { checked: 13, fresh: 13, before_block: before },
+    });
+    expect(r.flags).toContain('creator_shared_funder');
+    // Removed liquidity still leads.
+    expect(r.verdict.label).toBe('hold');
+  });
+
+  it('P3: does not flag a busy funder when too few of its recent recipients were brand new', async () => {
+    const r = await check('P3');
+    expect(r.creator?.first_funder).toMatchObject({ busy: true, exchange_or_hub: false, recent_recipients: { checked: 3, fresh: 2, before_block: 52_918_784 } });
+    expect(r.flags).not.toContain('creator_shared_funder');
+  });
+
+  it('P1: calls a funder an exchange only when ChainWard labels it a service', async () => {
+    const deps = chainOf(QA.P1!);
+    const funder = '0xb3adbcff9100f2291c4e778bda2679e45f900000';
+    const service = {
+      chain: 'base',
+      address: funder,
+      kind: 'service' as const,
+      strength: 'weak' as const,
+      visibility: 'public' as const,
+      group_key: null,
+      group_size: null,
+      sentence: 'A known exchange hot wallet.',
+      source_type: 'list' as const,
+      source_ref: 'test',
+      source_url: 'https://chainward.ai',
+      evidence_url: null,
+      as_of: '2026-10-22',
+    };
+    const r = await checkToken(QA.P1!.token, { ...deps, labelsFor: (address) => (address === funder ? [service] : []) });
+    expect(r.creator?.first_funder).toMatchObject({ exchange_or_hub: true, busy: true, funded_wallets: null, recent_recipients: null });
+    expect(r.flags).not.toContain('creator_shared_funder');
+  });
+
+  it('never reads logs over more than 10 blocks, the free-tier limit production runs on', async () => {
+    for (const id of Object.keys(QA)) {
+      const calls: string[] = [];
+      await check(id, calls);
+      expect(calls).not.toContain('eth_getLogs');
+    }
+  });
+
+  it('says what the launch count, the funder and the wallet it describes cover, in plain words', async () => {
+    const r = await check('C8');
+    expect(r.limits).toMatch(/Zora's payout recipient/);
+    expect(r.limits).toMatch(/Doppler's Airlock/);
+    expect(r.limits).toMatch(/only when ChainWard's labels name it one/);
+    expect(JSON.stringify(r)).not.toMatch(/\b(safe|scam|rug|fraud)\b|—/i);
+  });
+});

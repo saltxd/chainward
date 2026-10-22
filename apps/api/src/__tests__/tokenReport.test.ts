@@ -105,8 +105,8 @@ const IP = '203.0.113.7';
 const HOURLY = `bud:token-report:ip:${IP}`;
 const DAILY = 'bud:token-report-day:global';
 const PROBES = 'bud:token-probe-day:global';
-const SHARED = `token-check:v6:base:${TOKEN}`;
-const RECENT = `token-report:v4:recent:${TOKEN}`;
+const SHARED = `token-check:v7:base:${TOKEN}`;
+const RECENT = `token-report:v5:recent:${TOKEN}`;
 
 function facilitatorFetch(url: string | URL | Request): Promise<Response> {
   const href = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;

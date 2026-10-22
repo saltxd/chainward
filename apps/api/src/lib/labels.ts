@@ -95,7 +95,7 @@ const DAY_MS = 86_400_000;
  * the sentence and dates; a removal (a correction) stays.
  */
 export async function recordSerialLauncher(check: TokenCheck, now: Date = new Date()): Promise<void> {
-  const launches = check.creator?.clanker_launches_24h;
+  const launches = check.creator?.launches_24h?.total ?? check.creator?.clanker_launches_24h;
   if (!check.flags.includes('creator_serial_launcher') || !check.creator || !launches || !check.launch?.time) return;
   // A launch service launching for other admins would get its whole volume counted.
   if (check.launch.token_admin !== check.creator.address.toLowerCase()) return;

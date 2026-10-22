@@ -115,7 +115,7 @@ describe('recordSerialLauncher', () => {
       visibility: 'public',
       sourceType: 'detector',
       sourceRef: 'rugcheck',
-      sentence: 'Launched 97 tokens through Clanker in one day (seen 2026-10-20).',
+      sentence: 'Launched 97 tokens through Clanker, Doppler or Zora in one day (seen 2026-10-20).',
       evidenceUrl: `https://basescan.org/tx/0x${'1'.repeat(64)}`,
       asOf: '2026-10-20',
       expiresAt: new Date('2026-11-19T12:00:00Z'),

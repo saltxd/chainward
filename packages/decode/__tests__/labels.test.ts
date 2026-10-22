@@ -52,7 +52,7 @@ describe('sentences', () => {
     expect(selfFundedSellerSentence("our decode Three of the Top Ten x402 Sellers")).toBe(
       'An x402 seller whose buyers it funded, from our decode Three of the Top Ten x402 Sellers.',
     );
-    expect(serialLauncherSentence(97, '2026-10-20T05:00:00Z')).toBe('Launched 97 tokens through Clanker in one day (seen 2026-10-20).');
+    expect(serialLauncherSentence(97, '2026-10-20T05:00:00Z')).toBe('Launched 97 tokens through Clanker, Doppler or Zora in one day (seen 2026-10-20).');
     expect(launchDumperSentence(3, '2026-10-20')).toBe('Sent out the tokens it got at launch within the hour, on 3 launches in 7 days (seen 2026-10-20).');
   });
 

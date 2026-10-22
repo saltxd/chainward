@@ -670,18 +670,24 @@ export interface TokenReport {
     launcher_note: string | null;
     /** Clanker: the token's admin at launch; another wallet than the creator when a service launched it. */
     token_admin: string | null;
+    /** The wallet the launch was made for, when the receipt names one that did not send it; the creator facts describe it. */
+    made_for?: { address: string; named_as: 'token_admin' | 'payout_recipient' | 'vesting_beneficiary' } | null;
   } | null;
   creator: {
     address: string;
+    /** Which wallet these facts describe (absent on answers cached before it). */
+    role?: 'launch_wallet' | 'made_for';
     type: 'wallet' | 'contract';
     sanctioned: boolean;
     first_seen: string | null;
     age_days_at_launch: number | null;
     sent_txs: number;
-    first_funder: { address: string; tx: string; sanctioned: boolean; exchange_or_hub: boolean; funded_wallets: number | null } | null;
+    first_funder: { address: string; tx: string; sanctioned: boolean; exchange_or_hub: boolean; busy?: boolean; funded_wallets: number | null } | null;
     holds_pct: number | null;
-    launch_tokens: { received: number; sent_pct: number; first_send_after_sec: number | null; sent_90pct_after_sec: number | null } | null;
+    launch_tokens: { received: number; sent_pct: number; first_send_after_sec: number | null; sent_90pct_after_sec: number | null; sent_now_pct?: number | null } | null;
     clanker_launches_24h: number | null;
+    /** Its launches in the 24 hours with the most of them that include this one, by launchpad (absent on older answers). */
+    launches_24h?: { total: number; by_launchpad: Record<'clanker' | 'doppler' | 'zora' | 'virtuals' | 'other', number>; span_sec: number; capped: boolean } | null;
     /** Its public labels from our investigations and detectors, strongest first (absent on answers cached before labels). */
     labels?: Array<{ kind: string; strength: 'strong' | 'weak'; sentence: string; source_url: string | null }>;
   } | null;
