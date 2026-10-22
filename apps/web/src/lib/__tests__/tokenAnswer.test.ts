@@ -285,6 +285,14 @@ describe('tokenFlagLines', () => {
     expect(lines[1]!.title).toMatch(/Clanker/);
   });
 
+  it('words the liquidity removal as high severity, since it answers hold', () => {
+    expect(tokenFlagLines(check({ flags: ['creator_removed_liquidity'] }))[0]).toEqual({
+      id: 'creator_removed_liquidity',
+      severity: 'high',
+      title: 'The launch wallet took most of its liquidity back out of the pool',
+    });
+  });
+
   it('keeps a flag it has no words for, by its id', () => {
     expect(tokenFlagLines(check({ flags: ['something_new'] }))[0]).toMatchObject({ id: 'something_new', title: 'something_new' });
   });

@@ -29,7 +29,7 @@ const TOOLS = [
   { name: 'get_top_agents', desc: 'Leaderboard by activity. Who is doing what on Base, ranked.' },
   { name: 'get_activity_feed', desc: 'Live feed of labeled-agent transactions across the ecosystem.' },
   { name: 'list_decodes', desc: 'Every published ChainWard Decode, newest first. Each with its target addresses.' },
-  { name: 'rug_check', desc: "Before buying a Base token: Hold, Review or No flags with the one reason, plus who launched it and whether that wallet sent out its launch tokens within the hour. Free up to 20 fresh checks an hour; $0.02 a call over x402 for volume. No honeypot or liquidity check. Since 0.3.0." },
+  { name: 'rug_check', desc: "Before buying a Base token: Hold, Review or No flags with the one reason, plus who launched it and whether that wallet sent out its launch tokens within the hour. Free up to 20 fresh checks an hour; $0.02 a call over x402 for volume. Hold when the launch wallet pulled the liquidity it added. No honeypot or sell simulation. Since 0.3.0." },
   { name: 'find_decodes_for_address', desc: 'Has ChainWard written about 0x…? Returns matching Decode URLs.' },
 ];
 

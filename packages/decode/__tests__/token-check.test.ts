@@ -93,6 +93,34 @@ interface Chain {
   weekBefore?: { nonce: number; code?: string };
   /** Every read made at a past block, as `method:address:block` (balanceOf as `balanceOf:address:block`). */
   pastReads?: string[];
+  /** Logs eth_getLogs answers from, filtered as a node filters them; or a refusal. */
+  logs?: RpcLog[];
+  /** A refusal of the eth_getLogs reads it names: the factories' creation logs, or the pools' LP logs. */
+  failLogs?: { on: 'factories' | 'pools'; message: string };
+  /** Doppler's legacy vesting data on the token: getVestingDataOf(launch wallet), vestingStart, vestingDuration. */
+  vesting?: { total: bigint; released: bigint; start: number; duration: number };
+  /** decimals() of other contracts (a pool's paired token). */
+  decimalsOf?: Record<string, number>;
+}
+
+interface RpcLog {
+  address: string;
+  topics: string[];
+  data: string;
+  blockNumber: string;
+  transactionHash: string;
+  logIndex: string;
+}
+
+/** eth_getLogs as a node answers it: address (one or several), topics by position (null = any, a list = any of), block range. */
+function filterLogs(logs: RpcLog[], q: { address?: string | string[]; topics?: Array<string | string[] | null>; fromBlock?: string; toBlock?: string }, head: number): RpcLog[] {
+  const at = (tag: string | undefined) => (tag === undefined || tag === 'latest' ? head : Number(BigInt(tag)));
+  const addrs = q.address === undefined ? null : (Array.isArray(q.address) ? q.address : [q.address]).map((a) => a.toLowerCase());
+  return logs.filter((l) => {
+    const b = Number(BigInt(l.blockNumber));
+    if (b < at(q.fromBlock) || b > at(q.toBlock) || (addrs && !addrs.includes(l.address.toLowerCase()))) return false;
+    return (q.topics ?? []).every((t, i) => t === null || t === undefined || (Array.isArray(t) ? t : [t]).some((x) => x.toLowerCase() === l.topics[i]?.toLowerCase()));
+  });
 }
 
 function deps(c: Chain, log: string[] = []): WalletLookupDeps {
@@ -171,7 +199,11 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
               return `0x${(c.originalAdmin ?? c.launchTx?.from ?? CREATOR).slice(2).padStart(64, '0')}`;
             }
             if (data === '0xf851a440') return `0x${(c.currentAdmin ?? c.originalAdmin ?? c.launchTx?.from ?? CREATOR).slice(2).padStart(64, '0')}`;
+            if (data.startsWith('0xf6939d34') && c.vesting) return `0x${word(c.vesting.total)}${word(c.vesting.released)}`;
+            if (data === '0x254800d4' && c.vesting) return `0x${word(BigInt(c.vesting.start))}`;
+            if (data === '0x1514617e' && c.vesting) return `0x${word(BigInt(c.vesting.duration))}`;
           }
+          if (data === '0x313ce567' && c.decimalsOf?.[to] !== undefined) return `0x${word(BigInt(c.decimalsOf[to]!))}`;
           return `0x${word(0n)}`; // USDC balanceOf in the wallet lookup
         }
         case 'eth_getTransactionByHash': {
@@ -195,6 +227,13 @@ function deps(c: Chain, log: string[] = []): WalletLookupDeps {
         }
         case 'eth_getBalance':
           return '0x0';
+        case 'eth_getLogs':
+          if (c.failLogs) {
+            const q = p[0] as { address?: string | string[] };
+            const onFactories = [q.address ?? []].flat().some((a) => a.toLowerCase() === UNI_V2_FACTORY);
+            if ((c.failLogs.on === 'factories') === onFactories) throw new Error(c.failLogs.message);
+          }
+          return filterLogs(c.logs ?? [], p[0] as Parameters<typeof filterLogs>[1], head);
         default:
           throw new Error(`unexpected ${method}`);
       }
@@ -1069,5 +1108,237 @@ describe('checkToken: reads placed by block time', () => {
     );
     expect(r.launch?.creator).toBe(b);
     expect(r.flags).not.toContain('launch_unknown');
+  });
+});
+
+// Liquidity the launch wallet added to and removed from the token's v2-style pools, read from the factories'
+// creation logs and the pools' LP logs; and supply vesting to it on a Doppler token.
+const UNI_V2_FACTORY = '0x8909dc15e40173ff4699343b6eb8132c65e18ec6';
+const AERO_FACTORY = '0x420dd381b31aef6683db6b902084cb0ffece40da';
+const T = {
+  pairCreated: '0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9',
+  poolCreated: '0x2128d88d14c80cb081c1252a5acff7a264671bf199ce226b53788fb26065005e',
+  transfer: '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+  mint: '0x4c209b5fc8ad50758f13e2e1088ba56a560dff690a1c6fef26394f4c03821c4f',
+  burnV2: '0xdccd412f0b1252819cb1fd330b93224ca42612892bb3f4f789976e6d81936496',
+  burnAero: '0x5d624aa9c148153ab3446c1b154f660ee7701e549fe9b62dab7171b1c80e6fa2',
+};
+const WETH = '0x4200000000000000000000000000000000000006';
+const ROUTER = `0x${'4'.repeat(40)}`;
+const E18 = 10n ** 18n;
+
+describe('checkToken: liquidity the launch wallet removed', () => {
+  let index = 0;
+  const rpcLog = (address: string, topics: string[], words: bigint[], block: number, tx: string): RpcLog => ({
+    address,
+    topics,
+    data: `0x${words.map(word).join('')}`,
+    blockNumber: `0x${block.toString(16)}`,
+    transactionHash: tx,
+    logIndex: `0x${(index++).toString(16)}`,
+  });
+  const lp = (from: string, to: string, amount: bigint, block: number, tx: string) => rpcLog(POOL, [T.transfer, topic(from), topic(to)], [amount], block, tx);
+  /** A pool of TOKEN (0x77..) against `paired`, created by a factory, with token0 the lower address. */
+  const created = (factory: string, paired: string, block: number) => {
+    const [t0, t1] = paired < TOKEN ? [paired, TOKEN] : [TOKEN, paired];
+    return factory === AERO_FACTORY
+      ? rpcLog(factory, [T.poolCreated, topic(t0), topic(t1), topic(ZERO)], [BigInt(POOL), 9n], block, '0xpool')
+      : rpcLog(factory, [T.pairCreated, topic(t0), topic(t1)], [BigInt(POOL), 9n], block, '0xpool');
+  };
+  /** LP minted to `to` for `paired` of the paired token and `tokens` of TOKEN (amount0 is the paired token's: it sorts first). */
+  const add = (lpAmount: bigint, paired: bigint, tokens: bigint, block: number, tx: string, to = CREATOR) => [
+    lp(ZERO, to, lpAmount, block, tx),
+    rpcLog(POOL, [T.mint, topic(ROUTER)], [paired, tokens], block, tx),
+  ];
+  const remove = (lpAmount: bigint, paired: bigint, tokens: bigint, block: number, tx: string, burn: 'v2' | 'aero') => [
+    lp(CREATOR, POOL, lpAmount, block, tx),
+    lp(POOL, ZERO, lpAmount, block, tx),
+    burn === 'v2'
+      ? rpcLog(POOL, [T.burnV2, topic(ROUTER), topic(ROUTER)], [paired, tokens], block, tx)
+      : rpcLog(POOL, [T.burnAero, topic(ROUTER), topic(ROUTER)], [paired, tokens], block, tx),
+  ];
+  // The launch wallet's own token transfers into the pool and back, which date the adds and removals.
+  const moves = (rows: Array<[string, string, number, number, string, number]>) =>
+    rows.map(([from, to, value, block, hash, sec]) => ({ from, to, value, hash, block, time: ts(LAUNCH_TIME, sec) }));
+
+  it('answers hold when the launch wallet removed most of its liquidity from an Aerodrome pool, in two goes', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        logs: [
+          created(AERO_FACTORY, WETH, LAUNCH_BLOCK + 5),
+          lp(ZERO, `0x${'0'.repeat(39)}1`, 1000n, LAUNCH_BLOCK + 5, '0xadd'),
+          ...add(1000n * E18, 2n * E18, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd'),
+          ...remove(300n * E18, 6n * 10n ** 17n, 150_000n * E18, LAUNCH_BLOCK + 300, '0xrm1', 'aero'),
+          ...remove(300n * E18, 62n * 10n ** 16n, 140_000n * E18, LAUNCH_BLOCK + 600, '0xrm2', 'aero'),
+        ],
+        transfers: [
+          mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX),
+          ...moves([
+            [CREATOR, POOL, 500_000, LAUNCH_BLOCK + 5, '0xadd', 10],
+            [POOL, CREATOR, 150_000, LAUNCH_BLOCK + 300, '0xrm1', 600],
+            [POOL, CREATOR, 140_000, LAUNCH_BLOCK + 600, '0xrm2', 1200],
+          ]),
+        ],
+      }),
+    );
+    expect(r.liquidity?.pools?.[0]).toEqual({
+      address: POOL,
+      dex: 'aerodrome',
+      paired_with: WETH,
+      paired_symbol: 'WETH',
+      launch_wallet: {
+        added: 2,
+        added_tokens: 500_000,
+        added_after_sec: 10,
+        removed: 1.22,
+        removed_tokens: 290_000,
+        removed_pct: 60,
+        pool_pct: 59.99,
+        removed_after_sec: 1200,
+        removal_tx: '0xrm2',
+      },
+    });
+    expect(r.flags).toContain('creator_removed_liquidity');
+    expect(r.verdict).toEqual({
+      label: 'hold',
+      reason: "The wallet that launched it removed 60% of its liquidity from the token's Aerodrome pool by 20 minutes after the launch: it took out 1.22 WETH, 59.99% of what the pool held, after putting in 2 WETH.",
+    });
+  });
+
+  it('reports a removal of less than half of what it added, without the flag', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        logs: [
+          created(UNI_V2_FACTORY, WETH, LAUNCH_BLOCK + 5),
+          ...add(1000n * E18, 2n * E18, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd'),
+          ...remove(300n * E18, 6n * 10n ** 17n, 150_000n * E18, LAUNCH_BLOCK + 300, '0xrm1', 'v2'),
+        ],
+        transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+      }),
+    );
+    expect(r.liquidity?.pools?.[0]?.launch_wallet).toMatchObject({ removed: 0.6, removed_pct: 30, pool_pct: 30 });
+    expect(r.flags).not.toContain('creator_removed_liquidity');
+    expect(r.verdict.label).toBe('no_flags');
+  });
+
+  // LP tokens sent to a locker (or any other wallet) are not followed: only LP it sent back to the pool counts as removed.
+  it('does not count LP tokens the launch wallet moved elsewhere as removed', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        logs: [
+          created(UNI_V2_FACTORY, WETH, LAUNCH_BLOCK + 5),
+          ...add(1000n * E18, 2n * E18, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd'),
+          lp(CREATOR, `0x${'b'.repeat(40)}`, 1000n * E18, LAUNCH_BLOCK + 9, '0xlock'),
+        ],
+        transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+      }),
+    );
+    expect(r.liquidity?.pools?.[0]?.launch_wallet).toMatchObject({ added: 2, removed: null, removed_pct: 0, pool_pct: null, removal_tx: null });
+    expect(r.flags).not.toContain('creator_removed_liquidity');
+  });
+
+  it('reports a pool the launch wallet never added to, without its part', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        logs: [created(UNI_V2_FACTORY, WETH, LAUNCH_BLOCK + 5), ...add(1000n * E18, 2n * E18, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd', FUNDER)],
+        transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+      }),
+    );
+    expect(r.liquidity).toEqual({ locked_by: null, capped: false, pools: [{ address: POOL, dex: 'uniswap_v2', paired_with: WETH, paired_symbol: 'WETH', launch_wallet: null }] });
+  });
+
+  // A token paired with something other than WETH, USDC and the other listed assets: one decimals() read for it.
+  it('reads the decimals of an unlisted paired token, and names it by address', async () => {
+    const paired = `0x${'5'.repeat(40)}`;
+    const calls: string[] = [];
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        calls,
+        decimalsOf: { [paired]: 6 },
+        logs: [
+          created(UNI_V2_FACTORY, paired, LAUNCH_BLOCK + 5),
+          ...add(1000n * E18, 1_000n * 10n ** 6n, 500_000n * E18, LAUNCH_BLOCK + 5, '0xadd'),
+          ...remove(1000n * E18, 1_500n * 10n ** 6n, 400_000n * E18, LAUNCH_BLOCK + 30, '0xrm', 'v2'),
+        ],
+        transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX), ...moves([[POOL, CREATOR, 400_000, LAUNCH_BLOCK + 30, '0xrm', 60]])],
+      }),
+    );
+    expect(r.liquidity?.pools?.[0]).toMatchObject({ paired_with: paired, paired_symbol: null, launch_wallet: { added: 1000, removed: 1500, removed_pct: 100, pool_pct: 100 } });
+    expect(calls.filter((c) => c === `${paired}:0x313ce567`)).toHaveLength(1);
+    expect(r.verdict).toEqual({
+      label: 'hold',
+      reason: `The wallet that launched it removed its liquidity from the token's Uniswap v2 pool 60 seconds after the launch: it took out 1,500 of the paired token ${paired}, 100% of what the pool held, after putting in 1,000.`,
+    });
+  });
+
+  // A pool with more LP logs than the provider returns at once: listed, its launch-wallet part unread, never a guess.
+  it("lists the pools but leaves the launch wallet's part unread when their LP logs are too many", async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        logs: [created(UNI_V2_FACTORY, WETH, LAUNCH_BLOCK + 5)],
+        failLogs: {
+          on: 'pools',
+          message:
+            'Log response size exceeded. You can make eth_getLogs requests with up to a 2K block range and no limit on the response size, or you can request any block range with a cap of 10K logs in the response.',
+        },
+        transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+      }),
+    );
+    expect(r.liquidity).toEqual({ locked_by: null, capped: true, pools: [{ address: POOL, dex: 'uniswap_v2', paired_with: WETH, paired_symbol: 'WETH', launch_wallet: null }] });
+    expect(r.flags).not.toContain('creator_removed_liquidity');
+  });
+
+  it('fails rather than guess when the provider refuses the pool read', async () => {
+    await expect(
+      checkToken(
+        TOKEN,
+        deps({ failLogs: { on: 'factories', message: 'eth_getLogs: Your app has exceeded its compute units per second capacity' }, transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)] }),
+      ),
+    ).rejects.toThrow(/capacity/);
+  });
+
+  it('reads no pools when the launch wallet is unknown', async () => {
+    const log: string[] = [];
+    const r = await checkToken(TOKEN, deps({ codeFromBlock: LAUNCH_BLOCK - 10, transfers: [mint(POOL, 5, LAUNCH_BLOCK, '0xm1')], receipts: [] }, log));
+    expect(r.flags).toContain('launch_unknown');
+    expect(r.liquidity).toEqual({ locked_by: null, pools: null, capped: false });
+    expect(log).not.toContain('eth_getLogs');
+  });
+});
+
+describe('checkToken: supply vesting to the launch wallet (Doppler)', () => {
+  const AIRLOCK = '0x660eaaedebc968f8f3694354fa8ec0b4c5ba8d12';
+  const created = { address: AIRLOCK, topics: ['0x68ff1cfcdcf76864161555fc0de1878d8f83ec6949bf351df74d8a4a1a2679ab', topic(WETH)], data: `0x${word(BigInt(TOKEN))}${word(0n)}${word(0n)}` };
+  const launchSec = Math.floor(new Date(LAUNCH_TIME).getTime() / 1000);
+
+  it('says the vested share can be claimed once its vesting has ended', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({
+        launchReceiptLogs: [created],
+        transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)],
+        creatorBalance: SUPPLY / 20n,
+        vesting: { total: 300_000n * E18, released: 100_000n * E18, start: launchSec, duration: 86_400 },
+      }),
+    );
+    expect(r.liquidity).toEqual({ locked_by: 'doppler', pools: null, capped: false });
+    expect(r.creator?.vesting).toEqual({ amount: 200_000, pct: 20, released: 100_000, start: LAUNCH_TIME, cliff_end: null, end: ts(LAUNCH_TIME, 86_400) });
+    expect(r.creator?.holds_with_vesting_pct).toBe(25);
+    expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it holds 5% of the supply and can claim another 20% that has vested to it.' });
+  });
+
+  it('keeps the large-share reason as it was when nothing vests to the launch wallet', async () => {
+    const r = await checkToken(
+      TOKEN,
+      deps({ launchReceiptLogs: [created], transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorBalance: SUPPLY / 4n, vesting: { total: 0n, released: 0n, start: 0, duration: 0 } }),
+    );
+    expect(r.creator?.vesting).toEqual({ amount: 0, pct: 0, released: 0, start: null, cliff_end: null, end: null });
+    expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it still holds 25% of the supply.' });
   });
 });
