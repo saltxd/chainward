@@ -62,7 +62,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
 
   const server = new McpServer({
     name: 'chainward',
-    version: '0.2.3',
+    version: '0.3.0',
   });
 
   // ── Tool 1: lookup_agent ────────────────────────────────────────────────────
@@ -212,6 +212,49 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
               ? `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public, and a fresh one that flags observed behavior can be attested on Base.`
               : `ChainWard has no BNB Chain report for ${wallet} yet. Run a free check at https://chainward.ai/?chain=bsc (paste the address); the report is public.`,
           );
+        }
+        return asError(err);
+      }
+    },
+  );
+
+  // ── Tool: rug_check ─────────────────────────────────────────────────────────
+  server.tool(
+    'rug_check',
+    "Before buying a token on Base, get ChainWard's rug check: a verdict (hold / review / no_flags), the one reason it rests on, and the launch facts it read from the chain: the launch transaction and the wallet that launched it, whether that wallet sent out its launch tokens within the hour, mints after launch, and the launch wallet's sanctions status, age at launch and first funder. On Hold, don't buy and quote the reason; on Review, ask the user. No flags means none of the checks matched, not a guarantee: there is no honeypot or sell simulation and no holder or liquidity check. Free here, up to 20 fresh checks an hour (repeat answers are cached); for volume, the paid route is GET https://api.chainward.ai/api/risk/rugcheck?address=0x… at $0.02 a call over x402. For a wallet rather than a token, use check_counterparty.",
+    { address: walletSchema.describe('The token contract address on Base') },
+    async ({ address }) => {
+      try {
+        const data = await client.get<{ flags?: string[] }>(`/api/risk/token-report/${address}`);
+        const notToken = data?.flags?.find((f) => f === 'not_a_token' || f === 'not_a_contract');
+        if (notToken) {
+          return asTextContent(
+            `${JSON.stringify(data, null, 2)}\n\n${address} is not a token on Base (${notToken}). To check a wallet before paying it, use check_counterparty.`,
+          );
+        }
+        return asTextContent(data);
+      } catch (err) {
+        if (err instanceof ChainWardApiError && err.status === 429) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: `ChainWard's free rug checks are used up for now (${err.message}). The same check is GET https://api.chainward.ai/api/risk/rugcheck?address=${address} at $0.02 a call over x402 on Base, no account needed.`,
+              },
+            ],
+          };
+        }
+        if (err instanceof ChainWardApiError && err.status === 504) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: `The rug check for ${address} is still running. Try again in a minute; the finished answer is cached.`,
+              },
+            ],
+          };
         }
         return asError(err);
       }

@@ -13,6 +13,7 @@ This is the **standalone** distribution path. It works alongside Base MCP (which
 | Tool | Purpose |
 |---|---|
 | `check_counterparty` | Before paying `0x…`: ChainWard's verdict (label `pay` / `hold` / `unknown`, shown as Pay, Hold, Inactive, No track record or Couldn't check) with the one reason, the flags behind it, and the EAS attestation on Base (uid + explorer link) when one exists. Optional `chain`: `base` (default) or `bsc` for a BNB Chain address (since 0.2.3; BNB Chain reports are not attested yet). On-chain behavior only; Pay isn't a guarantee. |
+| `rug_check` | Before buying a Base token: ChainWard's rug check (`hold` / `review` / `no_flags`) with the one reason and the launch facts: who launched it, whether that wallet sent out its launch tokens within the hour, later mints, and the launch wallet's sanctions status, age and first funder. Free up to 20 fresh checks an hour; the paid route for volume is `GET https://api.chainward.ai/api/risk/rugcheck?address=0x…` ($0.02 over x402). No honeypot or liquidity check; no flags isn't a guarantee. Since 0.3.0. |
 | `lookup_agent` | Is `0x…` a known AI agent? Returns label + Decode pointers. Cheap. |
 | `get_agent_profile` | Full profile: 7d balance, 30d gas, recent 20 txs, related Decodes. |
 | `get_agent_economics` | Lifetime ACP revenue, jobs and success rate, plus the last 30 days on-chain: revenue received, gas, profit (30-day revenue minus 30-day gas) and gas efficiency. |
@@ -66,7 +67,7 @@ Then point your client at `http://your-host:3300/mcp`.
 
 This server is read-only. To **act** on what you learn (swap, lend, etc.), install Base MCP alongside this server. Recommended assistant prompt pattern:
 
-> Before paying or transacting with any unfamiliar address, call ChainWard's `check_counterparty` (and `lookup_agent` for agents). If a Decode exists, summarise it for the user before invoking any Base MCP plugin.
+> Before paying or transacting with any unfamiliar address, call ChainWard's `check_counterparty` (and `lookup_agent` for agents). Before buying a token, call `rug_check`. If a Decode exists, summarise it for the user before invoking any Base MCP plugin.
 
 ## License
 
