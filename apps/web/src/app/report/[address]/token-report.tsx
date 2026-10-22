@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import type { TokenReport } from '@/lib/api';
 import { tokenAnswer, tokenFacts, tokenFlagLines } from '@/lib/tokenAnswer';
+import { BriefOffer, FreeTools } from '@/components/press';
 
 /**
  * The rug check on the report page, for a Base token pasted into the checker: the
  * answer first (Hold / Review / No flags, the one reason, the limit), then the launch
- * facts, what came up, what the check does not cover, and the paid check for bots.
+ * facts, what came up, what the check does not cover, the Intel Brief on the launch
+ * wallet, and the paid check for bots.
  * INTEGRITY: never "safe". No flags means none of the checks matched.
  */
 export function TokenReportView({ check, now }: { check: TokenReport; now?: Date }) {
@@ -29,6 +31,15 @@ export function TokenReportView({ check, now }: { check: TokenReport; now?: Date
           <p className="rr-answer-limit">{answer.limit}</p>
         </section>
       </div>
+
+      {check.creator && (
+        <div className="rr-block rr-launcher">
+          <span className="rr-launcher-q">Who launched it?</span>
+          <Link href={`/report/${check.creator.address}`} className="press-btn">
+            See the launch wallet&apos;s report →
+          </Link>
+        </div>
+      )}
 
       <div className="rr-block">
         <span className="press-label">The launch</span>
@@ -86,6 +97,19 @@ export function TokenReportView({ check, now }: { check: TokenReport; now?: Date
       </div>
 
       <div className="rr-block">
+        {check.creator ? (
+          <BriefOffer
+            placement="token-document"
+            title="Want the launch wallet's whole record?"
+            lede="The rug check reads one launch. The Intel Brief follows the wallet behind it: who funds it, who it pays, what it launched before, and whether its public claims hold up, written up so you can cite it."
+          />
+        ) : (
+          <BriefOffer placement="token-document" />
+        )}
+        <FreeTools />
+      </div>
+
+      <div className="rr-block">
         <div className="rr-na">
           <div className="rr-na-tag">For bots and apps</div>
           <p className="rr-na-lede">
@@ -111,6 +135,8 @@ export function TokenReportView({ check, now }: { check: TokenReport; now?: Date
         .rr-fact dd { margin: 0; overflow-wrap: anywhere; }
         .rr-fact-note { display: block; margin-top: 4px; font-size: 14px; opacity: 0.75; }
         @media (max-width: 560px) { .rr-fact { grid-template-columns: 1fr; } }
+        .rr-launcher { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .rr-launcher-q { font-weight: 600; }
       `}</style>
     </>
   );

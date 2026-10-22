@@ -50,7 +50,7 @@ export function BriefOffer({
         </li>
         <li>Where the money goes: who funds the wallet and who it pays</li>
         <li>Each public claim checked against what the chain shows</li>
-        <li>Delivered privately within 48 hours, or as a public @chainwardai thread if you prefer</li>
+        <li>Delivered privately within 48 hours, to your Telegram or email</li>
       </ul>
       <div className="brief-doc-foot">
         <BriefCtaLink placement={placement} className="press-btn">

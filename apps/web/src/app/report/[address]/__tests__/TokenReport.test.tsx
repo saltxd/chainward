@@ -67,6 +67,24 @@ describe('TokenReportView', () => {
     expect(html).toContain('The launch wallet was brand new at launch');
   });
 
+  it("offers the launch wallet's own report as a button, right after the answer", () => {
+    const at = html.indexOf('See the launch wallet&#x27;s report');
+    expect(at).toBeGreaterThan(html.indexOf('rr-answer-limit'));
+    expect(at).toBeLessThan(html.indexOf('What the chain shows'));
+    expect(html).toMatch(new RegExp(`<a (?=[^>]*href="/report/${CREATOR}")(?=[^>]*class="press-btn)[^>]*>See the launch wallet`));
+  });
+
+  it('shows no launch-wallet button when the launch wallet is unknown', () => {
+    const unknown = renderToStaticMarkup(<TokenReportView check={{ ...CHECK, creator: null }} now={NOW} />);
+    expect(unknown).not.toContain('See the launch wallet');
+  });
+
+  it('offers the Intel Brief on the launch wallet, then the free tools', () => {
+    const brief = html.indexOf('Want the launch wallet&#x27;s whole record?');
+    expect(brief).toBeGreaterThan(html.indexOf('What this check does not cover'));
+    expect(html.indexOf('aria-label="Free tools"')).toBeGreaterThan(brief);
+  });
+
   it('shows the full limits', () => {
     expect(html).toContain('Not a honeypot or contract-code audit.');
   });
