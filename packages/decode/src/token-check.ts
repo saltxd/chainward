@@ -3,9 +3,11 @@
 // Who launched a Base token, how, and what the launch wallet and the supply did
 // afterwards, with a verdict, for anyone about to buy it. Reads the token's code
 // and ERC-20 fields, its first transfer (or the block its code appeared in), the
-// launch transaction, the launch wallet (the fast wallet lookup), mints after the
-// first issuance, the launch wallet's balance, and what it did with tokens it got
-// in the launch transaction. Never says "safe": no_flags means nothing matched.
+// launch transaction, the launch wallet (the fast wallet lookup, and its nonce and
+// code a week before the launch), mints after the first issuance, the launch
+// wallet's balance, and what it did with tokens it got in the launch transaction
+// (its transfers, and its balance at the launch and an hour later). Never says
+// "safe": no_flags means nothing matched.
 
 import { lookupWallet, type WalletLookup, type WalletLookupDeps } from './wallet-lookup.js';
 import { imitatedToken, type Imitation } from './lookalike.js';
@@ -43,6 +45,11 @@ const ENTRY_POINTS = new Set([
 const VIRTUALS_BONDING = '0xf66dea7b3e897cd44a5a231c61b6b4423d613259';
 const GRADUATED = '0x381d54fa425631e6266af114239150fae1d5db67bb65b4fa9ecc65013107e07e';
 const TOKEN_INFO = '0xf5dab711';
+/**
+ * Virtuals' Bonding V5: puts a new agent token on Virtuals' bonding curve in a transaction from its
+ * creator (or the creator's smart wallet), and logs the launch with the token as the first topic.
+ */
+const VIRTUALS_BONDING_V5 = '0x1a540088125d00dd3990f9da45ca0859af4d3b01';
 /** supportsInterface(ERC-721): NFT collections answer totalSupply() too. */
 const SUPPORTS_ERC721 = `0x01ffc9a7${'80ac58cd'.padEnd(64, '0')}`;
 const USER_OPERATION_EVENT = '0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f';
@@ -60,6 +67,8 @@ const SENT_LAUNCH_SHARE = 0.9;
 const SENT_WITHIN_SEC = 3600;
 /** Sends read for the launch tokens: the day after the launch. */
 const SENT_WINDOW_SEC = 86_400;
+/** The launch wallet's own activity is read this long before the launch. */
+const WEEK_SEC = NEW_CREATOR_DAYS * DAY_SEC;
 /** Mints and launch-wallet transfers are read from their first PAGE records. */
 const PAGE = 100;
 const MAX_SEARCH_STEPS = 40;
@@ -114,11 +123,31 @@ export interface TokenCheck {
     /** Share of the current supply the launch wallet holds now, in percent. */
     holds_pct: number | null;
     /**
+     * Its sent-transaction count and whether it had code at the block 7 days before the launch (by
+     * measured block time). 0 and false: its own activity began within that week, whatever reached it
+     * earlier. Null when not read.
+     */
+    week_before_launch: { block: number; sent_txs: number; has_code: boolean } | null;
+    /**
      * Tokens it received in the launch transaction (a dev buy or an allocation), and what it
      * sent on within a day: the share, its first send, and when 90% of it had gone. Null when
      * it got none, or was also minted to in the launch transaction (its sends could be that).
+     * The share and timings come from its first 100 transfers; the held_ fields from its balance
+     * at the end of the launch block and about an hour later (by measured block time, or now for
+     * a token under an hour old), which no number of small sends can hide. sent_pct is the larger
+     * of the two shares. Amounts in token units.
      */
-    launch_tokens: { received: number; sent_pct: number; first_send_after_sec: number | null; sent_90pct_after_sec: number | null } | null;
+    launch_tokens: {
+      received: number;
+      sent_pct: number;
+      first_send_after_sec: number | null;
+      sent_90pct_after_sec: number | null;
+      held_at_launch: number | null;
+      held_1h: number | null;
+      held_1h_after_sec: number | null;
+      /** The share of the launch tokens it no longer held at the second balance read, in percent. */
+      sent_1h_pct: number | null;
+    } | null;
     /**
      * Clanker launches it made for itself: the transactions it sent straight to Clanker's factory in the
      * 24 hours up to and including this launch, by block time (a floor at 1,000). Null when not read, or
@@ -149,7 +178,7 @@ export interface TokenTransfer {
   blockNum?: string;
   value?: number | null;
   /** The amount in raw units, as hex; Alchemy leaves `value` null for tokens it has no decimals for. */
-  rawContract?: { value?: string | null };
+  rawContract?: { value?: string | null; address?: string | null };
   metadata?: { blockTimestamp?: string };
 }
 
@@ -159,11 +188,13 @@ export interface TokenCheckDeps extends WalletLookupDeps {
 }
 
 const LIMITS =
-  'On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints and launch-wallet transfers are read from their first 100 records. For a Clanker launch, the launches of the launch wallet are the transactions it sent straight to the Clanker factory in the 24 hours up to and including this one (the newest 1,000); launches through another contract, and launches made for another admin, are not counted. no_flags means none of these checks matched; it is not a clearance.';
+  "On-chain facts about the launch, the supply and the wallet that sent the launch transaction, which can be a bot, relayer or smart wallet acting for someone else; in a bundle of several smart wallets' operations, it is the one whose operation the token's first log came in. Tokens the launch wallet received at launch and sent out are not traced further: they may have been sold, moved or locked. What it sent out is read from its balance at the end of the launch block and about an hour later, and from its first 100 transfers. Its age is its own activity, its transactions and code a week before the launch, where that was read, and otherwise its first transfer in; its first funder is the first wallet that sent it ETH or a listed token above a dust floor, not an airdrop of another token. Not a honeypot or sell simulation, holder concentration or liquidity-lock check. Mints are read from their first 100 records. For a Clanker launch, the launches of the launch wallet are the transactions it sent straight to the Clanker factory in the 24 hours up to and including this one (the newest 1,000); launches through another contract, and launches made for another admin, are not counted. no_flags means none of these checks matched; it is not a clearance.";
 const CLANKER_NOTE =
   "Launched through Clanker's current factory, which deploys every token from one verified template with no owner mint, pause, blacklist or transfer tax.";
 const VIRTUALS_NOTE =
   "A Virtuals agent token: created when its prototype graduated from Virtuals' bonding curve, inside another wallet's purchase. The wallet that launched it is the prototype's creator, as Virtuals' Bonding contract records it.";
+const VIRTUALS_V5_NOTE =
+  "A Virtuals agent token on Virtuals' bonding curve: Virtuals' Bonding V5 contract logged its launch, in a transaction from the wallet that launched it.";
 
 const hex = (n: number) => `0x${n.toString(16)}`;
 const hexToNumber = (h: unknown) => (typeof h === 'string' && h.startsWith('0x') && h !== '0x' ? Number(BigInt(h)) : 0);
@@ -175,9 +206,9 @@ const pad = (addr: string) => addr.slice(2).toLowerCase().padStart(64, '0');
 const EXECUTION_ERROR = /revert|invalid opcode|out of gas|stack (?:under|over)flow|EVM error/i;
 
 /** An eth_call the contract may refuse. A throttled or failed read throws: it is not the contract's answer. */
-async function safeCall(deps: TokenCheckDeps, to: string, data: string): Promise<string | null> {
+async function safeCall(deps: TokenCheckDeps, to: string, data: string, block = 'latest'): Promise<string | null> {
   try {
-    const r = await deps.rpc('eth_call', [{ to, data }, 'latest']);
+    const r = await deps.rpc('eth_call', [{ to, data }, block]);
     return typeof r === 'string' && r.length > 2 ? r : null;
   } catch (err) {
     if (err instanceof Error && EXECUTION_ERROR.test(err.message)) return null;
@@ -250,21 +281,25 @@ async function searchLaunch(token: string, deps: TokenCheckDeps, hi: number): Pr
 
 const wordAddr = (w: string | undefined) => (w && w.length >= 40 ? `0x${w.slice(-40).toLowerCase()}` : null);
 
+type ReceiptLog = { address: string; topics?: string[]; data?: string; logIndex?: string };
+
 /**
- * The wallet behind the launch transaction: its sender; the one smart wallet a bundle executed;
- * or, for a Virtuals agent token, the prototype's creator (the sender was a buyer).
+ * The wallet behind the launch transaction: its sender; the smart wallet whose operation launched
+ * it, in a bundle; or, for a Virtuals agent token that graduated, the prototype's creator (the
+ * sender was a buyer). A launch through Virtuals' Bonding V5 is named Virtuals, sender unchanged.
  */
 async function findCreator(
   deps: TokenCheckDeps,
   txHash: string,
   token: string,
-): Promise<{ creator: string | null; via: string | null; launcher: 'virtuals' | null }> {
+): Promise<{ creator: string | null; via: string | null; launcher: 'virtuals' | null; note: string | null }> {
   const [tx, receipt] = await Promise.all([
     deps.rpc('eth_getTransactionByHash', [txHash]) as Promise<{ from?: string; to?: string | null } | null>,
-    deps.rpc('eth_getTransactionReceipt', [txHash]) as Promise<{ logs?: Array<{ address: string; topics?: string[]; data?: string }> } | null>,
+    deps.rpc('eth_getTransactionReceipt', [txHash]) as Promise<{ logs?: ReceiptLog[] } | null>,
   ]);
-  if (!tx?.from) return { creator: null, via: null, launcher: null };
-  const logs = receipt?.logs ?? [];
+  if (!tx?.from) return { creator: null, via: null, launcher: null, note: null };
+  // In the order they were emitted (a stable sort keeps the given order when there is no logIndex).
+  const logs = [...(receipt?.logs ?? [])].sort((a, b) => hexToNumber(a.logIndex) - hexToNumber(b.logIndex));
   const graduation = logs.find(
     (l) => lower(l.address) === VIRTUALS_BONDING && l.topics?.[0]?.toLowerCase() === GRADUATED && wordAddr(l.data?.slice(2, 66)) === token,
   );
@@ -274,18 +309,64 @@ async function findCreator(
     const words = info?.slice(2).match(/.{64}/g) ?? [];
     const recorded = wordAddr(words[1]) === prototype && wordAddr(words[3]) === token ? wordAddr(words[0]) : null;
     // Unconfirmed, the launch wallet is unknown: the sender only bought.
-    return { creator: recorded && recorded !== ZERO ? recorded : null, via: VIRTUALS_BONDING, launcher: 'virtuals' };
+    return { creator: recorded && recorded !== ZERO ? recorded : null, via: VIRTUALS_BONDING, launcher: 'virtuals', note: VIRTUALS_NOTE };
   }
+  const onCurve = logs.some((l) => lower(l.address) === VIRTUALS_BONDING_V5 && wordAddr(l.topics?.[1]) === token);
+  const launcher = onCurve ? ('virtuals' as const) : null;
+  const note = onCurve ? VIRTUALS_V5_NOTE : null;
   const via = lower(tx.to ?? null);
   if (via && ENTRY_POINTS.has(via)) {
-    const senders = new Set(
-      logs
-        .filter((l) => lower(l.address) === via && l.topics?.[0]?.toLowerCase() === USER_OPERATION_EVENT && l.topics[2])
-        .map((l) => wordAddr(l.topics![2])!),
-    );
-    return { creator: senders.size === 1 ? [...senders][0]! : null, via, launcher: null };
+    const isOp = (l: ReceiptLog) => lower(l.address) === via && l.topics?.[0]?.toLowerCase() === USER_OPERATION_EVENT && !!l.topics[2];
+    const senders = new Set(logs.filter(isOp).map((l) => wordAddr(l.topics![2])!));
+    if (senders.size <= 1) return { creator: senders.size ? [...senders][0]! : null, via, launcher, note };
+    // Several smart wallets' operations in one bundle: the EntryPoint logs each operation's
+    // UserOperationEvent right after what that operation did, so the token's first log falls
+    // inside the operation that launched it, and the next UserOperationEvent is that operation's.
+    const firstTokenLog = logs.findIndex((l) => lower(l.address) === token);
+    const op = firstTokenLog >= 0 ? logs.slice(firstTokenLog + 1).find(isOp) : undefined;
+    return { creator: op ? wordAddr(op.topics![2]) : null, via, launcher, note };
   }
-  return { creator: tx.from.toLowerCase(), via, launcher: null };
+  return { creator: tx.from.toLowerCase(), via, launcher, note };
+}
+
+/**
+ * The block a week before the launch and the block an hour after it, from measured block times
+ * (2 s on Base today, 200 ms after Denim), never an assumed one. The week is first counted at the
+ * pace since the launch, then measured: the timestamp of the block it lands on gives the pace of
+ * the week before the launch, and the week is counted again at that pace. Base's blocks only get
+ * faster, so a guess that spans a speed-up reaches back too far, and the measured pace then
+ * brings it inside the week, never past it. The hour is counted at the slower of the two paces,
+ * so it never runs past the hour; a token younger than an hour is read as of now.
+ */
+function blockTiming(
+  launchBlock: number,
+  launchSec: number | null,
+  nowSec: number,
+  head: number,
+  weekGuess: number | null,
+  guessHeader: { timestamp?: string } | null,
+): { weekBefore: number | null; hourAfter: number | null; hourAfterSec: number | null } {
+  if (launchSec === null) return { weekBefore: null, hourAfter: null, hourAfterSec: null };
+  const elapsed = Math.max(1, nowSec - launchSec);
+  const paceSince = elapsed / Math.max(1, head - launchBlock);
+  const guessSec = guessHeader?.timestamp ? hexToNumber(guessHeader.timestamp) : null;
+  const paceBefore = weekGuess !== null && guessSec !== null && launchSec > guessSec && launchBlock > weekGuess ? (launchSec - guessSec) / (launchBlock - weekGuess) : null;
+  const weekBefore = paceBefore !== null ? launchBlock - Math.round(WEEK_SEC / paceBefore) : null;
+  const pace = Math.max(paceSince, paceBefore ?? 0);
+  const hourBlocks = Math.round(SENT_WITHIN_SEC / pace);
+  const reached = launchBlock + hourBlocks < head;
+  return {
+    weekBefore: weekBefore !== null && weekBefore >= 0 ? weekBefore : null,
+    hourAfter: reached ? launchBlock + hourBlocks : null,
+    hourAfterSec: reached ? Math.round(hourBlocks * pace) : Math.round(elapsed),
+  };
+}
+
+/** The first guess at the block a week before the launch: a week at the pace of the blocks since the launch. */
+function weekGuessBlock(launchBlock: number, launchSec: number | null, nowSec: number, head: number): number | null {
+  if (launchSec === null || launchBlock < 2) return null;
+  const paceSince = Math.max(1, nowSec - launchSec) / Math.max(1, head - launchBlock);
+  return Math.max(1, launchBlock - Math.round(WEEK_SEC / paceSince));
 }
 
 /** Raw units to token units, splitting whole and fraction in BigInt so large supplies stay exact. */
@@ -373,10 +454,15 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   await opts.beforeLaunchSearch?.();
 
   const launch0 = await findLaunch(token, deps, head);
-  const [who, clankerHex] = await Promise.all([
-    launch0.tx ? findCreator(deps, launch0.tx, token) : Promise.resolve({ creator: null, via: null, launcher: null }),
+  const launchSec = launch0.time ? Math.floor(new Date(launch0.time).getTime() / 1000) : null;
+  const nowSec = deps.now().getTime() / 1000;
+  const weekGuess = launch0.tx ? weekGuessBlock(launch0.block, launchSec, nowSec, head) : null;
+  const [who, clankerHex, guessHeader] = await Promise.all([
+    launch0.tx ? findCreator(deps, launch0.tx, token) : Promise.resolve({ creator: null, via: null, launcher: null, note: null }),
     safeCall(deps, CLANKER_V4_FACTORY.toLowerCase(), `${TOKEN_DEPLOYMENT_INFO}${pad(token)}`),
+    weekGuess !== null ? (deps.rpc('eth_getBlockByNumber', [hex(weekGuess), false]) as Promise<{ timestamp?: string } | null>) : Promise.resolve(null),
   ]);
+  const timing = blockTiming(launch0.block, launchSec, nowSec, head, weekGuess, guessHeader);
   const launcher = clankerRegistryMatches(clankerHex, token) ? 'clanker' : who.launcher;
   const launch: NonNullable<TokenCheck['launch']> = {
     block: launch0.block,
@@ -385,7 +471,7 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     creator: who.creator,
     via: who.via,
     launcher,
-    launcher_note: launcher === 'clanker' ? CLANKER_NOTE : launcher === 'virtuals' ? VIRTUALS_NOTE : null,
+    launcher_note: launcher === 'clanker' ? CLANKER_NOTE : who.note,
     token_admin: null,
   };
   const creatorAddr = who.creator;
@@ -394,11 +480,30 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   const mintsFrom = (block: number) => deps.transfers({ ...transferBase, fromBlock: hex(block), fromAddress: ZERO, maxCount: hex(PAGE), withMetadata: false });
 
   const clanker = launcher === 'clanker';
-  const [wallet, mintsPage, balanceHex, inflows, outflows, adminHex, factoryTxs] = await Promise.all([
-    creatorAddr ? lookupWallet(creatorAddr, 'base', deps) : Promise.resolve(null),
+  const balanceData = creatorAddr ? `${SEL.balanceOf}${pad(creatorAddr)}` : null;
+  const balanceNow = balanceData ? safeCall(deps, token, balanceData) : Promise.resolve(null);
+  const inflowsRead = creatorAddr && launch.tx ? deps.transfers({ ...transferBase, toAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null);
+  // What it held at the end of the launch block and an hour later (archive reads), only when it got tokens in the launch transaction.
+  const heldRead = inflowsRead.then(async (page) => {
+    if (!balanceData || !launchTokensIn(page?.transfers ?? [], launch.tx, decimals)) return null;
+    const [atLaunch, later] = await Promise.all([
+      safeCall(deps, token, balanceData, hex(launch.block)),
+      timing.hourAfter !== null ? safeCall(deps, token, balanceData, hex(timing.hourAfter)) : balanceNow,
+    ]);
+    return { atLaunch, later, afterSec: timing.hourAfterSec };
+  });
+  // Its own activity a week before the launch: transactions sent and code.
+  const weekRead =
+    creatorAddr && timing.weekBefore !== null
+      ? Promise.all([deps.rpc('eth_getTransactionCount', [creatorAddr, hex(timing.weekBefore)]), deps.rpc('eth_getCode', [creatorAddr, hex(timing.weekBefore)])])
+      : Promise.resolve(null);
+  // The wallet lookup's own head read would repeat this check's.
+  const walletDeps: TokenCheckDeps = { ...deps, rpc: (method, params) => (method === 'eth_blockNumber' ? Promise.resolve(headHex) : deps.rpc(method, params)) };
+  const [wallet, mintsPage, balanceHex, inflows, outflows, adminHex, factoryTxs, held, week] = await Promise.all([
+    creatorAddr ? lookupWallet(creatorAddr, 'base', walletDeps) : Promise.resolve(null),
     mintsFrom(launch.block),
-    creatorAddr ? safeCall(deps, token, `${SEL.balanceOf}${pad(creatorAddr)}`) : Promise.resolve(null),
-    creatorAddr && launch.tx ? deps.transfers({ ...transferBase, toAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null),
+    balanceNow,
+    inflowsRead,
     creatorAddr && launch.tx ? deps.transfers({ ...transferBase, fromAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null),
     clanker ? safeCall(deps, token, ORIGINAL_ADMIN) : Promise.resolve(null),
     // Its launches through Clanker's factory up to this one, newest first (each launch is one transaction to it).
@@ -415,6 +520,8 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
           withMetadata: true,
         })
       : Promise.resolve(null),
+    heldRead,
+    weekRead,
   ]);
   const admin = clanker ? wordAddr(adminHex ?? undefined) : null;
   launch.token_admin = admin && admin !== ZERO ? admin : null;
@@ -452,10 +559,17 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     const launchMs = launch.time ? new Date(launch.time).getTime() : null;
     const firstSeenMs = wallet.first_seen ? new Date(wallet.first_seen).getTime() : null;
     // First seen after the launch: its funding came by a path the transfers do not show, so its age is unknown.
-    const age = launchMs !== null && firstSeenMs !== null && firstSeenMs <= launchMs ? Math.floor((launchMs - firstSeenMs) / 86_400_000) : null;
+    const seenAge = launchMs !== null && firstSeenMs !== null && firstSeenMs <= launchMs ? Math.floor((launchMs - firstSeenMs) / 86_400_000) : null;
+    const weekBefore = week && timing.weekBefore !== null ? { block: timing.weekBefore, sent_txs: hexToNumber(week[0]), has_code: hasCode(week[1]) } : null;
+    // Its own activity decides, when it was read: an airdrop can reach a wallet long before it does
+    // anything, and a sponsored smart account can act without a transfer ever reaching it. The age
+    // its first transfer in gives is kept only when the two agree, so the answer never states an age
+    // its own activity contradicts.
+    const ownNew = weekBefore ? weekBefore.sent_txs === 0 && !weekBefore.has_code : null;
+    const age = ownNew === null || (seenAge !== null && (seenAge < NEW_CREATOR_DAYS) === ownNew) ? seenAge : null;
     const balance = balanceHex ? BigInt(balanceHex) : null;
     const holds_pct = balance !== null && supplyRaw > 0n ? Number((balance * 10_000n) / supplyRaw) / 100 : null;
-    const lt = launchTokens(launch, launchMs, inflows?.transfers ?? [], outflows?.transfers ?? [], decimals);
+    const lt = launchTokens(launch, launchMs, inflows?.transfers ?? [], outflows?.transfers ?? [], decimals, held);
     sentPctAt90 = lt?.pctAt90 ?? null;
     creator = {
       address: creatorAddr,
@@ -463,6 +577,7 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
       sanctioned: wallet.sanctioned,
       first_seen: wallet.first_seen,
       age_days_at_launch: age,
+      week_before_launch: weekBefore,
       sent_txs: wallet.sent_txs,
       first_funder: wallet.first_funder,
       holds_pct,
@@ -481,7 +596,8 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   if (creatorMintPct !== null && creatorMintPct >= CREATOR_MINT_HOLD_PCT) flags.push('creator_minted_after_launch');
   else if (supply.mints_after_launch > 0) flags.push('minted_after_launch');
   const lb = creator?.launch_tokens;
-  if (lb && lb.sent_90pct_after_sec !== null && lb.sent_90pct_after_sec <= SENT_WITHIN_SEC) flags.push('creator_sent_launch_tokens');
+  // 90% gone within the hour: by its transfers, or by its balance an hour after the launch (which dust sends cannot hide).
+  if (lb && ((lb.sent_90pct_after_sec !== null && lb.sent_90pct_after_sec <= SENT_WITHIN_SEC) || goneByBalance(lb))) flags.push('creator_sent_launch_tokens');
   if (creator?.holds_pct !== null && creator?.holds_pct !== undefined && creator.holds_pct >= LARGE_SHARE_PCT) flags.push('creator_holds_large_share');
   // A launch made for another admin was sent by a launch service: its labels describe the service, not the token's admin.
   const forAnotherAdmin = launch.token_admin !== null && launch.token_admin !== creatorAddr;
@@ -489,9 +605,9 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   if (creator?.clanker_launches_24h !== null && creator?.clanker_launches_24h !== undefined && creator.clanker_launches_24h >= SERIAL_LAUNCHES_24H) {
     flags.push('creator_serial_launcher');
   }
-  if (creator?.age_days_at_launch !== null && creator?.age_days_at_launch !== undefined && creator.age_days_at_launch < NEW_CREATOR_DAYS) {
-    flags.push('new_creator');
-  }
+  const wb = creator?.week_before_launch;
+  const ageNew = creator?.age_days_at_launch !== null && creator?.age_days_at_launch !== undefined && creator.age_days_at_launch < NEW_CREATOR_DAYS;
+  if (wb ? wb.sent_txs === 0 && !wb.has_code : ageNew) flags.push('new_creator');
   if (wallet?.flags.includes('shared_funder')) flags.push('creator_shared_funder');
 
   return {
@@ -544,9 +660,24 @@ function mintSharePct(ts: TokenTransfer[], supplyRaw: bigint, amountMinted: numb
 }
 
 /**
+ * The tokens the launch wallet received in the launch transaction from other wallets, or null when
+ * it got none or was also minted to there (its sends could then be the minted supply: liquidity, say).
+ */
+function launchTokensIn(inflows: TokenTransfer[], tx: string | null, decimals: number | null): TokenTransfer[] | null {
+  const inLaunch = inflows.filter((t) => t.hash.toLowerCase() === tx);
+  if (!inLaunch.length || inLaunch.some((t) => t.from.toLowerCase() === ZERO) || sumAmounts(inLaunch, decimals) <= 0) return null;
+  return inLaunch;
+}
+
+/** At least 90% of the launch tokens gone from its balance by the read an hour after the launch. */
+const goneByBalance = (lb: NonNullable<NonNullable<TokenCheck['creator']>['launch_tokens']>) => lb.sent_1h_pct !== null && lb.sent_1h_pct >= SENT_LAUNCH_SHARE * 100;
+
+/**
  * What the launch wallet did with tokens it received in the launch transaction from other
  * wallets (not minted to it): how much it sent on within a day, its first send, and when 90%
- * had gone. A wallet also minted to in that transaction is not judged: its sends could be that.
+ * had gone, by its first transfers; and, by its balance at the end of the launch block and an
+ * hour later, how much of them it no longer held. A wallet also minted to in that transaction is
+ * not judged: its sends could be that.
  */
 function launchTokens(
   launch: NonNullable<TokenCheck['launch']>,
@@ -554,11 +685,11 @@ function launchTokens(
   inflows: TokenTransfer[],
   outflows: TokenTransfer[],
   decimals: number | null,
+  held: { atLaunch: string | null; later: string | null; afterSec: number | null } | null,
 ): { result: NonNullable<NonNullable<TokenCheck['creator']>['launch_tokens']>; pctAt90: number | null } | null {
-  const inLaunch = inflows.filter((t) => t.hash.toLowerCase() === launch.tx);
-  if (launchMs === null || inLaunch.some((t) => t.from.toLowerCase() === ZERO)) return null;
+  const inLaunch = launchTokensIn(inflows, launch.tx, decimals);
+  if (launchMs === null || !inLaunch) return null;
   const received = sumAmounts(inLaunch, decimals);
-  if (received <= 0) return null;
   const sends = outflows
     .map((t) => ({ value: sumAmounts([t], decimals), ms: t.metadata?.blockTimestamp ? new Date(t.metadata.blockTimestamp).getTime() : null }))
     .filter((t): t is { value: number; ms: number } => t.ms !== null && t.ms >= launchMs && t.ms - launchMs <= SENT_WINDOW_SEC * 1000)
@@ -570,12 +701,24 @@ function launchTokens(
     if (!at90 && sent >= received * SENT_LAUNCH_SHARE) at90 = { ms: t.ms, pct: Math.min(100, Math.round((sent / received) * 100)) };
   }
   const sec = (ms: number) => Math.round((ms - launchMs) / 1000);
+  // Balances: what it got (or held at the end of the launch block, if more) against what it held an hour later.
+  const atLaunch = held?.atLaunch ? BigInt(held.atLaunch) : null;
+  const later = held?.later ? BigInt(held.later) : null;
+  const got = rawSum(inLaunch);
+  const base = got !== null && (atLaunch === null || got > atLaunch) ? got : atLaunch;
+  const gonePct = base !== null && base > 0n && later !== null ? Number(((base - (later < base ? later : base)) * 10_000n) / base) / 100 : null;
+  const units = (raw: bigint | null) => (raw !== null && decimals !== null ? scaleUnits(raw, decimals) : null);
   return {
     result: {
       received,
-      sent_pct: Math.min(100, Math.round((sent / received) * 100)),
+      // Within a day: at least what its first transfers show, and at least what its balance an hour in shows gone.
+      sent_pct: Math.max(Math.min(100, Math.round((sent / received) * 100)), Math.round(gonePct ?? 0)),
       first_send_after_sec: sends.length ? sec(sends[0]!.ms) : null,
       sent_90pct_after_sec: at90 ? sec(at90.ms) : null,
+      held_at_launch: units(atLaunch),
+      held_1h: units(later),
+      held_1h_after_sec: later !== null ? (held?.afterSec ?? null) : null,
+      sent_1h_pct: gonePct,
     },
     pctAt90: at90?.pct ?? null,
   };
@@ -625,10 +768,19 @@ function verdictFor(
     };
   }
   const lb = creator?.launch_tokens;
-  if (flags.includes('creator_sent_launch_tokens') && lb && lb.sent_90pct_after_sec !== null && ctx.sentPctAt90 !== null) {
+  if (flags.includes('creator_sent_launch_tokens') && lb && lb.sent_90pct_after_sec !== null && lb.sent_90pct_after_sec <= SENT_WITHIN_SEC && ctx.sentPctAt90 !== null) {
     return {
       label: 'review',
       reason: `The wallet that launched it received ${amount(lb.received)} tokens in the launch transaction and had sent out ${ctx.sentPctAt90}% of them ${duration(lb.sent_90pct_after_sec)} later.`,
+    };
+  }
+  if (flags.includes('creator_sent_launch_tokens') && lb && lb.sent_1h_pct !== null) {
+    // Its balance is the measure here: its first transfers did not reach 90%, as when many small sends come first.
+    const when = lb.held_1h_after_sec !== null && lb.held_1h_after_sec < SENT_WITHIN_SEC - 60 ? `${duration(lb.held_1h_after_sec)} later` : 'an hour later';
+    const kept = Math.round((100 - lb.sent_1h_pct) * 100) / 100;
+    return {
+      label: 'review',
+      reason: `The wallet that launched it received ${amount(lb.received)} tokens in the launch transaction and ${when} held ${kept > 0 ? `only ${amount(kept)}% of them` : 'none of them'}.`,
     };
   }
   if (flags.includes('creator_holds_large_share') && creator?.holds_pct !== null && creator?.holds_pct !== undefined) {
@@ -647,6 +799,12 @@ function verdictFor(
   if (flags.includes('new_creator') && creator?.age_days_at_launch !== null && creator?.age_days_at_launch !== undefined) {
     const d = creator.age_days_at_launch;
     return { label: 'review', reason: `The wallet that launched it was first seen ${d === 0 ? 'less than a day' : plural(d, 'day')} before the launch.` };
+  }
+  if (flags.includes('new_creator')) {
+    return {
+      label: 'review',
+      reason: 'The wallet that launched it had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.',
+    };
   }
   if (flags.includes('creator_shared_funder')) {
     const n = creator?.first_funder?.funded_wallets ?? 0;

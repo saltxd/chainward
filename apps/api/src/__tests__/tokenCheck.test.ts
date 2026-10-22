@@ -114,7 +114,7 @@ const TOKEN = '0x5f13d8f3bd2a9bd439d6ec9734ac1b4fb32b3b07';
 // From the QA run's bad inputs: an EOA on Base, and the Uniswap v2 factory (a contract, not a token).
 const EOA = '0x1afab1f6b0d565544effb26fca7d6b5e9cb46c81';
 const FACTORY = '0x8909dc15e40173ff4699343b6eb8132c65e18ec6';
-const SHARED = (t: string) => `token-check:v4:base:${t}`;
+const SHARED = (t: string) => `token-check:v5:base:${t}`;
 const KIND = (t: string) => `token-kind:v1:base:${t}`;
 type ErrorBody = { error: { code: string; message: string; details?: { flag?: string } } };
 

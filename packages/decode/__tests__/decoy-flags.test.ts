@@ -140,7 +140,8 @@ describe('lookupWallet on a decoy', () => {
     const r = await lookupWallet(PAYEE_LOOKALIKE, 'base', deps(4, calls));
     expect(r.decoy).toBeNull();
     expect(r.flags).not.toContain('poisoning_decoy');
-    // The lookup's own two reads (first in, last out) and the funder trace, nothing more.
-    expect(calls).toEqual([`to:${PAYEE_LOOKALIKE}:0x1:`, `from:${PAYEE_LOOKALIKE}:0x1:`, `from:${PAYER}:0x3e8:`]);
+    // The lookup's own two reads (first in, last out), nothing more. Its only transfer in is the fake
+    // token, which funds nothing, so its sender is not traced as a funder.
+    expect(calls).toEqual([`to:${PAYEE_LOOKALIKE}:0x32:`, `from:${PAYEE_LOOKALIKE}:0x1:`]);
   });
 });

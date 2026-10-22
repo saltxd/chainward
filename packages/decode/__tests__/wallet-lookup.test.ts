@@ -156,6 +156,50 @@ describe('lookupWallet', () => {
     expect(r.age_days).toBe(400);
   });
 
+  // A rug-check QA run on Base (2026-10-21): a launch wallet "first funded" 153 days before its launch
+  // by a 179-transfer spam airdrop (35.75 of an unlisted token and 0.0000000088 WETH) got its first ETH
+  // 6 days before it. A funder is whoever sent it ETH or a listed token above that token's dust floor.
+  describe('first funder past airdrops and dust', () => {
+    const AIRDROPPER = `0x${'d'.repeat(40)}`;
+    const SPAM = `0x${'5'.repeat(40)}`;
+    const WETH = '0x4200000000000000000000000000000000000006';
+    const USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+    const airdrop = [
+      { from: AIRDROPPER, to: A, hash: '0xair', category: 'erc20', asset: 'SPAM', value: 35.75, rawContract: { address: SPAM }, metadata: { blockTimestamp: days(153) } },
+      { from: AIRDROPPER, to: A, hash: '0xair', category: 'erc20', asset: 'WETH', value: 0.0000000088, rawContract: { address: WETH }, metadata: { blockTimestamp: days(153) } },
+    ];
+    const lookup = (page: Array<Record<string, unknown>>) => {
+      const base = deps({ nonce: { [A]: 22, [FUNDER]: 3 } });
+      return lookupWallet(A, 'base', {
+        ...base,
+        transfers: async (params) => {
+          const q = params as { toAddress?: string; maxCount?: string };
+          if (q.toAddress === A) return { transfers: page.slice(0, Number(BigInt(q.maxCount ?? '0x3e8'))) as never };
+          return base.transfers(params);
+        },
+      });
+    };
+
+    it('names the first wallet that sent it ETH, not the airdrop before it', async () => {
+      const eth = { from: FUNDER, to: A, hash: '0xeth', category: 'internal', asset: 'ETH', value: 0.0015, rawContract: { address: null }, metadata: { blockTimestamp: days(6) } };
+      const r = await lookup([...airdrop, eth]);
+      expect(r.first_funder).toMatchObject({ address: FUNDER, tx: '0xeth' });
+      // First seen stays the first transfer in: the wallet was there, it just was not funded.
+      expect(r.first_seen).toBe(days(153));
+    });
+
+    it('counts a listed token above its dust floor as funding', async () => {
+      const usdc = { from: FUNDER, to: A, hash: '0xusdc', category: 'erc20', asset: 'USDC', value: 25, rawContract: { address: USDC }, metadata: { blockTimestamp: days(40) } };
+      expect((await lookup([...airdrop, usdc])).first_funder).toMatchObject({ address: FUNDER, tx: '0xusdc' });
+    });
+
+    it('names no funder when nothing but airdrops and dust came in', async () => {
+      const r = await lookup(airdrop);
+      expect(r.first_funder).toBeNull();
+      expect(r.flags).not.toContain('no_history');
+    });
+  });
+
   // EIP-7702: an EOA that delegates to a contract carries 0xef0100 + the delegate as its code.
   it('calls an EIP-7702 delegated EOA a wallet, not a contract', async () => {
     const r = await lookupWallet(A, 'base', deps({ code: { [A]: `0xef0100${'ab'.repeat(20)}` }, nonce: { [A]: 12, [FUNDER]: 3 }, firstIn: { from: FUNDER, ts: days(90), hash: '0x9' } }));
