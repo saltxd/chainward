@@ -28,9 +28,20 @@ interface Fixture {
   head: number;
   now: string;
   launch: { block: number; time: string; tx: string; from: string; to: string };
-  logs: Array<{ address: string; topics: string[]; logIndex: number }>;
+  logs: Array<{ address: string; topics: string[]; data?: string; logIndex: number }>;
   clanker: boolean;
   clankerLaunches24h: number | null;
+  /** The token's code, when the check's reads depend on it (a Doppler clone is an EIP-1167 proxy). Default: a full contract. */
+  code?: string;
+  /** Recorded eth_call answers on the token, by calldata (null: it reverted). */
+  calls?: Record<string, string | null>;
+  /** The Uniswap v2 factory's PairCreated logs naming the token, and the pair's LP Transfer, Mint and Burn logs. */
+  factoryLogs?: RpcLog[];
+  pairLogs?: RpcLog[];
+  /** The launch wallet's transactions to Clanker's factory in the 24 hours up to the launch, newest first. Default: this launch. */
+  factoryTxs?: Array<{ hash: string; block: number }>;
+  /** First funders the QA run's answer called an exchange or hub. */
+  hubFunders?: string[];
   creator: {
     address: string;
     kind: string;
@@ -56,6 +67,15 @@ interface Fixture {
   balanceDeltas: Array<[number, string]>;
 }
 
+interface RpcLog {
+  address: string;
+  topics: string[];
+  data: string;
+  blockNumber: string;
+  transactionHash: string;
+  logIndex: string;
+}
+
 const here = dirname(fileURLToPath(import.meta.url));
 const QA = (JSON.parse(readFileSync(join(here, 'fixtures', 'rugcheck-qa-2026-10-21.json'), 'utf8')) as { tokens: Record<string, Fixture> }).tokens;
 
@@ -69,6 +89,19 @@ const abiString = (s: string) => {
   return `0x${word(32n)}${word(BigInt(Buffer.byteLength(s, 'utf8')))}${h.padEnd(Math.ceil(h.length / 64) * 64 || 64, '0')}`;
 };
 const blockOf = (tag: unknown, head: number) => (tag === 'latest' || tag === undefined ? head : Number(BigInt(tag as string)));
+/** eth_getLogs as a node answers it: address (one or several), topics by position (null = any, a list = any of), block range. */
+function filterLogs(logs: RpcLog[], q: { address?: string | string[]; topics?: Array<string | string[] | null>; fromBlock?: string; toBlock?: string }, head: number): RpcLog[] {
+  const addrs = q.address === undefined ? null : (Array.isArray(q.address) ? q.address : [q.address]).map((a) => a.toLowerCase());
+  const from = blockOf(q.fromBlock ?? 'latest', head);
+  const to = blockOf(q.toBlock ?? 'latest', head);
+  return logs.filter((l) => {
+    const b = Number(BigInt(l.blockNumber));
+    if (b < from || b > to || (addrs && !addrs.includes(l.address.toLowerCase()))) return false;
+    return (q.topics ?? []).every((t, i) => t === null || t === undefined || (Array.isArray(t) ? t : [t]).some((x) => x.toLowerCase() === l.topics[i]?.toLowerCase()));
+  });
+}
+/** Reads on the token that only the vesting and Clanker extension checks make: answered from the recording, or refused. */
+const RECORDED_ONLY = new Set(['0xf6939d34', '0x254800d4', '0x1514617e', '0xd2482469', '0x6f503e67', '0x6d3cbe21', '0x70a08231']);
 /** The funders the QA run's answers named, by whether the check called them an exchange or hub. */
 const HUB_FUNDERS = new Set(['0x3aadcd657aa9d270da0f92e95bf9830f961b4f2e']);
 
@@ -96,7 +129,7 @@ function chainOf(f: Fixture, calls: string[] = []): TokenCheckDeps {
           return { timestamp: hex(GENESIS + 2 * blockOf(p[0], f.head)) };
         case 'eth_getCode': {
           const [addr, tag] = p as [string, string];
-          if (addr === f.token) return blockOf(tag, f.head) >= f.launch.block ? '0x6080' : '0x';
+          if (addr === f.token) return blockOf(tag, f.head) >= f.launch.block ? (f.code ?? '0x6080') : '0x';
           if (addr === w) {
             if (tag === 'latest') return f.creator.code;
             if (blockOf(tag, f.head) !== f.creator.weekBefore.block) throw new Error(`no recorded code for the launch wallet at block ${blockOf(tag, f.head)}`);
@@ -111,7 +144,7 @@ function chainOf(f: Fixture, calls: string[] = []): TokenCheckDeps {
             if (blockOf(tag, f.head) !== f.creator.weekBefore.block) throw new Error(`no recorded nonce for the launch wallet at block ${blockOf(tag, f.head)}`);
             return hex(f.creator.weekBefore.nonce);
           }
-          return hex(HUB_FUNDERS.has(addr) ? 10_000 : 0);
+          return hex(HUB_FUNDERS.has(addr) || f.hubFunders?.includes(addr) ? 10_000 : 0);
         }
         case 'eth_getBalance':
           return '0x0';
@@ -126,12 +159,19 @@ function chainOf(f: Fixture, calls: string[] = []): TokenCheckDeps {
           if (data.startsWith('0x01ffc9a7')) return `0x${word(0n)}`;
           if (data === '0x1c7b2ff4') return `0x${w.slice(2).padStart(64, '0')}`; // Clanker's originalAdmin: the launch wallet
           if (data === `0x70a08231${w.slice(2).padStart(64, '0')}`) return `0x${word(tag === 'latest' ? BigInt(f.creator.tokenBalance) : heldAt(blockOf(tag, f.head)))}`;
+          if (f.calls && data in f.calls) {
+            if (f.calls[data] === null) throw new Error('execution reverted');
+            return f.calls[data];
+          }
+          if (RECORDED_ONLY.has(data.slice(0, 10))) throw new Error(`no recorded answer for ${data} on ${f.symbol}`);
           return `0x${word(0n)}`;
         }
         case 'eth_getTransactionByHash':
           return p[0] === f.launch.tx ? { hash: f.launch.tx, from: f.launch.from, to: f.launch.to } : null;
         case 'eth_getTransactionReceipt':
-          return p[0] === f.launch.tx ? { transactionHash: f.launch.tx, logs: f.logs.map((l) => ({ ...l, logIndex: hex(l.logIndex), data: '0x' })) } : null;
+          return p[0] === f.launch.tx ? { transactionHash: f.launch.tx, logs: f.logs.map((l) => ({ ...l, logIndex: hex(l.logIndex), data: l.data ?? '0x' })) } : null;
+        case 'eth_getLogs':
+          return filterLogs([...(f.factoryLogs ?? []), ...(f.pairLogs ?? [])], p[0] as Parameters<typeof filterLogs>[1], f.head);
         default:
           throw new Error(`unexpected ${method}`);
       }
@@ -149,7 +189,15 @@ function chainOf(f: Fixture, calls: string[] = []): TokenCheckDeps {
       }
       // The launch wallet's transactions to Clanker's factory: this launch only.
       if (q.toAddress === CLANKER_V4_FACTORY.toLowerCase()) {
-        return { transfers: q.fromAddress === w && f.clanker ? [{ from: w, to: q.toAddress, hash: f.launch.tx, metadata: { blockTimestamp: f.launch.time } }] : [] };
+        if (q.fromAddress !== w || !f.clanker) return { transfers: [] };
+        const rows = f.factoryTxs ?? [{ hash: f.launch.tx, block: f.launch.block }];
+        const [lo, hi] = [blockOf(q.fromBlock, f.head), blockOf((q as { toBlock?: string }).toBlock, f.head)];
+        return {
+          transfers: rows
+            .filter((r) => r.block >= lo && r.block <= hi)
+            .slice(0, max)
+            .map((r) => ({ from: w, to: q.toAddress!, hash: r.hash, metadata: { blockTimestamp: new Date((GENESIS + 2 * r.block) * 1000).toISOString() } })),
+        };
       }
       if (q.toAddress === w) return { transfers: f.creator.inbound.slice(0, max).map((t) => ({ ...t, to: w })) };
       return { transfers: [] };
@@ -241,17 +289,211 @@ describe('rug check QA regressions (Base, 2026-10-21)', () => {
     expect(r.flags).not.toContain('new_creator');
   });
 
-  // The check's cost: at most 4 more provider reads than before the QA fixes, for any of these tokens.
+  // The check's cost: at most 4 more provider reads than main before the liquidity and vesting reads.
   it.each(Object.keys(QA))('%s: stays within the read budget', async (id) => {
     const calls: string[] = [];
     await check(id, calls);
-    expect(calls.length).toBeLessThanOrEqual(BUDGET[id]!);
+    expect(calls.length).toBeLessThanOrEqual(MAIN_READS[id]! + 4);
+  });
+});
+
+const WETH = '0x4200000000000000000000000000000000000006';
+
+describe('rug check QA: liquidity the launch wallet removed, and supply it will control', () => {
+  // ANTHROPIC, LIQUIDBGT, openhuman and ANTHROPIC: plain deploys from one script. The launch wallet put the whole
+  // supply and 1.6 (P3: 15) WETH into a new Uniswap v2 pair, then sent all its LP tokens back to the pair 11 to 38
+  // minutes after the launch. We said only "new wallet" (P3: "still holds 83.1%", the tokens the removal returned).
+  it.each([
+    ['P1', '0x361500aadbb98d42139b95dfa8fe0d8d5aab4801', 1.6, 5_600_000_000, 46, 2.023640527057826, 4_431_732_304.788401, 99.99, 654, '0x7e9150c10af5f0d467cffc713f7e4565fe288e95422b2e3bc5daeb56ffa80f4e', '11 minutes', '2.02', '1.6'],
+    ['P2', '0xce6559dc93c5bc3bceb39508c17e93aba32d821c', 1.6, 5_600_000_000, 26, 1.9985606042839297, 4_488_379_433.687187, 99.98, 972, '0xc6e2b18a236c104461a93cc0bbffb2d69c01416fb0b25814a397e8fa11560a53', '16 minutes', '2', '1.6'],
+    ['P3', '0x3cc17a4be9ae48f90762dda3f3ecd628eecc3e99', 15, 9_900_000_000, 14, 18.05676516731827, 8_227_868_038.12006, 99.99, 2258, '0x5d2e3b2f3e60c8865a73f1413d7c42841d6ba27fd2f66a1846db12f3391d3645', '38 minutes', '18.06', '15'],
+    ['P4', '0xe263abe60d19c59065f912ade7aee4d8d45dfc47', 1.6, 5_600_000_000, 46, 2.019397807868855, 4_441_652_371.293971, 99.98, 968, '0xf59379b4aca3835fe37f35603242d28e1472736da2c26f8c513340ed5e5f21db', '16 minutes', '2.02', '1.6'],
+  ] as const)(
+    '%s: answers hold when the launch wallet removed the liquidity it added',
+    async (id, pool, added, addedTokens, addedAfter, removed, removedTokens, poolPct, removedAfter, tx, when, removedText, addedText) => {
+      const calls: string[] = [];
+      const r = await check(id, calls);
+      expect(r.liquidity).toEqual({
+        locked_by: null,
+        capped: false,
+        pools: [
+          {
+            address: pool,
+            dex: 'uniswap_v2',
+            paired_with: WETH,
+            paired_symbol: 'WETH',
+            launch_wallet: {
+              added,
+              added_tokens: addedTokens,
+              added_after_sec: addedAfter,
+              removed,
+              removed_tokens: removedTokens,
+              removed_pct: 100,
+              pool_pct: poolPct,
+              removed_after_sec: removedAfter,
+              removal_tx: tx,
+            },
+          },
+        ],
+      });
+      expect(r.flags[0]).toBe('creator_removed_liquidity');
+      expect(r.verdict).toEqual({
+        label: 'hold',
+        reason: `The wallet that launched it removed its liquidity from the token's Uniswap v2 pool ${when} after the launch: it took out ${removedText} WETH, ${poolPct}% of what the pool held, after putting in ${addedText} WETH.`,
+      });
+      // The factories' creation logs (the token as token0, then as token1) and the pair's LP logs; WETH needs no decimals read.
+      expect(calls.filter((m) => m === 'eth_getLogs')).toHaveLength(3);
+    },
+  );
+
+  // Clanker, Zora, Doppler and Virtuals hold the pool's liquidity themselves: no pool reads for their tokens.
+  it.each([
+    ['C1', 'clanker'],
+    ['C4', 'clanker'],
+    ['Z1', 'zora'],
+    ['Z2', 'zora'],
+    ['Z6', 'zora'],
+    ['D4', 'doppler'],
+    ['D2', 'doppler'],
+    ['D6', 'doppler'],
+    ['D8', 'doppler'],
+    ['V1', 'virtuals'],
+    ['V2', 'virtuals'],
+  ])('%s: reads no pools for a launchpad that locks the liquidity (%s)', async (id, pad) => {
+    const calls: string[] = [];
+    const r = await check(id, calls);
+    expect(r.liquidity).toEqual({ locked_by: pad, pools: null, capped: false });
+    expect(calls).not.toContain('eth_getLogs');
+    expect(r.flags).not.toContain('creator_removed_liquidity');
+  });
+
+  // MONERO and XTO: Doppler tokens that vest 80% of the supply to the launch wallet (getVestingDataOf), over a year
+  // (MONERO) or a day (XTO), on top of the 16.21% each bought at launch. We said no_flags (MONERO) and "new wallet" (XTO).
+  it.each([
+    ['D6', '2026-10-21T20:27:33.000Z', '2027-10-21T20:27:33.000Z', '2027-10-21'],
+    ['D8', '2026-10-21T21:15:39.000Z', '2026-10-22T21:15:39.000Z', '2026-10-22'],
+  ])('%s: counts the supply vesting to the launch wallet toward its share', async (id, start, end, endDate) => {
+    const r = await check(id);
+    expect(r.creator?.holds_pct).toBe(16.21);
+    expect(r.creator?.vesting).toEqual({ amount: 8_000_000_000, pct: 80, released: 0, start, cliff_end: null, end });
+    expect(r.creator?.holds_with_vesting_pct).toBe(96.21);
+    expect(r.flags).toContain('creator_holds_large_share');
+    expect(r.verdict).toEqual({
+      label: 'review',
+      reason: `The wallet that launched it holds 16.21% of the supply and will receive another 80% as it vests, in full by ${endDate}.`,
+    });
+  });
+
+  // USOE: the launch wallet sold its launch buy, and 80% of the supply still vests to it over a year.
+  it('D4: reports the 80% vesting to a launch wallet that sold everything it held', async () => {
+    const r = await check('D4');
+    expect(r.creator?.vesting).toEqual({ amount: 8_000_000_000, pct: 80, released: 0, start: '2026-10-21T19:54:41.000Z', cliff_end: null, end: '2027-10-21T19:54:41.000Z' });
+    expect(r.creator?.holds_with_vesting_pct).toBe(80);
+    expect(r.flags).toEqual(expect.arrayContaining(['creator_sent_launch_tokens', 'creator_holds_large_share']));
+    expect(r.verdict.reason).toMatch(/^The wallet that launched it received 1,620,558,652.65 tokens/);
+  });
+
+  // BLOHARD (Bankr): a clone of Doppler's multi-schedule token, where getVestingDataOf reverts. One schedule vests
+  // 15% of the supply to the launch wallet: a 30-day cliff, then over a year. Under the 20% line on its own.
+  it('D2: reads the vesting schedule of a Doppler clone token', async () => {
+    const r = await check('D2');
+    expect(r.creator?.vesting).toEqual({
+      amount: 15_000_000_000,
+      pct: 15,
+      released: 0,
+      start: '2026-10-21T20:43:29.000Z',
+      cliff_end: '2026-11-20T20:43:29.000Z',
+      end: '2027-10-21T20:43:29.000Z',
+    });
+    expect(r.creator?.holds_with_vesting_pct).toBe(15);
+    expect(r.flags).not.toContain('creator_holds_large_share');
+  });
+
+  it.each(['D7', 'D10', 'D5'])('%s: reports nothing vesting to a launch wallet without a schedule', async (id) => {
+    const r = await check(id);
+    expect(r.creator?.vesting).toEqual({ amount: 0, pct: 0, released: 0, start: null, cliff_end: null, end: null });
+  });
+
+  it.each(['P1', 'C1', 'C4', 'Z1', 'V2'])('%s: reads no vesting off Doppler', async (id) => {
+    const r = await check(id);
+    expect(r.creator?.vesting).toBeNull();
+  });
+
+  // XCHAT: a 169-launches-a-day wallet put 82% of the supply in Clanker's airdrop contract and 5% in its vault, both
+  // with itself as the admin. Reported apart from what it holds; not counted toward the large-share rule.
+  it("C1: reports the supply in Clanker's vault and airdrop for the launch wallet, apart from what it holds", async () => {
+    const r = await check('C1');
+    const wallet = '0x1afab1f6b0d565544effb26fca7d6b5e9cb46c81';
+    expect(r.supply.extensions).toEqual([
+      {
+        contract: '0x8e845ead15737bf71904a30bddd3aee76d6adf6c',
+        kind: 'vault',
+        at_launch: 5_000_000_000,
+        at_launch_pct: 5,
+        holds: 5_000_000_000,
+        holds_pct: 5,
+        admin_at_launch: wallet,
+        unlocks: '2026-10-28T19:25:09.000Z',
+        vested: '2026-10-28T19:25:09.000Z',
+      },
+      {
+        contract: '0xf652b3610d75d81871bf96db50825d9af28391e0',
+        kind: 'airdrop',
+        at_launch: 82_000_000_000,
+        at_launch_pct: 82,
+        holds: 82_000_000_000,
+        holds_pct: 82,
+        admin_at_launch: wallet,
+        unlocks: '2026-10-22T19:25:09.000Z',
+        vested: '2026-10-22T19:25:09.000Z',
+      },
+    ]);
+    expect(r.creator).toMatchObject({ holds_pct: 0, vesting: null, holds_with_vesting_pct: 0, extensions_pct: 87 });
+    expect(r.flags).toEqual(['creator_serial_launcher']);
+    expect(r.verdict).toEqual({ label: 'review', reason: 'The wallet that launched it launched 169 tokens through Clanker in the 24 hours up to and including this one.' });
+  });
+
+  it.each(['P1', 'D6', 'Z1'])('%s: reads no Clanker extensions off Clanker', async (id) => {
+    const r = await check(id);
+    expect(r.supply.extensions).toBeNull();
+    expect(r.creator?.extensions_pct).toBeNull();
+  });
+
+  it('C4: reports no extension supply for a Clanker launch that set none aside', async () => {
+    const r = await check('C4');
+    expect(r.supply.extensions).toEqual([]);
+    expect(r.creator?.extensions_pct).toBe(0);
+  });
+
+  it('says what the liquidity read covers, in plain words', async () => {
+    const r = await check('P1');
+    expect(r.limits).not.toMatch(/liquidity-lock check/);
+    expect(r.limits).toMatch(/Uniswap v2 and Aerodrome/);
+    expect(JSON.stringify(r)).not.toMatch(/\b(safe|scam|rug|fraud)\b|—/i);
   });
 });
 
 /**
- * Provider reads per fresh check before the QA fixes, counted with this replay, plus 4. The bundled
- * launches stopped at launch_unknown before (12 reads); naming their launcher gives them the reads every
- * single-wallet launch gets, so their budget is the single-operation EntryPoint launch's (D2: 22) plus 4.
+ * Provider reads per fresh check on main before the liquidity and vesting reads, counted with this replay.
+ * The QA fixes (PR #79) were held to +4 over the check before them; these reads are held to +4 over main.
  */
-const BUDGET: Record<string, number> = { D4: 24 + 4, D2: 22 + 4, D7: 22 + 4, V1: 22 + 4, C4: 26 + 4, V2: 24 + 4, Z1: 22 + 4, Z2: 22 + 4, Z6: 22 + 4, D10: 22 + 4, D5: 22 + 4 };
+const MAIN_READS: Record<string, number> = {
+  D4: 28,
+  D2: 24,
+  D7: 24,
+  V1: 24,
+  C4: 28,
+  V2: 26,
+  Z1: 26,
+  Z2: 26,
+  Z6: 26,
+  D10: 24,
+  D5: 24,
+  P1: 26,
+  P2: 26,
+  P3: 26,
+  P4: 26,
+  D6: 28,
+  D8: 28,
+  C1: 30,
+};
