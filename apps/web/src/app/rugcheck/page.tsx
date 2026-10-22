@@ -43,11 +43,13 @@ export default function RugCheckPage() {
             <div className="decode-prose">
               <h2>What it reads</h2>
               <ul>
-                <li>Who launched it, and how: through Clanker, through Virtuals, or a direct deploy, with the launch transaction.</li>
+                <li>Who launched it, and how: through Clanker, Zora, Doppler or Virtuals, or a direct deploy, with the launch transaction.</li>
                 <li>The launch wallet: how new it was, who first funded it, and whether it is on the US sanctions list.</li>
-                <li>Whether the launch wallet sent out the tokens it got at launch within the hour, the usual shape of a dump.</li>
-                <li>How many tokens the same wallet launched through Clanker in the day up to this one.</li>
+                <li>Whether the launch wallet sent out the tokens it got at launch within the hour, the usual shape of a dump, or later.</li>
+                <li>How many tokens the same wallet launched through Clanker, Zora and Doppler in its busiest 24 hours around this one.</li>
+                <li>When the launchpad does not lock the liquidity, whether the launch wallet took liquidity out.</li>
                 <li>Tokens minted after launch, and how many went to the launch wallet.</li>
+                <li>Whether the name or symbol passes for USDC or another well-known token.</li>
               </ul>
 
               <h2>The answer</h2>
