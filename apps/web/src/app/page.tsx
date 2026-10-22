@@ -1,13 +1,14 @@
 /**
- * Home = the Risk-Check intake, filed like a forensic dossier. The intake form
- * is the hero (paste a Base or BNB Chain address), framed by the honest
- * positioning (Pay or Hold with its reason), a "recently filed" strip, a quiet
- * paid Intel Brief offer, and featured /decodes as proof. Free-first.
+ * Home has two doors. People: paste a wallet or a Base token and get the answer
+ * free, with the newest findings, dated, right under the check so a visitor can
+ * see the site is alive. Businesses (reward programs, launchpads, wallets, bots):
+ * a free first check, then a regular one, quoted per program. Then the quiet
+ * Intel Brief offer, how to read a report, and the recent wallet checks.
  */
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { PressShell, Masthead, PressDateline, Colophon, BriefOffer, NodeClaim, OnTheRecord } from '@/components/press';
+import { PressShell, Masthead, PressDateline, Colophon, BriefOffer, OnTheRecord } from '@/components/press';
 import { getAllDecodes } from '@/lib/decodes';
 import { watchWalletHref } from '@/lib/watch';
 import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from '@/lib/siteCopy';
@@ -51,8 +52,10 @@ const jsonLd = {
   },
 };
 
-function formatIsoDate(dateStr: string): string {
-  return new Date(dateStr).toISOString().slice(0, 10);
+/** "Oct 22": the day a finding was published, short enough to read at a glance. */
+function shortDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })} ${d.getUTCDate()}`;
 }
 
 const PRINCIPLES = [
@@ -99,36 +102,31 @@ export default async function CheckHomePage({
       <div className="press-wrap">
         <Masthead />
 
-        {/* Hero: the intake document */}
+        {/* Door one, for people: paste it, get the answer free. */}
         <section className="home-hero">
           <div className="home-hero-lead">
             <div className="press-fileno">
-              File № CW-∎ <span className="ph-dateline-sep">·</span> Forensic risk intake
+              Free check <span className="ph-dateline-sep">·</span> Base and BNB Chain
             </div>
             <h1 className="home-title press-display">
-              About to pay or hire an AI agent? Paste its address first.
+              About to buy a token or pay a wallet? Paste the address first.
             </h1>
             <p className="home-kicker press-kicker">
-              We tell you Pay or Hold, and why, in about a minute. Free.
+              Free, and back in about a minute.
             </p>
-            <p className="home-lede">
-              We read the wallet&apos;s history on Base or BNB Chain and look for what
-              should make you stop: an address on the US sanctions list, a wallet that
-              only deals with one or two others, a wallet that has gone quiet, USDC left
-              sitting in a dormant wallet, or an agent listed as online that the chain
-              shows idle. You get one answer, the
-              reason behind it, and a link to the on-chain record so you can check it
-              yourself, read from{' '}
-              <NodeClaim live="our own Base node" neutral="the chain" />. When there isn&apos;t
-              enough recent history to judge, we say that instead.
-            </p>
-            <p className="home-lede">
-              Buying a new Base token instead? Paste the token and you get its{' '}
-              <Link href="/rugcheck" className="press-link">
-                rug check
-              </Link>
-              : who launched it, and what the launch wallet did next.
-            </p>
+            <ul className="home-points">
+              <li>
+                <strong>A wallet:</strong> we answer Pay or Hold, with the reason.
+              </li>
+              <li>
+                <strong>A Base token:</strong> the{' '}
+                <Link href="/rugcheck" className="press-link">
+                  rug check
+                </Link>{' '}
+                shows who launched it and whether they dumped it.
+              </li>
+              <li>We only read the public blockchain record, and every answer links to it.</li>
+            </ul>
           </div>
 
           <div className="home-intake-row">
@@ -142,26 +140,84 @@ export default async function CheckHomePage({
                 Pay means nothing was found against paying in the window checked. It is
                 not a clearance of the counterparty.
               </p>
-              {featuredDecodes[0] && (
-                <Link
-                  href={`/decodes/${featuredDecodes[0].slug}`}
-                  className="home-rail-decode"
-                >
-                  <span className="home-rail-decode-label">
-                    Latest from the casebook
-                  </span>
-                  <span className="home-rail-decode-title">
-                    {featuredDecodes[0].title}
-                  </span>
-                  <span className="home-rail-decode-meta mono">
-                    {formatIsoDate(featuredDecodes[0].date)} · Read the file →
-                  </span>
-                </Link>
-              )}
             </aside>
           </div>
+        </section>
 
-          <RecentlyChecked />
+        {/* What we found lately, dated, so a visitor can see the site is alive. */}
+        <section className="home-latest" aria-label="Latest findings">
+          <div className="home-latest-head">
+            <span className="press-label">Latest findings</span>
+            <Link href="/decodes" className="press-link">
+              All findings →
+            </Link>
+          </div>
+          {featuredDecodes.length > 0 && (
+            <ol className="home-filings">
+              {featuredDecodes.map((d) => (
+                <li key={d.slug} className="home-filing">
+                  <Link href={`/decodes/${d.slug}`} className="home-filing-link">
+                    <time className="home-filing-date mono" dateTime={d.date}>
+                      {shortDate(d.date)}
+                    </time>
+                    <div className="home-filing-body">
+                      <h3 className="home-filing-title press-display">{d.title}</h3>
+                      {d.subtitle && (
+                        <p className="home-filing-sub">{d.subtitle}</p>
+                      )}
+                    </div>
+                    <span className="home-filing-read">Read →</span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        <hr className="press-rule" />
+
+        {/* Door two, for businesses: a free first check, then a regular one. */}
+        <section className="home-door" aria-label="For businesses">
+          <h2 className="home-h2 press-display">Running a reward program or a platform?</h2>
+          <div className="home-door-grid">
+            <div className="home-door-card">
+              <h3 className="home-door-title press-display">Reward programs</h3>
+              <p className="home-door-copy">
+                Points, airdrops, referral or trading rewards: send us your program or your
+                payout list and we run a free first check for farmed wallets, with the
+                on-chain evidence for each one. If it helps, we check every payout list
+                before it goes out.
+              </p>
+              <p className="home-door-proof">
+                What a check finds:{' '}
+                <Link href="/decodes/termix-on-chain" className="press-link">
+                  99% of TermiX&apos;s job fees came from wallets hiring each other
+                </Link>
+                .
+              </p>
+            </div>
+            <div className="home-door-card">
+              <h3 className="home-door-title press-display">Launchpads, wallets and trading bots</h3>
+              <p className="home-door-copy">
+                Warn your users before they buy. A free first check of your last week of
+                launches: which launch wallets dumped, and which launch dozens of tokens a
+                day. If it helps, get it as a daily feed or through our API.
+              </p>
+              <p className="home-door-proof">
+                See it on one token:{' '}
+                <Link href="/rugcheck" className="press-link">
+                  the free rug check
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
+          <p className="home-door-terms">
+            Quoted per program, paid on delivery.{' '}
+            <a href="mailto:hello@chainward.ai?subject=Free%20first%20check" className="press-link">
+              Ask for a free first check: hello@chainward.ai →
+            </a>
+          </p>
         </section>
 
         <hr className="press-rule" />
@@ -199,43 +255,13 @@ export default async function CheckHomePage({
 
         <hr className="press-rule" />
 
-        {/* Proof: featured decodes as a casebook */}
-        <section className="home-casebook">
-          <div className="home-casebook-head">
-            <h2 className="home-h2 press-display">From the casebook</h2>
-            <p className="home-casebook-lede">
-              We&apos;ve been checking the chain by hand: claims against receipts,
-              where the money went, the gap between the pitch and the ledger. Now that method
-              runs on a button. Read a few filings to see how we work.
-            </p>
-          </div>
-
-          {featuredDecodes.length > 0 && (
-            <ol className="home-filings">
-              {featuredDecodes.map((d) => (
-                <li key={d.slug} className="home-filing">
-                  <Link href={`/decodes/${d.slug}`} className="home-filing-link">
-                    <time className="home-filing-date mono" dateTime={d.date}>
-                      {formatIsoDate(d.date)}
-                    </time>
-                    <div className="home-filing-body">
-                      <h3 className="home-filing-title press-display">{d.title}</h3>
-                      {d.subtitle && (
-                        <p className="home-filing-sub">{d.subtitle}</p>
-                      )}
-                    </div>
-                    <span className="home-filing-read">Read →</span>
-                  </Link>
-                </li>
-              ))}
-            </ol>
-          )}
-
+        {/* The latest public wallet checks: last 14 days, hidden when there are none. */}
+        <section className="home-recent" aria-label="Recent wallet checks">
+          <RecentlyChecked />
           <OnTheRecord />
-
           <div className="home-casebook-links">
             <Link href="/decodes" className="press-link">
-              All decodes →
+              All findings →
             </Link>
             <Link href="/reports" className="press-link">
               The public record →
@@ -246,7 +272,6 @@ export default async function CheckHomePage({
             </a>
           </div>
         </section>
-
         <Colophon />
       </div>
 
@@ -268,15 +293,30 @@ export default async function CheckHomePage({
           font-size: clamp(22px, 3vw, 34px);
           line-height: 1.15;
         }
-        .home-lede {
-          margin: 24px 0 0;
+        .home-points {
+          margin: 22px 0 0;
+          padding: 0;
+          list-style: none;
           font-family: var(--font-text);
           font-size: 19px;
-          line-height: 1.55;
+          line-height: 1.5;
           color: var(--ink-soft);
-          max-width: 620px;
+          max-width: 640px;
         }
-        .home-lede strong { color: var(--ink); font-weight: 640; }
+        .home-points li {
+          position: relative;
+          padding: 5px 0 5px 20px;
+        }
+        .home-points li::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0.8em;
+          width: 7px;
+          height: 7px;
+          background: var(--oxblood);
+        }
+        .home-points strong { color: var(--ink); font-weight: 640; }
         .home-intake-row {
           margin-top: 36px;
           display: flex;
@@ -300,44 +340,9 @@ export default async function CheckHomePage({
           color: var(--ink-soft);
           max-width: 260px;
         }
-        .home-rail-decode {
-          margin-top: 10px;
-          padding-top: 16px;
-          border-top: 1px solid var(--rule);
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          max-width: 280px;
-          text-decoration: none;
-          color: inherit;
-        }
-        .home-rail-decode-label {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-size: 10px;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--ink-faint);
-        }
-        .home-rail-decode-title {
-          font-family: var(--font-display), Georgia, serif;
-          font-size: 19px;
-          line-height: 1.15;
-          color: var(--ink);
-          letter-spacing: -0.01em;
-          transition: color 0.15s;
-        }
-        .home-rail-decode:hover .home-rail-decode-title { color: var(--oxblood); }
-        .home-rail-decode-meta {
-          font-size: 10.5px;
-          letter-spacing: 0.04em;
-          color: var(--oxblood);
-        }
         @media (max-width: 860px) {
           .home-intake-row { flex-direction: column; gap: 28px; }
           .home-stamp { flex-direction: row; align-items: center; padding-top: 0; flex-wrap: wrap; }
-          /* The rail collapses under the form on small screens; the casebook
-             section below already covers the latest decode there. */
-          .home-rail-decode { display: none; }
         }
         @media (max-width: 480px) {
           .home-stamp { flex-direction: column; align-items: flex-start; }
@@ -350,13 +355,13 @@ export default async function CheckHomePage({
         .home-offer {
           padding: 36px 0;
         }
-        .home-policy, .home-casebook {
+        .home-policy {
           padding: 44px 0;
           display: grid;
           grid-template-columns: 300px 1fr;
           gap: 48px;
         }
-        .home-policy-lede, .home-casebook-lede {
+        .home-policy-lede {
           margin: 14px 0 0;
           font-family: var(--font-text);
           font-size: 17px;
@@ -364,7 +369,7 @@ export default async function CheckHomePage({
           color: var(--ink-soft);
         }
         @media (max-width: 780px) {
-          .home-policy, .home-casebook {
+          .home-policy {
             grid-template-columns: 1fr;
             gap: 24px;
           }
@@ -454,6 +459,68 @@ export default async function CheckHomePage({
           display: flex;
           gap: 26px;
           flex-wrap: wrap;
+        }
+
+        .home-latest {
+          padding: 0 0 36px;
+        }
+        .home-latest-head {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 16px;
+          padding-top: 20px;
+          border-top: 1px solid var(--rule);
+        }
+
+        .home-door {
+          padding: 44px 0;
+        }
+        .home-door-grid {
+          margin-top: 24px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 28px;
+        }
+        .home-door-card {
+          border: 1px solid var(--rule);
+          padding: 22px 24px;
+        }
+        .home-door-title {
+          margin: 0;
+          font-size: 24px;
+          line-height: 1.1;
+        }
+        .home-door-copy {
+          margin: 12px 0 0;
+          font-family: var(--font-text);
+          font-size: 17px;
+          line-height: 1.55;
+          color: var(--ink-soft);
+        }
+        .home-door-proof {
+          margin: 12px 0 0;
+          font-family: var(--font-text);
+          font-size: 15px;
+          line-height: 1.5;
+          color: var(--ink-soft);
+        }
+        .home-door-terms {
+          margin: 24px 0 0;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px 18px;
+          align-items: baseline;
+          font-family: var(--font-text);
+          font-size: 17px;
+          color: var(--ink);
+        }
+        @media (max-width: 780px) {
+          .home-door-grid { grid-template-columns: 1fr; }
+        }
+
+        .home-recent {
+          padding: 0 0 44px;
         }
       `}</style>
     </PressShell>
