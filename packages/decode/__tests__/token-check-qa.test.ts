@@ -360,7 +360,7 @@ describe('rug check QA regressions (Base, 2026-10-21)', () => {
     expect(r.flags).toContain('new_creator');
     expect(r.verdict).toEqual({
       label: 'review',
-      reason: 'The wallet that launched it had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.',
+      reason: 'The wallet that launched it had not sent a single transaction a week before the launch, so its own activity began less than 7 days before the launch.',
     });
   });
 
@@ -709,7 +709,7 @@ describe('rug check QA gaps (Base, 2026-10-22 re-run)', () => {
     expect(r.flags).toContain('new_creator');
     expect(r.verdict).toEqual({
       label: 'review',
-      reason: 'The wallet it was launched for had not sent a single transaction a week before the launch, so its own activity is less than 7 days old.',
+      reason: 'The wallet it was launched for has never sent a transaction of its own, so it has no history to judge.',
     });
   });
 
