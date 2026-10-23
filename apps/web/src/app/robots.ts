@@ -13,7 +13,9 @@ export default function robots(): MetadataRoute.Robots {
         '/settings',
         '/login',
         '/register',
-        '/wallet',
+        // Exact match and subpaths only: a bare '/wallet' prefix also hid the public /wallet-api page.
+        '/wallet$',
+        '/wallet/',
         '/base/digest/snippets',
       ],
     },
