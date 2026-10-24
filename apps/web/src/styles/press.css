@@ -329,6 +329,13 @@ body:has(.press) {
     font-size: 22px;
   }
 }
+/* The full nav needs about 665px: from 621 to 660px it pushed the page sideways
+   (iPhone Duo unfolded in portrait is 626px). Keep the short nav up to 700px. */
+@media (max-width: 700px) {
+  .ph-nav a.ph-nav-hide {
+    display: none;
+  }
+}
 /* Phones: the sign-in link pushed the nav past a 390px viewport and the whole
    page scrolled sideways. Checkout signs in on /request-brief itself. */
 @media (max-width: 480px) {
