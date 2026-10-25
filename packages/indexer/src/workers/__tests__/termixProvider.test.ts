@@ -355,6 +355,17 @@ describe('runTermixProvider', () => {
     expect(w.chain.send).not.toHaveBeenCalled();
   });
 
+  it('reads the buyer requirements TermiX appends to the scope, never the listing copy above them', async () => {
+    const w = world([
+      makeOrder(1, {
+        scope: 'Send an ERC-8004 agent id on BNB Chain (for example 361259) in your order note.\n\nBuyer requirements:\nplease check agent 332962',
+      }),
+    ]);
+    await runTermixProvider(deps(w));
+    expect(w.runHireCheck).toHaveBeenCalledWith({ kind: 'id', id: 332962 });
+    expect(sentActions(w)).toEqual(['acceptOrder', 'submitDelivery']);
+  });
+
   it('refuses an agent that does not exist, with a message, and never accepts it', async () => {
     const w = world([makeOrder(1, { messages: [buyerSays('agent 999999999')] })]);
     w.runHireCheck.mockRejectedValue(new HireCheckError('AGENT_NOT_FOUND', 'No ERC-8004 agent #999999999 on BNB Chain'));

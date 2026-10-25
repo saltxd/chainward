@@ -604,6 +604,13 @@ class Run {
       const v = order[k];
       if (typeof v === 'string' && v.trim()) texts.push(v);
     }
+    // TermiX appends the buyer's text to the listing copy in `scope`; only the part after the marker is theirs.
+    const scope = order.scope;
+    const at = typeof scope === 'string' ? scope.indexOf(BUYER_REQUIREMENTS) : -1;
+    if (at >= 0) {
+      const req = (scope as string).slice(at + BUYER_REQUIREMENTS.length).trim();
+      if (req) texts.push(req);
+    }
     const convId = conversationId(order);
     if (!convId) {
       this.d.log.warn({ orderId: order.id }, 'TermiX order has no conversation id; cannot read the buyer note');
@@ -652,6 +659,7 @@ class Run {
 }
 
 const SYSTEM_KINDS = new Set(['SYSTEM', 'ORDER_EVENT', 'OFFER_EVENT']);
+const BUYER_REQUIREMENTS = 'Buyer requirements:';
 
 function isFromBuyer(m: Record<string, unknown>, buyer: Set<string>): boolean {
   if (typeof m.kind === 'string' && SYSTEM_KINDS.has(m.kind)) return false;
