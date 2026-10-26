@@ -1,6 +1,14 @@
 {
   "decodes": [
     {
+      "slug": "solana-drain-48-wallets",
+      "title": "48 Solana Wallets Emptied in 94 Seconds, Each With Its Own Key",
+      "subtitle": "A script holding stolen private keys took 9,408 SOL (about $953,000) from nine owners on Oct 26. Revoking approvals would not have helped. What the chain shows, what Bloom says, and what neither can show yet.",
+      "date": "2026-10-26",
+      "url": "https://chainward.ai/decodes/solana-drain-48-wallets",
+      "addresses": []
+    },
+    {
       "slug": "address-poisoning-base",
       "title": "A Look-Alike of Our Wallet Showed Up 104 Seconds After We Got Paid",
       "subtitle": "One Base wallet copied about 439,000 payments in a week with look-alike addresses, for $53 of gas. It copies plain sends, not x402 payments.",
