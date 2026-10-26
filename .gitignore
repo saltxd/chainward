@@ -135,3 +135,13 @@ deliverables/x402-closed-six/verification.md
 
 # wrangler/miniflare local state (created by any wrangler command run without --remote)
 .wrangler/
+
+# Railway breach research (Oct 26): full victim addresses, never commit
+deliverables/railway-breach-agent-wallets/data/
+deliverables/railway-breach-agent-wallets/scripts/
+deliverables/railway-breach-agent-wallets/findings.md
+
+# AX1 Console research (Oct 26): payer wallets, never commit
+deliverables/ax1-console-x402-demand/data/
+deliverables/ax1-console-x402-demand/scripts/
+deliverables/ax1-console-x402-demand/findings.md
