@@ -20,6 +20,8 @@ Short version:
 - **Nine owners, many wallets each, not all of them.** The script tested one wallet per owner, then emptied that owner's wallets one after another, including wallets unused since 2025. Other wallets of the same owners were never touched: one owner's four top-up wallets still held 187 SOL at 10:41 UTC. The attacker had a list of wallets, not every key each owner had.
 - **One script, SOL only.** Every theft carries the same fingerprint. Its attempt on 49,040 USDC failed, and the USDC was moved out minutes later, probably by its owner.
 - **The SOL moved once.** At 04:30:56 the whole 9,408.21 SOL went to a fresh address, `6nYyCzJJzErbmfxvXqzbAqwoBzNvXUiwr15KCkcgmoe9`. At 10:41 UTC it had not moved again.
+
+> **Update, Oct 27:** the stolen SOL started moving. At 06:40:55 and 11:42:44 UTC on Oct 27, `6nYyCzJJzErbmfxvXqzbAqwoBzNvXUiwr15KCkcgmoe9` sent 10 SOL each to two addresses with no earlier history, `GfHDgSHQwBw5ssuMRdfw9JLKWzQAvnwJ7ajk7SuzdeFr` and `HqCbwhMAJgf3EMabx3Kty8mCo9E2ZjqoHcNDbonPP9Am` ([tx](https://solscan.io/tx/2Q4ExGh3JVGLWwRKnwBfDNzUE8xbsc4JPBs9XBUY6V2KwobKAmyc7F9NkM49vvxfUfJpb6dueTFrkvomptTGWFvR), [tx](https://solscan.io/tx/rznhaTjon7mw1ZoKEPJEceYAbRV1H9RKLqTtrD2N9DVZAoG8sCAXgSpBxBp3cE2o5EnUVpCDmi9Wkp879xQHghi)), and both have sent it on. Within a minute of each send, look-alikes of those two addresses started sending the holder dust. At 12:27 UTC on Oct 27, 9,388.21 SOL was still at `6nYyCzJJzErbmfxvXqzbAqwoBzNvXUiwr15KCkcgmoe9`.
 - **Bloom says it will pay the losses back.** Bloom said it will fully reimburse the "9 affected wallets" and is investigating, including whether a third-party provider was involved. Bloom trades show up in the histories of 3 of the 9 owners. The chain cannot show where the keys leaked.
 
 ---
@@ -95,6 +97,7 @@ Here is what the chain adds. We looked at about 681 transactions the victims sig
 - 01:00 to 01:32: 9,408.23 SOL from the 48 wallets into `7kY8qx8MqJ7Rz2vMhgHETdZLHcTp1oM78AA9dmE9p8BQ`.
 - 04:30:56: 9,408.21 SOL from there to `6nYyCzJJzErbmfxvXqzbAqwoBzNvXUiwr15KCkcgmoe9`, an address with no history before that transfer.
 - At 10:41 UTC that address still held it, with no bridge, exchange deposit, mixer or split. Its only other activity is dust from look-alike addresses.
+- Oct 27, 06:40:55 and 11:42:44 UTC: 10 SOL each to `GfHDgSHQwBw5ssuMRdfw9JLKWzQAvnwJ7ajk7SuzdeFr` and `HqCbwhMAJgf3EMabx3Kty8mCo9E2ZjqoHcNDbonPP9Am`, both fresh, which have sent it on (not yet traced further). 9,388.21 SOL was still at the holder at 12:27 UTC.
 
 Not every move after the sweep was theft. One owner moved its remaining token value out 22 seconds after its sweep, through a fresh wallet, and that trail points back to the owner's own wallets. Another drained wallet unwrapped 16 wrapped SOL 26 seconds after its sweep, and that SOL still sat in the compromised wallet at 10:50 UTC. If you own a drained wallet, assume anything that lands in it can be taken.
 
