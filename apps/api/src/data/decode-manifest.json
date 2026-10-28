@@ -1,6 +1,14 @@
 {
   "decodes": [
     {
+      "slug": "x402-standard-buyer-check",
+      "title": "Six Ways a 402 Breaks a Standard x402 Buyer",
+      "subtitle": "A standard x402 buyer read 1,391 live 402s without paying. 39 had a seller mistake: 33 fail, 6 sign payments valid a week or more.",
+      "date": "2026-10-28",
+      "url": "https://chainward.ai/decodes/x402-standard-buyer-check",
+      "addresses": []
+    },
+    {
       "slug": "solana-drain-48-wallets",
       "title": "48 Solana Wallets Emptied in 94 Seconds, Each With Its Own Key",
       "subtitle": "A script holding stolen private keys took 9,408 SOL (about $953,000) from nine owners on Oct 26. Revoking approvals would not have helped. What the chain shows, what Bloom says, and what neither can show yet.",
