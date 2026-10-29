@@ -1,6 +1,20 @@
 {
   "decodes": [
     {
+      "slug": "four-agents-one-wallet",
+      "title": "Four Virtuals Agents, One Wallet, 77 Seconds Apart",
+      "subtitle": "One wallet made four Virtuals agents in 77 seconds. All four were top-20 earners, and most of their buyers are the same 1,100 wallets.",
+      "date": "2026-10-29",
+      "url": "https://chainward.ai/decodes/four-agents-one-wallet",
+      "addresses": [
+        "0x476fff09a555c223e98c1e8571676fcca7af9849",
+        "0x3296142323ef5fce90bec4533e8f0dc0f1a2df49",
+        "0xd4d1e8f000bce71b2fe89d59989fcd2cd5128275",
+        "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0",
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+      ]
+    },
+    {
       "slug": "x402-standard-buyer-check",
       "title": "Six Ways a 402 Breaks a Standard x402 Buyer",
       "subtitle": "A standard x402 buyer read 1,391 live 402s without paying. 39 had a seller mistake: 33 fail, 6 sign payments valid a week or more.",
@@ -683,6 +697,27 @@
     }
   ],
   "byAddress": {
+    "0x476fff09a555c223e98c1e8571676fcca7af9849": [
+      "four-agents-one-wallet"
+    ],
+    "0x3296142323ef5fce90bec4533e8f0dc0f1a2df49": [
+      "four-agents-one-wallet"
+    ],
+    "0xd4d1e8f000bce71b2fe89d59989fcd2cd5128275": [
+      "four-agents-one-wallet"
+    ],
+    "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0": [
+      "four-agents-one-wallet",
+      "butlerliquid-on-chain",
+      "degen-claw-on-chain",
+      "bridgekitty-on-chain",
+      "live-leaderboard-2026-04"
+    ],
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": [
+      "four-agents-one-wallet",
+      "x402-top-ten-self-funded",
+      "bridgekitty-on-chain"
+    ],
     "0x43b2f01186fda9814c5f40770554ac68fd8304bd": [
       "address-poisoning-base"
     ],
@@ -920,10 +955,6 @@
     ],
     "0x8094fb79556bb4f20f8eccda6a4e1b11c51d7676": [
       "x402-top-ten-self-funded"
-    ],
-    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": [
-      "x402-top-ten-self-funded",
-      "bridgekitty-on-chain"
     ],
     "0x30c2282e7e238a977ec710cf67a5d1e1a1bfe85f": [
       "x402-closed-six"
@@ -1645,12 +1676,6 @@
     ],
     "0x0b2b0883f344b6d7b6c7094a13a656ba03b9bfa4": [
       "butlerliquid-on-chain"
-    ],
-    "0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0": [
-      "butlerliquid-on-chain",
-      "degen-claw-on-chain",
-      "bridgekitty-on-chain",
-      "live-leaderboard-2026-04"
     ],
     "0xf70da97812cb96acdf810712aa562db8dfa3dbef": [
       "butlerliquid-on-chain"
