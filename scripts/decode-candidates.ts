@@ -23,6 +23,7 @@ interface AcpAgent {
   category: string | null;
   twitterHandle: string | null;
   grossAgenticAmount: number;
+  revenue: number;
   successfulJobCount: number;
   successRate: number;
   uniqueBuyerCount: number;
@@ -127,10 +128,28 @@ function computeScore(agent: AcpAgent, medianAgdpPerJob: number): ScoreResult {
       ? Math.min(Math.abs(Math.log10(agdpPerJob) - Math.log10(medianAgdpPerJob)), 4) / 4
       : 0;
 
-  // 2. Brand-vs-on-chain mismatch — large aGDP, tiny actual wallet.
-  // Captures the AIXBT pattern (info agent earning peanuts despite high reported aGDP).
+  // 2. Reported aGDP against reported wallet balance.
+  //
+  // CAUTION: both inputs are ACP API fields. Nothing here reads the chain, so
+  // this signal must never be described as an on-chain mismatch.
+  //
+  // It has one large false-positive class, found the hard way in Oct 2026.
+  // When aGDP dwarfs revenue, aGDP is NOTIONAL (trade volume, tokens
+  // transferred, perp position size) rather than money the agent kept. Those
+  // agents are routinely non-custodial: funds sit in the user's own wallet, so
+  // a walletBalance of "0" is the correct and expected state, not a red flag.
+  // Otto AI topped this list on exactly that basis ($18.3M aGDP, $2.0K revenue,
+  // $0 wallet) and turned out to be a legitimate non-custodial trade executor.
+  // test_owl (a transfer utility) and Sympson (perps) are the same shape.
+  const revenue = agent.revenue ?? 0;
+  const notionalVolume = revenue > 0 && agent.grossAgenticAmount / revenue > 50;
+
+  // Known remaining weakness: an agent that simply sweeps its earnings to an
+  // owner wallet also shows a low balance, so this signal still rewards normal
+  // treasury hygiene. Treat a high score here as "worth a look", never as
+  // evidence of a false claim.
   const mismatch =
-    agent.grossAgenticAmount > 1000 && balance < 100
+    agent.grossAgenticAmount > 1000 && balance < 100 && !notionalVolume
       ? Math.min(Math.log10(agent.grossAgenticAmount + 1) / 9, 1)
       : 0;
 
@@ -138,8 +157,24 @@ function computeScore(agent: AcpAgent, medianAgdpPerJob: number): ScoreResult {
   const audience = Math.min(Math.log10(agent.uniqueBuyerCount + 1) / 4, 1);
 
   // 4. Recency — currently active = more interesting.
+  //
+  // The ACP API returns 2999-12-31T00:00:00.000Z as a placeholder when it has
+  // no real last-active timestamp. Read literally that is ~973 years in the
+  // future, every `days < N` test passes, and the agent scores maximum recency
+  // for having no activity data at all. In Oct 2026 that was three of the top
+  // ten, including the #1 and #2 candidates. Treat any date more than a day
+  // ahead as the placeholder it is; under a day is ordinary clock skew.
   const days = daysSince(agent.lastActiveAt);
-  const recency = days < 7 ? 1.0 : days < 30 ? 0.5 : days < 90 ? 0.2 : 0.0;
+  const recencyKnown = Number.isFinite(days) && days > -1;
+  const recency = !recencyKnown
+    ? 0
+    : days < 7
+      ? 1.0
+      : days < 30
+        ? 0.5
+        : days < 90
+          ? 0.2
+          : 0.0;
 
   const total = outlier * 0.30 + mismatch * 0.30 + audience * 0.25 + recency * 0.15;
 
@@ -150,11 +185,16 @@ function computeScore(agent: AcpAgent, medianAgdpPerJob: number): ScoreResult {
       outlier * 0.30,
     ],
     [
-      `claim-vs-onchain mismatch ($${(agent.grossAgenticAmount / 1e6).toFixed(1)}M aGDP, wallet $${balance.toFixed(2)})`,
+      `reported aGDP vs reported balance ($${(agent.grossAgenticAmount / 1e6).toFixed(1)}M aGDP, API walletBalance $${balance.toFixed(2)}, unverified)`,
       mismatch * 0.30,
     ],
     [`high audience pull (${agent.uniqueBuyerCount.toLocaleString()} unique buyers)`, audience * 0.25],
-    [`recently active (${days.toFixed(0)}d ago)`, recency * 0.15],
+    [
+      recencyKnown
+        ? `recently active (${Math.max(days, 0).toFixed(0)}d ago)`
+        : 'last-active unknown (API placeholder date)',
+      recency * 0.15,
+    ],
   ];
   const top = signals.sort((a, b) => b[1] - a[1])[0];
 

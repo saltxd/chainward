@@ -1,6 +1,35 @@
 {
   "decodes": [
     {
+      "slug": "binance-7702-delegation",
+      "title": "Binance's Hot Wallet Was Signed Over to the Attacker for 3 Hours, 49 Minutes and 36 Seconds",
+      "subtitle": "An EIP-7702 delegation installed 3 minutes 24 seconds before the sweep, on 50 authorizations signed minutes earlier. Closed 00:10:35 UTC.",
+      "date": "2026-10-30",
+      "url": "https://chainward.ai/decodes/binance-7702-delegation",
+      "addresses": [
+        "0x53bd38b816c23e74134786c29a8c18d792777998",
+        "0x7c8601d4645b93cea45f71e118a729332e6b5ca0",
+        "0x28c6c06298d514db089934071355e5743bf21d60",
+        "0x5227f603c1ee34ce3c06efe6477003bdfccb2f8c",
+        "0xef010063e842b054bd624a465454d533c33f573e",
+        "0x63e842b054bd624a465454d533c33f573e9c6fae",
+        "0xafbf94c92a8d749988411669fa14d4f8866d9b44",
+        "0x0000000000000000000000000000000000000000",
+        "0xad99264d5532ae0dd04b2004eebda05f25657e70",
+        "0xdfd5293d8e347dfe59e90efd55b2956a1343963d",
+        "0xd4e08d3ef0cb02a75922913c61984fbf7fe4bbc4",
+        "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055",
+        "0x0000000000be226afde21672a5e4adc45692e69d",
+        "0x8532fa14acaf483729c449b8458aeddb900543d4",
+        "0x31635438e2aa090a6e40afe91bd1c0452f3bbd73",
+        "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "0x9749292d74fd460982d0912ea9515ea24736c762",
+        "0x9749110a86941480dbefca1efdc0ceb528a0c762",
+        "0x0ddf0480016e6bcb2c1f5d190d221fba1320697e",
+        "0x0ddf2795c768e21415fe758f7962a6cbf111697e"
+      ]
+    },
+    {
       "slug": "four-agents-one-wallet",
       "title": "Four Virtuals Agents, One Wallet, 77 Seconds Apart",
       "subtitle": "One wallet made four Virtuals agents in 77 seconds. All four were top-20 earners, and most of their buyers are the same 1,100 wallets.",
@@ -697,6 +726,68 @@
     }
   ],
   "byAddress": {
+    "0x53bd38b816c23e74134786c29a8c18d792777998": [
+      "binance-7702-delegation"
+    ],
+    "0x7c8601d4645b93cea45f71e118a729332e6b5ca0": [
+      "binance-7702-delegation"
+    ],
+    "0x28c6c06298d514db089934071355e5743bf21d60": [
+      "binance-7702-delegation"
+    ],
+    "0x5227f603c1ee34ce3c06efe6477003bdfccb2f8c": [
+      "binance-7702-delegation"
+    ],
+    "0xef010063e842b054bd624a465454d533c33f573e": [
+      "binance-7702-delegation"
+    ],
+    "0x63e842b054bd624a465454d533c33f573e9c6fae": [
+      "binance-7702-delegation"
+    ],
+    "0xafbf94c92a8d749988411669fa14d4f8866d9b44": [
+      "binance-7702-delegation"
+    ],
+    "0x0000000000000000000000000000000000000000": [
+      "binance-7702-delegation"
+    ],
+    "0xad99264d5532ae0dd04b2004eebda05f25657e70": [
+      "binance-7702-delegation"
+    ],
+    "0xdfd5293d8e347dfe59e90efd55b2956a1343963d": [
+      "binance-7702-delegation"
+    ],
+    "0xd4e08d3ef0cb02a75922913c61984fbf7fe4bbc4": [
+      "binance-7702-delegation"
+    ],
+    "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055": [
+      "binance-7702-delegation",
+      "x402-on-base-two-weeks-later",
+      "x402-on-base"
+    ],
+    "0x0000000000be226afde21672a5e4adc45692e69d": [
+      "binance-7702-delegation"
+    ],
+    "0x8532fa14acaf483729c449b8458aeddb900543d4": [
+      "binance-7702-delegation"
+    ],
+    "0x31635438e2aa090a6e40afe91bd1c0452f3bbd73": [
+      "binance-7702-delegation"
+    ],
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": [
+      "binance-7702-delegation"
+    ],
+    "0x9749292d74fd460982d0912ea9515ea24736c762": [
+      "binance-7702-delegation"
+    ],
+    "0x9749110a86941480dbefca1efdc0ceb528a0c762": [
+      "binance-7702-delegation"
+    ],
+    "0x0ddf0480016e6bcb2c1f5d190d221fba1320697e": [
+      "binance-7702-delegation"
+    ],
+    "0x0ddf2795c768e21415fe758f7962a6cbf111697e": [
+      "binance-7702-delegation"
+    ],
     "0x476fff09a555c223e98c1e8571676fcca7af9849": [
       "four-agents-one-wallet"
     ],
@@ -1211,10 +1302,6 @@
     ],
     "0x0beade8a82de601ba91a39330cd163fd9aa7514a": [
       "x402-on-base-two-weeks-later"
-    ],
-    "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055": [
-      "x402-on-base-two-weeks-later",
-      "x402-on-base"
     ],
     "0xacc7aebf890612432522c7971cf3882272cdb406": [
       "x402-on-base-two-weeks-later"

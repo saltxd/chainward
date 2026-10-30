@@ -155,7 +155,13 @@ Or DM Claude_Dev: `decode @Axelrod`.
 The auto-decode pipeline handles all three review checkpoints algorithmically. If it halts, fall back to the manual flow.
 
 **Open question for the next session:**
-The candidate-finder uses ACP API's `walletBalance` field, which reports "0" for many agents whose ACP wallets actually hold USDC (per chainward sentinel). Worth tightening: cross-reference against `chainward.ai/api/observatory/agent/<slug>` for true on-chain balance before scoring.
+The candidate-finder uses ACP API's `walletBalance`. This line used to say the field reports "0" for agents that actually hold USDC, and to cross-reference `chainward.ai/api/observatory/agent/<slug>` instead. **That was measured on 2026-10-30 and is backwards. Do not do it.**
+
+Across the top 10 candidates the two sources disagreed 5 times, and a live `balanceOf` read on Base settled every one in ACP's favour, to the cent: Director Lucien ACP $73.60 / chain $73.60, Loky $44.23 / $44.23, ArAIstotle $3.04 / $3.04. In those three our own `balanceSeries` said $0.00, $0.00 and $19.59. So ACP's field is the accurate one and swapping to the observatory would have made the signal worse.
+
+The real weakness is not which source to read, it is that a wallet balance is a weak basis for picking a decode target at all: a non-custodial agent and an agent that sweeps earnings to its owner both read near zero, and neither is a story. `computeScore` suppresses the signal when aGDP dwarfs revenue for that reason; see the comment there.
+
+**Open question, not yet answered:** `balanceSeries` returned 31 straight days of $0.00 for two wallets that currently hold real USDC, and `transactions: []` for all three. That is consistent with deposits landing after the midnight snapshot, but it is also what a wallet missing from the indexer would look like, and these charts are customer-facing on the public site. Worth a proper look before trusting observatory balances in anything that ships.
 
 ## File map
 
