@@ -47,9 +47,15 @@ function buildManifest() {
   for (const dir of readdirSync(DELIVERABLES, { withFileTypes: true })) {
     if (!dir.isDirectory()) continue;
     const dirPath = join(DELIVERABLES, dir.name);
-    const mdFile = readdirSync(dirPath).find(
+    // decode.md is the canonical file. Fall back to the first other markdown
+    // file only for the older dirs that predate that convention (e.g. ethy-ai).
+    // Without the preference, any research note sorting before decode.md
+    // (correction-proposal.md, say) wins the glob, parses with no slug, and
+    // silently drops an already-published decode from the manifest.
+    const mdFiles = readdirSync(dirPath).filter(
       (f) => f.endsWith('.md') && !SKIP_FILES.has(f),
     );
+    const mdFile = mdFiles.includes('decode.md') ? 'decode.md' : mdFiles[0];
     if (!mdFile) continue;
 
     const raw = readFileSync(join(dirPath, mdFile), 'utf-8');
