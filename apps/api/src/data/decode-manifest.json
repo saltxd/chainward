@@ -1,6 +1,30 @@
 {
   "decodes": [
     {
+      "slug": "ax1-console-x402-demand",
+      "title": "About Half of AX1 Console's Agent Runs Were Paid With AX1's Own USDC",
+      "subtitle": "We checked all 677,593 of AX1 Console's x402 payments. About half were paid with USDC that AX1's own wallets gave out as prizes and credit.",
+      "date": "2026-10-30",
+      "url": "https://chainward.ai/decodes/ax1-console-x402-demand",
+      "addresses": [
+        "0x0e15b2ad2b48171487c6c368b7c7146ddb7281b6",
+        "0x7284d41b5b852f2bd4c99bdf95043d84452d299c",
+        "0x10ba273982ddf5f2a35bc97725848b9dc1d82bb0",
+        "0x162f10a4a373a291d55b04dc1d312779215019bc",
+        "0xea8bbe4f9c4ef9fbaaccafe8ee2e5e5c176995d9",
+        "0xc4e807b8218036d322f70e77d31f0003af0c9fb5",
+        "0xd1a39ec29bb9e3f21c15653c5903a5183669e986",
+        "0xfadc10cbe04085a75df944795caabfcfb75a46f4",
+        "0xf79b27ed5b97bc8b11b1a6f4908aa552b8f04078",
+        "0xa70ffa6bc3407010828ed5fcd918a8b57d3df1d6",
+        "0x85b2e6b53f05f4289b07062bf9f30cfc8808a13a",
+        "0x7cd01dd1956b135755cdce0b07c9decefaa9fbc3",
+        "0xeed165e3a6142f7e1b5720cf97d4a33ba808a06b",
+        "0x3dd6f35c88f3ae22feccbde524caf9874aab1af7",
+        "0x23d137182e9debfe42ceed9f07f2fa7d8460d224"
+      ]
+    },
+    {
       "slug": "binance-7702-delegation",
       "title": "Binance's Hot Wallet Was Signed Over to the Attacker for 3 Hours, 49 Minutes and 36 Seconds",
       "subtitle": "An EIP-7702 delegation installed 3 minutes 24 seconds before the sweep, on 50 authorizations signed minutes earlier. Closed 00:10:35 UTC.",
@@ -726,6 +750,54 @@
     }
   ],
   "byAddress": {
+    "0x0e15b2ad2b48171487c6c368b7c7146ddb7281b6": [
+      "ax1-console-x402-demand"
+    ],
+    "0x7284d41b5b852f2bd4c99bdf95043d84452d299c": [
+      "ax1-console-x402-demand",
+      "x402-top-ten-self-funded",
+      "x402-on-base"
+    ],
+    "0x10ba273982ddf5f2a35bc97725848b9dc1d82bb0": [
+      "ax1-console-x402-demand"
+    ],
+    "0x162f10a4a373a291d55b04dc1d312779215019bc": [
+      "ax1-console-x402-demand"
+    ],
+    "0xea8bbe4f9c4ef9fbaaccafe8ee2e5e5c176995d9": [
+      "ax1-console-x402-demand"
+    ],
+    "0xc4e807b8218036d322f70e77d31f0003af0c9fb5": [
+      "ax1-console-x402-demand"
+    ],
+    "0xd1a39ec29bb9e3f21c15653c5903a5183669e986": [
+      "ax1-console-x402-demand"
+    ],
+    "0xfadc10cbe04085a75df944795caabfcfb75a46f4": [
+      "ax1-console-x402-demand"
+    ],
+    "0xf79b27ed5b97bc8b11b1a6f4908aa552b8f04078": [
+      "ax1-console-x402-demand"
+    ],
+    "0xa70ffa6bc3407010828ed5fcd918a8b57d3df1d6": [
+      "ax1-console-x402-demand"
+    ],
+    "0x85b2e6b53f05f4289b07062bf9f30cfc8808a13a": [
+      "ax1-console-x402-demand"
+    ],
+    "0x7cd01dd1956b135755cdce0b07c9decefaa9fbc3": [
+      "ax1-console-x402-demand"
+    ],
+    "0xeed165e3a6142f7e1b5720cf97d4a33ba808a06b": [
+      "ax1-console-x402-demand"
+    ],
+    "0x3dd6f35c88f3ae22feccbde524caf9874aab1af7": [
+      "ax1-console-x402-demand",
+      "x402-on-base"
+    ],
+    "0x23d137182e9debfe42ceed9f07f2fa7d8460d224": [
+      "ax1-console-x402-demand"
+    ],
     "0x53bd38b816c23e74134786c29a8c18d792777998": [
       "binance-7702-delegation"
     ],
@@ -950,10 +1022,6 @@
     ],
     "0x0f99fc0cbd7a114b2da171fda5a0167858f7afc2": [
       "x402-top-ten-self-funded"
-    ],
-    "0x7284d41b5b852f2bd4c99bdf95043d84452d299c": [
-      "x402-top-ten-self-funded",
-      "x402-on-base"
     ],
     "0xe9030014f5dae217d0a152f02a043567b16c1abf": [
       "x402-top-ten-self-funded",
@@ -1689,9 +1757,6 @@
       "x402-on-base"
     ],
     "0x171edde4606c9d517282abf105208bcadf37f67b": [
-      "x402-on-base"
-    ],
-    "0x3dd6f35c88f3ae22feccbde524caf9874aab1af7": [
       "x402-on-base"
     ],
     "0x93862e5b2b1fa10a01772e7e9ca7cdc7deb5ca25": [
