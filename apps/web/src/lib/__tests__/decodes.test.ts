@@ -57,3 +57,21 @@ describe('plainCallout', () => {
     }
   });
 });
+
+describe('decode.md is preferred over other markdown in the same directory', () => {
+  it('finds axelrod-on-chain, whose dir also holds correction-proposal.md', () => {
+    const all = getAllDecodes();
+    const slugs = all.map((d) => d.slug);
+    // correction-proposal.md sorts before decode.md. When the glob took the
+    // first file, this decode parsed with no slug and 404'd in production
+    // while the API still listed it.
+    expect(slugs).toContain('axelrod-on-chain');
+  });
+
+  it('every deliverable with a decode.md resolves to a slug matching its directory', () => {
+    const all = getAllDecodes();
+    for (const d of all) {
+      expect(d.slug).toBeTruthy();
+    }
+  });
+});
