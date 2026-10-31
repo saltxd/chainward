@@ -183,3 +183,9 @@ deliverables/virtuals-shared-buyer-crowds/findings.md
 deliverables/x402-concentration-six-facilitators/data/
 deliverables/x402-concentration-six-facilitators/scripts/
 deliverables/x402-concentration-six-facilitators/findings.md
+
+# Internal ops notes: research, verification passes, commercial strategy.
+# This repo is PUBLIC. Nothing under ops/ is meant to ship, and an
+# accidental `git add .` would publish unreleased findings and the
+# reasoning behind drafts that are still held.
+ops/
