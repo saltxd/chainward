@@ -7,11 +7,13 @@
 **Token:** `0x58Db197E91Bc8Cf1587F75850683e4bd0730e6BF`
 **Status:** Active. Self-custody, ERC-4337 smart account routed via EntryPoint v0.7.
 
+> **Naming corrected 2026-10-29.** This file originally called `0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0` the "Axelrod execution contract". It is the **shared Virtuals ACP router**, the address the ACP API returns as `contractAddress` for v2 agents generally (140 of 200 sampled across the registry, under 71 distinct owner wallets). Every fee figure, rate and receipt below is unaffected: the flow through the router is real and was measured from Axelrod's own transactions. Only the ownership implied by the name was wrong. See `correction-proposal.md` in this folder.
+
 ---
 
 ## Executive Summary
 
-Axelrod is a Virtuals ACP swap-execution agent on Base, structurally similar to Ethy AI. Per the API, it has executed 41,515 successful jobs against $106.9M in `grossAgenticAmount` (aGDP) for $28,078.57 in `revenue`. The on-chain architecture is the standard Virtuals two-leg flow: user collateral and percentage fee deposit into a single execution contract (`0xa6C9BA86...`), which in the same transaction splits the fee 80/20 between the agent's ACP wallet and a Virtuals-platform EOA (`0xE968...64C1`), then forwards the post-fee collateral to a swap-pool EOA (`0x1e7a617e...`). Every one of 7 sentinel-verified receipts showed the same fee rate within rounding: **0.300% gross, with 80% (0.240% of notional) credited to Axelrod's ACP wallet**. The `close_position` fixed fee ($0.10) splits identically: $0.080 → ACP wallet, $0.020 → platform.
+Axelrod is a Virtuals ACP swap-execution agent on Base, structurally similar to Ethy AI. Per the API, it has executed 41,515 successful jobs against $106.9M in `grossAgenticAmount` (aGDP) for $28,078.57 in `revenue`. The on-chain architecture is the standard Virtuals two-leg flow: user collateral and percentage fee deposit into the shared Virtuals ACP router (`0xa6C9BA86...`, platform infrastructure, not an Axelrod contract), which in the same transaction splits the fee 80/20 between the agent's ACP wallet and a Virtuals-platform EOA (`0xE968...64C1`), then forwards the post-fee collateral to a swap-pool EOA (`0x1e7a617e...`). Every one of 7 sentinel-verified receipts showed the same fee rate within rounding: **0.300% gross, with 80% (0.240% of notional) credited to Axelrod's ACP wallet**. The `close_position` fixed fee ($0.10) splits identically: $0.080 → ACP wallet, $0.020 → platform.
 
 The ACP wallet balance is $6.24 USDC (live). aGDP exceeds reported revenue by 3,808× — consistent with aGDP measuring through-flow (collateral both legs) rather than fee economics. We do NOT extrapolate a precise inflation multiplier from this gap.
 
@@ -69,7 +71,7 @@ The detail endpoint returned `lastActiveAt: 2999-12-31T00:00:00.000Z` at the top
 | Address | Role | Type | Source |
 |---|---|---|---|
 | `0x999A1B60...624E1` | **Axelrod ACP wallet** | ERC-4337 SemiModularAccountBytecode (proxy `erc7760`) | Blockscout `/addresses/0x999A...` |
-| `0xa6C9BA86...9df0` | **Axelrod execution contract** (`contractAddress` per API) | ERC1967Proxy, verified contract | Blockscout `/addresses/0xa6C9...` |
+| `0xa6C9BA86...9df0` | **Shared Virtuals ACP router** (`contractAddress` per API, same value for v2 agents generally) | ERC1967Proxy, verified contract; UUPS, admin slot zero, `owner()` reverts | Blockscout `/addresses/0xa6C9...`; ACP API sample 2026-10-29 |
 | `0xEF4364Fe...856c7F` | **Virtuals PaymentManager** (handles fixed-fee jobs) | ERC1967Proxy → impl `PaymentManager` | Blockscout `/addresses/0xEF43...` |
 | `0xE968...64C1` (`0xe9683559a1177a83825a42357a94f61b26cd64c1`) | **Virtuals platform fee collector** (the 20% recipient) | EOA, holds 0.005 ETH live | Blockscout |
 | `0x1e7a617e...2cf77` | **Swap settlement EOA** (post-fee collateral destination) | EOA, holds 0.27 ETH live, contractually receives swap output | Blockscout |
@@ -97,7 +99,7 @@ The ACP wallet has 7 direct transactions (Blockscout `/counters`) but **284,412 
 
 | Leg | From | To | USDC |
 |---|---|---|---|
-| User collateral + fee in | `0xd98e...28acc` (user) | `0xa6C9...9df0` (NFT/exec) | **80.000000** |
+| User collateral + fee in | `0xd98e...28acc` (user) | `0xa6C9...9df0` (shared ACP router) | **80.000000** |
 | Platform 20% fee out | `0xa6C9...9df0` | `0xE968...64C1` (platform) | 0.048000 |
 | **Agent 80% fee out** | `0xa6C9...9df0` | `0x999A...624E1` (ACP) | **0.192000** |
 | Post-fee swap leg | `0xa6C9...9df0` | `0x1e7a...2cf77` (pool) | 79.760000 |
@@ -182,7 +184,7 @@ We did **not** verify `stake` ($1), `redeem` ($5), or `auto_trade_stop` ($5) —
 
 **Verified across both fee paths:**
 
-1. **Percentage path (in-execution):** The Axelrod execution contract `0xa6C9BA86...9df0` (an `ERC1967Proxy`) emits both fee transfers atomically inside the same tx as the user's deposit. Tx A through F all show this pattern: one log moves the platform 20%, the next moves the agent 80%, the next moves the post-fee swap output.
+1. **Percentage path (in-execution):** The shared Virtuals ACP router `0xa6C9BA86...9df0` (an `ERC1967Proxy`) emits both fee transfers atomically inside the same tx as the user's deposit. Tx A through F all show this pattern: one log moves the platform 20%, the next moves the agent 80%, the next moves the post-fee swap output.
 
 2. **Fixed-fee path (PaymentManager direct):** Tx G (`0xd4e2083974...`) is the canonical close_position settlement. The ERC1967Proxy at `0xEF4364Fe...` (impl: `PaymentManager`) emits two USDC Transfer logs in sequence:
 
@@ -220,7 +222,7 @@ Note that the platform recipient `0xE968...64C1` for Axelrod is *not* the same a
 ### Static counterparties
 
 - All swap legs route post-fee collateral to `0x1e7a617e...2cf77` (EOA, the swap settlement wallet). This is consistent across all 6 percentage-priced txs.
-- All percentage fees flow through `0xa6C9BA86...9df0` (the Axelrod execution contract).
+- All percentage fees flow through `0xa6C9BA86...9df0` (the shared Virtuals ACP router).
 - All fixed fees flow through `0xEF4364Fe...` (Virtuals PaymentManager).
 
 **The agent does not receive raw user collateral. It receives only the 80% fee leg.** This means the ACP wallet's USDC balance is always small ($6.24 live) — it is not a custody wallet. Custody of in-flight swap collateral lives with `0x1e7a617e...` (the principal swap operator).

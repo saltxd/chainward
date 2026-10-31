@@ -145,3 +145,27 @@ deliverables/railway-breach-agent-wallets/findings.md
 deliverables/ax1-console-x402-demand/data/
 deliverables/ax1-console-x402-demand/scripts/
 deliverables/ax1-console-x402-demand/findings.md
+
+# Right-of-reply drafts are correspondence, never commit
+deliverables/*/right-of-reply.txt
+deliverables/four-agents-one-wallet/data/
+deliverables/four-agents-one-wallet/scripts/
+deliverables/four-agents-one-wallet/findings.md
+deliverables/otto-ai-trade-execution/data/
+deliverables/otto-ai-trade-execution/scripts/
+deliverables/otto-ai-trade-execution/findings.md
+deliverables/virtuals-shared-buyer-crowds/data/
+deliverables/virtuals-shared-buyer-crowds/scripts/
+deliverables/virtuals-shared-buyer-crowds/findings.md
+deliverables/who-can-spend-your-wallet/data/
+deliverables/who-can-spend-your-wallet/scripts/
+deliverables/who-can-spend-your-wallet/findings.md
+deliverables/binance-incident-oct2026/data/
+deliverables/binance-incident-oct2026/scripts/
+deliverables/binance-7702-delegation/data/
+deliverables/binance-7702-delegation/scripts/
+
+# Limitless referral fleet decode: wallet lists, leaderboard captures and scan output stay private
+deliverables/limitless-referral-fleet/data/
+deliverables/limitless-referral-fleet/scripts/
+deliverables/limitless-referral-fleet/findings.md

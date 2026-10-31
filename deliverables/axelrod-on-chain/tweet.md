@@ -1,3 +1,5 @@
+> **Naming corrected 2026-10-29.** The line below originally read "Axelrod's exec contract". `0xa6C9BA86...` is the **shared Virtuals ACP router**, platform infrastructure returned as `contractAddress` for v2 agents generally, not an Axelrod contract. If this thread was posted as written, the live version on X still carries the wrong phrase. Whether to post a correction on X is the user's call, not an agent's. See `correction-proposal.md` in this folder.
+
 $106.9M.
 
 That's the aGDP for Axelrod, the #1 ACP agent on Virtuals.
@@ -12,7 +14,7 @@ Here's how it actually works.
 
 Pulled one $80 swap off my node to show you. Tx 0xfda92df3.
 
-User sends 80 USDC → Axelrod's exec contract.
+User sends 80 USDC → the shared Virtuals ACP router.
 
 Same tx, 4 transfers:
 - 0.048 to Virtuals (20%)

@@ -4,6 +4,8 @@ Verifier: citation
 Run at: 2026-04-28T22:45:00Z
 Decode under verification: revised draft (writer applied surgical fixes for `liquidityUsd` and 24h volume).
 
+> **Naming corrected 2026-10-29.** Rows below that call `0xa6C9BA866992cfD7fd6460ba912bfa405adA9df0` the "exec contract" or "Axelrod's swap proxy" use the wrong name. It is the **shared Virtuals ACP router**, returned as `contractAddress` for v2 agents generally (140 of 200 sampled, 71 distinct owners), not an Axelrod contract. The numeric and provenance facts those rows verified still PASS; only the label was wrong. See `correction-proposal.md` in this folder.
+
 ## Summary
 
 - Total claims: 53
@@ -20,7 +22,7 @@ Decode under verification: revised draft (writer applied surgical fixes for `liq
 | 3 | Tx `0xfda92df3...` block "44,503,093" | sentinel `eth_getTransactionReceipt` | blockNumber `0x2a71035` = 44,503,093 | PASS | — |
 | 4 | Tx A date "April 10" | sentinel block timestamp | 2026-04-10 04:32:13 UTC | PASS | — |
 | 5 | Tx A user wallet "`0xd98efa9b...28acc`" | sentinel receipt USDC Transfer log[2] `topics[1]` | `0xd98efa9b5198bdf85949445c10a7c97093328acc` | PASS | — |
-| 6 | Tx A "exec contract `0xa6C9...9df0`" recipient | sentinel receipt log[2] `topics[2]` | `0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0` | PASS | — |
+| 6 | Tx A "ACP router `0xa6C9...9df0`" recipient | sentinel receipt log[2] `topics[2]` | `0xa6c9ba866992cfd7fd6460ba912bfa405ada9df0` | PASS | Was "exec contract"; renamed 2026-10-29, it is the shared Virtuals ACP router |
 | 7 | Tx A "80.000000 USDC" user→exec | sentinel receipt log[2] data | 80,000,000 raw = 80.000000 USDC | PASS | — |
 | 8 | Tx A "0.048000 USDC platform 20%" | sentinel receipt log[4] data | 48,000 raw = 0.048000 USDC | PASS | — |
 | 9 | Tx A "0.192000 USDC ACP 80%" | sentinel receipt log[5] data | 192,000 raw = 0.192000 USDC | PASS | — |
@@ -61,7 +63,7 @@ Decode under verification: revised draft (writer applied surgical fixes for `liq
 | 44 | "98.78% of the LP token is wrapped in the Virtuals ve-style locker `0xf706d49A839cDEF08B10A46da1AC55bc986fe037`" | sentinel: locker AXR-LP balance / LP totalSupply | 2,302,851.49 / 2,331,407.80 = 98.7751% (rounds to 98.78%) | PASS | — |
 | 45 | swapTax sweep "tx `0x6f3c2a3ba9322f5b5d69c5513545062c4cad659db1d9287560c8a2caa0d983ce`, April 28" | Blockscout transactions API | block 45,305,283, timestamp 2026-04-28T18:11:53Z, method `swapTax(0x58Db197E...)`, to `0x8e0253dA409Faf5918FE2A15979fd878F4495D0E` ("Virtuals Protocol: Tax Swapper") | PASS | — |
 | 46 | TaxSwapper at "`0x8e0253dA409Faf5918FE2A15979fd878F4495D0E`" | Blockscout tx `to` field on swapTax sweep | match; Blockscout-tagged `Virtuals Protocol: Tax Swapper` | PASS | — |
-| 47 | "Virtuals deployer EOA `0x9547e85f3016303A2996271314BDE78b02021A28` that created Axelrod's swap proxy `0xa6C9BA86...`" | Blockscout addresses API for swap proxy `creator_address_hash` | `0x9547e85f3016303A2996271314BDE78b02021A28` | PASS | — |
+| 47 | "Virtuals deployer EOA `0x9547e85f3016303A2996271314BDE78b02021A28` that created Axelrod's swap proxy `0xa6C9BA86...`" | Blockscout addresses API for the router proxy `creator_address_hash` | `0x9547e85f3016303A2996271314BDE78b02021A28` | PASS on the creator fact, **FAIL on the naming** | The creator address is right. "Axelrod's swap proxy" is wrong: `0xa6C9BA86...` is the shared Virtuals ACP router, not Axelrod's. Caught 2026-10-29. This row is the one that should have failed at verification: the citation check confirmed the address and never questioned the possessive |
 | 48 | swap-settlement EOA "`0x1e7a617e...`" "holding 0.27 ETH live" | sentinel `eth_getBalance(0x1e7a617ed598a39ed5a735573fc56498d7a2cf77)` | 0.267539 ETH (rounds to 0.27 ETH) | PASS | — |
 | 49 | Tx B `0x1db3645c...` $30 swap, fee 0.300%, 0.072 ACP / 0.018 platform | sentinel receipt | block 44,789,204; user→exec 30,000,000 = $30; platform 18,000 = $0.018; ACP 72,000 = $0.072; pool 29,910,000 = $29.910 | PASS | — |
 | 50 | Tx C `0x03d0e154...` $15 swap, fee 0.300% | sentinel receipt | block 44,789,971; user→exec $15.000; platform $0.009; ACP $0.036; pool $14.955 | PASS | — |
