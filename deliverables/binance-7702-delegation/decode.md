@@ -9,6 +9,8 @@ seoTitle: "Binance Hot Wallet Incident, 29 Oct 2026: the EIP-7702 Delegation, It
 
 # Binance's Hot Wallet Was Signed Over to the Attacker for 3 Hours, 49 Minutes and 36 Seconds
 
+> **Correction, 2026-10-30 19:40 UTC.** This piece first reported four sweeps totalling 169,662.4938 ETH and said the account "closes cleanly" with "nothing came for it" after 23:38. That was wrong. A **fifth sweep** took **2,961.910821 ETH** at 23:56:47 UTC, sixty seconds after that amount arrived in the wallet, while the delegation was still live. The total is **172,624.4046 ETH**. We found this by reading the operator's account to the end; our first two passes both stopped at nonce 21. The sweep is confirmed by both transactions and by balance deltas on an independent archive endpoint agreeing to six decimals. The corrected figures are in the table below.
+
 **Figures here are as of Ethereum block 26,301,944, 2026-10-30 00:20 UTC.** Quantities, hashes and block numbers do not move. Dollar figures do: they are quotes at that point, with ETH at $2,256.74.
 
 The window this piece is about is closed. It opened at 20:20:59 UTC on 2026-10-29, when an EIP-7702 delegation pointed Binance's hot wallet at a contract the attacker had deployed four hours earlier. It closed at 00:10:35 UTC on 2026-10-30, when Binance signed a new authorization naming the zero address. **3 hours, 49 minutes and 36 seconds.** For all of it, anything that landed in that wallet could be taken out of it without Binance signing anything further.
@@ -23,7 +25,7 @@ The coverage says Binance was hacked and funds moved to unknown wallets. That is
 - **Whoever did this could sign at will with that key.** Fifty authorizations are fifty distinct signatures over fifty distinct payloads. The chain cannot tell you how that capability was obtained, and we do not guess.
 - **A second Binance wallet was drained 24 seconds later by a completely different method,** with no delegation at all: Binance 16's own key signed an ordinary ERC-20 transfer. Two Binance keys, two mechanisms, 24 seconds apart.
 - **The delegation also walked $823M of USDC out of a separate custody contract.** A stolen key spends what the key holds. A delegation spends what the key is trusted for.
-- **Binance was the fourth victim of a working day,** hit by the same EOA and the same function selector as three earlier wallets. Those three wallets were still delegated at our snapshot. Binance is the only one of the four that closed its window.
+- **Binance was the first victim. The three earlier wallets were the operator's own rehearsal.** The same account and the same function selector hit them hours before, but all three held **nothing** when they were delegated; the operator funded them with about $13.54 and took it back 14 to 17 minutes later, to test the contract it then pointed at Binance. A thief delegates a wallet that already holds something.
 - **The withdrawal pause is datable on-chain to the minute.** Binance 14's transaction rate fell about 96% at 20:24 UTC and had not recovered 4 hours later.
 - **The reported freeze figures hold up.** On Ethereum we can account for $2.21B frozen to the dollar. Four of the nine Tether-blacklisted Ethereum addresses hold zero, but the money had moved on and the freezes followed it down the hops: at least $175M of it sits frozen one address further along.
 - **Both stablecoin issuers froze Binance's own hot wallet before Binance revoked the delegation.** Tether at 22:06:23, Circle at 23:53:35, Circle on the custody contract at 23:54:59, revocation at 00:10:35. We offer no theory about why. The order is the finding.
@@ -96,11 +98,12 @@ The attacker used the window four times. Archive balances immediately before and
 | 21:44:11 | 26,301,167 | 370.8319 | 1.0000 | **369.8319** |
 | 22:39:35 | 26,301,444 | 129.4911 | 1.0000 | **128.4911** |
 | 23:36:47 to 23:38:23 (4 calls) | | 0.9199 | 0.9199 | 0 |
-| | | | | **169,662.4938 total** |
+| 23:56:47 | 26,301,828 | 2,962.9108 | 1.0000 | **2,961.9108** |
+| | | | | **172,624.4046 total** |
 
-Three things that total says that the quoted 167,464 does not. The theft was **four sweeps, not one**, and the ETH figure in circulation is the first of them. The attacker left **exactly 1.0 ETH** every time, which is a signature, not a rounding accident. And it is final: the last four calls, between 23:36:47 and 23:38:23, took no ETH at all. Between that last call and the revocation 32 minutes later the balance drifted up to 0.9997 ETH and nothing came for it.
+Three things that total says that the quoted 167,464 does not. The theft was **five sweeps, not one**, and the ETH figure in circulation is the first of them. The attacker left **exactly 1.0 ETH** every time, which is a signature, not a rounding accident. And the last of the five is the one that shows what a live delegation actually means: at 23:55:47, 2,961.990882 ETH arrived in Binance 14 from an unlabelled address, and **sixty seconds later** it was swept, leaving the same 1.0 ETH behind.
 
-So the account closes cleanly, which is why we can publish a total rather than a floor.
+The total is still final rather than a floor, because the delegation was revoked at 00:10:35 and nothing could be taken after that. But it is final for that reason alone, not because the attacker had finished.
 
 **The check, for anyone who wants it.** `eth_getCode` on `0x28C6c06298d514Db089934071355E5743bf21d60` against any Ethereum node or explorer. It now returns `0x`, which means no delegation. Anything beginning `0xef0100` means the address is delegated, and the 20 bytes after it tell you to what. It costs one call, it works on any address, and for three hours and fifty minutes it would have told you something about this wallet that no announcement did.
 
@@ -198,23 +201,30 @@ The innocent reading, that these were scheduled settlements that happened to lan
 
 **What we do not claim:** the proxy carries no public label. Circle has since blacklisted it, which is worth reporting and still is not ownership. We can show that Binance 14 can make it pay out, and that it did. We do not assert who operates it.
 
-## Binance was the fourth victim of a working day
+## Binance was the first victim. The other three were the rehearsal.
 
-The same calling EOA, using the same `0x8a179be4` selector, hit three other delegated wallets earlier the same day.
+The same calling account, using the same `0x8a179be4` selector, hit three other delegated wallets earlier the same day. **This piece originally called them victims and called Binance the fourth. That was wrong**, and the correction matters more than the arithmetic one above.
 
-| Target | Hit at, UTC | Delegate contract | Balance now | Still delegated at 00:20? |
-|---|---|---|---:|---|
-| `0x837810E3…FBc3` | 13:51 and 14:19 | `0x19beE294…70f2bf` | 0.001 ETH | **yes** |
-| `0x9C29BA2D…bB6B` | 13:51 and 14:24 | `0x19beE294…70f2bf` | 0.002 ETH | **yes** |
-| `0x43AEdb9B…04BD` | 16:20 to 16:47 | `0x63e842B0…9c6fAe` | 0.0 ETH | **yes** |
+Here is the fact that settles it. ETH held by each wallet at the exact block it was delegated:
 
-All three are drained to dust, and the third one carries the same delegate contract that was later pointed at Binance 14. We read `eth_getCode` on all three at block 26,301,944: every one still returns its attacker delegation. **Binance is the only one of the four victims that closed its window**, and it took 3 hours 49 minutes to do it. The other three wallets were, at our snapshot, still arrangements waiting for a deposit.
+| Wallet | Delegated, UTC | Held at that block | Delegate contract |
+|---|---|---:|---|
+| `0x837810E3…FBc3` | 13:51:35 | **0.000000** | `0x19beE294…70f2bf` |
+| `0x9C29BA2D…bB6B` | 13:51:59 | **0.000000** | `0x19beE294…70f2bf` |
+| `0x43AEdb9B…04BD` | 16:20:47 | **0.000000** | `0x63e842B0…9c6fAe` |
+| Binance 14 | 20:20:59 | **167,445.438154** | `0x63e842B0…9c6fAe` |
 
-There is a gas trail between victim three and victim four, and it is worth stating precisely rather than dramatically. At 16:47:23, block 26,299,690, the attacker's call to `0x43AEdb9B…04BD` moved **exactly 1.0 ETH** into `0xe4F9070e…cC74cd`, taking it from 0.0823 to 1.0823 ETH. That wallet sent 1.0822 ETH on to the attacker around 18:20, taking the attacker from 0.2935 to 1.3757 ETH, and is now dust. So victim three's ETH was swept into the wallet that funded the attacker before the Binance sweep 3 hours 37 minutes later.
+All three were empty when they were delegated. The money arrived afterwards, and it arrived from the operator. A single wallet, `0xFD41dA53…58f408`, funded all three: 0.001 and 0.002 ETH at 13:57, then 6.0 USDT, 3.0 USDT, 1.0 USDC, 1.0 USDC and 2.541994 USDT across the next twenty minutes. Each wallet was then drained **14, 17 and 16 minutes** after its funding. That funder's entire life is nine transactions on 2026-10-29; it bought the stablecoins itself on MetaMask Swap, and its only ETH came out of Tornado Cash's 0.1 ETH pool.
 
-We will not say it financed the attack, because it did not need to. The Binance sweep cost **0.000414 ETH** in gas and the attacker was already holding 0.2935 ETH before the top-up. It is a trail, not a dependency.
+**You cannot steal from an empty wallet you then fund yourself.** What the chain shows is an operator deploying a contract, pointing it at wallets it controlled, putting about $13.54 of its own money in, and taking it back out to confirm the contract worked. Wallet three received the second contract, `0x63e842B0…9c6fAe`, which is the one pointed at Binance 14 four hours later. Two generations, tested twice and once.
 
-The original funding predates the day. The attacker EOA was funded directly from Tornado Cash's 0.1 ETH pool (`0x12D66f87…16B8Fc`) as internal transfers: 0.09826 ETH at **2026-10-28 07:39:47 UTC**, 0.09789 ETH at 08:53:59, and 0.09794 ETH at 2026-10-29 08:23:11. The first of those is **36 hours and 44 minutes** before the sweep. Pre-positioned, not arranged on the day.
+So the sequence is not four victims. It is a build, a test, a revision, another test, and then the only theft of the day. A thief points a delegation at a wallet that already holds something, which is precisely what happened at 20:20:59.
+
+None of the three has revoked. We read `eth_getCode` on all three at block 26,301,944 and every one still returns its delegation, which is unsurprising for wallets whose owner has no reason to clean them up.
+
+One consequence for the earlier reading. We described **exactly 1.0 ETH** moving out of wallet three at 16:47:23 into `0xe4F9070e…cC74cd`, and then onward to the operator, as that wallet's stolen ETH reaching the attacker. It is the operator's own float completing a circuit: the same source put the ETH in and the same contract's hardcoded 1.0 floor handed it back. A round trip, not a theft, and it is worth saying because we got it wrong the first time.
+
+What does survive from the original reading is the funding, which predates the day entirely. The operator's account was funded directly from Tornado Cash's 0.1 ETH pool (`0x12D66f87…16B8Fc`) as internal transfers: 0.09826 ETH at **2026-10-28 07:39:47 UTC**, 0.09789 ETH at 08:53:59, and 0.09794 ETH at 2026-10-29 08:23:11. The first is **36 hours and 44 minutes** before the sweep. Pre-positioned, not arranged on the day.
 
 ## The withdrawal pause, datable to the minute
 
@@ -394,8 +404,8 @@ The poisoning fired on a thief moving billions, inside the first seven minutes, 
 
 - **One snapshot, one chain.** Block 26,301,944, 2026-10-30 00:20 UTC, Ethereum mainnet, except the Tron blacklist figures, which are labelled where they appear.
 - **A single-chain measurement cannot test a multi-chain claim, and we nearly published that mistake.** On Ethereum alone, the USDT freeze comes to $1,381,816,113 against $1.56B reported, which reads as $178M missing. It is not missing. The Tron blacklists in the same hour add $378,719,468, taking USDT to about $1.76B, roughly $200M **above** the reported figure. We had measured one chain and were about to call the difference a shortfall in two companies' public numbers during a live crisis. The Ethereum total in this piece is stated as an Ethereum total for that reason.
-- **The ETH figure is final, not a floor,** because the delegation is closed and the last four calls took nothing. Any figure published while the window was open was a floor.
-- **Dollar values move; quantities do not.** Totals are priced at our snapshot. Our Ethereum-only picture runs higher than some reported ones partly for that reason and partly because it counts four sweeps rather than one.
+- **The ETH figure is final, not a floor,** because the delegation was revoked at 00:10:35 and nothing could be taken after that. It is final for that reason alone. The four calls at 23:36:47 to 23:38:23 took nothing, but the sweep after them took 2,961.9108 ETH, so the attacker had not finished; the window closing is what ended it. Any figure published while the window was open was a floor.
+- **Dollar values move; quantities do not.** Totals are priced at our snapshot. Our Ethereum-only picture runs higher than some reported ones partly for that reason and partly because it counts five sweeps rather than one.
 - **The 11.7x baseline ratio is indicative.** It rests on 25 balance samples at 300-block intervals, so it measures the largest sampled net move, not the largest true hourly flow.
 - **Labels are third-party.** "Binance 14", "Binance 15", "Binance 16" and "Binance Hot Wallet Exploiter" are Etherscan's; the Tron labels are Tronscan's. We did not independently establish wallet ownership for any of them.
 - **No private individual is named here,** and none of the addresses above is attributed to a person.
@@ -403,7 +413,7 @@ The poisoning fired on a thief moving billions, inside the first seven minutes, 
 
 ## Method and sources
 
-- **Two independent passes.** An investigation pass and an adversarial re-verification pass, the second working from its own queries rather than the first's data, which is what caught the revocation, the fourth sweep, the 35th-of-50 nonce, the Tron freezes and the non-existent ETH payment. Figures here are the re-verified ones.
+- **Two independent passes, and a thing they both missed.** An investigation pass and an adversarial re-verification pass, the second working from its own queries rather than the first's data, which is what caught the revocation, the fourth sweep, the 35th-of-50 nonce, the Tron freezes and the non-existent ETH payment. Both passes nevertheless stopped reading the operator's account at nonce 21 and missed the fifth sweep at nonce 22, which a third pass on 2026-10-30 found. We published a total and called it final without reading to the end of a 23-transaction account. Figures here are the re-verified ones, corrected.
 - **Archive reads:** `mainnet.gateway.tenderly.co`, a keyless archive endpoint, for `eth_getCode`, `eth_getBalance` at historical blocks, `eth_getTransactionByHash`, `eth_getTransactionReceipt`, `eth_getBlockByNumber`, `eth_getTransactionCount` and `eth_call`. Read-only, paced at two requests a second or under.
 - **Transaction and transfer history:** `eth.blockscout.com` for address transaction lists, token transfer lists, internal transactions and token balances, and for the portfolio valuations explicitly labelled as such.
 - **Tron:** `api.trongrid.io`, public and keyless, for `AddedBlackList` events on the USDT contract `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` and for the resulting account balances.
