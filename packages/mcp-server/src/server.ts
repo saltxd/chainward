@@ -55,10 +55,66 @@ function asError(err: unknown) {
 export interface CreateServerOptions {
   baseUrl?: string;
   apiKey?: string;
+  /** Delay between polls of a queued check. Tests pass 0. */
+  checkPollMs?: number;
+  /** Polls before handing the check id back instead of waiting longer. */
+  checkPollTries?: number;
 }
+
+/** What POST /api/risk/check and GET /api/risk/check/:id answer with. */
+type CheckState =
+  | { status: 'ready' | 'stale'; report: unknown }
+  | { status: 'queued'; check_id: string }
+  | { status: 'pending' }
+  | { status: 'no_history' }
+  | { status: 'teaser'; teaser: unknown }
+  | { status: 'failed'; error?: string };
 
 export function createServer(opts: CreateServerOptions = {}): McpServer {
   const client = new ChainWardClient(opts);
+  const pollMs = opts.checkPollMs ?? 2_000;
+  const pollTries = opts.checkPollTries ?? 8;
+
+  const PAID_COUNTERPARTY =
+    'GET https://api.chainward.ai/api/risk/counterparty?address=0x… at $0.05 a call over x402 on Base, no account needed';
+
+  /**
+   * Runs a fresh check for a wallet with no report yet, and waits out a queued
+   * decode. The free budget is the API's (8 an hour per caller); a 429 names the
+   * paid route rather than leaving the agent with nowhere to go.
+   */
+  async function runFreshCheck(wallet: string, chain: string) {
+    let state = await client.post<CheckState>('/api/risk/check', { target: wallet, chain });
+
+    if (state.status === 'queued') {
+      const id = state.check_id;
+      for (let i = 0; i < pollTries; i += 1) {
+        if (pollMs > 0) await new Promise((resolve) => setTimeout(resolve, pollMs));
+        state = await client.get<CheckState>(`/api/risk/check/${id}`);
+        if (state.status !== 'pending') break;
+      }
+      if (state.status === 'pending') {
+        return asTextContent(
+          `ChainWard is running a fresh check of ${wallet} (check id ${id}); it is still running. Ask again in a minute: the finished report is cached, so the next call is instant and costs nothing.`,
+        );
+      }
+    }
+
+    if (state.status === 'ready' || state.status === 'stale') {
+      return asTextContent({ attested_on_chain: false, report: state.report });
+    }
+    if (state.status === 'no_history') {
+      return asTextContent(
+        `ChainWard checked ${wallet} on ${chain} and found no on-chain history for it: no transactions to read, so there is nothing to judge it on. Treat it as an unknown counterparty, not a cleared one.`,
+      );
+    }
+    if (state.status === 'teaser') {
+      return asTextContent({ attested_on_chain: false, teaser: state.teaser });
+    }
+    return asTextContent(
+      `ChainWard could not finish a check of ${wallet}: ${state.status === 'failed' ? (state.error ?? 'the decode failed') : state.status}.`,
+    );
+  }
 
   const server = new McpServer({
     name: 'chainward',
@@ -188,7 +244,7 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
   // ── Tool: check_counterparty ────────────────────────────────────────────────
   server.tool(
     'check_counterparty',
-    "Before paying or trusting an address on Base or BNB Chain, get ChainWard's verdict on it (the `verdict` field): a machine label pay / hold / unknown, a human text (Pay, Hold, Inactive, No track record or Couldn't check), the one reason it rests on, and its limits. The flags under it are the evidence. Pass chain: 'bsc' for a BNB Chain address (default 'base'). On Base, also the EAS attestation (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain (BNB Chain reports are not attested yet). Read from on-chain behavior only: Pay means nothing was found against paying, not a guarantee. If the address has no report yet, say so and point to the free check at https://chainward.ai (https://chainward.ai/?chain=bsc for BNB Chain).",
+    "Before paying or trusting an address on Base or BNB Chain, get ChainWard's verdict on it (the `verdict` field): a machine label pay / hold / unknown, a human text (Pay, Hold, Inactive, No track record or Couldn't check), the one reason it rests on, and its limits. The flags under it are the evidence. Pass chain: 'bsc' for a BNB Chain address (default 'base'). On Base, also the EAS attestation (uid + explorer link) when ChainWard has published one, so the result is verifiable on-chain (BNB Chain reports are not attested yet). Read from on-chain behavior only: Pay means nothing was found against paying, not a guarantee. If ChainWard has no report for the address yet, this runs a fresh check itself and returns the result, so you never have to send anyone to a web page; that is free up to an hourly budget, and once it is spent the reply names the paid route.",
     { wallet: walletSchema, chain: chainSchema },
     async ({ wallet, chain }) => {
       // Attestations are Base-only (EAS on Base); other chains go straight to the report.
@@ -207,11 +263,24 @@ export function createServer(opts: CreateServerOptions = {}): McpServer {
         return asTextContent({ attested_on_chain: false, ...data });
       } catch (err) {
         if (err instanceof ChainWardApiError && err.status === 404) {
-          return asTextContent(
-            chain === 'base'
-              ? `ChainWard has no report for ${wallet} yet. Run a free check at https://chainward.ai (paste the address); the report is public, and a fresh one that flags observed behavior can be attested on Base.`
-              : `ChainWard has no BNB Chain report for ${wallet} yet. Run a free check at https://chainward.ai/?chain=bsc (paste the address); the report is public.`,
-          );
+          // No report yet. Run one here: sending an agent off to paste the
+          // address into a web page is a dead end for the caller this serves.
+          try {
+            return await runFreshCheck(wallet, chain);
+          } catch (checkErr) {
+            if (checkErr instanceof ChainWardApiError && checkErr.status === 429) {
+              return {
+                isError: true,
+                content: [
+                  {
+                    type: 'text' as const,
+                    text: `ChainWard's free checks are used up for now (${checkErr.message}). The same check is ${PAID_COUNTERPARTY}.`,
+                  },
+                ],
+              };
+            }
+            return asError(checkErr);
+          }
         }
         return asError(err);
       }
