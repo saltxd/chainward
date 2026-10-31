@@ -55,10 +55,17 @@ export function stripLeadingTitle(content: string): string {
   return content.replace(/^\s*# [^\n]*\n+/, '');
 }
 
+/** `decode.md` is the canonical file. Fall back to the first other markdown
+ * file only for the older dirs that predate that convention (e.g. ethy-ai).
+ * Without the preference, any research note sorting before decode.md
+ * (correction-proposal.md, say) wins the glob, parses with no slug, and the
+ * decode 404s on a site that still lists it. That happened to
+ * axelrod-on-chain. The manifest script carries the same rule; both read
+ * these directories and both have to agree. */
 function findMarkdownFile(dirPath: string): string | null {
-  const files = fs.readdirSync(dirPath);
   const SKIP = new Set(['publish-checklist.md', 'thread.md', 'findings.md', 'architecture.md']);
-  const md = files.find((f) => f.endsWith('.md') && !SKIP.has(f));
+  const files = fs.readdirSync(dirPath).filter((f) => f.endsWith('.md') && !SKIP.has(f));
+  const md = files.includes('decode.md') ? 'decode.md' : files[0];
   return md ? path.join(dirPath, md) : null;
 }
 
