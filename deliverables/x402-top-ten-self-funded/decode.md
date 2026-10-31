@@ -109,6 +109,8 @@ For the other seven we ran the same trace: where the payTo's USDC went, and whet
 
 "No loop found" means the wallets this seller funded did not come back as buyers within the hops we walk. It does not mean the demand is real.
 
+> **Update, Oct 30, 2026.** That caveat turned out to matter for AX1 Console (#3). Looking at who funded the buyers rather than where the payTo's money went, about half of its runs were paid with AX1's own USDC. The loop was on the inbound side, which this trace does not walk. See [about half of AX1 Console's agent runs were paid with AX1's own USDC](/decodes/ax1-console-x402-demand).
+
 ## What a rank is worth
 
 Agent402's board does what it says: it counts USDC that settled to a payTo in 7 days. Coinbase's catalog stats count calls and payers. x402scan counts the same. None of them ask where the payer's money came from, and on Oct 13 that question changed the top ten: the first, fifth and seventh sellers are ranked on money that started with them.
