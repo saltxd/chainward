@@ -2,6 +2,11 @@
   "name": "@chainward/agentkit-plugin",
   "version": "0.1.4",
   "description": "ChainWard action provider for Coinbase AgentKit — real-time monitoring & alerts for AI agent wallets on Base",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saltxd/chainward.git",
+    "directory": "packages/agentkit-plugin"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
