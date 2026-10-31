@@ -13,11 +13,27 @@ export class ChainWardClient {
   }
 
   async get<T>(path: string): Promise<T> {
+    return this.request<T>(path);
+  }
+
+  /** POST JSON. Used to start a fresh risk check when no report exists yet. */
+  async post<T>(path: string, body: unknown): Promise<T> {
+    return this.request<T>(path, body);
+  }
+
+  private async request<T>(path: string, jsonBody?: unknown): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
 
-    const res = await fetch(url, { headers });
+    const init: RequestInit = { headers };
+    if (jsonBody !== undefined) {
+      init.method = 'POST';
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(jsonBody);
+    }
+
+    const res = await fetch(url, init);
     const body = (await res.json().catch(() => ({}))) as {
       success?: boolean;
       data?: unknown;
