@@ -116,7 +116,10 @@ export default async function X402WatchPage() {
               <WatchEmailLink placement="watch-hero" className="press-btn">
                 Email us your host →
               </WatchEmailLink>
-              <span className="wa-cta-note">First check free. Then $10 a month in USDC on Base.</span>
+              <span className="wa-cta-note">
+                First check free. Then $10 a month in USDC on Base, each month only if you keep it. No account, no
+                automatic charge. Stop any time by replying to one of our emails.
+              </span>
             </div>
           </header>
 
