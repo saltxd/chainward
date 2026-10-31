@@ -54,6 +54,21 @@ CHAINWARD_MCP_TRANSPORT=http PORT=3300 npx -y chainward-mcp-server
 
 Then point your client at `http://your-host:3300/mcp`.
 
+### Hosted endpoint (no install)
+
+We run one, so you do not have to:
+
+```
+https://api.chainward.ai/mcp
+```
+
+Same tools, no API key, nothing to install. It speaks Streamable HTTP, so the
+request needs `Accept: application/json, text/event-stream`; a plain `GET` in a
+browser answers `406` and that is correct, not an outage.
+
+Run the package yourself instead when you want to pin a version, keep traffic
+inside your own network, or point it at a different `CHAINWARD_API_URL`.
+
 ## Env vars
 
 | Var | Default | Description |
