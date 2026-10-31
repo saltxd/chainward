@@ -2,6 +2,11 @@
   "name": "@chainward/elizaos-plugin",
   "version": "0.1.4",
   "description": "ChainWard plugin for elizaOS — real-time monitoring & alerts for AI agent wallets on Base",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saltxd/chainward.git",
+    "directory": "packages/elizaos-plugin"
+  },
   "main": "dist/index.js",
   "type": "module",
   "types": "dist/index.d.ts",

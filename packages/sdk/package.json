@@ -2,6 +2,11 @@
   "name": "@chainward/sdk",
   "version": "0.1.3",
   "description": "ChainWard TypeScript SDK — programmatic access to agent monitoring & alerts on Base",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saltxd/chainward.git",
+    "directory": "packages/sdk"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
