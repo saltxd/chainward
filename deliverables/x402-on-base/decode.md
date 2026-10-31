@@ -106,6 +106,8 @@ Not a loop, but worth knowing: Polymer's settler [`0x66c40946…`](https://base.
 
 The top seller by count, the payTo x402scan lists for `ax1.vc` ([`0x7284d41b…`](https://base.blockscout.com/address/0x7284d41b5b852f2bd4c99bdf95043d84452d299c)), took **108,865 payments of exactly $0.02 from 775 buyers**, none of whom paid any other seller. At least 378 of those buyers were funded by one wallet, [`0x3dd6f35c…`](https://base.blockscout.com/address/0x3dd6f35c88f3ae22feccbde524caf9874aab1af7), which has sent **5,499 transfers of exactly $0.10**, five calls' worth, since at least Sep 18. We found no path from the seller back to that wallet, and the seller has never sent a token. This reads like an app seeding embedded wallets for its users; the chain can't show whether anyone paid for those credits off-chain. We counted it as ambiguous, not as a loop.
 
+> **Update, Oct 30, 2026.** We went back and measured it: about half of AX1 Console's agent runs were paid with AX1's own USDC, and 3,897 of 6,537 wallets made exactly five payments, the size of the free credit, and never paid again. The ambiguity flagged above is resolved in [about half of AX1 Console's agent runs were paid with AX1's own USDC](/decodes/ax1-console-x402-demand).
+
 ---
 
 ## What independent buying looks like
