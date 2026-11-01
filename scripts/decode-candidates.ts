@@ -79,14 +79,51 @@ function readDecodedAgents(): Set<string> {
 
 // ── ACP fetch ────────────────────────────────────────────────────────────
 
+/** Statuses worth another try: rate limiting, upstream wobble, and the 401 the
+ * gateway intermittently returns on an endpoint that needs no auth. We saw a
+ * single 401 kill a whole run on 2026-10-31, then the same URL answer 200
+ * minutes later, so a bare throw here takes out the caller for no reason. */
+const RETRYABLE = new Set([401, 408, 425, 429, 500, 502, 503, 504]);
+const MAX_ATTEMPTS = 4;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchAgentPage(page: number): Promise<AcpListResponse> {
+  const url = `${ACP_API}/agents?pagination%5Bpage%5D=${page}&pagination%5BpageSize%5D=50&sort=grossAgenticAmount:desc`;
+
+  let lastError = '';
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(url);
+    } catch (err) {
+      // Network-level failure (DNS, reset, timeout) is retryable too.
+      lastError = err instanceof Error ? err.message : String(err);
+      if (attempt === MAX_ATTEMPTS) break;
+      await sleep(500 * 2 ** (attempt - 1));
+      continue;
+    }
+
+    if (res.ok) return (await res.json()) as AcpListResponse;
+
+    lastError = `ACP API ${res.status}`;
+    // A non-retryable status is a real answer: fail now rather than hammer it.
+    if (!RETRYABLE.has(res.status)) throw new Error(lastError);
+    if (attempt === MAX_ATTEMPTS) break;
+
+    const backoff = 500 * 2 ** (attempt - 1);
+    console.warn(`  ${lastError} on page ${page}, retry ${attempt}/${MAX_ATTEMPTS - 1} in ${backoff}ms`);
+    await sleep(backoff);
+  }
+
+  throw new Error(`${lastError} on page ${page} after ${MAX_ATTEMPTS} attempts`);
+}
+
 async function fetchTopAgents(n: number): Promise<AcpAgent[]> {
   const out: AcpAgent[] = [];
   let page = 1;
   while (out.length < n) {
-    const url = `${ACP_API}/agents?pagination%5Bpage%5D=${page}&pagination%5BpageSize%5D=50&sort=grossAgenticAmount:desc`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`ACP API ${res.status}`);
-    const json = (await res.json()) as AcpListResponse;
+    const json = await fetchAgentPage(page);
     out.push(...json.data);
     if (page >= json.meta.pagination.pageCount) break;
     page++;
