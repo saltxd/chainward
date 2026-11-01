@@ -1,6 +1,20 @@
 {
   "decodes": [
     {
+      "slug": "fbi-608-wallets-that-never-spent",
+      "title": "The FBI Listed 628 Addresses. Not One of the 608 Ethereum Wallets Has Ever Spent.",
+      "subtitle": "All 608 carry nonce 0 at block 26,316,390. Nothing is derived from them yet, and the attacker's own account is not on the list.",
+      "date": "2026-11-01",
+      "url": "https://chainward.ai/decodes/fbi-608-wallets-that-never-spent",
+      "addresses": [
+        "0x09b177e2227c7f351488c182c9b935d7ef7cb194",
+        "0x09b1f2b8662adf1aa17581e119acf6265d21b194",
+        "0xb8c47c38455c92cad28ba40569d0ff409c649cb1",
+        "0x00000000219ab540356cbb839cbe05303d7705fa",
+        "0xe6b97aa1490c93c28a14d86c13c9dc9c950643ed"
+      ]
+    },
+    {
       "slug": "x402-one-platforms-own-volume",
       "title": "The x402 Growth Curve Is One Platform's Own Volume",
       "subtitle": "Base x402 volume is up 22x since Oct 19. We ran DefiLlama's query against the blocks: 95% is one facilitator, which warned about this first.",
@@ -760,6 +774,21 @@
     }
   ],
   "byAddress": {
+    "0x09b177e2227c7f351488c182c9b935d7ef7cb194": [
+      "fbi-608-wallets-that-never-spent"
+    ],
+    "0x09b1f2b8662adf1aa17581e119acf6265d21b194": [
+      "fbi-608-wallets-that-never-spent"
+    ],
+    "0xb8c47c38455c92cad28ba40569d0ff409c649cb1": [
+      "fbi-608-wallets-that-never-spent"
+    ],
+    "0x00000000219ab540356cbb839cbe05303d7705fa": [
+      "fbi-608-wallets-that-never-spent"
+    ],
+    "0xe6b97aa1490c93c28a14d86c13c9dc9c950643ed": [
+      "fbi-608-wallets-that-never-spent"
+    ],
     "0x3be45f576696a2fd5a93c1330cd19f1607ab311d": [
       "x402-one-platforms-own-volume"
     ],
