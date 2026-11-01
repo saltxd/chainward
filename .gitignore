@@ -189,3 +189,8 @@ deliverables/x402-concentration-six-facilitators/findings.md
 # accidental `git add .` would publish unreleased findings and the
 # reasoning behind drafts that are still held.
 ops/
+
+# FBI TraderTraitor derived-address decode: address pulls and expansion scripts stay local
+deliverables/fbi-608-wallets-that-never-spent/data/
+deliverables/fbi-608-wallets-that-never-spent/scripts/
+deliverables/fbi-608-wallets-that-never-spent/findings.md
