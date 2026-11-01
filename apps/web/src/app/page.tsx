@@ -1,9 +1,11 @@
 /**
- * Home has two doors. People: paste a wallet or a Base token and get the answer
- * free, with the newest findings, dated, right under the check so a visitor can
- * see the site is alive. Businesses (reward programs, launchpads, wallets, bots):
- * a free first check, then a regular one, quoted per program. Then the quiet
- * Intel Brief offer, how to read a report, and the recent wallet checks.
+ * Home leads with the one thing a buyer has paid for: proof of whether a payout
+ * number is being gamed, for programs paying out points, airdrops, trading
+ * rewards or referral bonuses, with one call to action (a free first check by
+ * email). The free tools come second, as proof and as the free way in: the
+ * newest findings, dated, then the paste-an-address check. Then launchpads and
+ * bots, the quiet Intel Brief offer, how to read a report, and the recent
+ * wallet checks.
  */
 
 import type { Metadata } from 'next';
@@ -102,16 +104,95 @@ export default async function CheckHomePage({
       <div className="press-wrap">
         <Masthead />
 
-        {/* Door one, for people: paste it, get the answer free. */}
-        <section className="home-hero">
+        {/* The buyer who pays: a program with a payout date and a number to defend. */}
+        <section className="home-hero" aria-label="For reward programs">
+          <div className="home-hero-lead">
+            <div className="press-fileno">
+              For reward programs <span className="ph-dateline-sep">·</span> Free first check
+            </div>
+            <h1 className="home-title press-display">
+              We prove whether a payout number is being gamed.
+            </h1>
+            <p className="home-kicker press-kicker">
+              For programs paying out points, airdrops, trading rewards or referral
+              bonuses: before your payout date, we show you how much of it is going to
+              linked wallets, with the transactions that tie them together.
+            </p>
+            <ul className="home-points">
+              <li>
+                <strong>Free first check:</strong> send us your program or your last payout
+                list. We measure how much of it went to linked wallets and show you the
+                clearest groups.
+              </li>
+              <li>
+                <strong>Then, before each payout:</strong> we screen the list and send you
+                every linked wallet, with the evidence, before the money goes out.
+              </li>
+            </ul>
+            <div className="home-cta">
+              <a
+                href="mailto:hello@chainward.ai?subject=Free%20first%20check"
+                className="press-btn"
+              >
+                Ask for a free first check →
+              </a>
+              <span className="home-cta-note">
+                hello@chainward.ai <span className="ph-dateline-sep">·</span> Quoted per
+                program, paid on delivery.
+              </span>
+            </div>
+            <p className="home-proof">
+              What a check finds:{' '}
+              <Link href="/decodes/termix-on-chain" className="press-link">
+                99% of TermiX&apos;s job fees came from wallets hiring each other
+              </Link>
+              .
+            </p>
+          </div>
+        </section>
+
+        {/* Proof, dated, so a visitor can see the method at work and the site alive. */}
+        <section className="home-latest" aria-label="Latest findings">
+          <div className="home-latest-head">
+            <span className="press-label">Latest findings</span>
+            <Link href="/decodes" className="press-link">
+              All findings →
+            </Link>
+          </div>
+          {featuredDecodes.length > 0 && (
+            <ol className="home-filings">
+              {featuredDecodes.map((d) => (
+                <li key={d.slug} className="home-filing">
+                  <Link href={`/decodes/${d.slug}`} className="home-filing-link">
+                    <time className="home-filing-date mono" dateTime={d.date}>
+                      {shortDate(d.date)}
+                    </time>
+                    <div className="home-filing-body">
+                      <h3 className="home-filing-title press-display">{d.title}</h3>
+                      {d.subtitle && (
+                        <p className="home-filing-sub">{d.subtitle}</p>
+                      )}
+                    </div>
+                    <span className="home-filing-read">Read →</span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        <hr className="press-rule" />
+
+        {/* The free way in, for anyone: paste an address, get the answer. */}
+        <section className="home-free" aria-label="Free check">
           <div className="home-hero-lead">
             <div className="press-fileno">
               Free check <span className="ph-dateline-sep">·</span> Base and BNB Chain
             </div>
-            <h1 className="home-title press-display">
+            <h2 className="home-free-title press-display">
               About to buy a token or pay a wallet? Paste the address first.
-            </h1>
-            <p className="home-kicker press-kicker">
+            </h2>
+            <p className="home-free-kicker press-kicker">
               Free, and back in about a minute.
             </p>
             <ul className="home-points">
@@ -144,76 +225,25 @@ export default async function CheckHomePage({
           </div>
         </section>
 
-        {/* What we found lately, dated, so a visitor can see the site is alive. */}
-        <section className="home-latest" aria-label="Latest findings">
-          <div className="home-latest-head">
-            <span className="press-label">Latest findings</span>
-            <Link href="/decodes" className="press-link">
-              All findings →
-            </Link>
-          </div>
-          {featuredDecodes.length > 0 && (
-            <ol className="home-filings">
-              {featuredDecodes.map((d) => (
-                <li key={d.slug} className="home-filing">
-                  <Link href={`/decodes/${d.slug}`} className="home-filing-link">
-                    <time className="home-filing-date mono" dateTime={d.date}>
-                      {shortDate(d.date)}
-                    </time>
-                    <div className="home-filing-body">
-                      <h3 className="home-filing-title press-display">{d.title}</h3>
-                      {d.subtitle && (
-                        <p className="home-filing-sub">{d.subtitle}</p>
-                      )}
-                    </div>
-                    <span className="home-filing-read">Read →</span>
-                  </Link>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-
         <hr className="press-rule" />
 
-        {/* Door two, for businesses: a free first check, then a regular one. */}
-        <section className="home-door" aria-label="For businesses">
-          <h2 className="home-h2 press-display">Running a reward program or a platform?</h2>
-          <div className="home-door-grid">
-            <div className="home-door-card">
-              <h3 className="home-door-title press-display">Reward programs</h3>
-              <p className="home-door-copy">
-                Points, airdrops, referral or trading rewards: send us your program or your
-                payout list and we run a free first check for farmed wallets, with the
-                on-chain evidence for each one. If it helps, we check every payout list
-                before it goes out.
-              </p>
-              <p className="home-door-proof">
-                What a check finds:{' '}
-                <Link href="/decodes/termix-on-chain" className="press-link">
-                  99% of TermiX&apos;s job fees came from wallets hiring each other
-                </Link>
-                .
-              </p>
-            </div>
-            <div className="home-door-card">
-              <h3 className="home-door-title press-display">Launchpads, wallets and trading bots</h3>
-              <p className="home-door-copy">
-                Warn your users before they buy. A free first check of your last week of
-                launches: which launch wallets dumped, and which launch dozens of tokens a
-                day. If it helps, get it as a daily feed or through our API.
-              </p>
-              <p className="home-door-proof">
-                See it on one token:{' '}
-                <Link href="/rugcheck" className="press-link">
-                  the free rug check
-                </Link>
-                .
-              </p>
-            </div>
-          </div>
+        {/* Platforms whose users buy tokens: the same rug check, for every launch. */}
+        <section className="home-door" aria-label="For platforms">
+          <h2 className="home-h2 press-display">Run a launchpad, a wallet or a trading bot?</h2>
+          <p className="home-door-copy">
+            Warn your users before they buy. A free first check of your last week of
+            launches: which launch wallets dumped, and which launch dozens of tokens a
+            day. If it helps, get it as a daily feed or through our API.
+          </p>
+          <p className="home-proof">
+            See it on one token:{' '}
+            <Link href="/rugcheck" className="press-link">
+              the free rug check
+            </Link>
+            .
+          </p>
           <p className="home-door-terms">
-            Quoted per program, paid on delivery.{' '}
+            Quoted per platform, paid on delivery.{' '}
             <a href="mailto:hello@chainward.ai?subject=Free%20first%20check" className="press-link">
               Ask for a free first check: hello@chainward.ai →
             </a>
@@ -227,7 +257,7 @@ export default async function CheckHomePage({
           <BriefOffer
             placement="landing-document"
             title="Need more than a list of flags?"
-            lede="Every check above is free. The Intel Brief is the full investigation on one wallet: we trace where the money goes, test every public claim against on-chain evidence, and hand you a written brief you can cite."
+            lede="The address checks above are free. The Intel Brief is the full investigation on one wallet: we trace where the money goes, test every public claim against on-chain evidence, and hand you a written brief you can cite."
           />
         </div>
 
@@ -288,9 +318,46 @@ export default async function CheckHomePage({
           line-height: 1.08;
           letter-spacing: -0.01em;
         }
+        /* A full sentence, so it sits at the decode dek's size, not a tagline's. */
         .home-kicker {
-          margin: 14px 0 0;
-          font-size: clamp(22px, 3vw, 34px);
+          margin: 16px 0 0;
+          font-size: clamp(20px, 2.6vw, 28px);
+          line-height: 1.3;
+          max-width: 760px;
+        }
+        .home-cta {
+          margin-top: 28px;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 12px 18px;
+        }
+        .home-cta-note {
+          font-family: var(--font-text);
+          font-size: 17px;
+          line-height: 1.45;
+          color: var(--ink-soft);
+        }
+        .home-proof {
+          margin: 12px 0 0;
+          font-family: var(--font-text);
+          font-size: 15px;
+          line-height: 1.5;
+          color: var(--ink-soft);
+        }
+        .home-hero .home-proof { margin-top: 20px; }
+        .home-free {
+          padding: 44px 0 40px;
+        }
+        .home-free-title {
+          margin: 18px 0 0;
+          font-size: clamp(28px, 4vw, 44px);
+          line-height: 1.1;
+          letter-spacing: -0.01em;
+        }
+        .home-free-kicker {
+          margin: 12px 0 0;
+          font-size: clamp(20px, 2.6vw, 28px);
           line-height: 1.15;
         }
         .home-points {
@@ -476,33 +543,12 @@ export default async function CheckHomePage({
         .home-door {
           padding: 44px 0;
         }
-        .home-door-grid {
-          margin-top: 24px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 28px;
-        }
-        .home-door-card {
-          border: 1px solid var(--rule);
-          padding: 22px 24px;
-        }
-        .home-door-title {
-          margin: 0;
-          font-size: 24px;
-          line-height: 1.1;
-        }
         .home-door-copy {
-          margin: 12px 0 0;
+          margin: 14px 0 0;
+          max-width: 720px;
           font-family: var(--font-text);
           font-size: 17px;
           line-height: 1.55;
-          color: var(--ink-soft);
-        }
-        .home-door-proof {
-          margin: 12px 0 0;
-          font-family: var(--font-text);
-          font-size: 15px;
-          line-height: 1.5;
           color: var(--ink-soft);
         }
         .home-door-terms {
@@ -514,9 +560,6 @@ export default async function CheckHomePage({
           font-family: var(--font-text);
           font-size: 17px;
           color: var(--ink);
-        }
-        @media (max-width: 780px) {
-          .home-door-grid { grid-template-columns: 1fr; }
         }
 
         .home-recent {
