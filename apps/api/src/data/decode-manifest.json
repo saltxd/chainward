@@ -1,6 +1,20 @@
 {
   "decodes": [
     {
+      "slug": "anthropic-token-220k-pool",
+      "title": "A Token Named 'Anthropic' Showed $55.7M of Volume. One Wallet Was Behind 99.99% of It.",
+      "subtitle": "Trackers showed $10.3M of liquidity and $55.7M of volume. The real USDC was $220k, the operator's own, and it was withdrawn on Nov 1.",
+      "date": "2026-11-01",
+      "url": "https://chainward.ai/decodes/anthropic-token-220k-pool",
+      "addresses": [
+        "0xf7b9cf4dab32ce42f1e08c05f561ccc0e7b44cea",
+        "0x6d5a76d1e0e9ff1d39e84a8ac8365770290f6715",
+        "0xabdab1f958150afc18c5f2f917a9eb542fb73450",
+        "0xeb2018cb61953898e049f24d7439f95d58d92e75",
+        "0xc733c04fe93866ad5a7aa8e7018a07aba11db9f1"
+      ]
+    },
+    {
       "slug": "fbi-608-wallets-that-never-spent",
       "title": "The FBI Listed 628 Addresses. Not One of the 608 Ethereum Wallets Has Ever Spent.",
       "subtitle": "All 608 carry nonce 0 at block 26,316,390. Nothing is derived from them yet, and the attacker's own account is not on the list.",
@@ -774,6 +788,21 @@
     }
   ],
   "byAddress": {
+    "0xf7b9cf4dab32ce42f1e08c05f561ccc0e7b44cea": [
+      "anthropic-token-220k-pool"
+    ],
+    "0x6d5a76d1e0e9ff1d39e84a8ac8365770290f6715": [
+      "anthropic-token-220k-pool"
+    ],
+    "0xabdab1f958150afc18c5f2f917a9eb542fb73450": [
+      "anthropic-token-220k-pool"
+    ],
+    "0xeb2018cb61953898e049f24d7439f95d58d92e75": [
+      "anthropic-token-220k-pool"
+    ],
+    "0xc733c04fe93866ad5a7aa8e7018a07aba11db9f1": [
+      "anthropic-token-220k-pool"
+    ],
     "0x09b177e2227c7f351488c182c9b935d7ef7cb194": [
       "fbi-608-wallets-that-never-spent"
     ],
