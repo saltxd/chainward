@@ -75,6 +75,8 @@ At 11:56 UTC on 2026-11-01, three transactions, all sent by `0x017c6044`, emptie
 
 The pool now holds about $0.0019 of USDC and no tokens. Thirty seconds later (block 53,372,451) the ~99B tokens were consolidated into `0x0efb3ae3…7793`, which holds 99,989,771,542 Anthropic today, 99.9898% of the supply. The $220,000.01 of USDC was sent onward from `0x017c6044`, mostly to `0xb0f8d3d5…c01e` (~$220k) and back and forth with `0x969f5efc` (~$281k).
 
+**Update, Nov 2:** `0xb0f8d3d5…c01e` is not a wallet. It is an Aerodrome pool pairing USDC with "Paper" (`0xe6f8fc5c…3e6c`), another of the same launcher's 20 tokens. `0x017c6044` sent it $30,000, $100,000.01 and $90,000 at blocks 53,372,540, 53,373,013 and 53,374,344, all within about an hour of the withdrawal, and on Nov 2 (02:30 UTC) the pool held $220,010.28 of USDC. The money pulled from this token now sits as the liquidity behind the next one.
+
 ## Whose money was it
 
 This is worth stating plainly, because the natural headline ("$220k pulled") can overstate it. The $220,000.01 of USDC that was withdrawn is the same $220,000.01 that `0x017c6044` had added to the pool as liquidity the day before. On-chain, the same wallet put the USDC in and took it back out. It was not buyers' money sitting in the pool.
