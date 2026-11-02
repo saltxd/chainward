@@ -77,6 +77,8 @@ The pool now holds about $0.0019 of USDC and no tokens. Thirty seconds later (bl
 
 **Update, Nov 2:** `0xb0f8d3d5…c01e` is not a wallet. It is an Aerodrome pool pairing USDC with "Paper" (`0xe6f8fc5c…3e6c`), another of the same launcher's 20 tokens. `0x017c6044` sent it $30,000, $100,000.01 and $90,000 at blocks 53,372,540, 53,373,013 and 53,374,344, all within about an hour of the withdrawal, and on Nov 2 (02:30 UTC) the pool held $220,010.28 of USDC. The money pulled from this token now sits as the liquidity behind the next one.
 
+**Update, Nov 2, 13:18 UTC:** it did not stay there. At block 53,418,070 (13:18:07 UTC), the same wallet, `0x017c6044`, withdrew $220,000.01 of USDC from the Paper pool through the same Slipstream position manager (tx [`0x5d9f8263…f9f9`](https://base.blockscout.com/tx/0x5d9f8263936fcea944b72f2b51fe02f6e70f0b9461184512df1ff590e770f9f9)), about 25 hours after the first withdrawal and about 7 hours 44 minutes after this page named the pool. The pool held $9.97 of USDC right after. The same $220,000 has now been withdrawn from two of the launcher's tokens.
+
 ## Whose money was it
 
 This is worth stating plainly, because the natural headline ("$220k pulled") can overstate it. The $220,000.01 of USDC that was withdrawn is the same $220,000.01 that `0x017c6044` had added to the pool as liquidity the day before. On-chain, the same wallet put the USDC in and took it back out. It was not buyers' money sitting in the pool.
