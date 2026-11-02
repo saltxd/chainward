@@ -158,6 +158,15 @@ spec:
                   name: {{ .Values.externalSecret }}
                   key: OPS_API_KEY
                   optional: true
+            # NEAR payment guard verdict key: a raw ed25519 seed, 64 hex chars.
+            # Optional: without it POST /api/near/authorize answers 503
+            # NOT_CONFIGURED and signs nothing. Read once per pod start.
+            - name: NEAR_VERDICT_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecret }}
+                  key: NEAR_VERDICT_SIGNING_KEY
+                  optional: true
           lifecycle:
             preStop:
               exec:

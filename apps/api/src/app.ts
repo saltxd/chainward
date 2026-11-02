@@ -23,6 +23,7 @@ import { telemetry } from './routes/telemetry.js';
 import { x402Board } from './routes/x402Board.js';
 import { setAndEarnBoard } from './routes/setAndEarnBoard.js';
 import { paid, requireKnownSlug } from './routes/paid.js';
+import { nearAuthorize } from './routes/nearAuthorize.js';
 import { handleError } from './middleware/errorHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { x402InFlightLock } from './middleware/x402InFlight.js';
@@ -233,6 +234,8 @@ export function createApp({ corsOrigins, x402Check }: AppOptions): Hono {
   app.route('/api/x402', x402Board);
   app.route('/api/set-and-earn', setAndEarnBoard);
   app.route('/api/paid', paid);
+  // The NEAR payment guard's signed verdict. Free, unlisted, 503 until its key is set.
+  app.route('/api/near', nearAuthorize);
   app.route('/v1', walletV1);
 
   // 404 handler
