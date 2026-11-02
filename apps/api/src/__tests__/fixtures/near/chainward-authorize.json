@@ -1,0 +1,100 @@
+{
+  "$comment": "Written by chainward apps/api/src/__tests__/nearAuthorize.test.ts (WRITE_NEAR_FIXTURE=1): real responses of POST /api/near/authorize. Signed with a THROWAWAY key derived inside that test, which protects nothing; the production key lives only in a k8s secret. The verdicts rest on mocked counterparty reports for synthetic addresses, except the hold, which is a real OFAC SDN list match. canonical_hex is the vendored encoder over response.auth, for cross-checking guard-auth.",
+  "route": "POST /api/near/authorize",
+  "cases": [
+    {
+      "name": "pay",
+      "request": {
+        "guard_id": "guard.chainward.near",
+        "deposit_address": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c",
+        "destination": "0x1111111111111111111111111111111111111111",
+        "chain": "base",
+        "amount": "1000000",
+        "quote_expiry": 1793967000,
+        "nonce": "7001"
+      },
+      "response": {
+        "auth": {
+          "guard_id": "guard.chainward.near",
+          "deposit_address": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c",
+          "destination": "0x1111111111111111111111111111111111111111",
+          "chain": "base",
+          "amount": "1000000",
+          "verdict": "pay",
+          "reason": "Active: 42 transfers with 9 counterparties in the last 30 days, last one 3 hours ago, no high-severity flag.",
+          "issued_at": "1793966400",
+          "quote_expiry": "1793967000",
+          "nonce": "7001"
+        },
+        "signature": "yPl6hBjEK1uUsKOFmFOP5kX5loe7syDVuBnHvLBPrR+tpSRDHpDBr2S2XRPxikaucZPr03f2GnrRTaJ5Ff76Dw==",
+        "public_key": "Jv7TXZ+SQDKvolFuSRNYGTlmOWWhoNlHtiDr7lj/U3s=",
+        "verdict": {
+          "label": "pay",
+          "text": "Pay",
+          "reason": "Active: 42 transfers with 9 counterparties in the last 30 days, last one 3 hours ago, no high-severity flag.",
+          "limits": "On-chain behavior only. Absence of flags is not a clearance of the counterparty."
+        },
+        "checks": {
+          "sanctions": {
+            "listed": false
+          },
+          "counterparty": {
+            "status": "ready",
+            "label": "pay",
+            "text": "Pay"
+          },
+          "decoy": {
+            "status": "not_raised"
+          }
+        }
+      },
+      "canonical_hex": "00000021636861696e776172642e6e6561722d7061796d656e742d67756172642e61757468010000001467756172642e636861696e776172642e6e65617200000040316331633163316331633163316331633163316331633163316331633163316331633163316331633163316331633163316331633163316331633163316331630000002a3078313131313131313131313131313131313131313131313131313131313131313131313131313131310000000462617365000000000000000000000000000f4240000000037061790000006c4163746976653a203432207472616e73666572732077697468203920636f756e7465727061727469657320696e20746865206c61737420333020646179732c206c617374206f6e65203320686f7572732061676f2c206e6f20686967682d736576657269747920666c61672e000000006aedc140000000006aedc39800000000000000000000000000001b59"
+    },
+    {
+      "name": "hold-sanctioned",
+      "request": {
+        "guard_id": "guard.chainward.near",
+        "deposit_address": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c",
+        "destination": "0x098b716b8aaf21512996dc57eb0615e2383e2f96",
+        "chain": "base",
+        "amount": "1000000",
+        "quote_expiry": 1793967000,
+        "nonce": "7002"
+      },
+      "response": {
+        "auth": {
+          "guard_id": "guard.chainward.near",
+          "deposit_address": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c",
+          "destination": "0x098b716b8aaf21512996dc57eb0615e2383e2f96",
+          "chain": "base",
+          "amount": "1000000",
+          "verdict": "hold",
+          "reason": "On the US sanctions list (OFAC): This address is on the US Treasury OFAC SDN list. Paying it may be illegal for US persons.",
+          "issued_at": "1793966400",
+          "quote_expiry": "1793967000",
+          "nonce": "7002"
+        },
+        "signature": "6AjRj55ZYdki4hQPPMkXUdJccUTMMEckUra3S4byOp8pCvGQHlribVFZ2MQLV7yKJ4lYka2Ou/Avquz6B0DTAg==",
+        "public_key": "Jv7TXZ+SQDKvolFuSRNYGTlmOWWhoNlHtiDr7lj/U3s=",
+        "verdict": {
+          "label": "hold",
+          "text": "Hold",
+          "reason": "On the US sanctions list (OFAC): This address is on the US Treasury OFAC SDN list. Paying it may be illegal for US persons.",
+          "limits": "Matched against the US Treasury OFAC SDN list only; other countries’ sanctions lists are not checked."
+        },
+        "checks": {
+          "sanctions": {
+            "listed": true
+          },
+          "counterparty": {
+            "status": "not_run"
+          },
+          "decoy": {
+            "status": "not_run"
+          }
+        }
+      },
+      "canonical_hex": "00000021636861696e776172642e6e6561722d7061796d656e742d67756172642e61757468010000001467756172642e636861696e776172642e6e65617200000040316331633163316331633163316331633163316331633163316331633163316331633163316331633163316331633163316331633163316331633163316331630000002a3078303938623731366238616166323135313239393664633537656230363135653233383365326639360000000462617365000000000000000000000000000f424000000004686f6c640000007b4f6e207468652055532073616e6374696f6e73206c69737420284f464143293a20546869732061646472657373206973206f6e20746865205553205472656173757279204f4641432053444e206c6973742e20506179696e67206974206d617920626520696c6c6567616c20666f7220555320706572736f6e732e000000006aedc140000000006aedc39800000000000000000000000000001b5a"
+    }
+  ]
+}

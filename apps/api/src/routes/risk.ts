@@ -114,7 +114,7 @@ interface FreshnessInfo {
   ttl_state: 'fresh' | 'stale';
 }
 
-interface ReportPayload {
+export interface ReportPayload {
   address: string;
   chain: string;
   /** Pay / Hold / Unknown with the one reason; the flags are the evidence, `not_assessed` the limits. */
@@ -520,6 +520,20 @@ const globalDecodeBudget = budget({
   scope: 'global',
 });
 
+/**
+ * Spends one free decode from the caller's allowance and from the global one, or answers
+ * 429 and spends neither. Shared by the free check and the free NEAR authorize route.
+ */
+export async function spendFreeDecode(c: Context): Promise<void> {
+  const refundClient = await decodeBudget.spend(c);
+  try {
+    await globalDecodeBudget.spend(c);
+  } catch (err) {
+    await refundClient();
+    throw err;
+  }
+}
+
 // POST /api/risk/check — submit a target for a (free) risk check.
 risk.post(
   '/check',
@@ -608,13 +622,7 @@ risk.post(
     }
 
     // 3. Enqueue the full (free) decode. The worker caches a public report.
-    const refundClient = await decodeBudget.spend(c);
-    try {
-      await globalDecodeBudget.spend(c);
-    } catch (err) {
-      await refundClient();
-      throw err;
-    }
+    await spendFreeDecode(c);
     const { riskCheck } = getQueues();
     const job = await riskCheck.add(
       'risk-check',
@@ -838,6 +846,27 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   const started = Date.now();
   // ?chain=bsc checks a BNB Chain address; payment is still USDC on Base.
   const { address, chain } = parseCounterpartyInput(rawAddress, c.req.query('chain'));
+  return c.json({ success: true, data: await runCounterpartyCheck(address, chain, { started }) });
+}
+
+/** The counterparty check's answer: a report no older than the TTL, or no history to judge. */
+export type CounterpartyCheckAnswer =
+  | { status: 'ready'; report: ReportPayload }
+  | { status: 'no_history'; address: string; chain?: RiskChainId; verdict: Verdict<CounterpartyVerdictLabel>; disclaimer: string };
+
+/**
+ * The counterparty check, sold over x402 as GET /api/risk/x402 (and /counterparty) and run
+ * free by POST /api/near/authorize. Answers from a fresh report, or runs a decode and waits
+ * for it. `beforeDecode` runs only when a decode is about to be queued: a free caller spends
+ * its decode allowance there. Throws 503 SOURCES_UNAVAILABLE or 504 CHECK_TIMEOUT when no
+ * report could be built, so a paid caller is never charged for one.
+ */
+export async function runCounterpartyCheck(
+  address: string,
+  chain: RiskChainId,
+  opts: { started?: number; beforeDecode?: () => Promise<void> } = {},
+): Promise<CounterpartyCheckAnswer> {
+  const started = opts.started ?? Date.now();
 
   // A sanctioned or strongly labeled address is answered Hold from the list alone:
   // unread sources or no history on the chain never turn that into "not charged" or no_history.
@@ -850,16 +879,13 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
   // A cached report whose transfer list could not be read is never resold; the
   // sources may be back, so it gets a fresh decode like a stale one.
   if (cached && computeTtlState(cached) === 'fresh' && (sanctioned || !sourcesUnavailable(cached.reportData))) {
-    return c.json({ success: true, data: { status: 'ready', report: rowToReport(cached, labels) } });
+    return { status: 'ready', report: rowToReport(cached, labels) };
   }
 
   if (chain !== CHAIN) {
     const pre = await rpcChainPrecheck(chain, address);
     if (!pre.history && !sanctioned) {
-      return c.json({
-        success: true,
-        data: { status: 'no_history', address, chain, verdict: noHistoryVerdict(pre.fixtures.window.days), disclaimer: DISCLAIMER },
-      });
+      return { status: 'no_history', address, chain, verdict: noHistoryVerdict(pre.fixtures.window.days), disclaimer: DISCLAIMER };
     }
   } else if (!sanctioned) {
     const history = await checkHistory(address);
@@ -868,11 +894,12 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
       const active =
         lookup.transactions.length > 0 || lookup.balances.some((b) => hexToNumber(b.tokenBalance) > 0n);
       if (!active) {
-        return c.json({ success: true, data: { status: 'no_history', address, verdict: NO_HISTORY_VERDICT, disclaimer: DISCLAIMER } });
+        return { status: 'no_history', address, verdict: NO_HISTORY_VERDICT, disclaimer: DISCLAIMER };
       }
     }
   }
 
+  await opts.beforeDecode?.();
   const { riskCheck } = getQueues();
   const job = await riskCheck.add(
     'risk-check',
@@ -899,7 +926,7 @@ async function paidCheck(c: Context, rawAddress: string | undefined) {
             'The on-chain sources this check reads were unavailable, so the report could not be built. You were not charged; retry shortly.',
           );
         }
-        return c.json({ success: true, data: { status: 'ready', report: rowToReport(fresh, labels) } });
+        return { status: 'ready', report: rowToReport(fresh, labels) };
       }
       break;
     }
