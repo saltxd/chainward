@@ -16,6 +16,7 @@
 // launch, the supply in Clanker's vault and airdrop. No eth_getLogs: Alchemy's free
 // tier refuses ranges over 10 blocks. Never says "safe": no_flags means nothing matched.
 
+import { baseBlockAt, baseBlocksBack, baseSecondsBetween, baseTimeOfBlock } from '@chainward/common';
 import { decodeFunctionResult, encodeFunctionData, parseAbi } from 'viem';
 import { freshWallets, lookupWallet, type WalletLookup, type WalletLookupDeps } from './wallet-lookup.js';
 import { imitatedToken, type Imitation } from './lookalike.js';
@@ -41,7 +42,6 @@ const DOPPLER_VESTING_ALLOCATED = '0x6b467f0a76daac5283d2251b6e7660fed01ea99dbd7
 export const SERIAL_LAUNCHES_24H = 5;
 const DAY_SEC = 86_400;
 /** Blocks searched back for a day of launches: a day at 5 blocks a second (Base's Denim upgrade); the day itself is cut by block time. */
-const DAY_BLOCKS_MAX = 432_000;
 /** The launch wallet's own transactions around the launch are read from their newest this many records. */
 const LAUNCH_COUNT_PAGE = 1000;
 /** ERC-4337 EntryPoints v0.6 to v0.9: a launch sent through one came from a smart wallet. */
@@ -521,43 +521,28 @@ async function findCreator(
 }
 
 /**
- * The block a week before the launch and the block an hour after it, from measured block times
- * (2 s on Base today, 200 ms after Denim), never an assumed one. The week is first counted at the
- * pace since the launch, then measured: the timestamp of the block it lands on gives the pace of
- * the week before the launch, and the week is counted again at that pace. Base's blocks only get
- * faster, so a guess that spans a speed-up reaches back too far, and the measured pace then
- * brings it inside the week, never past it. The hour is counted at the slower of the two paces,
- * so it never runs past the hour; a token younger than an hour is read as of now.
+ * The block a week before the launch and the block an hour after it, placed by Base's block time
+ * schedule (2 s per block before block 53,556,127, 200 ms from it), so a week or an hour that
+ * crosses the switch is counted at both rates. The week lands on the last block at or before it,
+ * the hour on the last block at or before it, so neither runs past; a token younger than an hour is
+ * read as of now.
  */
 function blockTiming(
   launchBlock: number,
   launchSec: number | null,
   nowSec: number,
   head: number,
-  weekGuess: number | null,
-  guessHeader: { timestamp?: string } | null,
 ): { weekBefore: number | null; hourAfter: number | null; hourAfterSec: number | null } {
   if (launchSec === null) return { weekBefore: null, hourAfter: null, hourAfterSec: null };
-  const elapsed = Math.max(1, nowSec - launchSec);
-  const paceSince = elapsed / Math.max(1, head - launchBlock);
-  const guessSec = guessHeader?.timestamp ? hexToNumber(guessHeader.timestamp) : null;
-  const paceBefore = weekGuess !== null && guessSec !== null && launchSec > guessSec && launchBlock > weekGuess ? (launchSec - guessSec) / (launchBlock - weekGuess) : null;
-  const weekBefore = paceBefore !== null ? launchBlock - Math.round(WEEK_SEC / paceBefore) : null;
-  const pace = Math.max(paceSince, paceBefore ?? 0);
-  const hourBlocks = Math.round(SENT_WITHIN_SEC / pace);
-  const reached = launchBlock + hourBlocks < head;
+  const launchTime = baseTimeOfBlock(launchBlock);
+  const weekBefore = baseBlockAt(launchTime - WEEK_SEC);
+  const hourBlock = baseBlockAt(launchTime + SENT_WITHIN_SEC);
+  const reached = hourBlock < head;
   return {
-    weekBefore: weekBefore !== null && weekBefore >= 0 ? weekBefore : null,
-    hourAfter: reached ? launchBlock + hourBlocks : null,
-    hourAfterSec: reached ? Math.round(hourBlocks * pace) : Math.round(elapsed),
+    weekBefore: weekBefore >= 0 ? weekBefore : null,
+    hourAfter: reached ? hourBlock : null,
+    hourAfterSec: reached ? Math.round(baseSecondsBetween(launchBlock, hourBlock)) : Math.round(Math.max(1, nowSec - launchSec)),
   };
-}
-
-/** The first guess at the block a week before the launch: a week at the pace of the blocks since the launch. */
-function weekGuessBlock(launchBlock: number, launchSec: number | null, nowSec: number, head: number): number | null {
-  if (launchSec === null || launchBlock < 2) return null;
-  const paceSince = Math.max(1, nowSec - launchSec) / Math.max(1, head - launchBlock);
-  return Math.max(1, launchBlock - Math.round(WEEK_SEC / paceSince));
 }
 
 /** Raw units to token units, splitting whole and fraction in BigInt so large supplies stay exact. */
@@ -920,13 +905,11 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
   const launch0 = await findLaunch(token, deps, head);
   const launchSec = launch0.time ? Math.floor(new Date(launch0.time).getTime() / 1000) : null;
   const nowSec = deps.now().getTime() / 1000;
-  const weekGuess = launch0.tx ? weekGuessBlock(launch0.block, launchSec, nowSec, head) : null;
-  const [who, clankerHex, guessHeader] = await Promise.all([
+  const [who, clankerHex] = await Promise.all([
     launch0.tx ? findCreator(deps, launch0.tx, token) : Promise.resolve({ creator: null, via: null, launcher: null, note: null, logs: [] as ReceiptLog[] }),
     safeCall(deps, CLANKER_V4_FACTORY.toLowerCase(), `${TOKEN_DEPLOYMENT_INFO}${pad(token)}`),
-    weekGuess !== null ? (deps.rpc('eth_getBlockByNumber', [hex(weekGuess), false]) as Promise<{ timestamp?: string } | null>) : Promise.resolve(null),
   ]);
-  const timing = blockTiming(launch0.block, launchSec, nowSec, head, weekGuess, guessHeader);
+  const timing = blockTiming(launch0.block, launchSec, nowSec, head);
   const launcher = clankerRegistryMatches(clankerHex, token) ? 'clanker' : who.launcher;
   // A launch service's launch names the wallet it was made for: the wallet facts below describe that wallet.
   const madeFor = launchMadeFor(who.logs, token, who.creator);
@@ -986,14 +969,14 @@ export async function checkToken(rawToken: string, deps: TokenCheckDeps, opts: C
     creatorAddr && launch.tx ? deps.transfers({ ...transferBase, fromAddress: creatorAddr, maxCount: hex(PAGE), withMetadata: true }) : Promise.resolve(null),
     clanker ? safeCall(deps, token, ORIGINAL_ADMIN) : Promise.resolve(null),
     // Its own transactions from a day before the launch to a day after it, or now, newest first: its launches are the
-    // ones to a launchpad. A day after is counted at the pace since the launch, which never falls short: blocks only get faster.
+    // ones to a launchpad. A day before and a day after are placed by Base's block time schedule.
     creatorAddr && launch.tx && launchSec !== null
       ? deps.transfers({
           fromAddress: creatorAddr,
           category: ['external'],
           excludeZeroValue: false,
-          fromBlock: hex(Math.max(0, launch.block - DAY_BLOCKS_MAX)),
-          toBlock: nowSec - launchSec > DAY_SEC ? hex(launch.block + Math.ceil((DAY_SEC * Math.max(1, head - launch.block)) / Math.max(1, nowSec - launchSec))) : 'latest',
+          fromBlock: hex(baseBlocksBack(launch.block, DAY_SEC)),
+          toBlock: baseBlockAt(baseTimeOfBlock(launch.block) + DAY_SEC) < head ? hex(baseBlockAt(baseTimeOfBlock(launch.block) + DAY_SEC)) : 'latest',
           order: 'desc',
           maxCount: hex(LAUNCH_COUNT_PAGE),
           withMetadata: true,
