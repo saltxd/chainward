@@ -196,16 +196,12 @@ or derived from `SELLER_DEMAND_RPC_URL`), `TERMIX_BSC_RPC_URL` (chart default
    `TERMIX_PROVIDER_PRIVATE_KEY=… pnpm --filter @chainward/api exec tsx scripts/termix-provider.mts`
 2. **Register + list** (creates the TermiX account and publishes the listing; off-chain, no gas):
    same command with `--send`. Add `--price 0.5` to change the price.
-3. Merge and deploy the worker (new indexer image; `deploy.sh` deploys all three).
-4. **Turn the worker on.** `deploy.sh` only sets images on Deployments, so the env goes on by hand:
+3. Merge to `main`. CI builds the new indexer image and Flux rolls it with everything else (CLAUDE.md, "Deployment").
+4. **Turn the worker on through the release, not by hand.** Flux manages the indexer Deployment, so a hand `kubectl set env` is reverted by drift detection. Set `termixProvider.enabled: true` and the worker's settings (`TERMIX_PROVIDER_ENABLED=true`, `TERMIX_MAX_JOBS_PER_RUN=3`, `TERMIX_BSC_RPC_URL=https://bsc-dataseed.bnbchain.org`) in the HelmRelease values in `saltxd/homelab-k3s` (`apps/chainward/helmrelease.yaml`), after checking that the chart template reads them. The provider key comes from the `chainward-secrets` Secret, as `TERMIX_PROVIDER_PRIVATE_KEY` copied from `TREASURY_PRIVATE_KEY`. Check how that Secret is managed before changing it: if it lives outside the chart, the earlier hand patch still applies:
    ```bash
    kubectl -n chainward get secret chainward-secrets -o json \
      | jq '.data.TERMIX_PROVIDER_PRIVATE_KEY = .data.TREASURY_PRIVATE_KEY' | kubectl apply -f -
-   kubectl -n chainward set env deployment/indexer --from=secret/chainward-secrets --keys=TERMIX_PROVIDER_PRIVATE_KEY
-   kubectl -n chainward set env deployment/indexer TERMIX_PROVIDER_ENABLED=true TERMIX_MAX_JOBS_PER_RUN=3 \
-     TERMIX_BSC_RPC_URL=https://bsc-dataseed.bnbchain.org
    ```
-   and set `termixProvider.enabled: true` in `values.yaml` so the chart agrees.
 5. Watch the first order in the indexer logs (`TermiX ...` lines). The first real order is
    also the first look at where the instant-buy note lands (see ambiguities).
 

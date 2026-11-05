@@ -194,3 +194,8 @@ ops/
 deliverables/fbi-608-wallets-that-never-spent/data/
 deliverables/fbi-608-wallets-that-never-spent/scripts/
 deliverables/fbi-608-wallets-that-never-spent/findings.md
+
+# "Anthropic" token $220k pool pull (Nov 1): wallet lists, swap scans and scripts stay local
+deliverables/anthropic-token-220k-pool/data/
+deliverables/anthropic-token-220k-pool/scripts/
+deliverables/anthropic-token-220k-pool/findings.md
