@@ -24,6 +24,7 @@ import {
   type PublicClient,
 } from 'viem';
 import { base } from 'viem/chains';
+import { reportIsOlderThan } from '../report-age.js';
 
 const BASE_MAINNET = 'eip155:8453';
 const EAS = '0x4200000000000000000000000000000000000021';
@@ -32,7 +33,6 @@ const SCHEMA_UID = '0x09573690adba41164227b57600aa02061b0ce79dc0655e4c8b36bfe95b
 const CHAINWARD_ATTESTER = '0x5edc6276B89CC185aC8D6A7eCfdE076e1ACf50DF';
 const SCHEMA =
   'string band,string[] flagIds,uint8 highCount,uint8 mediumCount,uint8 lowCount,uint8 infoCount,uint64 asOfBlock,string classifierVersion,string reportURI,bytes32 reportHash,string scope';
-const BLOCKS_PER_DAY = 43_200n; // Base: one block every 2 seconds
 
 const EAS_ABI = parseAbi([
   'struct Attestation { bytes32 uid; bytes32 schema; uint64 time; uint64 expirationTime; uint64 revocationTime; bytes32 refUID; address recipient; address attester; bool revocable; bytes data; }',
@@ -106,8 +106,9 @@ export async function lookupCounterparty(
     asOfBlock,
     explorerUrl: `https://base.easscan.org/attestation/view/${uid}`,
   };
-  const age = (await client.getBlockNumber()) - asOfBlock;
-  if (age > BigInt(maxReportAgeDays) * BLOCKS_PER_DAY) return { ...verdict, status: 'stale' };
+  // Age by header timestamps, not block counts: Base's block time changed from 2 s to 200 ms on 2026-11-05.
+  const [head, reportBlock] = await Promise.all([client.getBlock(), client.getBlock({ blockNumber: asOfBlock })]);
+  if (reportIsOlderThan(head.timestamp, reportBlock.timestamp, maxReportAgeDays)) return { ...verdict, status: 'stale' };
   return { ...verdict, status: highCount > 0 ? 'flagged' : 'no-high-flags' };
 }
 
