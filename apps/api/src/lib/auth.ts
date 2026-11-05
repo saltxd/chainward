@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import type { Context } from 'hono';
 import { getEnv } from '../config.js';
+import { SYSTEM_USER_ID } from './systemUser.js';
 
 export const COOKIE_NAME = 'chainward-session';
 
@@ -33,6 +34,8 @@ export async function verifyJwt(token: string): Promise<{ sub: string; address: 
   try {
     const { payload } = await jwtVerify(token, getSecret());
     if (!payload.sub || !payload.address) return null;
+    // The observatory's system user never signs in: a token minted for it is never valid.
+    if (payload.sub === SYSTEM_USER_ID) return null;
     return { sub: payload.sub, address: payload.address as string };
   } catch {
     return null;
