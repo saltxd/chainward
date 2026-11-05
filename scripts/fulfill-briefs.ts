@@ -39,8 +39,10 @@
 //   api.chainward.ai and never into the Claude run)
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chunkForDiscord, parseBriefOutput, type BriefOutput } from './auto-decode/lib/brief-output.js';
+import { acquirePollerLock } from './auto-decode/lib/poller-lock.js';
 import { buildChainFacts } from './auto-decode/lib/chain-facts.js';
 import { buildBriefPrompt, parseQueuedOrder, type BriefRunInput, type QueuedBriefOrder } from './auto-decode/lib/brief-run.js';
 import {
@@ -272,6 +274,21 @@ async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
 
 async function main() {
   const cfg = loadConfig();
+  // One poller at a time: a chain-facts read takes minutes and cron starts one every few,
+  // and overlapping pollers would multiply the request rate to the public RPCs.
+  const lock = acquirePollerLock(process.env.BRIEF_LOCK_FILE ?? join(tmpdir(), 'cw-fulfill-briefs.lock'));
+  if (!lock) {
+    log('another poller is running; exiting');
+    return;
+  }
+  try {
+    await pollOnce(cfg);
+  } finally {
+    lock.release();
+  }
+}
+
+async function pollOnce(cfg: Config) {
   // The run guard hook. The brief run has no tools, so it never fires there, but
   // the self-test also proves the hook script and its settings still load: cheap,
   // and it stops a broken checkout before any order is claimed.
