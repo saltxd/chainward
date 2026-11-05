@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@chainward/common": "workspace:*",
-    "@chainward/decode": "workspace:*"
+    "@chainward/decode": "workspace:*",
+    "twitter-text": "3.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
