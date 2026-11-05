@@ -190,7 +190,7 @@ async function main() {
     );
     process.exit(exitCode || 1);
   }
-  const summary = summaryMatch[1].trim();
+  const summary = (summaryMatch[1] ?? "").trim();
 
   await postDiscord("```\n" + summary + "\n```");
 

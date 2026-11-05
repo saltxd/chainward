@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  // The paid-brief poller lives one level up but runs on this package's
+  // dependencies (it imports ./auto-decode/lib), so it is checked here too.
+  "include": ["*.ts", "lib/**/*.ts", "../fulfill-briefs.ts"]
+}
