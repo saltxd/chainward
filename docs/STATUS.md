@@ -1,166 +1,97 @@
-# ChainWard — Project Status
+# ChainWard project status
 
-**Last updated:** 2026-03-09
+**Last updated:** 2026-11-05. Every fact below was read from the code on that date: the API mounts, the pages, the workers, the package manifests and the CI workflows. Git history keeps the March 2026 version, which described the original monitoring SaaS and a manual deploy that is no longer used.
 
-## What Is ChainWard
+## What ChainWard is
 
-Real-time monitoring, smart alerts, and gas analytics for autonomous AI agents operating on Base. SaaS product targeting the ~3,000-4,000 teams running on-chain AI agents. Previously named AgentGuard — rebranded March 2026.
+On-chain checks and monitoring for AI agents, mainly on Base, with some checks on BNB Chain.
 
-**Domain:** chainward.ai
-**API:** api.chainward.ai
-**GitHub:** github.com/saltxd/chainward
+- **Checks with a verdict.** Paste an address and get Pay, Hold or Unknown, with the one fact behind the verdict and the one limit of the check. Free on the site; agents pay per call over x402.
+- **Decodes.** 35 published investigations at chainward.ai/decodes, each measured from chain data and opening with a plain-English box.
+- **Monitoring.** The original dashboard: register agent wallets, index their transactions, and alert on Discord, Telegram or a webhook.
 
-## Current State: Live & Functional
+Domain chainward.ai, API api.chainward.ai, code github.com/saltxd/chainward.
 
-Full stack deployed to K3s cluster. Live indexing via Alchemy webhooks processes real Base mainnet transactions in real time. Alert pipeline delivers to Discord and Telegram. Public API with key-based auth live. SDK and elizaOS plugin published to npm. Registry PR submitted to elizaOS. Basename `chainward.base.eth` registered. Swap agent v2 rewrote in TypeScript+viem after Coinbase closed our CDP account (no Coinbase dependency anywhere in the stack).
+## Public pages (`apps/web`)
 
-### What Works
+| Page | What it is |
+|---|---|
+| `/` | Home: paste an address first |
+| `/decodes`, `/decodes/[slug]` | The published investigations |
+| `/report/[address]`, `/reports` | Pay or Hold reports for Base and BNB Chain addresses, and their library |
+| `/rugcheck` | Free token rug check |
+| `/wallet`, `/wallet/[address]`, `/wallet-api` | Wallet lookup and the wallet screening API |
+| `/x402`, `/x402/watch` | The x402 seller board, and the paid endpoint watch |
+| `/screen` | The linked-wallet screen for reward programs |
+| `/attest` | Flagged reports written onto Base as attestations |
+| `/base`, `/base/[slug]`, `/base/digest` | The Base agent observatory and its weekly digest |
+| `/agent/[wallet]` | A public page per agent wallet |
+| `/set-and-earn` | Who hired the agents built for BNB Chain's Set and Earn |
+| `/hyperliquid` | Hyperliquid agent audit against the live arena |
+| `/mcp` | The MCP server |
+| `/paid/[slug]` | Paid datasets |
+| `/request-brief` | Order a paid intel brief |
+| `/docs`, `/docs/api`, `/docs/alerts`, `/docs/cli` | Documentation |
+| `/deck/bnb` | The BNB Chain Builder Grant deck |
+| `/overview`, `/agents`, `/agents/[id]`, `/transactions`, `/alerts`, `/settings` | The signed-in monitoring dashboard |
+| `/login`, `/register` | Sign in with Ethereum |
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| **Monorepo (Turborepo)** | Done | 9 packages (`@chainward/*`), all build clean |
-| **Database (TimescaleDB)** | Done | 10 tables, 3 hypertables, compression + retention |
-| **Auth (SIWE + JWT)** | Done | Wallet sign-in via RainbowKit, JWT sessions in HTTP-only cookies |
-| **API (Hono)** | Done | 20+ endpoints, 7 service classes, rate limiting |
-| **Web Dashboard (Next.js 15)** | Done | 8 pages, charts, transaction table, agent management |
-| **Landing Page** | Done | Terminal-aesthetic hero with animated activity feed, feature grid, CTA |
-| **Login Page** | Done | Aerodrome-style pre-connect card with RainbowKit modal, SIWE sign-in |
-| **Live Indexing** | Done | Alchemy webhooks → API → BullMQ → indexer → TimescaleDB |
-| **Auto Webhook Management** | Done | Agent CRUD auto-adds/removes wallets from Alchemy webhook |
-| **Agent Registration** | Done | Register Base wallet addresses, CRUD, inline rename on detail page |
-| **Transaction Indexing** | Done | Real-time + backfill, gas from receipts, block timestamps, CoinGecko USD |
-| **Balance Snapshots** | Done | Current balance + historical points for chart (hourly on agent, daily on overview) |
-| **Stats/Overview** | Done | Fleet-level and per-agent stats with real data, spam-filtered |
-| **Alert System** | Done | 7 alert types, 3 delivery channels (webhook/Telegram/Discord) |
-| **Alert UI** | Done | AlertCard component, inline edit, toast notifications, form validation |
-| **Alert History** | Done | Event list with type badges, clickable tx hashes, delivery status |
-| **Spam Token Filtering** | Done | Address blocklist + name pattern matching + NULL-safe SQL |
-| **Charts** | Done | Balance, Volume, Gas charts with brand-green (#4ade80), dark theme tooltips |
-| **Toast Notifications** | Done | Success/error/info toasts for transient operations |
-| **API Key Auth** | Done | Create/revoke keys, SHA-256 hashing, scopes. All data routes accept `Bearer ag_` keys. |
-| **SDK** | Done | `@chainward/sdk@0.1.0` — published to npm, TypeScript client with Bearer auth |
-| **API Docs** | Done | `/docs/api` — 18 grouped endpoints, SDK examples, Bearer auth |
-| **elizaOS Plugin** | Done | `@chainward/elizaos-plugin@0.1.0` — published to npm, 6 actions, auto-registration on startup |
-| **elizaOS Registry PR** | Pending | PR #287 submitted to `elizaos-plugins/registry` |
-| **AgentKit Plugin** | Done | `@chainward/agentkit-plugin@0.1.0` — published to npm, 6 actions, ActionProvider with CreateAction decorators |
-| **Virtuals GAME Plugin** | Done | `@chainward/virtuals-plugin@0.1.0` — published to npm, 6 GameFunctions + GameWorker for GAME SDK agents |
-| **CLI** | Done | `@chainward/cli` — 9 commands: login, status, agents, txs, alerts, watch. Interactive prompts, colored tables, live feed. |
-| **Integrations Section** | Done | "Works with" row on landing page: elizaOS (live), AgentKit (live), Virtuals GAME (live) |
-| **Pricing Page** | Done | Free / Pro ($49) / Team ($199) tiers. "API access" on Pro + Team. All free during beta. |
-| **GTM Plan** | Done | 5-agent research sprint: content strategy, outreach playbook, community intel, partnerships, competitive moat. See `docs/plans/2026-03-06-gtm-bull-rush.md`. |
-| **Helm Chart** | Done | Full K3s deployment (API, web, indexer, postgres, redis) |
-| **CI/CD** | Done | GitHub Actions: typecheck → build → push GHCR, manual K3s deploy |
-| **Cloudflared Tunnel** | Done | Public access via Cloudflare tunnel (chainward.ai + api.chainward.ai) |
-| **Security Hardening** | Done | CSP headers, auth rate limiting, input validation, XSS prevention |
-| **Onboarding** | Done | Banner prompts new users to monitor their connected wallet |
-| **Swap Agent v2** | Done | TypeScript + viem, no CDP dependency. Aerodrome Router swaps on Base. |
-| **Basename** | Done | `chainward.base.eth` registered on Base |
-| **Provider Abstraction** | Done | Provider abstraction layer (Alchemy default, swappable via `CHAIN_PROVIDER` env var) |
-| **Base Agent Observatory** | Done | Public `/base` page — 39 tracked agent wallets, live feed, leaderboard, trend charts, 5 cached API endpoints |
-| **BNB Chain risk check** | Done | Free check runs on BSC (`chain: 'bsc'`, `/report/<addr>?chain=bsc`) from keyless public RPC over a bounded log window; ACP / factory / cluster / EAS attestation are Base-only and listed under not_assessed. See `docs/BSC.md`. |
+## API (`apps/api`, Hono, port 8000)
 
-### Alert Pipeline (end-to-end)
+| Mount | Access |
+|---|---|
+| `/api/auth` | Sign in with Ethereum: EOAs by signature recovery, smart wallets by ERC-1271 or ERC-6492 on Base (`apps/api/src/lib/siweVerify.ts`) |
+| `/api/agents`, `/api/transactions`, `/api/balances`, `/api/gas`, `/api/stats`, `/api/alerts`, `/api/wallets`, `/api/keys` | A session cookie or a `Bearer ag_` API key (`requireApiKeyOrSession`) |
+| `/api/risk`, `/api/risk/wallet`, `/api/risk/rugcheck`, `/api/risk/token`, `/api/risk/token-report`, `/api/paid` | Checks and datasets; agents pay per call over x402 |
+| `/v1` | The wallet screening API, with a key |
+| `/api/public/agents`, `/api/public/decodes`, `/api/observatory`, `/api/digest`, `/api/x402`, `/api/set-and-earn`, `/api/health`, `/api/telemetry` | Public |
+| `/api/payments`, `/api/brief` | Orders for paid briefs |
+| `/api/webhooks` | Alchemy address-activity webhooks, signature checked |
+| `/api/near` | `POST /authorize` signs a verdict for the NEAR payment guard; answers 503 until its signing key is configured |
 
-```
-Transaction indexed → alert-evaluate queue → evaluator worker checks configs
-  → if triggered: insert alert_event + push to alert-deliver queue
-  → delivery worker: send to Discord embed / Telegram HTML / webhook POST
-  → update alert_event with delivered=true or delivery_error
-```
+## Background workers (`packages/indexer`)
 
-- **Tx-triggered types:** large_transfer, gas_spike, failed_tx, new_contract
-- **Scheduled types (every 5min):** balance_drop, inactivity, idle_balance
-- **Delivery channels:** Discord (rich embeds with Basescan links), Telegram (HTML messages via Bot API), Webhook (POST JSON)
-- **Test alerts:** POST `/api/alerts/:id/test` — creates real alert_event, looks up agent name, delivers to configured channels
+| Area | Workers |
+|---|---|
+| Transactions and balances | `baseIndexer`, `backfill`, `transferBackfill`, `balancePoller`, `webhookHealth` |
+| Alerts | `alertEvaluator`, `alertDelivery` |
+| Checks and attestations | `riskCheck`, `riskAttest`, `healthScore` |
+| Boards and digests | `x402Board`, `setAndEarnBoard`, `digestGenerator` |
+| Agent marketplaces and registries | `acpSync`, `acpWalletTracer`, `registryScout`, `termixProvider`, `intelligence` |
 
-### Auth Architecture
+Pipeline: Alchemy webhook, then `/api/webhooks/alchemy`, then the `base-tx-process` queue (BullMQ), then the indexer writes to TimescaleDB and queues alert evaluation, then delivery to Discord, Telegram or a webhook.
 
-- **Wallet UI:** RainbowKit v2 + wagmi v2 (MetaMask, Coinbase Wallet, WalletConnect)
-- **Protocol:** SIWE (EIP-4361) message sign → verify → JWT session
-- **Session:** `chainward-session` HTTP-only cookie, HS256 JWT, 7-day expiry
-- **Nonce:** Redis-backed with 5-min TTL, atomic delete on verify
-- **User identity:** Wallet address (primary key), display name (optional), email (optional)
+## Packages
 
-### K3s Deployment
+| Package | Version in `package.json` | Public |
+|---|---|---|
+| `chainward-mcp-server` | 0.3.1 | npm |
+| `@chainward/sdk` | 0.1.3 | npm |
+| `@chainward/cli` | 0.1.3 | npm |
+| `@chainward/agentkit-plugin` | 0.1.4 | npm |
+| `@chainward/elizaos-plugin` | 0.1.4 | npm |
+| `@chainward/virtuals-plugin` | 0.1.5 | npm |
 
-- **Namespace:** `chainward`
-- **Deployments:** `api`, `web`, `indexer` (names match `kubectl -n chainward get deployments`)
-- **Pods:** api, web, indexer, postgres, redis
-- **Public access:** chainward.ai (web), api.chainward.ai (api)
-- **Docker images:** `ghcr.io/saltxd/chainward-{api,web,indexer}:<git-short-hash>`
-- **Deploy command:** `kubectl -n chainward set image deployment/X X=ghcr.io/saltxd/chainward-X:$TAG`
-- **IMPORTANT:** Deploy ALL THREE (api, web, indexer) when schema changes touch shared packages
+Private workspace packages: `common`, `db`, `decode`, `indexer`, `intelligence-loader`, `observatory`, and the apps `api`, `web` and `acp-decoder`.
 
-### Key Files
+## Data
 
-| File | Purpose |
-|------|---------|
-| `apps/web/src/app/(dashboard)/alerts/page.tsx` | Alerts page: create form, alert cards, history |
-| `apps/web/src/app/(dashboard)/agents/[id]/page.tsx` | Agent detail: stats, charts, rename, tx table |
-| `apps/web/src/app/(dashboard)/overview/page.tsx` | Overview: fleet stats, volume/balance/gas charts |
-| `apps/web/src/components/dashboard/alert-card.tsx` | AlertCard component with edit/toggle/delete |
-| `apps/web/src/components/ui/toast.tsx` | Toast notification system (context + provider) |
-| `apps/web/src/components/charts/` | BalanceChart, VolumeChart, GasChart (Recharts) |
-| `apps/web/src/lib/api.ts` | Frontend API client + TypeScript interfaces |
-| `apps/web/src/hooks/use-api.ts` | Data fetching hook (extracts `.data` from responses) |
-| `apps/api/src/routes/alerts.ts` | Alert CRUD + test endpoint |
-| `apps/api/src/services/` | Service classes (agent, alert, balance, gas, tx, user) |
-| `packages/indexer/src/workers/alertEvaluator.ts` | Evaluates alert conditions per tx or on schedule |
-| `packages/indexer/src/workers/alertDelivery.ts` | Delivers alerts to Discord/Telegram/webhook |
-| `packages/indexer/src/workers/baseIndexer.ts` | Processes Alchemy webhooks, inserts txs |
-| `packages/db/src/schema/` | Drizzle ORM schema definitions |
-| `packages/common/src/` | Shared types, constants, chain utils |
-| `packages/sdk/src/index.ts` | TypeScript SDK — typed API client with Bearer auth |
-| `packages/elizaos-plugin/src/index.ts` | elizaOS plugin — 6 actions, auto-register on init |
-| `apps/api/src/middleware/apiKeyAuth.ts` | API key + session dual auth middleware |
-| `apps/api/src/services/apiKeyService.ts` | API key generation, validation, revocation |
-| `apps/web/src/app/docs/api/page.tsx` | Public API reference (18 endpoints, SDK examples) |
-| `deploy/helm/chainward/` | Helm chart for K3s deployment |
-| `packages/cli/src/index.ts` | CLI entry point — commander setup, 9 commands |
-| `agents/swap-agent/src/index.ts` | Swap agent v2 — TypeScript + viem, Aerodrome Router swaps |
-| `docs/plans/2026-03-06-gtm-bull-rush.md` | GTM execution plan (30-day action checklist) |
-| `apps/api/src/services/observatoryService.ts` | Observatory service — 5 cached aggregate queries |
-| `apps/api/src/routes/observatory.ts` | Observatory API — 5 public GET endpoints, no auth |
-| `apps/web/src/app/base/page.tsx` | Observatory page — SEO metadata + JSON-LD |
-| `apps/web/src/app/base/observatory-page.tsx` | Observatory UI — stat cards, charts, feed, leaderboard |
-| `packages/db/seeds/observatory-agents.ts` | Seed 39 verified agent wallets for observatory |
+TimescaleDB through Drizzle. 26 numbered migrations in `packages/db/src/migrations/`, applied in order by the chart's pre-upgrade hook and tracked in `schema_migrations`.
 
-### Swap Agent v2 (agents/swap-agent/)
+## Build and deploy
 
-Autonomous swap agent rewritten in TypeScript + viem after Coinbase closed the CDP account. No CDP dependency — signs transactions directly with a raw private key via Aerodrome Router on Base.
+A push to `main` ships everything:
 
-- **Wallet:** `0x670d6fB01E1F220fc93F8615f694327589EdF8Eb`
-- **Stack:** TypeScript + viem + Aerodrome Router (direct contract calls)
-- **Behavior:** ETH→USDC swap, wait 2-3min, USDC→ETH swap-back, sleep 1-2h
-- **Signing:** Raw private key in `PRIVATE_KEY` env var — no CDP, no Coinbase
-- **Old agent:** `agents/test-agent/` (Python + CDP SDK) — defunct, Coinbase account closed
-- **Registered in ChainWard:** Agent #6 (framework: "custom")
+1. `.github/workflows/build.yml` (Build & Push): lint, typecheck and build; an image boot smoke test; a secret scan; then all five images (`api`, `web`, `indexer`, `acp-decoder`, `migrate`) to GHCR.
+2. Its bump job commits the new tag to `saltxd/homelab-k3s` (`apps/chainward/helmrelease.yaml`).
+3. Flux upgrades the release: migrations run first, then the deployments roll.
+4. The `login-smoke` job signs in on production with an EOA and an undeployed smart wallet once `/api/health` reports the new commit.
 
-### Coinbase Account Closure (2026-03-07)
+Verify a deploy by the live image tag, not by CI going green. **Never roll images or env by hand** (`deploy/deploy.sh` without flags, `kubectl set image`, `kubectl set env`): Flux drift detection reverts it. `./deploy/deploy.sh --migrate-only` remains for an emergency out-of-band migration. `.github/workflows/publish-packages.yml` publishes the public packages to npm through Trusted Publishing.
 
-Coinbase closed our account immediately after KYC verification — triggered by bot activity. This revoked access to CDP Portal, API keys, and the CDP Server Wallet (`0xAf09...`). **Impact on ChainWard: zero.** ChainWard has no Coinbase dependency — it uses Alchemy (separate company) for webhooks and Base is a public L2. The only casualty was the old Python test agent which used CDP SDK for transaction signing. Replaced same day with TypeScript+viem swap agent that signs with a raw private key.
+## More
 
-## What's Next
-
-### Immediate (GTM Week 1)
-- [x] `npm publish` SDK + elizaOS plugin (`@chainward/sdk@0.1.0`, `@chainward/elizaos-plugin@0.1.0`)
-- [x] Submit PR to elizaOS plugin registry (PR #287)
-- [x] Rename GitHub repo `agentguard` → `chainward`
-- [x] Build + publish AgentKit action provider (`@chainward/agentkit-plugin@0.1.0`)
-- [ ] Execute GTM content calendar — Day 1 tweet from @salt_cx
-- [ ] Send first 3 outreach DMs (Rxbt, Austin Griffith, Jack Dishman)
-- [ ] Post in CDP Discord, Virtuals Discord, Base Discord
-- [x] Register Basename (`chainward.base.eth`)
-
-### Short-Term (Weeks 2-4)
-- [ ] Deploy swap-agent v2 to K3s (Dockerfile ready, needs Job manifest)
-- [ ] Build Virtuals GAME SDK monitoring worker
-- [ ] Publish long-form "I Monitored My AI Agent for 2 Weeks" article
-- [ ] Agent health scoring (composite metric: uptime, gas efficiency, tx success rate)
-- [ ] Email alert delivery channel
-- [ ] Begin Stripe billing integration
-
-### Future
-- [ ] Ethereum mainnet + Arbitrum/Optimism chain support
-- [ ] ArgoCD for GitOps deployment
-- [ ] Alchemy webhook auto-registration (see `docs/plans/2026-03-02-live-indexing-design.md`)
+- `CLAUDE.md`: the stack, commands, deployment and gotchas.
+- `docs/decode-publishing-runbook.md`: how a decode is made and checked before it ships.
+- `deliverables/README.md`: the decode checklist.
+- `docs/PROVIDER-SWITCHING.md`, `docs/BSC.md`: provider and BNB Chain details.

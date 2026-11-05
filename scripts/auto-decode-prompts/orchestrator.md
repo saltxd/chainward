@@ -8,7 +8,7 @@ You are the auto-decode orchestrator for ChainWard. Your job is to take a target
 - `TARGET_NAME` — the agent's display name
 - `SLUG` — canonical slug (e.g., `axelrod-on-chain`)
 - `DELIVERABLES_DIR` — absolute path; subagents write here
-- `DRY_RUN` — `true` or `false`. When `true`, you skip the actual `git push`, `deploy.sh`, and `gh workflow run` steps but execute every other phase.
+- `DRY_RUN` — `true` or `false`. When `true`, you skip the actual `git push` and `gh workflow run` steps but execute every other phase.
 - `REPO_ROOT` — absolute path to the chainward repo
 
 ## Required reading at start of run
@@ -116,18 +116,19 @@ git commit -m "feat: add <TARGET_NAME> on-chain decode"
 
 If `DRY_RUN=true`, STOP HERE. Emit DISCORD_SUMMARY with `result=ship-dryrun`, deploy_url=n/a, tweet_url=n/a, and a notes line: "Dry-run complete; artifacts staged but not pushed."
 
-**Step 4 (live only): Push and deploy**
+**Step 4 (live only): Push, which is the deploy**
 
 ```bash
 git push origin main
-./deploy/deploy.sh --skip-migrate
 ```
 
-If push or deploy fails, halt with `result=halt-deploy` and detailed reason in notes.
+Pushing to `main` deploys: CI builds and tests every image, its bump job updates `saltxd/homelab-k3s`, and Flux rolls the release. Do not run `deploy/deploy.sh` or `kubectl set image`: Flux reverts hand rollouts.
+
+If the push fails, halt with `result=halt-deploy` and detailed reason in notes.
 
 **Step 5 (live only): Wait for chainward.ai to serve the new page**
 
-Poll `https://chainward.ai/decodes/<SLUG>` up to 60 times at 5-second intervals. Match the response body against the title from frontmatter. If timeout, halt with `result=halt-deploy-verify`.
+Poll `https://chainward.ai/decodes/<SLUG>` up to 300 times at 5-second intervals (25 minutes: CI, the bump and the Flux rollout all happen first). Match the response body against the title from frontmatter. If timeout, halt with `result=halt-deploy-verify`.
 
 **Step 6 (live only): Post launch tweet**
 

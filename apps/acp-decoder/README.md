@@ -180,9 +180,9 @@ The Helm template at `deploy/helm/chainward/templates/acp-decoder-secret.yaml` s
 ### Step 3 — Build image + deploy
 
 ```bash
-git push origin acp-decoder         # triggers GitHub Actions image build
-# wait for ghcr.io/saltxd/chainward-acp-decoder:<sha>
-./deploy/deploy.sh --set acpDecoder.enabled=true
+git push origin main                # CI builds all five images, acp-decoder included; Flux rolls them
+# Turn the decoder on or off through the release, never by hand (Flux reverts hand changes):
+#   acpDecoder.enabled in saltxd/homelab-k3s, apps/chainward/helmrelease.yaml
 kubectl -n chainward logs -l app.kubernetes.io/component=acp-decoder --tail=50
 # Expected: "acp v2 connected"
 ```
@@ -306,7 +306,7 @@ packages/decode/      ← the reusable decode library (consumed by both this age
 deploy/helm/chainward/templates/
   acp-decoder-deployment.yaml
   acp-decoder-secret.yaml   ← needs v2 schema update (see TODO above)
-deploy/deploy.sh            ← already wires acp-decoder into image checks + rollout
+deploy/deploy.sh            ← emergency `--migrate-only` path only; deploys go through CI and Flux
 
 docs/
   superpowers/specs/2026-04-30-acp-decoder-agent-design.md
