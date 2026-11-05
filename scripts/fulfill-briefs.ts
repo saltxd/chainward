@@ -16,9 +16,11 @@
 // The order's target and contact are buyer text. They are re-checked here
 // (auto-decode/lib/brief-run.ts) and reach the model only as an untrusted data
 // block. The Claude run itself is locked down (auto-decode/lib/claude-run.ts):
-// WebFetch to four read-only APIs and nothing else, no MCP server, no settings
-// from ~/.claude, and an environment that holds its own OAuth token and no other
-// secret. GH_TOKEN, OPS_API_KEY and the webhook stay with this script.
+// its only tool is WebFetch, allow-listed for four read-only APIs, and a hook
+// refuses every other host, including the documentation sites Claude Code
+// otherwise fetches without asking. No MCP server, no settings from ~/.claude,
+// and an environment that holds its own OAuth token and no other secret.
+// GH_TOKEN, OPS_API_KEY and the webhook stay with this script.
 //
 //   DRY_RUN=false pnpm brief:fulfill
 //
@@ -34,7 +36,14 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chunkForDiscord, parseBriefOutput, type BriefOutput } from './auto-decode/lib/brief-output.js';
 import { buildBriefPrompt, parseQueuedOrder, type BriefRunInput, type QueuedBriefOrder } from './auto-decode/lib/brief-run.js';
-import { briefClaudeArgs, childEnv, claudeEnv, makeRunDirs, runClaude } from './auto-decode/lib/claude-run.js';
+import {
+  assertRunGuardWorks,
+  briefClaudeArgs,
+  childEnv,
+  claudeEnv,
+  makeRunDirs,
+  runClaude,
+} from './auto-decode/lib/claude-run.js';
 
 interface Config {
   repoRoot: string;
@@ -241,6 +250,9 @@ async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
 
 async function main() {
   const cfg = loadConfig();
+  // The hook that keeps WebFetch on the four hosts. A hook that cannot start
+  // does not block, so prove it works before claiming any order.
+  assertRunGuardWorks();
   const { orders } = await ops<{ success: boolean; orders: BriefOrder[] }>(cfg, `/api/brief/ops/queue?limit=${cfg.maxOrders}`);
   if (!orders.length) {
     log('no paid orders to fulfill');

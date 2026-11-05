@@ -23,6 +23,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { resolveTarget } from "@chainward/decode";
 import {
+  assertRunGuardWorks,
   autoDecodeClaudeArgs,
   childEnv,
   claudeEnv,
@@ -31,12 +32,14 @@ import {
   type ClaudeRunResult,
 } from "./lib/claude-run.js";
 import {
+  DECODE_OUTPUT_FILES,
   buildOrchestratorPrompt,
   checkDeliverablesDir,
   checkOgDir,
   commitDecode,
   decodeCommitMessage,
   parseSummary,
+  sweepDeliverablesDir,
 } from "./lib/decode-run.js";
 import { checkSlugCollision, productionDeps as collisionDeps } from "./lib/slug-collision.js";
 import { decodeRunInputs, parseTarget, type DecodeRunInputs } from "./lib/validators.js";
@@ -166,6 +169,15 @@ async function main() {
     process.exit(4);
   }
 
+  // The PreToolUse hook that refuses remote/worktree subagents and off-list
+  // WebFetch hosts. A hook that cannot start does not block, so prove it works.
+  try {
+    assertRunGuardWorks();
+  } catch (err) {
+    console.error(`[auto-decode] ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(6);
+  }
+
   await mkdir(join(config.repoRoot, "deliverables", slug), { recursive: true });
   // Real paths: the write rule and the read-only dirs are matched against them.
   const repoRoot = await realpath(config.repoRoot);
@@ -185,7 +197,12 @@ async function main() {
   let result: ClaudeRunResult;
   try {
     result = await runClaude({
-      args: autoDecodeClaudeArgs({ model: MODEL, deliverablesDir: deliverables, readOnlyDirs }),
+      args: autoDecodeClaudeArgs({
+        model: MODEL,
+        deliverablesDir: deliverables,
+        readOnlyDirs,
+        writableFiles: DECODE_OUTPUT_FILES,
+      }),
       env: claudeEnv(process.env, {
         oauthToken: config.oauthToken,
         configDir: dirs.configDir,
@@ -209,6 +226,19 @@ async function main() {
   const exitCode = result.code;
   if (timedOut) console.error(`[auto-decode] watchdog: run exceeded ${config.timeoutMs}ms; killed claude`);
 
+  // Whatever the result, nothing but the pipeline's own files stays in the
+  // folder: a planted CLAUDE.md left after a halt was obeyed by a later session
+  // that only opened the folder. The write rules should make this a no-op.
+  const removed = await sweepDeliverablesDir(deliverables);
+  const sweptNote = removed.length
+    ? "removed files the run was not allowed to leave: " +
+      removed
+        .slice(0, 5)
+        .map((n) => n.replace(/[^A-Za-z0-9._-]/g, "?").slice(0, 40))
+        .join(", ")
+    : "";
+  if (sweptNote) console.error(`[auto-decode] ${sweptNote}`);
+
   const summary = parseSummary(stdout);
   if (!summary) {
     // A run that dies without a summary must still page Discord — silence
@@ -231,17 +261,19 @@ async function main() {
         slug +
         "\nresult: crashed\nnotes: " +
         why +
+        (sweptNote ? "\nlauncher: " + sweptNote : "") +
         (tail ? "\n--- output tail ---\n" + tail : " — no output captured") +
         "\n```",
     );
     process.exit(exitCode || 1);
   }
 
-  // The model's word alone commits nothing: finalize() re-checks its files.
-  const launcher =
-    summary.result === "ready"
-      ? await finalize(repoRoot, slug)
-      : `nothing committed (result: ${summary.result ?? "unrecognized"})`;
+  // The model's word alone commits nothing: finalize() re-checks its files, and
+  // a run that tried to leave anything else is not committed at all.
+  let launcher: string;
+  if (sweptNote) launcher = `halt-output-invalid: ${sweptNote}; nothing rendered or committed`;
+  else if (summary.result === "ready") launcher = await finalize(repoRoot, slug);
+  else launcher = `nothing committed (result: ${summary.result ?? "unrecognized"})`;
   console.log(`[auto-decode] launcher: ${launcher}`);
 
   await postDiscord(config.webhookUrl, "```\n" + summary.block + "\nlauncher: " + launcher + "\n```");

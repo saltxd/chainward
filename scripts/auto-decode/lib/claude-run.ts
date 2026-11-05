@@ -12,9 +12,16 @@
 //   - an explicit built-in tool set (--tools): never a shell;
 //   - --permission-mode dontAsk: anything not allow-listed is refused, never asked;
 //   - an allow-list of scoped rules only: WebFetch to read-only chain and registry
-//     APIs, and for auto-decode, Edit inside the run's deliverables dir. A bare
-//     tool name is never listed, because that would lift the working-directory
-//     limit that keeps Read, Glob and Grep inside the run's folders;
+//     APIs, and for auto-decode, Edit of the nine pipeline files by name (a
+//     folder-wide rule let a run plant CLAUDE.md for a later session to obey).
+//     A bare tool name is never listed, because that would lift the
+//     working-directory limit that keeps Read, Glob and Grep inside the run's
+//     folders;
+//   - a PreToolUse hook (hooks/run-guard.mjs, passed with --settings) that refuses
+//     any subagent isolation, "remote" (a cloud session this lockdown would not
+//     bind) included, and any WebFetch host off the list, including the
+//     documentation hosts Claude Code reaches on its own. The launchers run its
+//     self-test first, because a hook that cannot start does not block;
 //   - --strict-mcp-config with no --mcp-config: no MCP server at all;
 //   - --setting-sources user plus a fresh, empty CLAUDE_CONFIG_DIR: no settings
 //     file, CLAUDE.md, memory, plugin or hook from the ops host's ~/.claude (its
@@ -23,13 +30,15 @@
 //
 // Flag names and behaviour checked against Claude Code 2.1.318 (`claude --help`,
 // plus print-mode runs: a tool outside --tools does not exist, a WebFetch to an
-// unlisted host and a Read or Write outside the run's folders are refused).
-// An older CLI that lacks a flag exits on it, so a run fails closed.
+// unlisted host and a Read or Write outside the allowed paths are refused, and
+// the --settings hook runs under --setting-sources user). An older CLI that
+// lacks a flag exits on it, so a run fails closed.
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** Hosts a run may WebFetch: the Base explorer API and the agent registry and market APIs, all read-only. */
 export const READ_ONLY_FETCH_DOMAINS = [
@@ -113,9 +122,9 @@ function checkModel(model: string): string {
   return model;
 }
 
-function checkPath(path: string): string {
+function checkPath(path: string, what = 'a permission rule'): string {
   if (!SAFE_ABS_PATH_RE.test(path) || path.split('/').includes('..')) {
-    throw new Error(`unsupported path for a permission rule: ${JSON.stringify(path)}`);
+    throw new Error(`unsupported path for ${what}: ${JSON.stringify(path)}`);
   }
   return path.replace(/\/+$/, '');
 }
@@ -124,7 +133,55 @@ function webFetchRules(): string[] {
   return READ_ONLY_FETCH_DOMAINS.map((domain) => `WebFetch(domain:${domain})`);
 }
 
-function lockedDownArgs(model: string, tools: string, allowedTools: string[], addDirs: string[]): string[] {
+// ── The run guard hook ────────────────────────────────────────────────────────
+
+const RUN_GUARD_SCRIPT = fileURLToPath(new URL('../hooks/run-guard.mjs', import.meta.url));
+
+export interface RunGuardOptions {
+  /** Node binary for the hook. Default: the launcher's own (process.execPath). */
+  node?: string;
+  /** Default: scripts/auto-decode/hooks/run-guard.mjs in this checkout. */
+  script?: string;
+}
+
+/** The hook's shell command: absolute paths and fixed hostnames only, so nothing to quote. */
+export function runGuardCommand(opts: RunGuardOptions = {}): string {
+  const node = checkPath(opts.node ?? process.execPath, 'the run guard command');
+  const script = checkPath(opts.script ?? RUN_GUARD_SCRIPT, 'the run guard command');
+  return [node, script, ...READ_ONLY_FETCH_DOMAINS].join(' ');
+}
+
+function runGuardSettings(opts: RunGuardOptions = {}): string {
+  return JSON.stringify({
+    hooks: {
+      PreToolUse: [{ matcher: 'Agent|Task|WebFetch', hooks: [{ type: 'command', command: runGuardCommand(opts) }] }],
+    },
+  });
+}
+
+/**
+ * Throws unless the hook blocks and allows as it should. Claude Code treats a
+ * hook that cannot start (a wrong node path, a missing file) as a non-blocking
+ * error and runs the tool anyway, so the launchers call this before every run.
+ */
+export function assertRunGuardWorks(opts: RunGuardOptions = {}): void {
+  const [node, script, ...hosts] = runGuardCommand(opts).split(' ');
+  const probes: Array<[unknown, number]> = [
+    [{ tool_name: 'Agent', tool_input: { prompt: 'x', isolation: 'remote' } }, 2],
+    [{ tool_name: 'WebFetch', tool_input: { url: 'https://docs.python.org/3/', prompt: 'x' } }, 2],
+    [{ tool_name: 'WebFetch', tool_input: { url: `https://${READ_ONLY_FETCH_DOMAINS[0]}/`, prompt: 'x' } }, 0],
+  ];
+  for (const [payload, expected] of probes) {
+    const r = spawnSync(node!, [script!, ...hosts], { input: JSON.stringify(payload), encoding: 'utf8', timeout: 15_000 });
+    if (r.status !== expected) {
+      throw new Error(
+        `run guard self-test failed: expected exit ${expected}, got ${r.status ?? r.error?.message ?? 'no status'}; refusing to start the run`,
+      );
+    }
+  }
+}
+
+function lockedDownArgs(model: string, tools: string, allowedTools: string[], addDirs: string[], guard: RunGuardOptions): string[] {
   return [
     '--print',
     '--model',
@@ -139,6 +196,8 @@ function lockedDownArgs(model: string, tools: string, allowedTools: string[], ad
     '--setting-sources',
     'user',
     '--strict-mcp-config',
+    '--settings',
+    runGuardSettings(guard),
   ];
 }
 
@@ -146,8 +205,8 @@ function lockedDownArgs(model: string, tools: string, allowedTools: string[], ad
  * Paid brief: the model only reads public chain and registry APIs and answers on
  * stdout. No files, no shell, no subagents.
  */
-export function briefClaudeArgs(model: string): string[] {
-  return lockedDownArgs(model, 'WebFetch', webFetchRules(), []);
+export function briefClaudeArgs(model: string, guard: RunGuardOptions = {}): string[] {
+  return lockedDownArgs(model, 'WebFetch', webFetchRules(), [], guard);
 }
 
 export interface AutoDecodeArgsOptions {
@@ -156,23 +215,35 @@ export interface AutoDecodeArgsOptions {
   deliverablesDir: string;
   /** Absolute paths the run may read but not write (the prompts, the house-style example). */
   readOnlyDirs: string[];
+  /** The files the pipeline writes, by name (DECODE_OUTPUT_FILES); nothing else in the dir is writable. */
+  writableFiles: readonly string[];
+  guard?: RunGuardOptions;
 }
+
+const WRITABLE_FILE_RE = /^[a-z0-9][a-z0-9-]*\.md$/;
 
 /**
  * Auto-decode: subagents read the prompts and the style example, fetch from the
- * read-only APIs and write their files into the deliverables dir. No shell: the
- * OG render and the commit are the launcher's job, after it checks the output.
+ * read-only APIs and write the pipeline's files in the deliverables dir. No
+ * shell: the OG render and the commit are the launcher's job, after it checks
+ * the output.
  */
 export function autoDecodeClaudeArgs(opts: AutoDecodeArgsOptions): string[] {
   const deliverablesDir = checkPath(opts.deliverablesDir);
-  const readOnlyDirs = opts.readOnlyDirs.map(checkPath);
-  // `//abs/path` is the permission-rule form of an absolute path.
-  const writeRule = `Edit(/${deliverablesDir}/**)`;
+  const readOnlyDirs = opts.readOnlyDirs.map((dir) => checkPath(dir));
+  if (opts.writableFiles.length === 0) throw new Error('no writable file names given');
+  for (const file of opts.writableFiles) {
+    if (!WRITABLE_FILE_RE.test(file)) throw new Error(`invalid writable file name: ${JSON.stringify(file)}`);
+  }
+  // `//abs/path` is the permission-rule form of an absolute path; Edit rules
+  // cover Write too. One rule per file, so CLAUDE.md and the like stay refused.
+  const writeRules = opts.writableFiles.map((file) => `Edit(/${deliverablesDir}/${file})`);
   return lockedDownArgs(
     opts.model,
     'Read,Glob,Grep,Write,Edit,WebFetch,Task',
-    [writeRule, ...webFetchRules()],
+    [...writeRules, ...webFetchRules()],
     readOnlyDirs,
+    opts.guard ?? {},
   );
 }
 

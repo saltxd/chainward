@@ -1,4 +1,5 @@
 // scripts/auto-decode/lib/__tests__/claude-run.test.ts
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   INHERITED_ENV_KEYS,
@@ -7,8 +8,10 @@ import {
   briefClaudeArgs,
   childEnv,
   claudeEnv,
+  runGuardCommand,
   untrustedBlock,
 } from '../claude-run';
+import { DECODE_OUTPUT_FILES } from '../decode-run';
 
 // Both runs used to be `claude --dangerously-skip-permissions --mcp-config
 // scripts/auto-decode.mcp.json` (the homelab MCP: ssh, kubectl, firewall and
@@ -35,6 +38,8 @@ const PARENT_ENV: NodeJS.ProcessEnv = {
 
 const DELIVERABLES = '/home/ops/chainward/deliverables/aixbt-on-chain';
 const READ_ONLY = ['/home/ops/chainward/scripts/auto-decode-prompts', '/home/ops/chainward/deliverables/aixbt'];
+const DECODE = { model: 'claude-opus-4-7', deliverablesDir: DELIVERABLES, readOnlyDirs: READ_ONLY, writableFiles: [...DECODE_OUTPUT_FILES] };
+const HOOK = fileURLToPath(new URL('../../hooks/run-guard.mjs', import.meta.url));
 
 /** Values that follow `flag`, up to the next `--option`. */
 function valuesOf(args: string[], flag: string): string[] {
@@ -59,9 +64,36 @@ function expectLockedDown(args: string[]): void {
   // User, project and local settings files can carry broad allow rules and
   // hooks (the ops host's do); only the run's own empty config dir loads.
   expect(valuesOf(args, '--setting-sources')).toEqual(['user']);
+  // The run's own settings: one PreToolUse hook that refuses subagent isolation
+  // (remote/cloud included) and WebFetch hosts off the list, nothing else.
+  const settings = valuesOf(args, '--settings');
+  expect(settings).toHaveLength(1);
+  expect(JSON.parse(settings[0]!)).toEqual({
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: 'Agent|Task|WebFetch',
+          hooks: [{ type: 'command', command: `${process.execPath} ${HOOK} ${READ_ONLY_FETCH_DOMAINS.join(' ')}` }],
+        },
+      ],
+    },
+  });
   // The prompt goes in on stdin, so no argument can carry order or registry text.
-  for (const a of args) expect(a.length).toBeLessThan(200);
+  for (const a of args) if (a !== settings[0]) expect(a.length).toBeLessThan(200);
 }
+
+describe('runGuardCommand', () => {
+  it('runs the repo hook with this node, by absolute path, with the host list', () => {
+    expect(runGuardCommand()).toBe(`${process.execPath} ${HOOK} ${READ_ONLY_FETCH_DOMAINS.join(' ')}`);
+  });
+
+  it('refuses a node or script path a shell would split or expand', () => {
+    for (const bad of ['node', '/opt/my node/bin/node', '/usr/bin/node;id', '/usr/bin/$(id)']) {
+      expect(() => runGuardCommand({ node: bad })).toThrow(/path/);
+      expect(() => runGuardCommand({ script: bad })).toThrow(/path/);
+    }
+  });
+});
 
 describe('briefClaudeArgs', () => {
   const args = briefClaudeArgs('claude-opus-4-7');
@@ -96,7 +128,7 @@ describe('briefClaudeArgs', () => {
 });
 
 describe('autoDecodeClaudeArgs', () => {
-  const args = autoDecodeClaudeArgs({ model: 'claude-opus-4-7', deliverablesDir: DELIVERABLES, readOnlyDirs: READ_ONLY });
+  const args = autoDecodeClaudeArgs(DECODE);
 
   it('has no permission bypass, no MCP server and no settings files', () => {
     expectLockedDown(args);
@@ -108,15 +140,27 @@ describe('autoDecodeClaudeArgs', () => {
     expect(tools.join(',')).not.toMatch(/Bash|PowerShell|NotebookEdit/);
   });
 
-  it('limits writes to the run deliverables dir and fetches to the read-only APIs', () => {
+  // A folder-wide rule let the run write CLAUDE.md (or any file) into the
+  // deliverables dir, where a later, unrestricted session loads it as project
+  // instructions (review, Important 1).
+  it('allows writes to the nine pipeline files by name, and fetches to the read-only APIs', () => {
+    expect(DECODE_OUTPUT_FILES).toHaveLength(9);
     expect(valuesOf(args, '--allowedTools')).toEqual([
-      `Edit(/${DELIVERABLES}/**)`,
+      ...DECODE_OUTPUT_FILES.map((f) => `Edit(/${DELIVERABLES}/${f})`),
       ...READ_ONLY_FETCH_DOMAINS.map((d) => `WebFetch(domain:${d})`),
     ]);
+    for (const rule of valuesOf(args, '--allowedTools')) expect(rule).not.toMatch(/\*/);
   });
 
   it('never allow-lists a bare tool, which would lift the working-directory limit', () => {
     for (const rule of valuesOf(args, '--allowedTools')) expect(rule).toMatch(/^(Edit|WebFetch)\(.+\)$/);
+  });
+
+  it('refuses a writable name that is not a plain pipeline file name', () => {
+    for (const bad of ['CLAUDE.md', 'AGENTS.md', '../x.md', 'a/b.md', '*.md', '.mcp.json', 'x.sh', '']) {
+      expect(() => autoDecodeClaudeArgs({ ...DECODE, writableFiles: [bad] })).toThrow(/file name/);
+    }
+    expect(() => autoDecodeClaudeArgs({ ...DECODE, writableFiles: [] })).toThrow(/file name/);
   });
 
   it('adds the prompt and style folders as read-only extra dirs', () => {
@@ -125,12 +169,8 @@ describe('autoDecodeClaudeArgs', () => {
 
   it('refuses a path the permission rule syntax cannot hold safely', () => {
     for (const bad of ['deliverables/x', '/repo with space/deliverables/x', '/repo/(x)', '/repo/*', '/repo/x\n--tools']) {
-      expect(() => autoDecodeClaudeArgs({ model: 'claude-opus-4-7', deliverablesDir: bad, readOnlyDirs: READ_ONLY })).toThrow(
-        /path/,
-      );
-      expect(() => autoDecodeClaudeArgs({ model: 'claude-opus-4-7', deliverablesDir: DELIVERABLES, readOnlyDirs: [bad] })).toThrow(
-        /path/,
-      );
+      expect(() => autoDecodeClaudeArgs({ ...DECODE, deliverablesDir: bad })).toThrow(/path/);
+      expect(() => autoDecodeClaudeArgs({ ...DECODE, readOnlyDirs: [bad] })).toThrow(/path/);
     }
   });
 });

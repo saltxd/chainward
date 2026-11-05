@@ -12,10 +12,27 @@
 // The model has no shell and no git (lib/claude-run.ts). Publishing (push, launch
 // tweet) is a manual step after the checks in docs/decode-publishing-runbook.md.
 
-import { lstat, readFile, readdir } from 'node:fs/promises';
+import { lstat, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { untrustedBlock } from './claude-run.js';
 import { assertSlug } from './validators.js';
+
+/**
+ * Every file the pipeline writes in deliverables/<slug>. The run may write these
+ * names and nothing else (one permission rule each), and the launcher removes
+ * anything else it finds there after every run.
+ */
+export const DECODE_OUTPUT_FILES = [
+  'identity-chain.md',
+  'token-economics.md',
+  'utility-audit.md',
+  'decode.md',
+  'tweet.md',
+  'writer-retry-brief.md',
+  'verification-citation.md',
+  'verification-failure-mode.md',
+  'verification-voice.md',
+] as const;
 
 export interface OrchestratorRun {
   address: string;
@@ -92,14 +109,14 @@ export interface DirEntry {
   size: number;
 }
 
-const DELIVERABLE_NAME_RE = /^[a-z0-9][a-z0-9-]*\.md$/;
+const OUTPUT_FILES: ReadonlySet<string> = new Set(DECODE_OUTPUT_FILES);
 const MAX_DELIVERABLE_BYTES = 1_000_000;
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export function checkDeliverableEntries(entries: DirEntry[]): string | null {
   for (const e of entries) {
+    if (!OUTPUT_FILES.has(e.name)) return `${JSON.stringify(e.name)} is not a pipeline file`;
     if (!e.isFile) return `${e.name} is not a regular file`;
-    if (!DELIVERABLE_NAME_RE.test(e.name)) return `${e.name} is not an expected markdown file`;
     if (e.size > MAX_DELIVERABLE_BYTES) return `${e.name} is larger than ${MAX_DELIVERABLE_BYTES} bytes`;
   }
   for (const required of ['decode.md', 'tweet.md']) {
@@ -151,6 +168,26 @@ async function entriesOf(dir: string): Promise<DirEntry[]> {
     out.push({ name, isFile: st.isFile(), size: st.size });
   }
   return out;
+}
+
+/**
+ * Removes everything in deliverables/<slug> that is not a pipeline file held as
+ * a regular file: a planted CLAUDE.md or AGENTS.md, a .claude/ folder, a symlink
+ * (the link goes, never its target). Returns the removed names, sorted. Run after
+ * every decode, halts and crashes included, so a later session that opens the
+ * folder never loads leftover instructions.
+ */
+export async function sweepDeliverablesDir(dir: string): Promise<string[]> {
+  const names = await readdir(dir).catch(() => [] as string[]);
+  const removed: string[] = [];
+  for (const name of names) {
+    const path = join(dir, name);
+    const st = await lstat(path);
+    if (OUTPUT_FILES.has(name) && st.isFile()) continue;
+    await rm(path, { recursive: true, force: true });
+    removed.push(name);
+  }
+  return removed.sort();
 }
 
 /** Everything the launcher checks in deliverables/<slug> before rendering and committing. */
