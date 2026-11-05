@@ -93,7 +93,7 @@ export const RISK_CHAINS: Record<RiskChainId, RiskChain> = {
     chainId: 8453,
     nativeSymbol: 'ETH',
     nativeDecimals: 18,
-    blockSecondsEstimate: 2,
+    blockSecondsEstimate: 0.2, // 200 ms since 2026-11-05 (2 s before); window maths uses baseBlocks.ts
     rpc: {
       envVar: 'SENTINEL_RPC',
       defaultUrl: 'https://mainnet.base.org',

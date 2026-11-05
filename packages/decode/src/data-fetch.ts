@@ -1,4 +1,4 @@
-import { assessNodeFreshness, getMaxHeadLagSec, type NodeFreshness } from '@chainward/common';
+import { assessNodeFreshness, baseBlocksBack, baseSecondsBetween, getMaxHeadLagSec, type NodeFreshness } from '@chainward/common';
 import { fetchCurrentBlock } from './sentinel-block.js';
 import { alchemyAssetTransfers, type AlchemyTransfer } from './seller-demand.js';
 import type { DecodeDataSource, TransferListSource } from './types.js';
@@ -10,14 +10,26 @@ const BALANCE_OF_SELECTOR = '0x70a08231';
 // ERC-20 Transfer(address indexed from, address indexed to, uint256 value).
 export const TRANSFER_TOPIC =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-// Base targets ~2s blocks — used to approximate a log's timestamp from its block
-// number, so the node transfer fetch needs no eth_getBlockByNumber per block.
-const BASE_BLOCK_SECONDS = 2;
-// ~30d of Base blocks (matches ACTIVITY_WINDOW_MS), chunked for safe eth_getLogs.
-const SENTINEL_WINDOW_BLOCKS = parseInt(
-  process.env.SENTINEL_TRANSFER_WINDOW_BLOCKS ?? String(1_300_000),
-  10,
-);
+// A log's timestamp is approximated from its block number against the head's, so the
+// node transfer fetch needs no eth_getBlockByNumber per block. Base's block time changed
+// from 2 s to 200 ms on 2026-11-05: the approximation follows that schedule.
+function secondsBehindHead(headBlockNumber: number, block: number, blockSeconds?: number): number {
+  const back = Math.max(0, headBlockNumber - block);
+  return blockSeconds === undefined ? baseSecondsBetween(headBlockNumber - back, headBlockNumber) : back * blockSeconds;
+}
+
+const SENTINEL_WINDOW_DAYS = 30; // matches ACTIVITY_WINDOW_MS
+// SENTINEL_TRANSFER_WINDOW_BLOCKS, when set, pins the window to a fixed block count.
+const SENTINEL_WINDOW_BLOCKS_OVERRIDE = process.env.SENTINEL_TRANSFER_WINDOW_BLOCKS
+  ? parseInt(process.env.SENTINEL_TRANSFER_WINDOW_BLOCKS, 10)
+  : null;
+
+/** First block of the ~30-day Base window ending at `headBlockNumber`, chunked later for eth_getLogs. */
+export function sentinelWindowFromBlock(headBlockNumber: number): number {
+  return SENTINEL_WINDOW_BLOCKS_OVERRIDE !== null
+    ? Math.max(0, headBlockNumber - SENTINEL_WINDOW_BLOCKS_OVERRIDE)
+    : baseBlocksBack(headBlockNumber, SENTINEL_WINDOW_DAYS * 86_400);
+}
 // cw-sentinel's reth caps eth_getLogs at a 100k-block range (toBlock - fromBlock).
 // The loop scans [end - CHUNK + 1, end] (span = CHUNK - 1), so CHUNK = 100000 gives
 // a 99,999-block span — safely under the cap. 120000 was over it → every chunk threw
@@ -496,14 +508,14 @@ export async function jsonRpcResult<T>(
  * txHash:logIndex, sorts newest-first, and caps at `cap` so the kept set is the
  * most-recent — what the activity windows care about — flagging truncation.
  * Timestamps are approximated from block number (`blockSeconds` per block;
- * Base ~2s by default — BSC callers pass the rate they measured).
+ * Base follows its block time schedule by default — BSC callers pass the rate they measured).
  */
 export function mapLogsToTransfers(
   logs: RpcLog[],
   headBlockNumber: number,
   headTimestampSec: number,
   cap: number = MAX_SENTINEL_TRANSFERS,
-  blockSeconds: number = BASE_BLOCK_SECONDS,
+  blockSeconds?: number,
 ): { items: NodeTransfer[]; truncated: boolean } {
   const valid = logs.filter(
     (lg) =>
@@ -532,9 +544,7 @@ export function mapLogsToTransfers(
     const toTopic = lg.topics[2];
     if (!fromTopic || !toTopic) continue;
     const blockNum = parseInt(lg.blockNumber, 16);
-    const tsSec = Math.round(
-      headTimestampSec - Math.max(0, headBlockNumber - blockNum) * blockSeconds,
-    );
+    const tsSec = Math.round(headTimestampSec - secondsBehindHead(headBlockNumber, blockNum, blockSeconds));
     items.push({
       from: { hash: '0x' + fromTopic.slice(-40) },
       to: { hash: '0x' + toTopic.slice(-40) },
@@ -561,7 +571,7 @@ async function fetchSentinelTransfers(
   }
   const headNum = parseInt(head.number, 16);
   const headTs = parseInt(head.timestamp, 16);
-  const fromBlock = Math.max(0, headNum - SENTINEL_WINDOW_BLOCKS);
+  const fromBlock = sentinelWindowFromBlock(headNum);
   const topic = addressTopic(walletAddress);
 
   const logs: RpcLog[] = [];
@@ -667,7 +677,7 @@ export function mapAlchemyTransfers(
       truncated = true;
       break;
     }
-    const approxSec = headTimestampSec - Math.max(0, headBlockNumber - block(r)) * BASE_BLOCK_SECONDS;
+    const approxSec = headTimestampSec - secondsBehindHead(headBlockNumber, block(r));
     items.push({
       from: { hash: r.from.toLowerCase() },
       to: { hash: r.to!.toLowerCase() },
@@ -686,7 +696,7 @@ async function fetchAlchemyTransfers(
 ): Promise<{ items: NodeTransfer[]; truncated: boolean }> {
   const params = {
     category: ['erc20'],
-    fromBlock: '0x' + Math.max(0, head.head_number - SENTINEL_WINDOW_BLOCKS).toString(16),
+    fromBlock: '0x' + sentinelWindowFromBlock(head.head_number).toString(16),
     toBlock: 'latest',
     order: 'desc',
     maxCount: '0x3e8',
