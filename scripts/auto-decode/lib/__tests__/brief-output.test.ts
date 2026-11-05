@@ -22,21 +22,44 @@ describe('parseBriefOutput', () => {
   });
 
   it('requires the markdown brief regardless of delivery', () => {
-    expect(() => parseBriefOutput(out({ thread: THREAD }), { needThread: true })).toThrow(/BRIEF_MARKDOWN/);
+    expect(() => parseBriefOutput(out({ thread: THREAD }), { needThread: true, buyerHandle: 'you' })).toThrow(/BRIEF_MARKDOWN/);
     expect(() => parseBriefOutput(out({ md: '   ' }), { needThread: false })).toThrow(/BRIEF_MARKDOWN/);
   });
 
   it('returns a validated thread for a public order', () => {
-    const r = parseBriefOutput(out({ md: MD, thread: THREAD }), { needThread: true });
+    const r = parseBriefOutput(out({ md: MD, thread: THREAD }), { needThread: true, buyerHandle: 'you' });
     expect(r.thread).toEqual(THREAD);
   });
 
   it('rejects a public order whose thread is missing or malformed', () => {
-    expect(() => parseBriefOutput(out({ md: MD }), { needThread: true })).toThrow(/BRIEF_THREAD/);
-    expect(() => parseBriefOutput(out({ md: MD, thread: ['only one'] }), { needThread: true })).toThrow(/BRIEF_THREAD/);
-    expect(() => parseBriefOutput(out({ md: MD, thread: [...THREAD, 'x'.repeat(281)] }), { needThread: true })).toThrow(
-      /BRIEF_THREAD/,
-    );
+    const pub = { needThread: true, buyerHandle: 'you' } as const;
+    expect(() => parseBriefOutput(out({ md: MD }), pub)).toThrow(/BRIEF_THREAD/);
+    expect(() => parseBriefOutput(out({ md: MD, thread: ['only one'] }), pub)).toThrow(/BRIEF_THREAD/);
+    expect(() => parseBriefOutput(out({ md: MD, thread: [...THREAD, 'x'.repeat(281)] }), pub)).toThrow(/BRIEF_THREAD/);
+  });
+
+  // A public thread posts from @chainwardai with no human review. The buyer's
+  // handle is the only account it may tag, and it must open the thread.
+  it('accepts a thread that opens by tagging the buyer, in any letter case', () => {
+    const thread = ['@Alice_B — your ChainWard Intel Brief on 0x1234…cdef:', 'Run your own: chainward.ai/request-brief'];
+    expect(parseBriefOutput(out({ md: MD, thread }), { needThread: true, buyerHandle: 'alice_b' }).thread).toEqual(thread);
+  });
+
+  it('rejects a thread that does not open with the buyer tag', () => {
+    const thread = ['Your ChainWard Intel Brief on 0x1234…cdef:', 'Run your own: chainward.ai/request-brief'];
+    expect(() => parseBriefOutput(out({ md: MD, thread }), { needThread: true, buyerHandle: 'alice_b' })).toThrow(/buyer/);
+    const longer = ['@alice_bob — your ChainWard Intel Brief on 0x1234…cdef:', 'Run your own: chainward.ai/request-brief'];
+    expect(() => parseBriefOutput(out({ md: MD, thread: longer }), { needThread: true, buyerHandle: 'alice_b' })).toThrow(/buyer/);
+  });
+
+  it('rejects a thread that tags any other account', () => {
+    const thread = ['@alice_b — your ChainWard Intel Brief on 0x1234…cdef:', 'Ask @someone_else. Run your own: chainward.ai/request-brief'];
+    expect(() => parseBriefOutput(out({ md: MD, thread }), { needThread: true, buyerHandle: 'alice_b' })).toThrow(/@someone_else/);
+  });
+
+  it('does not read an email address as a tag', () => {
+    const thread = ['@alice_b — your ChainWard Intel Brief on 0x1234…cdef:', 'Questions: hello@chainward.ai. Run your own: chainward.ai/request-brief'];
+    expect(parseBriefOutput(out({ md: MD, thread }), { needThread: true, buyerHandle: 'alice_b' }).thread).toEqual(thread);
   });
 
   it('ignores a malformed thread on a private order', () => {

@@ -36,13 +36,37 @@ function asThread(raw: string | undefined): string[] | undefined {
   return ok ? (parsed as string[]) : undefined;
 }
 
+// An @handle not glued to a word, dot or another @ (so `hello@chainward.ai` is
+// not one). X handles are at most 15 characters; a longer run is still a tag.
+const MENTION_RE = /(?<![A-Za-z0-9_.@])@([A-Za-z0-9_]+)/g;
+
+/**
+ * A public thread posts from @chainwardai with no human review, so it may tag
+ * one account only, the buyer's, and must open with that tag.
+ */
+function checkThreadTags(thread: string[], buyerHandle: string): void {
+  const buyer = buyerHandle.toLowerCase();
+  const opening = /^@([A-Za-z0-9_]+)/.exec(thread[0] ?? '')?.[1];
+  if (opening?.toLowerCase() !== buyer) {
+    throw new Error('BRIEF_THREAD does not open by tagging the buyer');
+  }
+  for (const tweet of thread) {
+    for (const [, handle] of tweet.matchAll(MENTION_RE)) {
+      if (handle?.toLowerCase() !== buyer) throw new Error(`BRIEF_THREAD tags an account other than the buyer: @${handle}`);
+    }
+  }
+}
+
+export type BriefOutputOptions = { needThread: false } | { needThread: true; buyerHandle: string };
+
 /**
  * Extract the brief from Claude's stdout. The markdown brief is mandatory for
  * every order; the thread is mandatory only when the order is delivered
- * publicly on X (`needThread`). The last occurrence of each block wins, so a
- * model that drafts twice delivers its final version.
+ * publicly on X (`needThread`), and then it must tag the buyer and no one else.
+ * The last occurrence of each block wins, so a model that drafts twice delivers
+ * its final version.
  */
-export function parseBriefOutput(stdout: string, opts: { needThread: boolean }): BriefOutput {
+export function parseBriefOutput(stdout: string, opts: BriefOutputOptions): BriefOutput {
   const md = lastBlock(stdout, 'BRIEF_MARKDOWN')?.trim();
   if (!md) throw new Error('no <BRIEF_MARKDOWN> block in claude output');
 
@@ -53,6 +77,7 @@ export function parseBriefOutput(stdout: string, opts: { needThread: boolean }):
     if (!thread) {
       throw new Error(`BRIEF_THREAD invalid shape (got ${threadRaw.trim().slice(0, 120)})`);
     }
+    checkThreadTags(thread, opts.buyerHandle);
   }
 
   const summary = lastBlock(stdout, 'BRIEF_SUMMARY')?.trim() ?? '';
