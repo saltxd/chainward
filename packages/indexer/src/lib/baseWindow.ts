@@ -1,4 +1,4 @@
-import { baseBlocksBack } from '@chainward/common';
+import { baseBlockAt, baseBlocksBack, baseTimeOfBlock } from '@chainward/common';
 
 /** Days of history a new agent's backfill reads. */
 export const BACKFILL_WINDOW_DAYS = 30;
@@ -14,4 +14,25 @@ export const REGISTRY_SCOUT_INITIAL_DAYS = 1;
  */
 export function baseLookbackStart(head: bigint, days: number): bigint {
   return BigInt(baseBlocksBack(Number(head), days * 86_400));
+}
+
+/** How often the registry scout runs. */
+export const REGISTRY_SCOUT_INTERVAL_SEC = 6 * 3_600;
+/** Blocks per eth_getLogs call: public RPCs refuse ranges much over this. */
+export const REGISTRY_SCOUT_CHUNK_BLOCKS = 10_000n;
+
+/**
+ * The block ranges one registry scout run scans, oldest first, contiguous, each at most
+ * REGISTRY_SCOUT_CHUNK_BLOCKS blocks, up to the head. A run covers twice the run interval in time (by the
+ * Base block schedule, so 216,000 blocks on 200 ms blocks) so a short outage or late run catches up.
+ */
+export function registryScoutChunks(fromBlock: bigint, head: bigint): Array<{ from: bigint; to: bigint }> {
+  const runEnd = BigInt(baseBlockAt(baseTimeOfBlock(Number(fromBlock)) + 2 * REGISTRY_SCOUT_INTERVAL_SEC));
+  const end = runEnd < head ? runEnd : head;
+  const chunks: Array<{ from: bigint; to: bigint }> = [];
+  for (let from = fromBlock; from <= end; from += REGISTRY_SCOUT_CHUNK_BLOCKS) {
+    const to = from + REGISTRY_SCOUT_CHUNK_BLOCKS - 1n;
+    chunks.push({ from, to: to < end ? to : end });
+  }
+  return chunks;
 }
