@@ -132,38 +132,83 @@ export interface GroundingContext {
   contact?: string;
 }
 
-const FULL_HEX_RE = /0x[0-9a-fA-F]{64}|0x[0-9a-fA-F]{40}/g;
-const ELLIDED_HEX_RE = /(0x[0-9a-fA-F]{3,})\s*(?:…|\.\.\.|\.\.)\s*([0-9a-fA-F]{3,})/g;
-const HEX_RUN_RE = /0x[0-9a-fA-F]{3,}/g;
+const FULL_HEX_RE = /^0x(?:[0-9a-f]{40}|[0-9a-f]{64})$/i;
+const ELLIDED_HEX_RE = /(0x[0-9a-f]{3,})\s*(?:\.\.\.|\.\.)\s*([0-9a-f]{3,})/g;
+const HEX_RUN_RE = /0x[0-9a-f]{3,}/g;
+const BARE_HEX_RE = /(?<![0-9a-z])[0-9a-f]{40,}(?![0-9a-z])/g;
 const MENTION_RE = /(?:^|[^\p{L}\p{N}_@])[@＠﹫]([\p{L}\p{N}_]{1,50})/gu;
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const ENTITY_RE = /&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]{1,31});/i;
+const HTML_TAG_RE = /<\/?[a-z!?][^>]*>/i;
+// Pack fields that hold outsider text: never a source of "known" addresses.
+const TEXT_KEYS = new Set(['name', 'symbol', 'description', 'title', 'subtitle', 'label', 'labels', 'offerings']);
+
+/**
+ * What the reader sees, as far as a script can tell: NFKC (fullwidth forms,
+ * the ellipsis character), format characters dropped (zero-width, bidi), a
+ * backslash before punctuation removed (CommonMark renders `evil\.xyz` as
+ * evil.xyz) and defanged dots restored.
+ */
+function readsAs(raw: string): string {
+  return asXReadsIt(raw)
+    .replace(/\p{Cf}/gu, '')
+    .replace(/\\([!-/:-@[-`{-~])/g, '$1')
+    .replace(/\[\.\]|\(\.\)|\{\.\}/g, '.');
+}
+
+/** Whole-string 0x addresses and hashes in the pack's chain-derived facts, never in outsider text. */
+function groundedHex(pack: unknown, target: string): string[] {
+  const known = new Set<string>([target.toLowerCase()]);
+  const walk = (v: unknown, key = ''): void => {
+    if (typeof v === 'string') {
+      if (!TEXT_KEYS.has(key) && FULL_HEX_RE.test(v)) known.add(v.toLowerCase());
+    } else if (Array.isArray(v)) {
+      for (const item of v) walk(item, key);
+    } else if (v && typeof v === 'object') {
+      for (const [k, item] of Object.entries(v)) walk(item, k);
+    }
+  };
+  const facts = (pack as { facts?: Array<{ label?: unknown; value?: unknown }> } | null)?.facts;
+  for (const fact of Array.isArray(facts) ? facts : []) {
+    // ChainWard and ACP answers carry outsider text; only the chain's own reads ground a brief.
+    if (typeof fact.label === 'string' && !fact.label.startsWith('chainward_')) walk(fact.value);
+  }
+  return [...known];
+}
 
 function checkHexGrounded(text: string, known: string[]): void {
   const refuse = (what: string): never => {
     throw new Error(`brief names ${JSON.stringify(what.slice(0, 12))}, which is not the target or in the chain facts`);
   };
-  const rest = text.replace(ELLIDED_HEX_RE, (_m, prefix: string, suffix: string) => {
-    const p = prefix.toLowerCase();
-    const sfx = suffix.toLowerCase();
-    if (!known.some((k) => k.startsWith(p) && k.endsWith(sfx))) refuse(prefix);
+  const lower = text.toLowerCase();
+  const rest = lower.replace(ELLIDED_HEX_RE, (_m, prefix: string, suffix: string) => {
+    if (!known.some((k) => k.startsWith(prefix) && k.endsWith(suffix))) refuse(prefix);
     return ' ';
   });
   for (const m of rest.matchAll(HEX_RUN_RE)) {
-    const run = m[0].toLowerCase();
+    const run = m[0];
     if (run.length === 42 || run.length === 66) {
       if (!known.includes(run)) refuse(run);
     } else if (run.length > 42 || !known.some((k) => k.startsWith(run))) {
       refuse(run);
     }
   }
+  // 40 or 64 hex characters with no 0x in front are an address or hash too.
+  for (const m of rest.matchAll(BARE_HEX_RE)) {
+    if (!(m[0].length === 40 || m[0].length === 64) || !known.includes('0x' + m[0])) refuse('0x' + m[0]);
+  }
 }
 
-function checkHostsAllowed(text: string): void {
-  const normalized = asXReadsIt(text);
+function checkHostsAllowed(text: string, contact: string | undefined): void {
+  // Only an email-shaped contact is set aside here (its domain is not a link), and only as a whole.
+  const scanned =
+    contact && EMAIL_RE.test(contact)
+      ? text.split(new RegExp(contact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')).join(' ')
+      : text;
   const hosts = [
-    ...xLinkHosts(text),
-    ...xLinkHosts(normalized),
-    ...[...normalized.matchAll(SCHEME_HOST_RE)].map((m) => hostOf(m[1] ?? '')),
-    ...[...normalized.matchAll(HOST_RE)].map((m) => hostOf(m[0])),
+    ...xLinkHosts(scanned),
+    ...[...scanned.matchAll(SCHEME_HOST_RE)].map((m) => hostOf(m[1] ?? '')),
+    ...[...scanned.matchAll(HOST_RE)].map((m) => hostOf(m[0])),
   ];
   const other = hosts.find((h) => !(BRIEF_LINK_HOSTS as readonly string[]).includes(h));
   if (other !== undefined) {
@@ -179,16 +224,21 @@ function checkNoMentions(text: string, contact: string | undefined): void {
   }
 }
 
-/** Throws unless every address and hash, link host and @ in the brief is allowed. */
+/**
+ * Throws unless every address and hash, link host and @ in the brief is allowed.
+ * Raw HTML, entities and images are refused outright: the app renders markdown
+ * (an entity shows as the character it names, an image loads from any host), so
+ * a brief has no use for them. Nothing is cut out of the text before checking.
+ */
 export function checkBriefGrounding(parts: { markdown: string; thread?: string[]; summary?: string }, ctx: GroundingContext): void {
-  const known = new Set<string>([ctx.target.toLowerCase()]);
-  for (const m of JSON.stringify(ctx.pack ?? null).matchAll(FULL_HEX_RE)) known.add(m[0].toLowerCase());
-  const knownList = [...known];
+  const known = groundedHex(ctx.pack, ctx.target);
   for (const part of [parts.markdown, ...(parts.thread ?? []), parts.summary ?? '']) {
-    // The buyer's own contact (an email address, say) is not a link or a mention.
-    const text = ctx.contact ? part.split(ctx.contact).join(' ') : part;
-    checkHexGrounded(text, knownList);
-    checkHostsAllowed(text);
+    const text = readsAs(part);
+    if (ENTITY_RE.test(text)) throw new Error('brief carries an HTML entity; entities are not allowed');
+    if (HTML_TAG_RE.test(text)) throw new Error('brief carries raw HTML; it is not allowed');
+    if (/!\[/.test(text)) throw new Error('brief carries a markdown image; images are not allowed');
+    checkHexGrounded(text, known);
+    checkHostsAllowed(text, ctx.contact);
     checkNoMentions(text, ctx.contact);
   }
 }
