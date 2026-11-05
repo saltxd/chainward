@@ -193,8 +193,8 @@ async function main() {
   // nothing to audit against, and a failed run must not strand an empty folder.
   let pack: ChainFacts;
   try {
-    console.log("[auto-decode] reading chain facts (30-day window, public RPC, about 2 requests a second) ...");
-    pack = await buildChainFacts({ kind: "address", value: address }, { fetch }, { windowDays: 30, sampleReceipts: 12 });
+    console.log("[auto-decode] reading chain facts (30-day window, public RPC, about 2 requests a second per node: it can take a while) ...");
+    pack = await buildChainFacts({ kind: "address", value: address }, { fetch }, { windowDays: 30, sampleReceipts: 12, scanBudgetMs: 45 * 60_000 });
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     console.error(`[auto-decode] chain facts unavailable: ${reason}`);

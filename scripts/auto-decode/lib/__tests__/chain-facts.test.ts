@@ -201,7 +201,12 @@ function fakeChain(w: World): { fetch: typeof fetch; seen: Seen[] } {
       try {
         return json({ jsonrpc: '2.0', id: body.id, result: rpc(body.method, body.params) });
       } catch (err) {
-        return json({ jsonrpc: '2.0', id: body.id, error: { code: -32000, message: (err as Error).message } });
+        const message = (err as Error).message;
+        // Tenderly's shape: a bare "invalid params" with the reason in `data`.
+        if (/range too large/i.test(message)) {
+          return json({ jsonrpc: '2.0', id: body.id, error: { code: -32602, message: 'invalid params', data: message } });
+        }
+        return json({ jsonrpc: '2.0', id: body.id, error: { code: -32000, message } });
       }
     }
     if (url.hostname === 'api.chainward.ai') {
@@ -389,7 +394,7 @@ describe('buildChainFacts: what it may contact', () => {
     const { fetch, seen } = fakeChain(w);
     await buildChainFacts(addrTarget(TOKEN), deps(fetch));
     const allowed = new Set<string>([...CHAIN_FACTS_RPC_HOSTS, ...CHAIN_FACTS_GET_HOSTS]);
-    expect([...CHAIN_FACTS_RPC_HOSTS]).toEqual(['base-rpc.publicnode.com', 'mainnet.base.org']);
+    expect([...CHAIN_FACTS_RPC_HOSTS]).toEqual(['base-rpc.publicnode.com', 'mainnet.base.org', 'base.gateway.tenderly.co']);
     expect([...CHAIN_FACTS_GET_HOSTS].sort()).toEqual(['acpx.virtuals.io', 'api.chainward.ai', 'api.dexscreener.com']);
     expect(seen.length).toBeGreaterThan(5);
     for (const s of seen) expect(allowed.has(s.host)).toBe(true);
@@ -432,6 +437,39 @@ describe('buildChainFacts: what it may contact', () => {
   });
 });
 
+describe('buildChainFacts: which node gets which question', () => {
+  // Measured 2026-11-05: publicnode refuses eth_getLogs with no address
+  // ("Please specify an address"), mainnet.base.org rate-limits getLogs, and
+  // base.gateway.tenderly.co answers topic-only logs up to 1000 blocks at a time.
+  it('sends wallet-wide Transfer log queries to the log host in chunks of at most 1000 blocks', async () => {
+    const w = world({ maxSpan: 1_000, transfers: [transferLog(USDC, PEER_A, EOA, 1n, HEAD - 5, TX_SMALL)] });
+    const { fetch, seen } = fakeChain(w);
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 1 });
+    const logCalls = seen.filter((s) => s.rpc === 'eth_getLogs');
+    expect(logCalls.length).toBeGreaterThan(80);
+    expect(logCalls.every((s) => s.host === 'base.gateway.tenderly.co')).toBe(true);
+    expect(value(pack, 'transfer_scan').window.truncated).toBe(false);
+    expect(value(pack, 'transfer_scan').usdc.in_count).toBe(1);
+  });
+
+  it('asks publicnode for logs only with an address filter (the EntryPoint query)', async () => {
+    const w = world({ code: { [ACCOUNT_4337]: '0x6080604052' }, userOps: { [ACCOUNT_4337]: 2 } });
+    const { fetch, seen } = fakeChain(w);
+    await buildChainFacts(addrTarget(ACCOUNT_4337), deps(fetch), { windowDays: 1 });
+    const onPublicnode = seen.filter((s) => s.rpc === 'eth_getLogs' && s.host === 'base-rpc.publicnode.com');
+    expect(onPublicnode.length).toBeGreaterThan(0);
+    expect(onPublicnode.length).toBeLessThan(20);
+  });
+
+  it('reads the node error detail, so a range-limit message halves the chunk instead of failing', async () => {
+    const w = world({ maxSpan: 499, transfers: [transferLog(USDC, PEER_A, EOA, 1n, HEAD - 5, TX_SMALL)] });
+    const { fetch } = fakeChain(w);
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 1 });
+    expect(pack.unavailable).toEqual([]);
+    expect(value(pack, 'transfer_scan').usdc.in_count).toBe(1);
+  });
+});
+
 describe('buildChainFacts: failures are unavailable, never zero', () => {
   it('puts a 429 in unavailable[] and does not report the value as zero', async () => {
     const w = world({ balances: { [EOA]: 5n }, httpFail: { eth_getBalance: 429 } });
@@ -465,6 +503,17 @@ describe('buildChainFacts: failures are unavailable, never zero', () => {
   it('throws when the head block cannot be read', async () => {
     const { fetch } = fakeChain(world({ httpFail: { eth_blockNumber: 503 } }));
     await expect(buildChainFacts(addrTarget(EOA), deps(fetch))).rejects.toBeInstanceOf(ChainFactsError);
+  });
+
+  it('dates the head when it was read, not when the whole build finished', async () => {
+    const { fetch } = fakeChain(world());
+    let t = NOW_MS;
+    const slowClock = () => {
+      t += 60_000; // every look at the clock is a minute later
+      return t;
+    };
+    const pack = await buildChainFacts(addrTarget(EOA), { ...deps(fetch), now: slowClock }, { windowDays: 1 });
+    expect(pack.as_of.head_age_sec).toBeLessThan(70);
   });
 
   it('states the window it actually covered when the scan stops early', async () => {
@@ -557,7 +606,11 @@ describe.skipIf(!LIVE)('live: a real chain-facts pack', () => {
     );
     expect(pack.as_of.head_age_sec).toBeLessThan(60);
     expect(JSON.stringify(pack)).not.toMatch(/alchemy/i);
-    const sorted = calls.map((c) => c.at).sort((a, b) => a - b);
+    // The limit is for the public RPCs; ChainWard, ACP and DexScreener GETs are single calls.
+    const sorted = calls
+      .filter((c) => (CHAIN_FACTS_RPC_HOSTS as readonly string[]).includes(c.host))
+      .map((c) => c.at)
+      .sort((a, b) => a - b);
     for (let i = 1; i < sorted.length; i++) expect(sorted[i]! - sorted[i - 1]!).toBeGreaterThanOrEqual(450);
   }, 900_000);
 });

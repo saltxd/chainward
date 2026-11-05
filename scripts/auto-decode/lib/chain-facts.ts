@@ -6,7 +6,10 @@
 // with ids and source links, plus an `unavailable` list. The model never fetches.
 //
 // What it reads, and from where (hosts are hard-coded; see assertHost):
-//   - JSON-RPC on base-rpc.publicnode.com, and mainnet.base.org for transaction
+//   - JSON-RPC on base-rpc.publicnode.com for state reads and address-filtered
+//     logs; base.gateway.tenderly.co for wallet-wide Transfer logs (publicnode
+//     refuses eth_getLogs with no address; Tenderly's keyless limit is 1000
+//     blocks a call, measured 2026-11-05); mainnet.base.org for transaction
 //     receipts (publicnode refuses them) and as the head-block fallback;
 //   - GET api.chainward.ai (public reads, no credential unless the optional
 //     CW_READ_API_KEY path is switched on by the poller), acpx.virtuals.io (a
@@ -25,13 +28,14 @@
 // ChainWard label) is cut to 64 characters and stripped of line breaks before it
 // enters the pack, and the pack goes to the model only inside an untrusted block.
 
-import { resolveTarget, scanTransferLogs, type RpcLog, type Target } from '@chainward/decode';
+import { isRangeLimitError, resolveTarget, scanTransferLogs, type RpcLog, type Target } from '@chainward/decode';
 
-export const CHAIN_FACTS_RPC_HOSTS = ['base-rpc.publicnode.com', 'mainnet.base.org'] as const;
+export const CHAIN_FACTS_RPC_HOSTS = ['base-rpc.publicnode.com', 'mainnet.base.org', 'base.gateway.tenderly.co'] as const;
 export const CHAIN_FACTS_GET_HOSTS = ['api.chainward.ai', 'acpx.virtuals.io', 'api.dexscreener.com'] as const;
 
 const PRIMARY_RPC = CHAIN_FACTS_RPC_HOSTS[0];
 const RECEIPT_RPC = CHAIN_FACTS_RPC_HOSTS[1];
+const LOGS_RPC = CHAIN_FACTS_RPC_HOSTS[2];
 
 export class ChainFactsError extends Error {
   constructor(message: string) {
@@ -70,7 +74,7 @@ export interface ChainFacts {
 export interface ChainFactsDeps {
   fetch: typeof fetch;
   now?: () => number;
-  /** Minimum gap between two requests to the public RPCs. Default 500 ms (2 a second). */
+  /** Minimum gap between two requests to the same public RPC. Default 500 ms (2 a second). */
   minIntervalMs?: number;
   /** Wait before the one retry of a 429 or 5xx. Default 1500 ms. */
   retryDelayMs?: number;
@@ -79,7 +83,7 @@ export interface ChainFactsDeps {
 export interface ChainFactsOptions {
   /** Days of Transfer logs to scan. Default 14. */
   windowDays?: number;
-  /** Wall-clock budget for the log scan. Default 5 minutes; hitting it truncates, never fails. */
+  /** Wall-clock budget for the log scan. Default 10 minutes (about 14 days at the pacing below); hitting it truncates, never fails. */
   scanBudgetMs?: number;
   /** Receipts to fetch for sample transactions (decode runs). Default 0. */
   sampleReceipts?: number;
@@ -111,12 +115,15 @@ const CLONE_PREFIX = '0x363d3d373d3d3d363d73';
 const CLONE_SUFFIX = '5af43d82803e903d91602b57fd5bf3';
 const BASE_BLOCK_SECONDS = 2;
 const BLOCKS_PER_DAY = 86_400 / BASE_BLOCK_SECONDS;
-const LOG_CHUNK_BLOCKS = 10_000;
+// Tenderly's keyless eth_getLogs limit: to - from <= 1000.
+const LOG_CHUNK_BLOCKS = 1_000;
+// publicnode answers address-filtered logs over wider ranges.
+const ENTRY_POINT_CHUNK_BLOCKS = 10_000;
+const MIN_CHUNK_BLOCKS = 250;
 const STATE_LAG_BLOCKS = 2;
 const RPC_TIMEOUT_MS = 20_000;
 const GET_TIMEOUT_MS = 20_000;
 const MAX_TEXT = 64;
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const BASESCAN = 'https://basescan.org';
 
 // ── Outside text ───────────────────────────────────────────────────────────────
@@ -175,15 +182,17 @@ function makeTransport(deps: ChainFactsDeps): Transport {
   const interval = deps.minIntervalMs ?? 500;
   const retryDelay = deps.retryDelayMs ?? 1_500;
   const sleep = (ms: number): Promise<void> => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
-  let gate: Promise<void> = Promise.resolve();
-  const pace = (): Promise<void> => {
-    gate = gate.then(() => sleep(interval));
+  // One queue per host: each public RPC sees at most 1000 / interval requests a second.
+  const gates = new Map<string, Promise<void>>();
+  const pace = (host: string): Promise<void> => {
+    const gate = (gates.get(host) ?? Promise.resolve()).then(() => sleep(interval));
+    gates.set(host, gate);
     return gate;
   };
 
   async function post(host: string, method: string, params: unknown[], timeoutMs: number): Promise<unknown> {
     const url = assertHost(`https://${host}`, 'POST');
-    await pace();
+    await pace(url.hostname);
     const res = await deps.fetch(url.href, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -192,9 +201,11 @@ function makeTransport(deps: ChainFactsDeps): Transport {
       redirect: 'error',
     });
     if (!res.ok) throw new Error(`${method}: HTTP ${res.status}`);
-    const body = (await res.json()) as { result?: unknown; error?: { code?: number; message?: string } };
+    const body = (await res.json()) as { result?: unknown; error?: { code?: number; message?: string; data?: unknown } };
     if (body.error) {
-      const message = String(body.error.message ?? 'rpc error');
+      // Tenderly puts the reason ("Block range too large") in `data`.
+      const detail = typeof body.error.data === 'string' ? ` ${body.error.data}` : '';
+      const message = String(body.error.message ?? 'rpc error') + detail;
       if (body.error.code === 3 || /revert/i.test(message)) throw new RpcRevert(message);
       throw new Error(`${method}: ${clipText(message, 120)}`);
     }
@@ -277,6 +288,24 @@ interface RawLog extends RpcLog {
   data?: string;
 }
 
+interface DexPair {
+  chainId?: string;
+  dexId?: string;
+  pairAddress?: string;
+  priceUsd?: string | number;
+  fdv?: number;
+  liquidity?: { usd?: number };
+}
+
+interface TxReceipt {
+  status?: string;
+  blockNumber?: string;
+  from?: string;
+  to?: string;
+  gasUsed?: string;
+  logs?: RawLog[];
+}
+
 interface Move {
   tx: string;
   block: number;
@@ -336,7 +365,7 @@ export async function buildChainFacts(
   // The head. Without it nothing below can be dated, so this is the one hard failure.
   const readHead = async (): Promise<{ number: number; timestamp: number }> => {
     let lastErr: unknown;
-    for (const host of CHAIN_FACTS_RPC_HOSTS) {
+    for (const host of [PRIMARY_RPC, RECEIPT_RPC]) {
       try {
         const number = parseInt(await net.rpc<string>(host, 'eth_blockNumber', []), 16);
         const block = await net.rpc<{ timestamp: string }>(host, 'eth_getBlockByNumber', [hex(number), false]);
@@ -355,6 +384,8 @@ export async function buildChainFacts(
   } catch (err) {
     throw new ChainFactsError(`could not read the head block: ${clipText(err instanceof Error ? err.message : String(err), 120)}`);
   }
+  // The age of the head when we read it: a long scan afterwards does not make it older.
+  const headAgeSec = Math.max(0, Math.round(now() / 1000 - head.timestamp));
   const stateBlock = head.number - STATE_LAG_BLOCKS;
   const tag = hex(stateBlock);
   const approxTime = (block: number): string =>
@@ -460,25 +491,23 @@ export async function buildChainFacts(
   const fromBlock = Math.max(0, stateBlock - Math.round(windowDays * BLOCKS_PER_DAY));
   const daysCovered = (scannedFrom: number): number =>
     Math.min(windowDays, Math.round((((stateBlock - scannedFrom + 1) * BASE_BLOCK_SECONDS) / 86_400) * 100) / 100);
-  let chunkBlocks = LOG_CHUNK_BLOCKS;
   let sampleTxs: string[] = [];
   const scan = await attempt('transfer_scan', () =>
     scanTransferLogs({
       address,
-      rpcUrl: `https://${PRIMARY_RPC}`,
+      rpcUrl: `https://${LOGS_RPC}`,
       fromBlock,
       toBlock: stateBlock,
       chunkBlocks: LOG_CHUNK_BLOCKS,
       timeoutMs: RPC_TIMEOUT_MS,
       rpcCall: (url, method, params, timeoutMs) => net.rpc(new URL(url).hostname, method, params, timeoutMs),
       concurrency: 4,
-      budgetMs: options.scanBudgetMs ?? 5 * 60_000,
+      budgetMs: options.scanBudgetMs ?? 10 * 60_000,
       maxLogs: 6_000,
       now,
     }),
   );
   if (scan) {
-    chunkBlocks = scan.chunkBlocksUsed;
     const seen = new Set<string>();
     const moves: Move[] = [];
     const otherTokens = new Map<string, number>();
@@ -537,7 +566,7 @@ export async function buildChainFacts(
           scanned_from_block: scan.scannedFromBlock,
           to_block: stateBlock,
           truncated,
-          rpc: PRIMARY_RPC,
+          rpc: LOGS_RPC,
         },
         total_transfers: moves.length,
         usdc: stable(USDC),
@@ -569,17 +598,29 @@ export async function buildChainFacts(
   // ERC-4337 user operations the account sent (both EntryPoint versions), same window.
   if (isContract) {
     const ops = await attempt('erc4337_user_operations', async () => {
-      const deadline = now() + (options.scanBudgetMs ?? 5 * 60_000);
+      const deadline = now() + (options.scanBudgetMs ?? 10 * 60_000);
+      let size = ENTRY_POINT_CHUNK_BLOCKS;
       let count = 0;
       let scannedFrom = stateBlock + 1;
-      for (let end = stateBlock; end >= fromBlock; end -= chunkBlocks) {
-        const start = Math.max(fromBlock, end - chunkBlocks + 1);
-        const logs = await rpc<unknown[]>('eth_getLogs', [
-          { fromBlock: hex(start), toBlock: hex(end), address: ENTRY_POINTS, topics: [USER_OP_TOPIC, null, '0x' + wordOf(address)] },
-        ]);
-        count += Array.isArray(logs) ? logs.length : 0;
+      let end = stateBlock;
+      while (end >= fromBlock) {
+        const start = Math.max(fromBlock, end - size + 1);
+        try {
+          const logs = await rpc<unknown[]>('eth_getLogs', [
+            { fromBlock: hex(start), toBlock: hex(end), address: ENTRY_POINTS, topics: [USER_OP_TOPIC, null, '0x' + wordOf(address)] },
+          ]);
+          count += Array.isArray(logs) ? logs.length : 0;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (size > MIN_CHUNK_BLOCKS && isRangeLimitError(msg)) {
+            size = Math.max(MIN_CHUNK_BLOCKS, Math.floor(size / 2));
+            continue;
+          }
+          throw err;
+        }
         scannedFrom = start;
-        if (start > fromBlock && now() >= deadline) break;
+        end = start - 1;
+        if (end >= fromBlock && now() >= deadline) break;
       }
       return { count, scannedFrom };
     });
@@ -599,7 +640,7 @@ export async function buildChainFacts(
       const res = await net.get(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
       if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
       const pairs = (res.body as { pairs?: unknown[] } | null)?.pairs;
-      return Array.isArray(pairs) ? (pairs as Array<Record<string, any>>) : [];
+      return Array.isArray(pairs) ? (pairs as DexPair[]) : [];
     });
     if (dex) {
       const base = dex
@@ -645,12 +686,12 @@ export async function buildChainFacts(
   if ((options.sampleReceipts ?? 0) > 0) {
     for (const tx of sampleTxs.slice(0, options.sampleReceipts)) {
       const receipt = await attempt(`receipt ${tx.slice(0, 10)}`, async () => {
-        const r = await net.rpc<Record<string, any> | null>(RECEIPT_RPC, 'eth_getTransactionReceipt', [tx]);
+        const r = await net.rpc<TxReceipt | null>(RECEIPT_RPC, 'eth_getTransactionReceipt', [tx]);
         if (!r) throw new Error('no receipt');
         return r;
       });
       if (!receipt) continue;
-      const logs = Array.isArray(receipt.logs) ? (receipt.logs as RawLog[]) : [];
+      const logs = Array.isArray(receipt.logs) ? receipt.logs : [];
       add(
         'receipt',
         {
@@ -682,7 +723,7 @@ export async function buildChainFacts(
     as_of: {
       head_block: head.number,
       head_time: new Date(head.timestamp * 1000).toISOString(),
-      head_age_sec: Math.max(0, Math.round(now() / 1000 - head.timestamp)),
+      head_age_sec: headAgeSec,
       state_block: stateBlock,
     },
     facts,
