@@ -6,6 +6,7 @@ import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { getBaseClient } from '../lib/viem.js';
 import { logger } from '../lib/logger.js';
+import { REGISTRY_SCOUT_INITIAL_DAYS, baseLookbackStart } from '../lib/baseWindow.js';
 import { type Abi, type Address, parseAbiItem, formatEther } from 'viem';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -17,8 +18,6 @@ const MIN_TX_COUNT = 5;
 const REDIS_LAST_BLOCK_KEY = 'registry-scout:last-block';
 const PROMOTE_TX_THRESHOLD = 100;
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
-// How far back to start on first run (roughly 1 day of Base blocks at 2s/block)
-const INITIAL_LOOKBACK_BLOCKS = 43200n;
 // Max blocks to scan per poll (avoid huge log queries)
 const MAX_BLOCK_RANGE = 10000n;
 
@@ -119,7 +118,7 @@ async function scanRegistrations() {
     fromBlock = BigInt(lastScannedRaw) + 1n;
   } else {
     // First run: start from ~1 day ago
-    fromBlock = currentBlock - INITIAL_LOOKBACK_BLOCKS;
+    fromBlock = baseLookbackStart(currentBlock, REGISTRY_SCOUT_INITIAL_DAYS);
   }
 
   if (fromBlock > currentBlock) {

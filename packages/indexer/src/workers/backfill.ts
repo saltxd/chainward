@@ -2,6 +2,7 @@ import { formatEther, formatUnits } from 'viem';
 import { getBaseClient } from '../lib/viem.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
+import { BACKFILL_WINDOW_DAYS, baseLookbackStart } from '../lib/baseWindow.js';
 import { IndexerChainDataProvider } from '../lib/chainDataProvider.js';
 import { resolveToken } from '../processors/tokenResolver.js';
 import { resolveProtocol } from '../processors/protocolResolver.js';
@@ -22,8 +23,7 @@ export async function backfillAgent(walletAddress: string, chain: string) {
   const client = getBaseClient();
 
   const currentBlock = await client.getBlockNumber();
-  // ~2s block time on Base, 30 days = ~1,296,000 blocks
-  const fromBlock = currentBlock - BigInt(1_296_000);
+  const fromBlock = baseLookbackStart(currentBlock, BACKFILL_WINDOW_DAYS);
 
   logger.info({ walletAddress, fromBlock: fromBlock.toString(), currentBlock: currentBlock.toString() }, 'Starting backfill');
 

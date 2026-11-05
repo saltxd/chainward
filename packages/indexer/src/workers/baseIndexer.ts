@@ -6,6 +6,7 @@ import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { processWebhookTx } from '../processors/baseProcessor.js';
 import { backfillAgent } from './backfill.js';
+import { BACKFILL_WINDOW_DAYS, baseLookbackStart } from '../lib/baseWindow.js';
 import { getBaseClient } from '../lib/viem.js';
 import { alchemyBackfillAvailable, backfillWalletViaTransfers } from './transferBackfill.js';
 import { isAddressPaused, isOutbound, recordAndCheck } from '../lib/rateLimiter.js';
@@ -170,7 +171,7 @@ async function handleBackfill(job: Job<WebhookJobData>) {
   if (chain === 'base' && alchemyBackfillAvailable()) {
     const currentBlock = await getBaseClient().getBlockNumber();
     const inserted = await backfillWalletViaTransfers(walletAddress, {
-      fromBlock: currentBlock > BACKFILL_LOOKBACK_BLOCKS ? currentBlock - BACKFILL_LOOKBACK_BLOCKS : 0n,
+      fromBlock: baseLookbackStart(currentBlock, BACKFILL_WINDOW_DAYS),
       maxPages: 10,
     });
     logger.info({ walletAddress, inserted }, 'Registration backfill via alchemy_getAssetTransfers');
@@ -179,5 +180,3 @@ async function handleBackfill(job: Job<WebhookJobData>) {
   await backfillAgent(walletAddress, chain);
 }
 
-/** ~2 s blocks on Base: 30 days. Same window backfillAgent used. */
-const BACKFILL_LOOKBACK_BLOCKS = 1_296_000n;

@@ -4,6 +4,7 @@ import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { getBaseClient } from '../lib/viem.js';
+import { ACP_TRACE_WINDOW_DAYS, baseLookbackStart } from '../lib/baseWindow.js';
 import { parseAbiItem, type Address } from 'viem';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -142,9 +143,7 @@ async function traceWallet(
 ): Promise<{ address: string; txCount: number; totalValue: number } | null> {
   const client = getBaseClient();
   const currentBlock = await client.getBlockNumber();
-  // Scan last 30 days (~1.3M blocks at 2s/block)
-  const startBlock = currentBlock - BigInt(1_296_000);
-  const from = startBlock > 0n ? startBlock : 0n;
+  const from = baseLookbackStart(currentBlock, ACP_TRACE_WINDOW_DAYS);
 
   // Fetch ERC20 Transfer events FROM this wallet in 100K-block chunks
   // (Reth/sentinel limits eth_getLogs to 100K blocks per query)

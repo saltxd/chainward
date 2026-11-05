@@ -8,6 +8,7 @@ import {
 } from '@chainward/decode';
 import { getRedis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
+import { baseLookbackStart } from '../lib/baseWindow.js';
 
 // ─── x402 seller board ────────────────────────────────────────────────────────
 //
@@ -86,7 +87,7 @@ export async function buildX402Board(): Promise<Record<string, unknown>> {
   if (!rpcUrl) return { skipped: 'no_rpc' };
 
   const head = await baseHead(rpcUrl);
-  const source = alchemyTransferSource(rpcUrl, head - BigInt(DEMAND_WINDOW_DAYS * 43_200), logger);
+  const source = alchemyTransferSource(rpcUrl, baseLookbackStart(head, DEMAND_WINDOW_DAYS), logger);
   const options = sellerDemandOptions('base', rpcUrl);
   const sellers = await topSellers();
 
