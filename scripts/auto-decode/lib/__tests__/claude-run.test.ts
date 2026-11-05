@@ -1,4 +1,5 @@
 // scripts/auto-decode/lib/__tests__/claude-run.test.ts
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,6 +10,7 @@ import {
   childEnv,
   claudeEnv,
   runGuardCommand,
+  makeRunDirs,
   untrustedBlock,
 } from '../claude-run';
 import { DECODE_OUTPUT_FILES } from '../decode-run';
@@ -238,6 +240,16 @@ describe('claudeEnv', () => {
     expect(() =>
       claudeEnv(PARENT_ENV, { oauthToken: 't', configDir: '/tmp/c', extra: { GH_TOKEN: 'ghp_x' } as never }),
     ).toThrow(/GH_TOKEN/);
+  });
+});
+
+describe('makeRunDirs', () => {
+  it('creates work, config and facts dirs and removes them all on cleanup', async () => {
+    const dirs = await makeRunDirs('cw-test');
+    expect(existsSync(dirs.factsDir)).toBe(true);
+    expect(new Set([dirs.workDir, dirs.configDir, dirs.factsDir]).size).toBe(3);
+    await dirs.cleanup();
+    expect(existsSync(dirs.factsDir)).toBe(false);
   });
 });
 

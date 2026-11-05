@@ -12,7 +12,7 @@
 // The model has no shell and no git (lib/claude-run.ts). Publishing (push, launch
 // tweet) is a manual step after the checks in docs/decode-publishing-runbook.md.
 
-import { lstat, readFile, readdir, rm } from 'node:fs/promises';
+import { chmod, lstat, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { untrustedBlock } from './claude-run.js';
 import { assertSlug } from './validators.js';
@@ -41,15 +41,30 @@ export interface OrchestratorRun {
   slug: string;
   deliverablesDir: string;
   repoRoot: string;
+  /** The launcher's chain-facts file (see writeFactsFile): read-only to the run. */
+  factsFile: string;
 }
 
-// The launcher fills these in. All four are values it built or checked itself.
+// The launcher fills these in. All five are values it built or checked itself.
 const RUN_PLACEHOLDERS: Array<[string, keyof OrchestratorRun]> = [
   ['<TARGET_ADDRESS>', 'address'],
   ['<SLUG>', 'slug'],
   ['<DELIVERABLES_DIR>', 'deliverablesDir'],
   ['<REPO_ROOT>', 'repoRoot'],
+  ['<FACTS_FILE>', 'factsFile'],
 ];
+
+/**
+ * Writes the chain-facts pack (lib/chain-facts.ts) to <dir>/facts.json, read-only,
+ * and returns the path. The run reads it through a read-only --add-dir; it has no
+ * rule that lets it write there.
+ */
+export async function writeFactsFile(dir: string, pack: unknown): Promise<string> {
+  const file = join(dir, 'facts.json');
+  await writeFile(file, JSON.stringify(pack, null, 2) + '\n', { mode: 0o444 });
+  await chmod(file, 0o444);
+  return file;
+}
 
 export function registryBlock(run: Pick<OrchestratorRun, 'name' | 'address'>): string {
   return untrustedBlock('untrusted_registry_data', { display_name: run.name, wallet_address: run.address });

@@ -14,6 +14,14 @@
 // the model only in an untrusted data block. Instructions, paths and the commit
 // message use the slug (security audit 2026-11-05, B-U07-1).
 //
+// base.blockscout.com answers 403 from the ops host, so the launcher reads the
+// chain itself first (lib/chain-facts.ts: public Base RPC, ChainWard's public
+// GETs, DexScreener; never Alchemy, never a POST to ChainWard): a 30-day pack
+// plus receipts for up to 12 sample transactions, written to facts/facts.json in
+// the run's temp folder and passed as a read-only --add-dir. The audit is
+// limited to that window and the decode says so. If the head block cannot be
+// read the run does not start (exit 7).
+//
 // Required env: CLAUDE_CODE_OAUTH_TOKEN, DISCORD_WEBHOOK_URL
 // Optional env: AUTO_DECODE_TIMEOUT_MS (default 90 min),
 //   CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS (default 0, see below)
@@ -22,6 +30,7 @@ import { mkdir, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { resolveTarget } from "@chainward/decode";
+import { buildChainFacts, type ChainFacts } from "./lib/chain-facts.js";
 import {
   assertRunGuardWorks,
   autoDecodeClaudeArgs,
@@ -40,6 +49,7 @@ import {
   decodeCommitMessage,
   parseSummary,
   sweepDeliverablesDir,
+  writeFactsFile,
 } from "./lib/decode-run.js";
 import { checkSlugCollision, productionDeps as collisionDeps } from "./lib/slug-collision.js";
 import { decodeRunInputs, parseTarget, type DecodeRunInputs } from "./lib/validators.js";
@@ -179,6 +189,23 @@ async function main() {
     process.exit(6);
   }
 
+  // The chain facts, before anything is created: with no head block there is
+  // nothing to audit against, and a failed run must not strand an empty folder.
+  let pack: ChainFacts;
+  try {
+    console.log("[auto-decode] reading chain facts (30-day window, public RPC, about 2 requests a second) ...");
+    pack = await buildChainFacts({ kind: "address", value: address }, { fetch }, { windowDays: 30, sampleReceipts: 12 });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error(`[auto-decode] chain facts unavailable: ${reason}`);
+    await postDiscord(config.webhookUrl, "```\ntarget: " + address + "\nslug: " + slug + "\nresult: halt-chain-facts\nnotes: " + reason.slice(0, 300) + "\n```");
+    process.exit(7);
+  }
+  console.log(
+    `[auto-decode] chain facts: ${pack.facts.length} facts at block ${pack.as_of.state_block}, ` +
+      `${pack.unavailable.length} unavailable${pack.unavailable.length ? ` (${pack.unavailable.map((u) => u.what).join(", ")})` : ""}`,
+  );
+
   await mkdir(join(config.repoRoot, "deliverables", slug), { recursive: true });
   // Real paths: the write rule and the read-only dirs are matched against them.
   const repoRoot = await realpath(config.repoRoot);
@@ -190,18 +217,21 @@ async function main() {
   console.log(`[auto-decode] created ${deliverables}`);
 
   const promptTemplate = await readFile(join(repoRoot, "scripts/auto-decode-prompts/orchestrator.md"), "utf-8");
-  const prompt = buildOrchestratorPrompt(promptTemplate, { address, name, slug, deliverablesDir: deliverables, repoRoot });
 
   console.log("[auto-decode] invoking claude --print (no shell, no MCP, writes only in the deliverables dir) ...");
 
   const dirs = await makeRunDirs("cw-auto-decode");
   let result: ClaudeRunResult;
   try {
+    // Real path again: /var is a symlink on macOS and the rule is matched against the real one.
+    const factsDir = await realpath(dirs.factsDir);
+    const factsFile = await writeFactsFile(factsDir, pack);
+    const prompt = buildOrchestratorPrompt(promptTemplate, { address, name, slug, deliverablesDir: deliverables, repoRoot, factsFile });
     result = await runClaude({
       args: autoDecodeClaudeArgs({
         model: MODEL,
         deliverablesDir: deliverables,
-        readOnlyDirs,
+        readOnlyDirs: [...readOnlyDirs, factsDir],
         writableFiles: DECODE_OUTPUT_FILES,
       }),
       env: claudeEnv(process.env, {

@@ -285,7 +285,9 @@ export interface RunDirs {
   workDir: string;
   /** Empty CLAUDE_CONFIG_DIR for the run. */
   configDir: string;
-  /** Deletes both, including the run's session transcript. */
+  /** Empty directory for the launcher's chain-facts file; passed to a run as a read-only --add-dir. */
+  factsDir: string;
+  /** Deletes all of them, including the run's session transcript. */
   cleanup: () => Promise<void>;
 }
 
@@ -293,9 +295,11 @@ export async function makeRunDirs(prefix: string): Promise<RunDirs> {
   const root = await mkdtemp(join(tmpdir(), `${prefix}-`));
   const workDir = join(root, 'work');
   const configDir = join(root, 'config');
+  const factsDir = join(root, 'facts');
   await mkdir(workDir);
   await mkdir(configDir);
-  return { workDir, configDir, cleanup: () => rm(root, { recursive: true, force: true }) };
+  await mkdir(factsDir);
+  return { workDir, configDir, factsDir, cleanup: () => rm(root, { recursive: true, force: true }) };
 }
 
 export interface ClaudeRun {
