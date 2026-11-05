@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "homelab": {
-      "type": "sse",
-      "url": "http://localhost:8100/sse"
-    }
-  }
-}
