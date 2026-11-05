@@ -170,7 +170,8 @@ async function main() {
   }
 
   // The PreToolUse hook that refuses remote/worktree subagents and off-list
-  // WebFetch hosts. A hook that cannot start does not block, so prove it works.
+  // WebFetch hosts. It blocks on failure, so a broken hook would refuse every
+  // research call: prove it works before the run starts.
   try {
     assertRunGuardWorks();
   } catch (err) {

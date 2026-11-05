@@ -65,7 +65,9 @@ function expectLockedDown(args: string[]): void {
   // hooks (the ops host's do); only the run's own empty config dir loads.
   expect(valuesOf(args, '--setting-sources')).toEqual(['user']);
   // The run's own settings: one PreToolUse hook that refuses subagent isolation
-  // (remote/cloud included) and WebFetch hosts off the list, nothing else.
+  // (remote/cloud included) and WebFetch hosts off the list, nothing else. A
+  // hook that cannot start, crashes or times out must block the call, not let
+  // it through (re-review R2), hence onFailure.
   const settings = valuesOf(args, '--settings');
   expect(settings).toHaveLength(1);
   expect(JSON.parse(settings[0]!)).toEqual({
@@ -73,7 +75,13 @@ function expectLockedDown(args: string[]): void {
       PreToolUse: [
         {
           matcher: 'Agent|Task|WebFetch',
-          hooks: [{ type: 'command', command: `${process.execPath} ${HOOK} ${READ_ONLY_FETCH_DOMAINS.join(' ')}` }],
+          hooks: [
+            {
+              type: 'command',
+              command: `${process.execPath} ${HOOK} ${READ_ONLY_FETCH_DOMAINS.join(' ')}`,
+              onFailure: 'block',
+            },
+          ],
         },
       ],
     },

@@ -20,8 +20,10 @@
 //   - a PreToolUse hook (hooks/run-guard.mjs, passed with --settings) that refuses
 //     any subagent isolation, "remote" (a cloud session this lockdown would not
 //     bind) included, and any WebFetch host off the list, including the
-//     documentation hosts Claude Code reaches on its own. The launchers run its
-//     self-test first, because a hook that cannot start does not block;
+//     documentation hosts Claude Code reaches on its own. It is set to
+//     onFailure "block", so a hook that cannot start, crashes or times out
+//     refuses the call instead of letting it run, and the launchers run its
+//     self-test first so a broken hook stops the run before it starts;
 //   - --strict-mcp-config with no --mcp-config: no MCP server at all;
 //   - --setting-sources user plus a fresh, empty CLAUDE_CONFIG_DIR: no settings
 //     file, CLAUDE.md, memory, plugin or hook from the ops host's ~/.claude (its
@@ -154,15 +156,22 @@ export function runGuardCommand(opts: RunGuardOptions = {}): string {
 function runGuardSettings(opts: RunGuardOptions = {}): string {
   return JSON.stringify({
     hooks: {
-      PreToolUse: [{ matcher: 'Agent|Task|WebFetch', hooks: [{ type: 'command', command: runGuardCommand(opts) }] }],
+      PreToolUse: [
+        {
+          matcher: 'Agent|Task|WebFetch',
+          // By default a hook that cannot start, crashes or times out does not
+          // block, and the tool runs (re-review R2). "block" closes that.
+          hooks: [{ type: 'command', command: runGuardCommand(opts), onFailure: 'block' }],
+        },
+      ],
     },
   });
 }
 
 /**
- * Throws unless the hook blocks and allows as it should. Claude Code treats a
- * hook that cannot start (a wrong node path, a missing file) as a non-blocking
- * error and runs the tool anyway, so the launchers call this before every run.
+ * Throws unless the hook blocks and allows as it should. With onFailure "block"
+ * a broken hook stops every guarded call; this catches it before the run starts,
+ * so a run does not set out with no working WebFetch or subagents.
  */
 export function assertRunGuardWorks(opts: RunGuardOptions = {}): void {
   const [node, script, ...hosts] = runGuardCommand(opts).split(' ');

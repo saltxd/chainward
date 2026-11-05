@@ -250,8 +250,8 @@ async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
 
 async function main() {
   const cfg = loadConfig();
-  // The hook that keeps WebFetch on the four hosts. A hook that cannot start
-  // does not block, so prove it works before claiming any order.
+  // The hook that keeps WebFetch on the four hosts. It blocks on failure, so a
+  // broken hook would fail every order: prove it works before claiming any.
   assertRunGuardWorks();
   const { orders } = await ops<{ success: boolean; orders: BriefOrder[] }>(cfg, `/api/brief/ops/queue?limit=${cfg.maxOrders}`);
   if (!orders.length) {
