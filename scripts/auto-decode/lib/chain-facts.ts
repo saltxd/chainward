@@ -121,6 +121,8 @@ const LOG_CHUNK_BLOCKS = 1_000;
 const ENTRY_POINT_CHUNK_BLOCKS = 10_000;
 const MIN_CHUNK_BLOCKS = 250;
 const STATE_LAG_BLOCKS = 2;
+/** A head older than this is a node that has fallen behind: try the other one, then fail. */
+const MAX_HEAD_AGE_SEC = 120;
 const RPC_TIMEOUT_MS = 20_000;
 const GET_TIMEOUT_MS = 20_000;
 const MAX_TEXT = 64;
@@ -128,29 +130,44 @@ const BASESCAN = 'https://basescan.org';
 
 // ── Outside text ───────────────────────────────────────────────────────────────
 
-// Control characters, line and paragraph separators and the bidi overrides.
+// Control characters become a space; format characters (zero-width, bidi
+// overrides, soft hyphen) are dropped, so they cannot split a hex run.
 // eslint-disable-next-line no-control-regex
-const UNSAFE_CHARS_RE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
+const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
+const FORMAT_CHARS_RE = /\p{Cf}/gu;
+// An address or hash inside outsider text is never carried into the pack: the
+// text could be an instruction to pay it, and a copy of it must not count as
+// "in the facts" for the grounding check.
+const PREFIXED_HEX_RE = /0x[0-9a-fA-F]{6,}/gi;
+const BARE_HEX_RE = /(?<![0-9a-zA-Z])[0-9a-fA-F]{32,}(?![0-9a-zA-Z])/g;
+export const HEX_REDACTED = '0x…(redacted)';
 const HEX_ID_RE = /^0x[0-9a-fA-F]{1,64}$/;
 
 /** One line of outside text, cut to 64 characters. */
 export function clipText(text: string, max = MAX_TEXT): string {
-  return text.replace(UNSAFE_CHARS_RE, ' ').trim().slice(0, max);
+  return text
+    .normalize('NFKC')
+    .replace(FORMAT_CHARS_RE, '')
+    .replace(CONTROL_CHARS_RE, ' ')
+    .replace(PREFIXED_HEX_RE, HEX_REDACTED)
+    .replace(BARE_HEX_RE, HEX_REDACTED)
+    .trim()
+    .slice(0, max);
 }
 
 /**
  * Outside JSON made safe to show: every string cut to 64 characters except a
  * 0x address or hash, lists cut to 20 entries, objects to 30 keys, depth to 5.
  */
-export function clipOutsideDeep(value: unknown, depth = 0): unknown {
-  if (typeof value === 'string') return HEX_ID_RE.test(value) ? value : clipText(value);
+export function clipOutsideDeep(value: unknown, keepHex: (hex: string) => boolean = () => true, depth = 0): unknown {
+  if (typeof value === 'string') return HEX_ID_RE.test(value) && keepHex(value) ? value : clipText(value);
   if (value === null || typeof value === 'number' || typeof value === 'boolean') return value;
   if (depth >= 5) return null;
-  if (Array.isArray(value)) return value.slice(0, 20).map((v) => clipOutsideDeep(v, depth + 1));
+  if (Array.isArray(value)) return value.slice(0, 20).map((v) => clipOutsideDeep(v, keepHex, depth + 1));
   if (typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 30)) {
-      out[clipText(k, 40)] = clipOutsideDeep(v, depth + 1);
+      out[clipText(k, 40)] = clipOutsideDeep(v, keepHex, depth + 1);
     }
     return out;
   }
@@ -173,12 +190,12 @@ function assertHost(url: string, method: 'GET' | 'POST'): URL {
 
 class RpcRevert extends Error {}
 
-interface Transport {
+export interface Transport {
   rpc<T>(host: string, method: string, params: unknown[], timeoutMs?: number): Promise<T>;
   get(url: string, headers?: Record<string, string>): Promise<{ status: number; body: unknown }>;
 }
 
-function makeTransport(deps: ChainFactsDeps): Transport {
+export function makeTransport(deps: ChainFactsDeps): Transport {
   const interval = deps.minIntervalMs ?? 500;
   const retryDelay = deps.retryDelayMs ?? 1_500;
   const sleep = (ms: number): Promise<void> => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
@@ -363,7 +380,7 @@ export async function buildChainFacts(
   if (!/^0x[0-9a-f]{40}$/.test(address)) throw new ChainFactsError('target is not an address');
 
   // The head. Without it nothing below can be dated, so this is the one hard failure.
-  const readHead = async (): Promise<{ number: number; timestamp: number }> => {
+  const readHead = async (): Promise<{ number: number; timestamp: number; ageSec: number }> => {
     let lastErr: unknown;
     for (const host of [PRIMARY_RPC, RECEIPT_RPC]) {
       try {
@@ -371,21 +388,23 @@ export async function buildChainFacts(
         const block = await net.rpc<{ timestamp: string }>(host, 'eth_getBlockByNumber', [hex(number), false]);
         const timestamp = parseInt(block.timestamp, 16);
         if (!Number.isFinite(number) || !Number.isFinite(timestamp)) throw new Error('unreadable head block');
-        return { number, timestamp };
+        // The age of the head when we read it: a long scan afterwards does not make it older.
+        const ageSec = Math.max(0, Math.round(now() / 1000 - timestamp));
+        if (ageSec > MAX_HEAD_AGE_SEC) throw new Error(`head block is ${ageSec} s old`);
+        return { number, timestamp, ageSec };
       } catch (err) {
         lastErr = err;
       }
     }
     throw lastErr;
   };
-  let head: { number: number; timestamp: number };
+  let head: { number: number; timestamp: number; ageSec: number };
   try {
     head = await readHead();
   } catch (err) {
     throw new ChainFactsError(`could not read the head block: ${clipText(err instanceof Error ? err.message : String(err), 120)}`);
   }
-  // The age of the head when we read it: a long scan afterwards does not make it older.
-  const headAgeSec = Math.max(0, Math.round(now() / 1000 - head.timestamp));
+  const headAgeSec = head.ageSec;
   const stateBlock = head.number - STATE_LAG_BLOCKS;
   const tag = hex(stateBlock);
   const approxTime = (block: number): string =>
@@ -489,9 +508,11 @@ export async function buildChainFacts(
 
   // The window and the Transfer-log scan.
   const fromBlock = Math.max(0, stateBlock - Math.round(windowDays * BLOCKS_PER_DAY));
-  const daysCovered = (scannedFrom: number): number =>
-    Math.min(windowDays, Math.round((((stateBlock - scannedFrom + 1) * BASE_BLOCK_SECONDS) / 86_400) * 100) / 100);
+  const daysCovered = (scannedFrom: number, to = stateBlock): number =>
+    Math.min(windowDays, Math.round((((to - scannedFrom + 1) * BASE_BLOCK_SECONDS) / 86_400) * 100) / 100);
   let sampleTxs: string[] = [];
+  // Every eth_getLogs range the scan asked for, and whether both of its queries answered.
+  const chunkLog = new Map<string, { calls: number; failed: boolean }>();
   const scan = await attempt('transfer_scan', () =>
     scanTransferLogs({
       address,
@@ -500,7 +521,22 @@ export async function buildChainFacts(
       toBlock: stateBlock,
       chunkBlocks: LOG_CHUNK_BLOCKS,
       timeoutMs: RPC_TIMEOUT_MS,
-      rpcCall: (url, method, params, timeoutMs) => net.rpc(new URL(url).hostname, method, params, timeoutMs),
+      rpcCall: async (url, method, params, timeoutMs) => {
+        const f = method === 'eth_getLogs' ? (params[0] as { fromBlock: string; toBlock: string }) : null;
+        const key = f ? `${parseInt(f.fromBlock, 16)}-${parseInt(f.toBlock, 16)}` : '';
+        const entry = f ? (chunkLog.get(key) ?? { calls: 0, failed: false }) : null;
+        if (f && entry) chunkLog.set(key, entry);
+        try {
+          const result = await net.rpc<unknown>(new URL(url).hostname, method, params, timeoutMs);
+          // A node that answers null has not said "no logs": it has not answered.
+          if (f && !Array.isArray(result)) throw new Error('eth_getLogs: the answer was not a list');
+          if (entry) entry.calls += 1;
+          return result;
+        } catch (err) {
+          if (entry) entry.failed = true;
+          throw err;
+        }
+      },
       concurrency: 4,
       budgetMs: options.scanBudgetMs ?? 10 * 60_000,
       maxLogs: 6_000,
@@ -508,11 +544,60 @@ export async function buildChainFacts(
     }),
   );
   if (scan) {
+    // scanTransferLogs reports the lowest block any chunk answered for, even past a
+    // chunk that failed. Coverage here is only the unbroken run of answered ranges.
+    const answered: Array<[number, number]> = [];
+    const failedRanges: Array<[number, number]> = [];
+    for (const [key, entry] of chunkLog) {
+      const [lo, hi] = key.split('-').map(Number) as [number, number];
+      if (!entry.failed && entry.calls >= 2) answered.push([lo, hi]);
+      else failedRanges.push([lo, hi]);
+    }
+    const coveredTo = answered.length > 0 ? Math.max(...answered.map(([, hi]) => hi)) : stateBlock;
+    let coveredFrom = coveredTo + 1;
+    for (let moved = true; moved; ) {
+      moved = false;
+      for (const [lo, hi] of answered) {
+        if (hi >= coveredFrom - 1 && lo < coveredFrom) {
+          coveredFrom = lo;
+          moved = true;
+        }
+      }
+    }
+    // The parts of the failed ranges that no answered range covers.
+    const merged = [...answered].sort((a, b) => a[0] - b[0]).reduce<Array<[number, number]>>((acc, [lo, hi]) => {
+      const last = acc[acc.length - 1];
+      if (last && lo <= last[1] + 1) last[1] = Math.max(last[1], hi);
+      else acc.push([lo, hi]);
+      return acc;
+    }, []);
+    const gaps: Array<[number, number]> = [];
+    for (const [flo, fhi] of failedRanges) {
+      let pieces: Array<[number, number]> = [[flo, fhi]];
+      for (const [mlo, mhi] of merged) {
+        pieces = pieces.flatMap(([a, b]): Array<[number, number]> => {
+          if (mhi < a || mlo > b) return [[a, b]];
+          const out: Array<[number, number]> = [];
+          if (a < mlo) out.push([a, mlo - 1]);
+          if (b > mhi) out.push([mhi + 1, b]);
+          return out;
+        });
+      }
+      gaps.push(...pieces);
+    }
+    if (gaps.length > 0) {
+      const lowest = Math.min(...gaps.map(([a]) => a));
+      const highest = Math.max(...gaps.map(([, b]) => b));
+      fail('transfer_scan_gap', new Error(`blocks ${lowest} to ${highest} could not be read (${gaps.length} failed range${gaps.length === 1 ? '' : 's'}); nothing below block ${coveredFrom} is counted`));
+    }
+    const scannedFromBlock = coveredFrom;
     const seen = new Set<string>();
     const moves: Move[] = [];
     const otherTokens = new Map<string, number>();
     for (const log of scan.logs as RawLog[]) {
       if (log.topics.length !== 3 || log.topics[0] !== TRANSFER_TOPIC) continue; // fungible ERC-20 only
+      const logBlock = parseInt(log.blockNumber, 16);
+      if (logBlock < scannedFromBlock || logBlock > coveredTo) continue; // outside the stated window
       const key = `${log.transactionHash}:${log.logIndex}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -555,16 +640,16 @@ export async function buildChainFacts(
     const newestFirst = [...moves].sort((a, b) => b.block - a.block);
     sampleTxs = [...new Set([...byValue, ...newestFirst].map((m) => m.tx))];
 
-    const truncated = scan.truncated;
+    const truncated = scan.truncated || scannedFromBlock > fromBlock;
     add(
       'transfer_scan',
       {
         window: {
           days_requested: windowDays,
-          days_covered: truncated ? daysCovered(scan.scannedFromBlock) : windowDays,
+          days_covered: truncated ? daysCovered(scannedFromBlock, coveredTo) : windowDays,
           from_block: fromBlock,
-          scanned_from_block: scan.scannedFromBlock,
-          to_block: stateBlock,
+          scanned_from_block: scannedFromBlock,
+          to_block: coveredTo,
           truncated,
           rpc: LOGS_RPC,
         },
@@ -609,7 +694,8 @@ export async function buildChainFacts(
           const logs = await rpc<unknown[]>('eth_getLogs', [
             { fromBlock: hex(start), toBlock: hex(end), address: ENTRY_POINTS, topics: [USER_OP_TOPIC, null, '0x' + wordOf(address)] },
           ]);
-          count += Array.isArray(logs) ? logs.length : 0;
+          if (!Array.isArray(logs)) throw new Error('eth_getLogs: the answer was not a list');
+          count += logs.length;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           if (size > MIN_CHUNK_BLOCKS && isRangeLimitError(msg)) {
@@ -677,7 +763,8 @@ export async function buildChainFacts(
       if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
       const body = res.body as { success?: boolean; data?: unknown } | null;
       if (!body || body.success === false) throw new Error('unexpected answer');
-      return clipOutsideDeep(body.data);
+      // Only the target itself may appear as a bare address in ChainWard's text.
+      return clipOutsideDeep(body.data, (h) => h.toLowerCase() === address);
     });
     if (answer !== undefined) add(label, answer, url, `ChainWard public API (${label.replace('chainward_', '').replace('_', ' ')})`);
   }
