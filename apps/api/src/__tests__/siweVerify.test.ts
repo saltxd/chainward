@@ -45,6 +45,17 @@ describe('verifySiwe', () => {
     expect(onChain).toHaveBeenCalledWith({ address: account.address, message, signature: CONTRACT_SIGNATURE });
   });
 
+  it('refuses the zero address before any signature check, even when the on-chain validator says yes', async () => {
+    // viem's universal validator compares ecrecover's failure value (0x0) with the claimed signer,
+    // so a signature that cannot recover "validates" for the zero address on Base (measured
+    // 2026-11-05: r=0, s=0, v=27). The zero address owns the observatory's system user.
+    const message = siwe({ address: '0x0000000000000000000000000000000000000000' });
+    const onChain = vi.fn(async () => true);
+    const result = await verifySiwe(message, `0x${'00'.repeat(64)}1b`, onChain);
+    expect(result).toEqual({ ok: false, reason: 'invalid_signature' });
+    expect(onChain).not.toHaveBeenCalled();
+  });
+
   it('rejects a signature that neither recovers nor validates on-chain', async () => {
     const result = await verifySiwe(siwe(), CONTRACT_SIGNATURE, async () => false);
     expect(result).toEqual({ ok: false, reason: 'invalid_signature' });

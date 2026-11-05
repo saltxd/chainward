@@ -5,6 +5,7 @@ import { ApiKeyService } from '../services/apiKeyService.js';
 import { getDb } from '../lib/db.js';
 import { AppError } from './errorHandler.js';
 import { verifyJwt, extractSessionToken } from '../lib/auth.js';
+import { SYSTEM_USER_ID } from '../lib/systemUser.js';
 
 function inferRequiredScope(method: string): string {
   return ['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase()) ? 'read' : 'write';
@@ -27,7 +28,8 @@ export function requireApiKeyOrSession(requiredScope?: string) {
       const service = new ApiKeyService(db);
       const result = await service.validate(rawKey);
 
-      if (!result) {
+      // The observatory's system user never authenticates; a key it owns is refused like a bad one.
+      if (!result || result.userId === SYSTEM_USER_ID) {
         throw new AppError(401, 'INVALID_API_KEY', 'Invalid or expired API key');
       }
 
@@ -66,7 +68,7 @@ export function requireApiKeyOrSession(requiredScope?: string) {
     }
 
     const payload = await verifyJwt(token);
-    if (!payload) {
+    if (!payload || payload.sub === SYSTEM_USER_ID) {
       throw new AppError(401, 'UNAUTHORIZED', 'Invalid or expired session');
     }
 

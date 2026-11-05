@@ -1,5 +1,5 @@
 import { SiweMessage } from 'siwe';
-import { isAddressEqual, recoverMessageAddress, type Address, type Hex } from 'viem';
+import { isAddressEqual, recoverMessageAddress, zeroAddress, type Address, type Hex } from 'viem';
 import { base } from 'viem/chains';
 import { getBaseClient } from './viem.js';
 import { logger } from './logger.js';
@@ -44,6 +44,11 @@ export async function verifySiwe(
   if (!/^0x[0-9a-fA-F]+$/.test(signature)) return { ok: false, reason: 'invalid_signature' };
   const sig = signature as Hex;
   const address = message.address as Address;
+
+  // Nobody holds the zero address's key, and the on-chain validator compares ecrecover's failure
+  // value (0x0) with the claimed signer, so any signature that cannot recover would "validate" for
+  // it. It also owns the observatory's system user. Refuse it before any signature check.
+  if (isAddressEqual(address, zeroAddress)) return { ok: false, reason: 'invalid_signature' };
 
   // The wallet signed the exact string the client sent, so recover over that.
   try {
