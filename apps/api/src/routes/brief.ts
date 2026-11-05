@@ -11,13 +11,12 @@ import { logger } from '../lib/logger.js';
 import { verifyUsdcPayment } from '../lib/verifyUsdcPayment.js';
 import { buildFulfillmentUpdate } from '../lib/briefFulfillment.js';
 import { paidOrderPayload, privateDeliveredPayload, type DiscordPayload } from '../lib/briefNotify.js';
+import { parseCreateBriefOrder } from '../lib/briefOrderInput.js';
 
 // Price for the paid "Intel Brief" (forensic on-chain decode), in micro-USDC
 // (6 decimals). Env-overridable so the price can be tuned WITHOUT a redeploy.
 // Defaults to the 1-USDC launch rate (ChainWard's literal first dollar).
 const BRIEF_PRICE_USDC = BigInt(process.env.BRIEF_PRICE_MICRO_USDC ?? '1000000');
-
-const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 const brief = new Hono<{ Variables: AppVariables }>();
 
@@ -45,22 +44,12 @@ brief.get('/config', (c) => {
 });
 
 // ── Create a pending order ────────────────────────────────────────────────────
-const createSchema = z.object({
-  target: z.string().trim().min(1).max(200),
-  contact: z.string().trim().min(3).max(200),
-  contactMethod: z.enum(['email', 'telegram', 'x', 'discord', 'other']),
-  notes: z.string().trim().max(2000).optional(),
-});
-
 brief.post('/orders', requireApiKeyOrSession('write'), async (c) => {
   const user = c.get('user');
   const body = await c.req.json().catch(() => ({}));
-  const { target, contact, contactMethod, notes } = createSchema.parse(body);
-
-  // Normalize the decode target: 0x… address vs agent handle.
-  const isAddress = ADDRESS_RE.test(target);
-  const normalizedTarget = isAddress ? target.toLowerCase() : target.replace(/^@/, '');
-  const targetKind = isAddress ? 'address' : 'handle';
+  // Target and contact reach the Claude run that writes the brief: an address or
+  // agent handle, and a contact in the shape of its delivery method, nothing else.
+  const { target: normalizedTarget, targetKind, contact, contactMethod, notes } = parseCreateBriefOrder(body);
 
   const db = getDb();
   const [order] = await db
@@ -72,7 +61,7 @@ brief.post('/orders', requireApiKeyOrSession('write'), async (c) => {
       targetKind,
       contact,
       contactMethod,
-      notes: notes ?? null,
+      notes,
       plan: 'brief',
       amountUsdc: Number(BRIEF_PRICE_USDC), // lock the quoted price at order time
       status: 'pending',
