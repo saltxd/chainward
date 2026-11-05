@@ -137,37 +137,64 @@ const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
 const FORMAT_CHARS_RE = /\p{Cf}/gu;
 // An address or hash inside outsider text is never carried into the pack: the
 // text could be an instruction to pay it, and a copy of it must not count as
-// "in the facts" for the grounding check.
-const PREFIXED_HEX_RE = /0x[0-9a-fA-F]{6,}/gi;
-const BARE_HEX_RE = /(?<![0-9a-zA-Z])[0-9a-fA-F]{32,}(?![0-9a-zA-Z])/g;
+// "in the facts" for the grounding check. An address split into groups
+// ("0x bad0 0000 ..."), or joined by dashes, dots, markdown, is the same address,
+// so hex groups are redacted whatever separates them. Decimal numbers are not
+// hex: amounts, block numbers and dates stay.
+const SEP = '[\\s\\-_.:,·*`\\[\\]()~]';
+const PREFIXED_GROUPS_RE = new RegExp(String.raw`0x[0-9a-f]+(?:${SEP}+[0-9a-f]+(?![0-9a-z]))*`, 'gi');
+const BARE_GROUPS_RE = new RegExp(
+  String.raw`(?<![0-9a-z])[0-9a-f]+(?![0-9a-z])(?:${SEP}+[0-9a-f]+(?![0-9a-z]))*`,
+  'gi',
+);
 export const HEX_REDACTED = '0x…(redacted)';
+
+function redactHex(text: string): string {
+  const out = text.replace(PREFIXED_GROUPS_RE, (m) => (m.replace(/^0x/i, '').replace(new RegExp(SEP, 'g'), '').length >= 6 ? HEX_REDACTED : m));
+  return out.replace(BARE_GROUPS_RE, (m) => {
+    const joined = m.replace(new RegExp(SEP, 'g'), '');
+    if (joined.length < 6 || /^[0-9]+$/.test(joined)) return m; // a decimal number
+    return /[0-9]/.test(joined) || joined.length >= 16 ? HEX_REDACTED : m;
+  });
+}
+
+/** Keys whose values are outsider text (never a structured address, never a source of grounding). */
+export const TEXT_KEYS: ReadonlySet<string> = new Set(['name', 'symbol', 'description', 'title', 'subtitle', 'label', 'labels', 'offerings']);
+const KEPT_LINK_RE = /^https:\/\/(?:basescan\.org|base\.easscan\.org|chainward\.ai)\/[^\s]*$/;
 const HEX_ID_RE = /^0x[0-9a-fA-F]{1,64}$/;
 
 /** One line of outside text, cut to 64 characters. */
 export function clipText(text: string, max = MAX_TEXT): string {
-  return text
+  const flat = text
     .normalize('NFKC')
     .replace(FORMAT_CHARS_RE, '')
     .replace(CONTROL_CHARS_RE, ' ')
-    .replace(PREFIXED_HEX_RE, HEX_REDACTED)
-    .replace(BARE_HEX_RE, HEX_REDACTED)
-    .trim()
-    .slice(0, max);
+    .slice(0, 2_000)
+    .trim();
+  return redactHex(flat).slice(0, max);
 }
 
 /**
- * Outside JSON made safe to show: every string cut to 64 characters except a
- * 0x address or hash, lists cut to 20 entries, objects to 30 keys, depth to 5.
+ * Outside JSON made safe to show: every string cut to 64 characters (hex in it
+ * redacted) except a whole-string 0x address or hash that `keepHex` allows for
+ * its key, and a link to one of our own explorers; lists cut to 20 entries,
+ * objects to 30 keys, depth to 5. Decimal strings pass untouched.
  */
-export function clipOutsideDeep(value: unknown, keepHex: (hex: string) => boolean = () => true, depth = 0): unknown {
-  if (typeof value === 'string') return HEX_ID_RE.test(value) && keepHex(value) ? value : clipText(value);
+export function clipOutsideDeep(value: unknown, keepHex: (hex: string, key: string) => boolean = () => true, depth = 0, key = ''): unknown {
+  if (typeof value === 'string') {
+    if (HEX_ID_RE.test(value) && keepHex(value, key)) return value;
+    if (value.length <= 200 && KEPT_LINK_RE.test(value) && !TEXT_KEYS.has(key)) return value;
+    return clipText(value);
+  }
   if (value === null || typeof value === 'number' || typeof value === 'boolean') return value;
   if (depth >= 5) return null;
-  if (Array.isArray(value)) return value.slice(0, 20).map((v) => clipOutsideDeep(v, keepHex, depth + 1));
+  if (Array.isArray(value)) return value.slice(0, 20).map((v) => clipOutsideDeep(v, keepHex, depth + 1, key));
   if (typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 30)) {
-      out[clipText(k, 40)] = clipOutsideDeep(v, keepHex, depth + 1);
+      // An address used as a map key (counterparties) stays whole, or two keys would collapse into one.
+      const outKey = HEX_ID_RE.test(k) ? k : clipText(k, 40);
+      out[outKey] = clipOutsideDeep(v, keepHex, depth + 1, k);
     }
     return out;
   }
@@ -763,8 +790,8 @@ export async function buildChainFacts(
       if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
       const body = res.body as { success?: boolean; data?: unknown } | null;
       if (!body || body.success === false) throw new Error('unexpected answer');
-      // Only the target itself may appear as a bare address in ChainWard's text.
-      return clipOutsideDeep(body.data, (h) => h.toLowerCase() === address);
+      // ChainWard's structured addresses stay (grounding ignores these facts); text fields lose theirs.
+      return clipOutsideDeep(body.data, (_h, key) => !TEXT_KEYS.has(key));
     });
     if (answer !== undefined) add(label, answer, url, `ChainWard public API (${label.replace('chainward_', '').replace('_', ' ')})`);
   }

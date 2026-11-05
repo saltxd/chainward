@@ -2,54 +2,71 @@
 //
 // One brief poller at a time. A chain-facts read takes minutes and cron starts a
 // poller every few minutes; overlapping pollers would each pace their own public
-// RPC requests and multiply the request rate. The lock is a file holding the
-// holder's pid, created exclusively; a file whose pid is gone (or unreadable) is
-// stale and taken over.
-import { closeSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+// RPC requests and multiply the request rate.
+//
+// The lock is an OS lock (flock, exclusive, non-blocking) on a lock file. Node has
+// no flock, so a small python3 helper takes it and holds it for as long as its
+// stdin stays open: it exits, and the OS frees the lock, when the poller releases
+// it, exits, crashes or is killed. There is no pid in the file to go stale or be
+// reused, and the file's contents are never read. If python3 is missing the poll
+// fails (it does not run unlocked).
+import { spawn, type ChildProcess } from 'node:child_process';
+
+const HELPER = [
+  'import fcntl, sys',
+  'f = open(sys.argv[1], "a")',
+  'try:',
+  '    fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)',
+  'except OSError:',
+  '    print("busy", flush=True)',
+  '    sys.exit(0)',
+  'print("held", flush=True)',
+  'sys.stdin.read()',
+].join('\n');
 
 export interface PollerLock {
-  release: () => void;
+  /** Frees the lock and waits for the helper to exit. */
+  release: () => Promise<void>;
+  /** Kills the helper without a release (tests: what a crash does). */
+  kill: () => void;
 }
 
-function holderAlive(path: string): boolean {
-  let pid: number;
-  try {
-    pid = Number(readFileSync(path, 'utf8').trim());
-  } catch {
-    return false;
-  }
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    // EPERM: the process exists but is not ours.
-    return (err as NodeJS.ErrnoException).code === 'EPERM';
-  }
-}
-
-/** The lock, or null when another live poller holds it. */
-export function acquirePollerLock(path: string): PollerLock | null {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const fd = openSync(path, 'wx');
-      closeSync(fd);
-      writeFileSync(path, `${process.pid}\n`);
-      return {
-        release: () => {
-          // Never delete a lock somebody else has taken over.
-          try {
-            if (readFileSync(path, 'utf8').trim() === String(process.pid)) rmSync(path, { force: true });
-          } catch {
-            /* already gone */
-          }
-        },
-      };
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-      if (holderAlive(path)) return null;
-      rmSync(path, { force: true }); // stale: its process is gone
-    }
-  }
-  return null;
+/** The lock, or null when another poller holds it. Throws if the helper cannot run. */
+export function acquirePollerLock(path: string): Promise<PollerLock | null> {
+  return new Promise((resolve, reject) => {
+    const child: ChildProcess = spawn('python3', ['-I', '-c', HELPER, path], { stdio: ['pipe', 'pipe', 'ignore'] });
+    let answer = '';
+    let settled = false;
+    const exited = new Promise<void>((done) => child.once('close', () => done()));
+    const finish = (result: PollerLock | null): void => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+    child.once('error', (err) => {
+      if (!settled) {
+        settled = true;
+        reject(new Error(`poller lock: cannot run python3: ${err.message}`));
+      }
+    });
+    child.stdout!.setEncoding('utf8');
+    child.stdout!.on('data', (chunk: string) => {
+      answer += chunk;
+      if (answer.includes('held')) {
+        finish({
+          release: async () => {
+            child.stdin!.end();
+            await exited;
+          },
+          kill: () => {
+            child.kill('SIGKILL');
+          },
+        });
+      } else if (answer.includes('busy')) {
+        child.stdin!.end();
+        finish(null);
+      }
+    });
+    child.once('close', () => finish(null));
+  });
 }

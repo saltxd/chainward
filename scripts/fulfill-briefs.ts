@@ -276,7 +276,7 @@ async function main() {
   const cfg = loadConfig();
   // One poller at a time: a chain-facts read takes minutes and cron starts one every few,
   // and overlapping pollers would multiply the request rate to the public RPCs.
-  const lock = acquirePollerLock(process.env.BRIEF_LOCK_FILE ?? join(tmpdir(), 'cw-fulfill-briefs.lock'));
+  const lock = await acquirePollerLock(process.env.BRIEF_LOCK_FILE ?? join(tmpdir(), 'cw-fulfill-briefs.lock'));
   if (!lock) {
     log('another poller is running; exiting');
     return;
@@ -284,7 +284,7 @@ async function main() {
   try {
     await pollOnce(cfg);
   } finally {
-    lock.release();
+    await lock.release();
   }
 }
 

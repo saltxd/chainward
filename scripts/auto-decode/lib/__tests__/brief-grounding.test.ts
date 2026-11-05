@@ -135,7 +135,7 @@ describe('checkBriefGrounding: reads what the reader sees', () => {
     ['an entity-encoded link', '[BaseScan](https&#58;//evil&#46;xyz/claim)', /entit|html/i],
     ['an entity-encoded reference link', '[BaseScan][1]\n\n[1]: https&#58;//evil&#46;xyz', /entit|html/i],
     ['raw HTML', '<a href="https://evil.xyz">BaseScan</a>', /html/i],
-    ['an HTML autolink', '<https://basescan.org/x>', /html/i],
+    ['an HTML autolink to another host', '<https://evil.xyz/x>', /html|host|link/i],
     ['an image', '![x](https://basescan.org/a.png)', /image/i],
     ['an uppercase 0X prefix', `Pay 0X${HEX.toUpperCase()}.`, /0xbad0/i],
     ['no 0x prefix at all', `Pay ${HEX}.`, /bad0/i],
@@ -159,6 +159,67 @@ describe('checkBriefGrounding: reads what the reader sees', () => {
 
   it('does not refuse an ordinary ampersand or a less-than sign', () => {
     expect(() => ok('R&D spend < $5k, fees & gas.')).not.toThrow();
+  });
+});
+
+describe('checkBriefGrounding: a split address rejoined by the renderer', () => {
+  const HEX = BAD.slice(2);
+  const four = HEX.match(/.{4}/g) as string[];
+  const cases: Array<[string, string]> = [
+    ['spaced groups', `Pay 0x ${four.join(' ')}.`],
+    ['spaced groups with the prefix on the first group', `Pay 0x${four.join(' ')}.`],
+    ['spaced groups, no prefix', `Pay ${four.join(' ')}.`],
+    ['dashes', `Pay 0x${four.join('-')}.`],
+    ['dots', `Pay 0x${four.join('.')}.`],
+    ['emphasis between groups', `Pay 0x**${HEX.slice(0, 20)}**${HEX.slice(20)}.`],
+    ['emphasis around every group', `Pay 0x${four.map((g) => `*${g}*`).join('')}.`],
+    ['a code span in the middle', `Pay 0x\`${HEX.slice(0, 20)}\`${HEX.slice(20)}.`],
+    ['link text in the middle', `Pay 0x[${HEX.slice(0, 20)}](https://basescan.org/)${HEX.slice(20)}.`],
+    ['link text around the whole tail', `Pay 0x[${HEX}](https://basescan.org/).`],
+    ['zero-width characters between groups', `Pay 0x${four.join('\u200b')}.`],
+    ['uppercase 0X with spaced groups', `Pay 0X ${four.join(' ').toUpperCase()}.`],
+  ];
+  it.each(cases)('refuses %s', (_n, text) => {
+    expect(() => checkBriefGrounding({ markdown: text }, ctx)).toThrow(/not the target|chain facts/);
+    expect(() => checkBriefGrounding({ markdown: 'ok', thread: [text, 'two'] }, ctx)).toThrow();
+  });
+
+  it('accepts the target itself written in the same split forms', () => {
+    const t = TARGET.slice(2);
+    const g = t.match(/.{4}/g) as string[];
+    expect(() => ok(`0x ${g.join(' ')} and 0x**${t.slice(0, 20)}**${t.slice(20)}.`)).not.toThrow();
+  });
+
+  it('does not join an address with the words after it', () => {
+    expect(() => ok(`${TARGET}, 3 moves; ${PEER} 5 USDC`)).not.toThrow();
+  });
+});
+
+describe('checkBriefGrounding: an honest brief passes', () => {
+  const REAL = {
+    target: { address: TARGET },
+    facts: [
+      { id: 'F1', label: 'erc20', value: { total_supply_raw: '1' + '0'.repeat(39), owner: PEER } },
+      { id: 'F2', label: 'transfer_scan', value: { largest_moves: [{ tx: TX, counterparty: PEER, block: 29998999 }] } },
+    ],
+  };
+  const real = { target: TARGET, pack: REAL, contact: 'alice@example.com' };
+
+  it('accepts autolinks to allowed hosts, long decimals, block numbers and short forms', () => {
+    const md = [
+      '## ChainWard Intel Brief: 0x5dfc…6f5d',
+      '_As of block 29,998,998 · 2026-11-05 · prepared for alice@example.com_',
+      `Source: <https://basescan.org/address/${TARGET}>`,
+      `Raw supply 1${'0'.repeat(39)} (decimals 0), owner ${PEER}.`,
+      `Largest move ${TX} at block 29998999 from 0xabcd…abcd.`,
+      '- [BaseScan](https://basescan.org/token/' + TARGET + '): the token',
+    ].join('\n');
+    expect(() => checkBriefGrounding({ markdown: md }, real)).not.toThrow();
+  });
+
+  it('still refuses an autolink to any other host', () => {
+    expect(() => checkBriefGrounding({ markdown: '<https://evil.xyz/x>' }, real)).toThrow(/host|link|html/i);
+    expect(() => checkBriefGrounding({ markdown: '<https://basescan.org.evil.xyz/x>' }, real)).toThrow(/host|link|html/i);
   });
 });
 

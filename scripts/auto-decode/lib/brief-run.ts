@@ -17,7 +17,7 @@ import {
   type BriefContactMethod,
   type BriefTargetKind,
 } from '@chainward/common/brief-input';
-import { clipOutsideDeep, clipText, type ChainFacts } from './chain-facts.js';
+import { TEXT_KEYS, clipOutsideDeep, clipText, type ChainFacts } from './chain-facts.js';
 import { untrustedBlock } from './claude-run.js';
 
 /** A queued order as GET /api/brief/ops/queue returns it: the fields the runner reads. */
@@ -77,7 +77,7 @@ function capPack(pack: ChainFacts): ChainFacts {
   return {
     ...pack,
     target: { ...pack.target, ...(pack.target.name ? { name: clipText(pack.target.name) } : {}) },
-    facts: pack.facts.map((f) => ({ ...f, value: clipOutsideDeep(f.value) })),
+    facts: pack.facts.map((f) => ({ ...f, value: clipOutsideDeep(f.value, (_h, key) => !TEXT_KEYS.has(key)) })),
   };
 }
 
