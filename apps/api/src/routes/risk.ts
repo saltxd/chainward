@@ -13,7 +13,7 @@ import {
   alchemyTransferSource,
   analyzeSellerDemand,
   DEMAND_WINDOW_DAYS,
-  SELLER_BLOCKS_PER_DAY,
+  sellerWindowStartBlock,
   SELLER_STABLECOINS,
   sellerDemandOptions,
   sellerDemandRpcUrl,
@@ -990,7 +990,7 @@ async function sellerDemandCheck(c: Context) {
   });
   try {
     const head = await rpcHead(rpcUrl);
-    const fromBlock = head - BigInt(DEMAND_WINDOW_DAYS * SELLER_BLOCKS_PER_DAY[chain]);
+    const fromBlock = sellerWindowStartBlock(chain, head, DEMAND_WINDOW_DAYS);
     const source = alchemyTransferSource(rpcUrl, fromBlock, logger, SELLER_STABLECOINS[chain]);
     // On Base, payers behind facilitator proxies (Meridian, Fluxa) come from x402scan, verified on receipts.
     const report = await Promise.race([analyzeSellerDemand(address, source, sellerDemandOptions(chain, rpcUrl)), timeout]);

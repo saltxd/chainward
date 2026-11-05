@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Hono } from 'hono';
+import { baseTimeOfBlock } from '@chainward/common';
+import { DEMAND_WINDOW_DAYS } from '@chainward/decode';
 
 // GET /api/risk/seller-demand through the Hono router, without the x402 payment
 // middleware that index.ts mounts in front of it. No network, no real Redis.
@@ -90,6 +92,29 @@ describe('GET /api/risk/seller-demand', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://bnb-mainnet.g.alchemy.com/v2/test-key');
     expect(redis.set).not.toHaveBeenCalled();
+  });
+
+  it('starts the Base window at the block that is truly DEMAND_WINDOW_DAYS back (200 ms blocks)', async () => {
+    vi.stubEnv('SELLER_DEMAND_RPC_URL', 'https://base-mainnet.g.alchemy.com/v2/test-key');
+    const head = 60_000_000;
+    const fromBlocks: string[] = [];
+    fetchMock.mockImplementation(async (url: string, init?: { body?: string }) => {
+      if (url.startsWith('https://www.x402scan.com/')) {
+        return new Response(JSON.stringify({ result: { data: { json: { items: [], hasNextPage: false } } } }));
+      }
+      const req = JSON.parse(init?.body ?? '{}') as { method: string; params: Array<{ fromBlock?: string }> };
+      if (req.method === 'alchemy_getAssetTransfers') fromBlocks.push(req.params[0]?.fromBlock ?? '');
+      const result = req.method === 'eth_blockNumber' ? `0x${head.toString(16)}` : { transfers: [] };
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result }));
+    });
+
+    const res = await app().request(`/api/risk/seller-demand?address=${SELLER}`);
+    expect(res.status).toBe(200);
+    expect(fromBlocks.length).toBeGreaterThan(0);
+    const from = Number(BigInt(fromBlocks[0]!));
+    const span = baseTimeOfBlock(head) - baseTimeOfBlock(from);
+    expect(span).toBeGreaterThanOrEqual(DEMAND_WINDOW_DAYS * 86_400);
+    expect(span - DEMAND_WINDOW_DAYS * 86_400).toBeLessThan(2);
   });
 
   it('resolves payers behind facilitator proxies on Base (x402scan) but not on BNB Chain', async () => {

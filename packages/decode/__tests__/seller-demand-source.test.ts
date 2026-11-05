@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SELLER_BLOCKS_PER_DAY, SELLER_STABLECOINS, alchemyTransferSource } from '../src/seller-demand.js';
+import { baseTimeOfBlock } from '@chainward/common';
+import { SELLER_BLOCKS_PER_DAY, SELLER_STABLECOINS, alchemyTransferSource, sellerWindowStartBlock } from '../src/seller-demand.js';
 
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955';
@@ -9,8 +10,28 @@ describe('seller-demand chain constants', () => {
   it('lists the stablecoins per chain and a block rate per chain', () => {
     expect(SELLER_STABLECOINS.base).toEqual([USDC_BASE]);
     expect(SELLER_STABLECOINS.bsc).toEqual([USDT_BSC, USDC_BSC]);
-    expect(SELLER_BLOCKS_PER_DAY.base).toBe(43_200);
     expect(SELLER_BLOCKS_PER_DAY.bsc).toBe(192_000);
+  });
+});
+
+describe('sellerWindowStartBlock', () => {
+  const DAY = 86_400;
+
+  it('starts a 30-day Base window at the block that is truly 30 days back', () => {
+    const head = 60_000_000; // 200 ms blocks for the last ~15 days, 2 s blocks before that
+    const from = Number(sellerWindowStartBlock('base', BigInt(head), 30));
+    const span = baseTimeOfBlock(head) - baseTimeOfBlock(from);
+    expect(span).toBeGreaterThanOrEqual(30 * DAY);
+    expect(span - 30 * DAY).toBeLessThan(2);
+  });
+
+  it('is 432,000 blocks a day on 200 ms blocks', () => {
+    expect(sellerWindowStartBlock('base', 60_000_000n, 1)).toBe(60_000_000n - 432_000n);
+  });
+
+  it('leaves BSC at 192,000 blocks a day', () => {
+    expect(SELLER_BLOCKS_PER_DAY.bsc).toBe(192_000);
+    expect(sellerWindowStartBlock('bsc', 100_000_000n, 30)).toBe(100_000_000n - 30n * 192_000n);
   });
 });
 
