@@ -9,7 +9,8 @@
 // (security audit 2026-11-05, F-001 and B-U07-1). Now every run is:
 //
 //   - print mode, prompt on stdin (no argument or process listing carries it);
-//   - an explicit built-in tool set (--tools): never a shell;
+//   - an explicit built-in tool set (--tools): never a shell, and for the paid
+//     brief none at all (--tools ""), its chain facts arriving in the prompt;
 //   - --permission-mode dontAsk: anything not allow-listed is refused, never asked;
 //   - an allow-list of scoped rules only: WebFetch to read-only chain and registry
 //     APIs, and for auto-decode, Edit of the nine pipeline files by name (a
@@ -83,6 +84,7 @@ const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._:[\]-]{0,79}$/;
 // Absolute, and nothing the permission-rule or glob syntax would read: no spaces,
 // parentheses, wildcards, braces or shell characters.
 const SAFE_ABS_PATH_RE = /^\/[A-Za-z0-9._/-]+$/;
+const MAX_UNTRUSTED_BLOCK_BYTES = 48 * 1024;
 const TAG_RE = /^[a-z][a-z0-9_]{0,63}$/;
 // JSON.stringify leaves these two as they are; some readers treat them as line breaks.
 const LINE_SEPARATOR = String.fromCharCode(0x2028);
@@ -198,8 +200,8 @@ function lockedDownArgs(model: string, tools: string, allowedTools: string[], ad
     '--tools',
     tools,
     ...(addDirs.length > 0 ? ['--add-dir', ...addDirs] : []),
-    '--allowedTools',
-    ...allowedTools,
+    // An empty list would swallow the next flag as a rule, so none is passed.
+    ...(allowedTools.length > 0 ? ['--allowedTools', ...allowedTools] : []),
     '--permission-mode',
     'dontAsk',
     '--setting-sources',
@@ -211,11 +213,13 @@ function lockedDownArgs(model: string, tools: string, allowedTools: string[], ad
 }
 
 /**
- * Paid brief: the model only reads public chain and registry APIs and answers on
- * stdout. No files, no shell, no subagents.
+ * Paid brief: no tools at all (`--tools ""`). The chain facts it writes from are
+ * in its prompt (lib/chain-facts.ts builds them in the launcher), and it answers
+ * on stdout. No fetch, no files, no shell, no subagents, so nothing an outsider
+ * writes into a token name or an order can make it do anything.
  */
 export function briefClaudeArgs(model: string, guard: RunGuardOptions = {}): string[] {
-  return lockedDownArgs(model, 'WebFetch', webFetchRules(), [], guard);
+  return lockedDownArgs(model, '', [], [], guard);
 }
 
 export interface AutoDecodeArgsOptions {
@@ -258,10 +262,10 @@ export function autoDecodeClaudeArgs(opts: AutoDecodeArgsOptions): string[] {
 
 /**
  * Outside text for a prompt, as JSON between `<tag>` lines. The prompt around it
- * says the block is data, never instructions. `<`, `>` and line separators are
- * escaped, so nothing inside can close the block or start a new line.
+ * says the block is data, never instructions. The data may be nested JSON, up to
+ * 48 KB. `<`, `>` and line separators are escaped, so nothing inside can close the block or start a new line.
  */
-export function untrustedBlock(tag: string, data: Record<string, string>): string {
+export function untrustedBlock(tag: string, data: Record<string, unknown>): string {
   if (!TAG_RE.test(tag)) throw new Error(`invalid untrusted-block tag: ${JSON.stringify(tag)}`);
   const json = JSON.stringify(data)
     .replace(/</g, '\\u003c')
@@ -270,6 +274,9 @@ export function untrustedBlock(tag: string, data: Record<string, string>): strin
     .join('\\u2028')
     .split(PARAGRAPH_SEPARATOR)
     .join('\\u2029');
+  if (Buffer.byteLength(json) > MAX_UNTRUSTED_BLOCK_BYTES) {
+    throw new Error(`untrusted block ${tag} is too large (over 48 KB)`);
+  }
   return `<${tag}>\n${json}\n</${tag}>`;
 }
 
