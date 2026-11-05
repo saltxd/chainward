@@ -106,8 +106,12 @@ Rules for the brief:
 Rules for the thread:
 - Valid JSON array of 2–4 strings. Each string ≤ 270 characters (hard cap; count carefully).
 - Tweet 1 MUST begin: `@<CONTACT> — your ChainWard Intel Brief on <SHORT_TARGET>:`
-- Tag no other account. The customer's handle in tweet 1 is the only @-mention
-  anywhere in the thread; a thread that tags anyone else is discarded.
+- Tag no other account. The `@` that opens tweet 1 is the only `@` anywhere in
+  the thread, in any form: no other handle, no `.@name`, no fullwidth at-sign,
+  no email address. A thread with a second `@` is discarded.
+- No links or domain names except chainward.ai. Write names as plain words
+  (Virtuals, not virtuals.io; Otto AI, not Otto.AI), and put a space after every
+  full stop. A thread with any other link or domain is discarded.
 - The FINAL tweet must end with: `Run your own: chainward.ai/request-brief`
 - Plain text only. No markdown, no code fences inside the strings.
 

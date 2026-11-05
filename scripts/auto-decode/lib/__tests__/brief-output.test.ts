@@ -54,12 +54,55 @@ describe('parseBriefOutput', () => {
 
   it('rejects a thread that tags any other account', () => {
     const thread = ['@alice_b — your ChainWard Intel Brief on 0x1234…cdef:', 'Ask @someone_else. Run your own: chainward.ai/request-brief'];
-    expect(() => parseBriefOutput(out({ md: MD, thread }), { needThread: true, buyerHandle: 'alice_b' })).toThrow(/@someone_else/);
+    expect(() => parseBriefOutput(out({ md: MD, thread }), { needThread: true, buyerHandle: 'alice_b' })).toThrow(/BRIEF_THREAD/);
   });
 
-  it('does not read an email address as a tag', () => {
-    const thread = ['@alice_b — your ChainWard Intel Brief on 0x1234…cdef:', 'Questions: hello@chainward.ai. Run your own: chainward.ai/request-brief'];
-    expect(parseBriefOutput(out({ md: MD, thread }), { needThread: true, buyerHandle: 'alice_b' }).thread).toEqual(thread);
+  // X's parser (twitter-text) counts `＠` as an at-sign and allows `.` before a
+  // mention, so `.@victim` and `＠victim` tag the account; links post as links
+  // (review of fix/llm-run-hardening, Important 3). Only the opening buyer tag
+  // may carry an @, in any form, and the only link is chainward.ai.
+  const OPENING = '@alice_b — your ChainWard Intel Brief on 0x1234…cdef:';
+  const CLOSING = 'Run your own: chainward.ai/request-brief';
+  const FULLWIDTH_AT = String.fromCharCode(0xff20);
+  const SMALL_AT = String.fromCharCode(0xfe6b);
+  const fullwidth = (s: string) => [...s].map((c) => String.fromCharCode(c.charCodeAt(0) + 0xfee0)).join('');
+  const pub = { needThread: true, buyerHandle: 'alice_b' } as const;
+
+  it.each([
+    ['.@ mid-tweet', [OPENING, `Shout out .@victim for the data. ${CLOSING}`]],
+    ['.@ at the start of a tweet', [OPENING, `.@victim this one is for you. ${CLOSING}`]],
+    ['fullwidth @', [OPENING, `${FULLWIDTH_AT}victim take a look. ${CLOSING}`]],
+    ['small @', [OPENING, `${SMALL_AT}victim take a look. ${CLOSING}`]],
+    ['@ after a letter', [OPENING, `ping x@victim now. ${CLOSING}`]],
+    ['@ in brackets', [OPENING, `(@victim) ${CLOSING}`]],
+    ['an email address', [OPENING, `Questions: hello@chainward.ai. ${CLOSING}`]],
+    ['the buyer tagged twice', [OPENING, `Again @alice_b. ${CLOSING}`]],
+    ['a second fullwidth buyer tag', [OPENING, `${FULLWIDTH_AT}alice_b again. ${CLOSING}`]],
+  ])('rejects a thread with %s', (_label, thread) => {
+    expect(() => parseBriefOutput(out({ md: MD, thread }), pub)).toThrow(/BRIEF_THREAD/);
+  });
+
+  it.each([
+    ['an https link', [OPENING, `Details: https://evil.example/claim ${CLOSING}`]],
+    ['a link to an IP', [OPENING, `Details: http://203.0.113.9/x ${CLOSING}`]],
+    ['a bare domain', [OPENING, `Claim at evil.xyz/airdrop ${CLOSING}`]],
+    ['a short-link domain', [OPENING, `More: t.co/abc123 ${CLOSING}`]],
+    ['a www host', [OPENING, `More: www.evil.com ${CLOSING}`]],
+    ['a chainward look-alike host', [OPENING, `More: chainward.ai.evil.com/x ${CLOSING}`]],
+    ['a fullwidth domain', [OPENING, `More: ${fullwidth('evil.com')} ${CLOSING}`]],
+    ['an ideographic full stop', [OPENING, `More: evil${String.fromCharCode(0x3002)}com ${CLOSING}`]],
+    ['an agent name X would link', [OPENING, `Otto.AI holds the treasury. ${CLOSING}`]],
+  ])('rejects a thread with %s', (_label, thread) => {
+    expect(() => parseBriefOutput(out({ md: MD, thread }), pub)).toThrow(/BRIEF_THREAD/);
+  });
+
+  it('accepts chainward.ai links, numbers and short addresses', () => {
+    const thread = [
+      OPENING,
+      'It holds $1.2M across 4.5k transfers (e.g. 0x1234…cdef), up 3.5% since Jan. 5.',
+      'Decoded at https://chainward.ai/decodes/x. Run your own: chainward.ai/request-brief',
+    ];
+    expect(parseBriefOutput(out({ md: MD, thread }), pub).thread).toEqual(thread);
   });
 
   it('ignores a malformed thread on a private order', () => {

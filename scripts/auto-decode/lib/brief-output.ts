@@ -36,23 +36,50 @@ function asThread(raw: string | undefined): string[] | undefined {
   return ok ? (parsed as string[]) : undefined;
 }
 
-// An @handle not glued to a word, dot or another @ (so `hello@chainward.ai` is
-// not one). X handles are at most 15 characters; a longer run is still a tag.
-const MENTION_RE = /(?<![A-Za-z0-9_.@])@([A-Za-z0-9_]+)/g;
+// A host name as X would link it: labels of letters, digits and hyphens joined by
+// dots, ending in an all-letter top-level label (`evil.xyz`, `t.co`, `Otto.AI`).
+// Numbers such as 1.2M or 4.5k, and short addresses such as 0x1234...cdef, are not.
+const HOST_RE = /(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+\p{L}{2,63}(?![\p{L}\p{N}-])/gu;
+const SCHEME_HOST_RE = /[a-z][a-z0-9+.-]*:\/\/([^\s/?#]*)/gi;
+const LINKABLE_HOSTS: ReadonlySet<string> = new Set(['chainward.ai', 'www.chainward.ai']);
+const IDEOGRAPHIC_FULL_STOP = String.fromCharCode(0x3002);
 
 /**
- * A public thread posts from @chainwardai with no human review, so it may tag
- * one account only, the buyer's, and must open with that tag.
+ * What X would see: NFKC folds the fullwidth and small at-signs (U+FF20, U+FE6B)
+ * into `@` and fullwidth letters and dots into ASCII; the ideographic full stop
+ * (which NFKC leaves) is read as a dot too.
  */
-function checkThreadTags(thread: string[], buyerHandle: string): void {
-  const buyer = buyerHandle.toLowerCase();
-  const opening = /^@([A-Za-z0-9_]+)/.exec(thread[0] ?? '')?.[1];
-  if (opening?.toLowerCase() !== buyer) {
+function asXReadsIt(tweet: string): string {
+  return tweet.normalize('NFKC').split(IDEOGRAPHIC_FULL_STOP).join('.');
+}
+
+function hostOf(raw: string): string {
+  return raw.toLowerCase().replace(/^[^@]*@/, '').replace(/:\d*$/, '').replace(/\.$/, '');
+}
+
+/**
+ * A public thread posts from @chainwardai with no human review. It must open by
+ * tagging the buyer, and that tag is the only at-sign it may carry: X treats
+ * `.@x` and the fullwidth at-sign (U+FF20) as mentions too, so every other @ in any form is
+ * refused, emails included. The only link or domain name it may carry is
+ * chainward.ai.
+ */
+function checkThreadSafety(thread: string[], buyerHandle: string): void {
+  const seen = thread.map(asXReadsIt);
+  const opening = /^@([A-Za-z0-9_]+)/.exec(seen[0] ?? '')?.[1];
+  if (opening?.toLowerCase() !== buyerHandle.toLowerCase()) {
     throw new Error('BRIEF_THREAD does not open by tagging the buyer');
   }
-  for (const tweet of thread) {
-    for (const [, handle] of tweet.matchAll(MENTION_RE)) {
-      if (handle?.toLowerCase() !== buyer) throw new Error(`BRIEF_THREAD tags an account other than the buyer: @${handle}`);
+  const atSigns = seen.join('\n').split('@').length - 1;
+  if (atSigns !== 1) throw new Error('BRIEF_THREAD has an @ other than the opening buyer tag');
+  for (const tweet of seen) {
+    const hosts = [
+      ...[...tweet.matchAll(SCHEME_HOST_RE)].map((m) => hostOf(m[1] ?? '')),
+      ...[...tweet.matchAll(HOST_RE)].map((m) => hostOf(m[0])),
+    ];
+    const other = hosts.find((h) => !LINKABLE_HOSTS.has(h));
+    if (other !== undefined) {
+      throw new Error(`BRIEF_THREAD links to ${JSON.stringify(other.slice(0, 60))}; only chainward.ai may appear`);
     }
   }
 }
@@ -77,7 +104,7 @@ export function parseBriefOutput(stdout: string, opts: BriefOutputOptions): Brie
     if (!thread) {
       throw new Error(`BRIEF_THREAD invalid shape (got ${threadRaw.trim().slice(0, 120)})`);
     }
-    checkThreadTags(thread, opts.buyerHandle);
+    checkThreadSafety(thread, opts.buyerHandle);
   }
 
   const summary = lastBlock(stdout, 'BRIEF_SUMMARY')?.trim() ?? '';
