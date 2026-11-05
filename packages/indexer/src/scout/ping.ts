@@ -12,7 +12,9 @@ export interface HeartbeatData {
   candidate: string | null;
 }
 
-/** Candidate ping. Primary command = the 0x address (skips ACP name lookup → always valid).
+/** Candidate ping. Primary command = the 0x address, which always parses; the launcher still
+ * reverse-looks-up the ACP name for it, refuses the run if that name is outside a strict pattern
+ * and gives it to the model only as untrusted data (scripts/auto-decode/lib/validators.ts).
  * @name command added only when name is a single safe token. NO <@id> mention (safety invariant). */
 export function renderCandidate(c: Candidate): string {
   const addr = c.walletAddress.toLowerCase();
