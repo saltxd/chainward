@@ -58,7 +58,7 @@ One command — `pnpm decode:auto <@handle|0xaddress>` — resolves the target, 
    draft for human review  ·  or a halt report (nothing ships)
 ```
 
-The Claude session has no shell, no MCP server and no secrets: it can fetch from four read-only chain and registry APIs and write only into the decode's own folder, and the agent's registry name reaches it only as untrusted data. Rendering, committing and publishing happen outside the model (see [`docs/decode-publishing-runbook.md`](docs/decode-publishing-runbook.md)).
+The Claude session has no shell, no MCP server and no secrets: it can fetch from four read-only chain and registry APIs (a hook refuses every other host) and write only the pipeline's own files in the decode's folder, and the agent's registry name reaches it only as untrusted data. Rendering, committing and publishing happen outside the model (see [`docs/decode-publishing-runbook.md`](docs/decode-publishing-runbook.md)).
 
 ## Why the gauntlet matters
 
