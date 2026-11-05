@@ -22,24 +22,45 @@ ls deliverables/                      # see what's already shipped
 
 That's the entire context for picking up mid-flight.
 
-## Auto-decode pipeline (preferred path)
+## Auto-decode pipeline (draft generator)
 
-As of 2026-04-28 (first ship: Axelrod), the entire decode pipeline is automated. Trigger via:
+As of 2026-04-28 (first ship: Axelrod), the decode pipeline is automated up to a draft. Since 2026-11-05 it publishes nothing by itself (security audit, B-U07-1). Trigger via:
 
 - **Discord DM** to Claude_Dev: `decode @<name>` or `decode 0x<address>`
 - **Direct CLI** on <ops-host>: `pnpm decode:auto @<name>`
 - **From any Claude with homelab MCP**: `ssh <ops-host> '~/Forge/chainward && pnpm decode:auto @<name>'`
 
-The pipeline produces deliverables, runs a 3-verifier gauntlet, pre-renders OG, deploys, and posts the launch tweet. End-to-end ~20-30 min.
+The pipeline researches, writes and runs a 3-verifier gauntlet. When the run reports `ready`, the launcher (not the model) checks the files, pre-renders the OG card and commits the draft **locally** on the ops checkout as `feat: add decode <slug>`. It never pushes, deploys or tweets. End-to-end ~20-30 min.
 
-**Discord output:** every run posts a `<DISCORD_SUMMARY>` block to the dedicated webhook channel. `result` field tells you what happened: `ship`, `halt-research-failed`, `halt-writer-failed`, `halt-verifier-failed`, `halt-verification`, `halt-og-render`, `halt-deploy`, `halt-deploy-verify`, `halt-tweet`.
+**Discord output:** every run posts its `<DISCORD_SUMMARY>` block plus a `launcher:` line to the dedicated webhook channel. `result` is `ready`, `halt-research-failed`, `halt-writer-failed`, `halt-verifier-failed` or `halt-verification`. After a `ready`, the `launcher:` line says `committed <sha> ...`, or `halt-output-invalid` (a file that is not one of the nine pipeline files, a front matter slug that is not the run's, not five tweets, or verifier failures left), `halt-og-render` or `halt-commit`, with the reason. After every run, whatever its result, the launcher deletes anything in `deliverables/<slug>/` that is not a pipeline file and names it in the `launcher:` line (`removed files the run was not allowed to leave: ...`); such a run commits nothing. A run that dies without a summary posts `result: crashed`.
+
+**Exit codes:** 2 usage, 3 slug collision, 4 claude CLI not runnable, 5 the registry name or wallet address is outside the strict shape (see "Locked-down runs"), 6 the run guard hook failed its self-test, otherwise claude's own.
 
 **On halt:** read the verification reports in `deliverables/<slug>/`, decide whether to:
-- Re-launch (if it was a transient — e.g., sentinel was lagging)
+- Re-launch (if it was a transient, e.g. Blockscout was rate-limiting)
 - Fix the prompt (if a verifier produced false positives or false negatives)
 - Hand-finish the decode using the manual flow below (the artifacts are still useful)
 
+**Publishing a ready draft** is manual: review `deliverables/<slug>/`, run "Checking a decode before it ships" below, regenerate and commit the decode manifest (`node scripts/build-decode-manifest.mjs`), push to `main` (that is the deploy), confirm the page is live, then post tweet 1 of `tweet.md` with the decode URL on its own line: `gh workflow run post-digest.yml --repo saltxd/chainward-bot -f text=<copy>`.
+
 The full pipeline spec lives in the internal wiki (BookStack page 199), not this repo.
+
+### Locked-down runs (since 2026-11-05)
+
+Both Claude runs that read outside text start Claude the same way (`scripts/auto-decode/lib/claude-run.ts`): this pipeline and the paid-brief poller (`scripts/fulfill-briefs.ts`, prompt `scripts/auto-decode-prompts/brief.md`). Security audit 2026-11-05, F-001 and B-U07-1.
+
+- No `--dangerously-skip-permissions`. `--permission-mode dontAsk`: anything not allow-listed is refused, never asked.
+- A fixed tool set, never a shell. The brief gets WebFetch only; the decode gets Read, Glob, Grep, Write, Edit, WebFetch and Task (subagents).
+- WebFetch reaches only `base.blockscout.com`, `acpx.virtuals.io`, `api.virtuals.io` and `api.dexscreener.com`. The allow rules pre-approve those four; a PreToolUse hook (`scripts/auto-decode/hooks/run-guard.mjs`, passed with `--settings`) refuses every other host, including the documentation sites Claude Code otherwise fetches without asking. Hyperliquid and other chains are out of reach, so cross-venue claims stay "unverified inference".
+- The same hook refuses any subagent started with `isolation`: a `remote` subagent is a cloud session that this lockdown would not bind, and `worktree` is not needed. The hook is set to `onFailure: "block"`: if it cannot start, crashes or times out, the call is refused rather than run. Both launchers also run its self-test before every run, so a broken hook stops a run before it starts (`decode:auto` exits 6; the brief poller exits before claiming an order).
+- The decode reads only `deliverables/<slug>/`, `scripts/auto-decode-prompts/` and `deliverables/aixbt/`. It may write only the nine pipeline files there, one rule per name (`identity-chain.md`, `token-economics.md`, `utility-audit.md`, `decode.md`, `tweet.md`, `writer-retry-brief.md` and the three `verification-*.md`). That refuses a `CLAUDE.md`, `AGENTS.md` or `.claude/` in the folder itself, but a rule for a file name also covers paths under a folder of that name (`decode.md/CLAUDE.md` was written in review). The launcher's sweep after every run removes any such leftover; it cannot run if the launcher is killed mid-run (Ctrl-C, a dropped ssh session, a reboot), so after an interrupted run check the folder holds nothing but those nine files before any Claude session opens it. The brief runs in an empty directory.
+- No MCP server (`--strict-mcp-config`; `scripts/auto-decode.mcp.json` is gone): no homelab tools, no BookStack, no ssh to the sentinel node.
+- A fresh, empty `CLAUDE_CONFIG_DIR` per run and `--setting-sources user`: nothing from the ops host's `~/.claude` (settings and their allow rules, CLAUDE.md, memory, skills, hooks).
+- An environment built from an allow-list: PATH, HOME, locale and TLS/proxy plumbing plus the run's `CLAUDE_CODE_OAUTH_TOKEN`. No GitHub token, ops key or webhook.
+
+Outside text reaches the model only as JSON in a block the prompt calls untrusted data: `<untrusted_registry_data>` (decode: the agent's display name and wallet) and `<untrusted_order_data>` (brief: target, contact, delivery). An ACP registry name must be letters, digits, space, `.`, `_` or `-`, 1-40 characters, with no instruction-like words, or the run is refused. A brief target must be a Base address or an agent handle and a contact an email address or a handle in its platform's shape; the API checks both when the order is created and the poller checks them again before each run (an order that fails is marked failed, not decoded). A public brief thread must open by tagging the buyer; that is the only `@` it may carry in any form (no `.@name`, no fullwidth at-sign, no email), and the only link or domain name it may carry is exactly chainward.ai (no subdomain, no look-alike such as `chainward.ai.xn--80aswg`). Links are found with twitter-text, X's own parser (pinned at 3.1.0, Apache-2.0), which also links bare domains under punycode TLDs, plus a wider net for TLDs newer than its 2020 list. Otherwise the order fails instead of posting.
+
+The flags were checked against Claude Code 2.1.318. An older CLI that lacks one exits with "unknown option", so update `claude` on the ops host if runs start failing that way. Settings that fail validation are dropped silently in print mode, so after every Claude Code upgrade on the ops host run the live check, which needs a Claude login: `CW_LIVE_CLAUDE=1 pnpm --filter @chainward/auto-decode test -- live-guard`. It must show a documentation host refused, a listed API allowed, and a broken hook blocking every call.
 
 ## Manual flow (fallback for halts)
 
@@ -56,8 +77,8 @@ The full pipeline spec lives in the internal wiki (BookStack page 199), not this
 - X API is Pay-Per-Use with auto-recharge **OFF**: check the credit balance in the developer portal (Billing → Credits) before a launch
 
 **Tooling:**
-- `pnpm decode:auto @<name>` (`scripts/auto-decode/index.ts`) — fully automated decode pipeline
-- `pnpm decode:og-render <slug>` (`scripts/auto-decode/og-render.ts`) — pre-render OG card locally (used internally by auto-decode)
+- `pnpm decode:auto @<name>` (`scripts/auto-decode/index.ts`) — decode pipeline up to a locally committed draft; never publishes
+- `pnpm decode:og-render <slug>` (`scripts/auto-decode/og-render.ts`) — pre-render OG card locally (the auto-decode launcher runs it after a `ready` run)
 - `pnpm decode:candidates` (`scripts/decode-candidates.ts`) — ranks next-decode candidates
 - `pnpm decode:candidates --top 200 --json` — deeper pool, machine-readable
 
@@ -86,7 +107,7 @@ The full pipeline spec lives in the internal wiki (BookStack page 199), not this
 The full end-to-end run surfaced six process defects; three are FIXED in the repo, three are operational:
 
 **Fixed in code (commits cfa3e3e, 3cd85bc):**
-1. **Sentinel freshness preflight** — research prompts said "sentinel preferred" with no head-age check; during an EL-sync catch-up the node answers RPC with a days-old head, so current-state reads (balanceOf etc.) would ship as "current". All three research prompts now run a mandatory preflight: stale head → sentinel only for immutable historical facts, current-state from Blockscout/public RPC, per-fact provenance. (Bonus finding: pruning ALSO nulls receipts for history older than ~30d — the preflight note covers both.)
+1. **Sentinel freshness preflight** — research prompts said "sentinel preferred" with no head-age check; during an EL-sync catch-up the node answers RPC with a days-old head, so current-state reads (balanceOf etc.) would ship as "current". All three research prompts now run a mandatory preflight: stale head → sentinel only for immutable historical facts, current-state from Blockscout/public RPC, per-fact provenance. (Bonus finding: pruning ALSO nulls receipts for history older than ~30d — the preflight note covers both.) Superseded 2026-11-05: the runs no longer reach the sentinel at all; research reads Blockscout through WebFetch, and the per-fact source-and-block rule stays.
 2. **CLI background ceiling** — `claude --print` kills the session after 600s of background tasks (utility-audit alone can exceed this). Launcher now sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` plus its own `AUTO_DECODE_TIMEOUT_MS` watchdog (default 90 min).
 3. **Launcher resilience** — `claude` binary is preflighted before the deliverables dir is created (a missing binary used to strand an empty dir), an empty slug dir from a crashed run is reclaimable instead of a permanent "collision", and ANY run that dies without a DISCORD_SUMMARY now posts a `result: crashed` summary to Discord instead of failing silent.
 
@@ -156,7 +177,7 @@ ssh <ops-host>
 set -a; source ~/.config/systemd/user/auto-decode.env; set +a
 pnpm decode:auto @<name>
 ```
-Or DM Claude_Dev: `decode @<name>`. The pipeline handles its three review checkpoints algorithmically; if it halts, fall back to the manual flow. Its output still goes through "Checking a decode before it ships" above before anyone publishes it.
+Or DM Claude_Dev: `decode @<name>`. The env file needs only `CLAUDE_CODE_OAUTH_TOKEN` and `DISCORD_WEBHOOK_URL` (see `scripts/auto-decode/.env.example`); the pipeline no longer uses a GitHub token or `DRY_RUN`. The pipeline handles its three review checkpoints algorithmically; if it halts, fall back to the manual flow. A `ready` draft is committed locally only, and still goes through "Checking a decode before it ships" above before anyone publishes it.
 
 **Open question for the next session:**
 The candidate-finder uses ACP API's `walletBalance`. This line used to say the field reports "0" for agents that actually hold USDC, and to cross-reference `chainward.ai/api/observatory/agent/<slug>` instead. **That was measured on 2026-10-30 and is backwards. Do not do it.**

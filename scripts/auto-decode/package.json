@@ -5,12 +5,17 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@chainward/decode": "workspace:*"
+    "@chainward/common": "workspace:*",
+    "@chainward/decode": "workspace:*",
+    "twitter-text": "3.1.0"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
     "vitest": "^4.0.18"
   }
 }

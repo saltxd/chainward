@@ -50,13 +50,15 @@ One command — `pnpm decode:auto <@handle|0xaddress>` — resolves the target, 
   │ 4. DECISION    citation + failure-mode block; voice is    │
   │                advisory. Any FAIL → 1 retry, then halt.   │
   ├─────────────────────────────────────────────────────────┤
-  │ 5. PUBLISH     render OG card → commit → deploy →          │
-  │                poll live URL → post launch tweet          │
+  │ 5. HAND-OFF    launcher checks the files → renders OG card │
+  │                → commits the draft locally (no push)      │
   └─────────────────────────────────────────────────────────┘
         │
         ▼
-   published decode  ·  or a halt report (nothing ships)
+   draft for human review  ·  or a halt report (nothing ships)
 ```
+
+The Claude session has no shell, no MCP server and no secrets: it can fetch from four read-only chain and registry APIs (a hook refuses every other host) and write only the pipeline's own files in the decode's folder, and the agent's registry name reaches it only as untrusted data. Rendering, committing and publishing happen outside the model (see [`docs/decode-publishing-runbook.md`](docs/decode-publishing-runbook.md)).
 
 ## Why the gauntlet matters
 
@@ -114,7 +116,7 @@ pnpm typecheck     # all packages
 pnpm build
 pnpm dev           # API on :8000, web on :3000
 
-pnpm decode:auto @some-agent   # run the pipeline (needs a Claude Code token + MCP config)
+pnpm decode:auto @some-agent   # run the pipeline (needs a Claude Code token; no MCP config)
 ```
 
 ## License

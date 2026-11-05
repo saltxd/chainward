@@ -3,5 +3,6 @@ export * from './constants/index.js';
 export * from './utils/index.js';
 export * from './providers/index.js';
 export { agentSlug } from './slug.js';
+export * from './briefInput.js';
 export * from './digestThread.js';
 export * from './termix/index.js';
