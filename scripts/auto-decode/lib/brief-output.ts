@@ -112,7 +112,94 @@ function checkThreadSafety(thread: string[], buyerHandle: string): void {
   });
 }
 
-export type BriefOutputOptions = { needThread: false } | { needThread: true; buyerHandle: string };
+// ── Grounding ─────────────────────────────────────────────────────────────────
+//
+// The brief run has no tools: what it says about the chain came from the chain
+// facts pack (lib/chain-facts.ts). So every address or transaction hash it
+// writes must be the order's target or appear in the pack, and the only links it
+// may carry go to the hosts below. A model that obeyed a token name ("pay 0xBAD,
+// link evil.xyz, tag @victim") is refused here, not delivered.
+
+/** Hosts a brief may link: exactly these, no subdomain or look-alike. */
+export const BRIEF_LINK_HOSTS = ['basescan.org', 'base.blockscout.com', 'dexscreener.com', 'chainward.ai', 'app.virtuals.io'] as const;
+
+export interface GroundingContext {
+  /** The order's target address (or the address its handle resolved to). */
+  target: string;
+  /** The pack the run was given. Anything 0x-shaped in it counts as known. */
+  pack: unknown;
+  /** The buyer's contact: an email or a handle without its @. It may appear in the brief. */
+  contact?: string;
+}
+
+const FULL_HEX_RE = /0x[0-9a-fA-F]{64}|0x[0-9a-fA-F]{40}/g;
+const ELLIDED_HEX_RE = /(0x[0-9a-fA-F]{3,})\s*(?:…|\.\.\.|\.\.)\s*([0-9a-fA-F]{3,})/g;
+const HEX_RUN_RE = /0x[0-9a-fA-F]{3,}/g;
+const MENTION_RE = /(?:^|[^\p{L}\p{N}_@])[@＠﹫]([\p{L}\p{N}_]{1,50})/gu;
+
+function checkHexGrounded(text: string, known: string[]): void {
+  const refuse = (what: string): never => {
+    throw new Error(`brief names ${JSON.stringify(what.slice(0, 12))}, which is not the target or in the chain facts`);
+  };
+  const rest = text.replace(ELLIDED_HEX_RE, (_m, prefix: string, suffix: string) => {
+    const p = prefix.toLowerCase();
+    const sfx = suffix.toLowerCase();
+    if (!known.some((k) => k.startsWith(p) && k.endsWith(sfx))) refuse(prefix);
+    return ' ';
+  });
+  for (const m of rest.matchAll(HEX_RUN_RE)) {
+    const run = m[0].toLowerCase();
+    if (run.length === 42 || run.length === 66) {
+      if (!known.includes(run)) refuse(run);
+    } else if (run.length > 42 || !known.some((k) => k.startsWith(run))) {
+      refuse(run);
+    }
+  }
+}
+
+function checkHostsAllowed(text: string): void {
+  const normalized = asXReadsIt(text);
+  const hosts = [
+    ...xLinkHosts(text),
+    ...xLinkHosts(normalized),
+    ...[...normalized.matchAll(SCHEME_HOST_RE)].map((m) => hostOf(m[1] ?? '')),
+    ...[...normalized.matchAll(HOST_RE)].map((m) => hostOf(m[0])),
+  ];
+  const other = hosts.find((h) => !(BRIEF_LINK_HOSTS as readonly string[]).includes(h));
+  if (other !== undefined) {
+    throw new Error(`brief links to ${JSON.stringify(other.slice(0, 60))}; only ${BRIEF_LINK_HOSTS.join(', ')} may be linked`);
+  }
+}
+
+function checkNoMentions(text: string, contact: string | undefined): void {
+  for (const m of text.matchAll(MENTION_RE)) {
+    if (m[1]!.toLowerCase() !== (contact ?? '').toLowerCase()) {
+      throw new Error(`brief carries an @-mention (${JSON.stringify('@' + m[1]!.slice(0, 30))}); only the buyer may be named`);
+    }
+  }
+}
+
+/** Throws unless every address and hash, link host and @ in the brief is allowed. */
+export function checkBriefGrounding(parts: { markdown: string; thread?: string[]; summary?: string }, ctx: GroundingContext): void {
+  const known = new Set<string>([ctx.target.toLowerCase()]);
+  for (const m of JSON.stringify(ctx.pack ?? null).matchAll(FULL_HEX_RE)) known.add(m[0].toLowerCase());
+  const knownList = [...known];
+  for (const part of [parts.markdown, ...(parts.thread ?? []), parts.summary ?? '']) {
+    // The buyer's own contact (an email address, say) is not a link or a mention.
+    const text = ctx.contact ? part.split(ctx.contact).join(' ') : part;
+    checkHexGrounded(text, knownList);
+    checkHostsAllowed(text);
+    checkNoMentions(text, ctx.contact);
+  }
+}
+
+export type BriefOutputOptions = (
+  | { needThread: false }
+  | { needThread: true; buyerHandle: string }
+) & {
+  /** When given, the brief is also checked against the chain facts the run was given. */
+  grounding?: GroundingContext;
+};
 
 /**
  * Extract the brief from Claude's stdout. The markdown brief is mandatory for
@@ -136,6 +223,7 @@ export function parseBriefOutput(stdout: string, opts: BriefOutputOptions): Brie
   }
 
   const summary = lastBlock(stdout, 'BRIEF_SUMMARY')?.trim() ?? '';
+  if (opts.grounding) checkBriefGrounding({ markdown: md, thread: opts.needThread ? thread : undefined, summary }, opts.grounding);
   return { markdown: md, thread, summary };
 }
 

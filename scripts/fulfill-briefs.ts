@@ -16,11 +16,14 @@
 // The order's target and contact are buyer text. They are re-checked here
 // (auto-decode/lib/brief-run.ts) and reach the model only as an untrusted data
 // block. The Claude run itself is locked down (auto-decode/lib/claude-run.ts):
-// its only tool is WebFetch, allow-listed for four read-only APIs, and a hook
-// refuses every other host, including the documentation sites Claude Code
-// otherwise fetches without asking. No MCP server, no settings from ~/.claude,
-// and an environment that holds its own OAuth token and no other secret.
-// GH_TOKEN, OPS_API_KEY and the webhook stay with this script.
+// it has NO tools. This script reads the chain first (auto-decode/lib/chain-facts.ts:
+// public Base RPC, ChainWard's public GETs, DexScreener; never Alchemy, never a
+// POST to ChainWard) and hands the model the result as a second untrusted block;
+// the model's brief is then checked against that pack (checkBriefGrounding), so
+// an address, hash or link it was not given is refused. If the head block cannot
+// be read the order fails. No MCP server, no settings from ~/.claude, and an
+// environment that holds its own OAuth token and no other secret. GH_TOKEN,
+// OPS_API_KEY and the webhook stay with this script.
 //
 //   DRY_RUN=false pnpm brief:fulfill
 //
@@ -30,11 +33,15 @@
 // Optional env: OPS_API_URL (default https://api.chainward.ai), BOT_REPO
 //   (default saltxd/chainward-bot), OPS_DISCORD_WEBHOOK (required for private
 //   delivery), BRIEF_MODEL (default claude-opus-4-7), MAX_ORDERS (default 3),
-//   BRIEF_TIMEOUT_MS (default 30 min per order), DRY_RUN (default true)
+//   BRIEF_TIMEOUT_MS (default 30 min per order), DRY_RUN (default true),
+//   CW_READ_API_KEY (off by default: an ag_ key adds GET /v1/wallet to the
+//   pack, 1 of the account's 1,000 monthly lookups per brief; it goes only to
+//   api.chainward.ai and never into the Claude run)
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chunkForDiscord, parseBriefOutput, type BriefOutput } from './auto-decode/lib/brief-output.js';
+import { buildChainFacts } from './auto-decode/lib/chain-facts.js';
 import { buildBriefPrompt, parseQueuedOrder, type BriefRunInput, type QueuedBriefOrder } from './auto-decode/lib/brief-run.js';
 import {
   assertRunGuardWorks,
@@ -57,6 +64,8 @@ interface Config {
   maxOrders: number;
   timeoutMs: number;
   dryRun: boolean;
+  /** Optional, off by default. Used only by this script's own chain-facts reads. */
+  readApiKey: string | undefined;
 }
 
 interface BriefOrder extends QueuedBriefOrder {
@@ -81,6 +90,7 @@ function loadConfig(): Config {
     maxOrders: Number(process.env.MAX_ORDERS ?? 3),
     timeoutMs: Number(process.env.BRIEF_TIMEOUT_MS ?? 30 * 60 * 1000),
     dryRun: process.env.DRY_RUN !== 'false',
+    readApiKey: process.env.CW_READ_API_KEY || undefined,
   };
 }
 
@@ -129,7 +139,18 @@ async function setStatus(
 // Run the brief decode via Claude and parse the brief (and thread, if public).
 async function decodeOrder(cfg: Config, input: BriefRunInput): Promise<BriefOutput> {
   const tpl = await readFile(join(cfg.repoRoot, 'scripts/auto-decode-prompts/brief.md'), 'utf-8');
-  const prompt = buildBriefPrompt(tpl, input);
+  // The chain facts the run writes from. Throws (and so fails the order) when
+  // the head block cannot be read; every other failed read lands in unavailable.
+  const pack = await buildChainFacts(
+    { kind: input.targetKind, value: input.target },
+    { fetch },
+    { windowDays: 14, readApiKey: cfg.readApiKey },
+  );
+  log(
+    `facts for ${input.orderId.slice(0, 8)}: ${pack.facts.length} read at block ${pack.as_of.state_block}, ` +
+      `${pack.unavailable.length} unavailable${pack.unavailable.length ? ` (${pack.unavailable.map((u) => u.what).join(', ')})` : ''}`,
+  );
+  const prompt = buildBriefPrompt(tpl, input, pack);
   // An empty cwd and an empty config dir per run: nothing on disk for the model
   // to read, and the session transcript is deleted with the dirs.
   const dirs = await makeRunDirs('cw-brief');
@@ -144,9 +165,10 @@ async function decodeOrder(cfg: Config, input: BriefRunInput): Promise<BriefOutp
     });
     if (timedOut) throw new Error(`claude run exceeded ${cfg.timeoutMs} ms`);
     if (code !== 0) throw new Error(`claude exited ${code}: ${stderr.slice(-400)}`);
+    const grounding = { target: pack.target.address, pack, contact: input.contact };
     return parseBriefOutput(
       stdout,
-      input.delivery === 'public' ? { needThread: true, buyerHandle: input.contact } : { needThread: false },
+      input.delivery === 'public' ? { needThread: true, buyerHandle: input.contact, grounding } : { needThread: false, grounding },
     );
   } finally {
     await dirs.cleanup();
@@ -250,8 +272,9 @@ async function fulfillOne(cfg: Config, order: BriefOrder): Promise<void> {
 
 async function main() {
   const cfg = loadConfig();
-  // The hook that keeps WebFetch on the four hosts. It blocks on failure, so a
-  // broken hook would fail every order: prove it works before claiming any.
+  // The run guard hook. The brief run has no tools, so it never fires there, but
+  // the self-test also proves the hook script and its settings still load: cheap,
+  // and it stops a broken checkout before any order is claimed.
   assertRunGuardWorks();
   const { orders } = await ops<{ success: boolean; orders: BriefOrder[] }>(cfg, `/api/brief/ops/queue?limit=${cfg.maxOrders}`);
   if (!orders.length) {
