@@ -24,7 +24,6 @@ import {
   type PublicClient,
 } from 'viem';
 import { base } from 'viem/chains';
-import { reportIsOlderThan } from '../report-age.js';
 
 const BASE_MAINNET = 'eip155:8453';
 const EAS = '0x4200000000000000000000000000000000000021';
@@ -33,6 +32,11 @@ const SCHEMA_UID = '0x09573690adba41164227b57600aa02061b0ce79dc0655e4c8b36bfe95b
 const CHAINWARD_ATTESTER = '0x5edc6276B89CC185aC8D6A7eCfdE076e1ACf50DF';
 const SCHEMA =
   'string band,string[] flagIds,uint8 highCount,uint8 mediumCount,uint8 lowCount,uint8 infoCount,uint64 asOfBlock,string classifierVersion,string reportURI,bytes32 reportHash,string scope';
+
+/** True when the report is more than `maxDays` older than the head, by header timestamps (unix seconds). */
+function reportIsOlderThan(headTimestamp: bigint, reportTimestamp: bigint, maxDays: number): boolean {
+  return headTimestamp - reportTimestamp > BigInt(maxDays) * 86_400n;
+}
 
 const EAS_ABI = parseAbi([
   'struct Attestation { bytes32 uid; bytes32 schema; uint64 time; uint64 expirationTime; uint64 revocationTime; bytes32 refUID; address recipient; address attester; bool revocable; bytes data; }',

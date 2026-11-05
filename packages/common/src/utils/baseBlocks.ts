@@ -18,7 +18,7 @@ export const BASE_FAST_BLOCK_MS = 200;
 
 const SWITCH_MS = BASE_SWITCH_TIMESTAMP * 1000;
 
-/** Seconds each block takes at `block` (the gap leading up to it). */
+/** Seconds per block on the schedule in force at `block`: 2 before the switch block, 0.2 from it (the switch block's own gap from its parent is 2 s). */
 export function baseBlockSecondsAt(block: number): number {
   return (block < BASE_SWITCH_BLOCK ? BASE_SLOW_BLOCK_MS : BASE_FAST_BLOCK_MS) / 1000;
 }
