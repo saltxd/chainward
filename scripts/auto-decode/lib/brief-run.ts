@@ -17,6 +17,7 @@ import {
   type BriefContactMethod,
   type BriefTargetKind,
 } from '@chainward/common/brief-input';
+import { TEXT_KEYS, clipOutsideDeep, clipText, type ChainFacts } from './chain-facts.js';
 import { untrustedBlock } from './claude-run.js';
 
 /** A queued order as GET /api/brief/ops/queue returns it: the fields the runner reads. */
@@ -67,19 +68,36 @@ export function parseQueuedOrder(order: QueuedBriefOrder): BriefRunInput {
   };
 }
 
-/** The brief instructions, unchanged, followed by the order data as an untrusted block. */
-export function buildBriefPrompt(template: string, input: BriefRunInput): string {
+/**
+ * The pack as the model sees it: outsider text cut to 64 characters again (the
+ * builder already did; a pack from anywhere else gets the same treatment). Only
+ * `value`s and the target's name hold outsider text; the rest is ours.
+ */
+function capPack(pack: ChainFacts): ChainFacts {
+  return {
+    ...pack,
+    target: { ...pack.target, ...(pack.target.name ? { name: clipText(pack.target.name) } : {}) },
+    facts: pack.facts.map((f) => ({ ...f, value: clipOutsideDeep(f.value, (_h, key) => !TEXT_KEYS.has(key)) })),
+  };
+}
+
+/**
+ * The brief instructions, unchanged, followed by the order data as an untrusted
+ * block and, when a pack is given, the chain facts as a second one.
+ */
+export function buildBriefPrompt(template: string, input: BriefRunInput, pack?: ChainFacts): string {
   for (const placeholder of LEGACY_PLACEHOLDERS) {
     if (template.includes(placeholder)) {
       throw new Error(`brief template still has the ${placeholder} placeholder; order data goes only in the untrusted block`);
     }
   }
-  const block = untrustedBlock('untrusted_order_data', {
+  const order = untrustedBlock('untrusted_order_data', {
     target: input.target,
     target_kind: input.targetKind,
     contact: input.contact,
     contact_method: input.contactMethod,
     delivery: input.delivery,
   });
-  return `${template}${template.endsWith('\n') ? '' : '\n'}\n${block}\n`;
+  const blocks = pack ? `${order}\n\n${untrustedBlock('untrusted_chain_facts', capPack(pack) as unknown as Record<string, unknown>)}` : order;
+  return `${template}${template.endsWith('\n') ? '' : '\n'}\n${blocks}\n`;
 }

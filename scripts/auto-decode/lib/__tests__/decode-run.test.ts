@@ -15,6 +15,7 @@ import {
   decodeCommitMessage,
   parseSummary,
   sweepDeliverablesDir,
+  writeFactsFile,
 } from '../decode-run';
 import { decodeRunInputs } from '../validators';
 
@@ -29,6 +30,7 @@ const RUN = {
   slug: 'zyxq-agent-on-chain',
   deliverablesDir: '/home/ops/chainward/deliverables/zyxq-agent-on-chain',
   repoRoot: '/home/ops/chainward',
+  factsFile: '/tmp/cw-auto-decode-abc/facts/facts.json',
 };
 
 describe('buildOrchestratorPrompt', () => {
@@ -54,7 +56,8 @@ describe('buildOrchestratorPrompt', () => {
     expect(instructions).toContain(RUN.slug);
     expect(instructions).toContain(RUN.deliverablesDir);
     expect(instructions).toContain(ADDR);
-    expect(prompt).not.toMatch(/<(TARGET_ADDRESS|TARGET_NAME|SLUG|DELIVERABLES_DIR|REPO_ROOT|DRY_RUN)>/);
+    expect(instructions).toContain(RUN.factsFile);
+    expect(prompt).not.toMatch(/<(TARGET_ADDRESS|TARGET_NAME|SLUG|DELIVERABLES_DIR|REPO_ROOT|FACTS_FILE|DRY_RUN)>/);
   });
 
   it('refuses a template that still has the TARGET_NAME placeholder', () => {
@@ -87,6 +90,61 @@ describe('subagent prompts', () => {
       expect(readFileSync(`${PROMPTS_DIR}${file}`, 'utf-8')).toMatch(/untrusted_registry_data/);
     },
   );
+});
+
+// The seven prompts that read or check chain facts cite the launcher's facts file.
+const FACT_PROMPTS = [
+  'orchestrator.md',
+  'identity-chain.md',
+  'token-economics.md',
+  'utility-audit.md',
+  'writer.md',
+  'citation-verifier.md',
+  'failure-mode-verifier.md',
+];
+
+describe('chain facts in the decode prompts', () => {
+  it.each(FACT_PROMPTS)('%s points at <FACTS_FILE> and cites fact ids', (file) => {
+    const text = readFileSync(`${PROMPTS_DIR}${file}`, 'utf-8');
+    expect(text).toContain('<FACTS_FILE>');
+    expect(text).toMatch(/F#|`F1`/);
+  });
+
+  it.each(FACT_PROMPTS)('%s no longer sends the run to Blockscout, which answers 403 from the ops host', (file) => {
+    const text = readFileSync(`${PROMPTS_DIR}${file}`, 'utf-8');
+    expect(text).not.toMatch(/https:\/\/base\.blockscout\.com|\/api\/v2\//);
+    expect(text).not.toMatch(/WebFetch for (four|`base\.blockscout\.com`)/);
+  });
+
+  it.each(['identity-chain.md', 'token-economics.md', 'utility-audit.md', 'citation-verifier.md', 'failure-mode-verifier.md'])(
+    '%s limits claims to the scanned window and calls unavailable reads unchecked',
+    (file) => {
+      const text = readFileSync(`${PROMPTS_DIR}${file}`, 'utf-8');
+      expect(text).toMatch(/30-day|scanned window/);
+      expect(text).toMatch(/unavailable/);
+    },
+  );
+
+  it('the writer states the window in the decode', () => {
+    expect(readFileSync(`${PROMPTS_DIR}writer.md`, 'utf-8')).toMatch(/says so near the top/);
+  });
+});
+
+describe('writeFactsFile', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  });
+
+  it('writes the pack as JSON in the facts dir and returns the file path', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cw-facts-'));
+    dirs.push(dir);
+    const pack = { schema: 'chainward-chain-facts/1', facts: [{ id: 'F1', label: 'nonce', value: 1, source: 'https://basescan.org/', cite: 'x' }], unavailable: [], limits: [] };
+    const file = await writeFactsFile(dir, pack);
+    expect(file).toBe(join(dir, 'facts.json'));
+    expect(JSON.parse(readFileSync(file, 'utf-8'))).toEqual(pack);
+    expect(readdirSync(dir)).toEqual(['facts.json']);
+  });
 });
 
 describe('decodeCommitMessage', () => {

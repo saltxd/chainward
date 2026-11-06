@@ -4,7 +4,8 @@
 //
 //   CW_LIVE_CLAUDE=1 pnpm --filter @chainward/auto-decode test -- live-guard
 //
-// Runs the brief run's exact arguments and reads the tool results, not the
+// Runs the decode run's arguments (the brief run has no WebFetch since the chain-facts pack;
+// live-injection.test.ts covers it) and reads the tool results, not the
 // model's own account. Run it after every Claude Code upgrade on the ops host:
 // the self-test proves the hook script works, this proves the CLI still loads it
 // and that a hook which cannot run blocks the call instead of letting it through
@@ -12,7 +13,8 @@
 // dir as the launchers do; without it, the default login.
 
 import { describe, expect, it } from 'vitest';
-import { briefClaudeArgs, childEnv, claudeEnv, makeRunDirs, runClaude, type RunGuardOptions } from '../claude-run';
+import { realpath } from 'node:fs/promises';
+import { autoDecodeClaudeArgs, childEnv, claudeEnv, makeRunDirs, runClaude, type RunGuardOptions } from '../claude-run';
 
 const LIVE = process.env.CW_LIVE_CLAUDE === '1';
 const DOCS = 'https://docs.python.org/3/';
@@ -31,8 +33,11 @@ async function fetchOutcomes(guard: RunGuardOptions): Promise<Map<string, boolea
   try {
     const token = process.env.CLAUDE_CODE_OAUTH_TOKEN;
     const env = token ? claudeEnv(process.env, { oauthToken: token, configDir: dirs.configDir }) : childEnv(process.env);
+    const cwd = await realpath(dirs.workDir);
     const run = await runClaude({
-      args: [...briefClaudeArgs('haiku', guard), '--output-format', 'stream-json', '--verbose', '--no-session-persistence'],
+      args: [
+        ...autoDecodeClaudeArgs({ model: 'haiku', deliverablesDir: cwd, readOnlyDirs: [], writableFiles: ['decode.md'], guard }), '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
+      ],
       env,
       cwd: dirs.workDir,
       input: PROMPT,
