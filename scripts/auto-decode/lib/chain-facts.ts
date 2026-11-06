@@ -28,6 +28,7 @@
 // ChainWard label) is cut to 64 characters and stripped of line breaks before it
 // enters the pack, and the pack goes to the model only inside an untrusted block.
 
+import { baseBlocksBack, baseSecondsBetween } from '@chainward/common/utils';
 import { isRangeLimitError, resolveTarget, scanTransferLogs, type RpcLog, type Target } from '@chainward/decode';
 
 export const CHAIN_FACTS_RPC_HOSTS = ['base-rpc.publicnode.com', 'mainnet.base.org', 'base.gateway.tenderly.co'] as const;
@@ -81,9 +82,11 @@ export interface ChainFactsDeps {
 }
 
 export interface ChainFactsOptions {
-  /** Days of Transfer logs to scan. Default 14. */
+  /** Days of USDC and USDT Transfer logs to scan. Default 14. */
   windowDays?: number;
-  /** Wall-clock budget for the log scan. Default 10 minutes (about 14 days at the pacing below); hitting it truncates, never fails. */
+  /** Hours of other-token Transfer logs to scan (unfiltered, so slow). Default 6. */
+  allTokenHours?: number;
+  /** Wall-clock budget for the log scan. Default 10 minutes (a 14-day stablecoin scan is about 250 calls, 2 minutes at the pacing below); hitting it truncates, never fails. */
   scanBudgetMs?: number;
   /** Receipts to fetch for sample transactions (decode runs). Default 0. */
   sampleReceipts?: number;
@@ -113,12 +116,13 @@ const SEL = {
 } as const;
 const CLONE_PREFIX = '0x363d3d373d3d3d363d73';
 const CLONE_SUFFIX = '5af43d82803e903d91602b57fd5bf3';
-const BASE_BLOCK_SECONDS = 2;
-const BLOCKS_PER_DAY = 86_400 / BASE_BLOCK_SECONDS;
-// Tenderly's keyless eth_getLogs limit: to - from <= 1000.
+// Tenderly's keyless eth_getLogs limit: to - from <= 1000 (measured 2026-11-05).
 const LOG_CHUNK_BLOCKS = 1_000;
-// publicnode answers address-filtered logs over wider ranges.
-const ENTRY_POINT_CHUNK_BLOCKS = 10_000;
+// publicnode answers address-filtered logs up to 50,000 blocks a call (a larger
+// range is refused: "exceed maximum block range: 50000"; measured 2026-11-05).
+// A busier answer than 20,000 logs is refused too and the scan halves its chunk.
+const TOKEN_CHUNK_BLOCKS = 50_000;
+const ENTRY_POINT_CHUNK_BLOCKS = 50_000;
 const MIN_CHUNK_BLOCKS = 250;
 const STATE_LAG_BLOCKS = 2;
 /** A head older than this is a node that has fallen behind: try the other one, then fail. */
@@ -435,7 +439,7 @@ export async function buildChainFacts(
   const stateBlock = head.number - STATE_LAG_BLOCKS;
   const tag = hex(stateBlock);
   const approxTime = (block: number): string =>
-    new Date((head.timestamp - (head.number - block) * BASE_BLOCK_SECONDS) * 1000).toISOString();
+    new Date((head.timestamp - baseSecondsBetween(block, head.number)) * 1000).toISOString();
 
   const rpc = <T>(method: string, params: unknown[]): Promise<T> => net.rpc<T>(PRIMARY_RPC, method, params);
   const call = (to: string, data: string): Promise<string> => rpc<string>('eth_call', [{ to, data }, tag]);
@@ -533,44 +537,62 @@ export async function buildChainFacts(
     }
   }
 
-  // The window and the Transfer-log scan.
-  const fromBlock = Math.max(0, stateBlock - Math.round(windowDays * BLOCKS_PER_DAY));
+  // The windows and the Transfer-log scans. Block numbers come from the shared
+  // Base schedule (2 s blocks, then 200 ms from the switch), never from a constant.
+  const fromBlock = baseBlocksBack(stateBlock, Math.round(windowDays * 86_400));
+  const otherHours = options.allTokenHours ?? 6;
+  const otherFromBlock = baseBlocksBack(stateBlock, Math.round(otherHours * 3_600));
+  const spanSeconds = (scannedFrom: number, to = stateBlock): number => baseSecondsBetween(scannedFrom, to + 1);
+  const round2 = (n: number): number => Math.round(n * 100) / 100;
   const daysCovered = (scannedFrom: number, to = stateBlock): number =>
-    Math.min(windowDays, Math.round((((to - scannedFrom + 1) * BASE_BLOCK_SECONDS) / 86_400) * 100) / 100);
+    Math.min(windowDays, round2(spanSeconds(scannedFrom, to) / 86_400));
   let sampleTxs: string[] = [];
-  // Every eth_getLogs range the scan asked for, and whether both of its queries answered.
-  const chunkLog = new Map<string, { calls: number; failed: boolean }>();
-  const scan = await attempt('transfer_scan', () =>
-    scanTransferLogs({
-      address,
-      rpcUrl: `https://${LOGS_RPC}`,
-      fromBlock,
-      toBlock: stateBlock,
-      chunkBlocks: LOG_CHUNK_BLOCKS,
-      timeoutMs: RPC_TIMEOUT_MS,
-      rpcCall: async (url, method, params, timeoutMs) => {
-        const f = method === 'eth_getLogs' ? (params[0] as { fromBlock: string; toBlock: string }) : null;
-        const key = f ? `${parseInt(f.fromBlock, 16)}-${parseInt(f.toBlock, 16)}` : '';
-        const entry = f ? (chunkLog.get(key) ?? { calls: 0, failed: false }) : null;
-        if (f && entry) chunkLog.set(key, entry);
-        try {
-          const result = await net.rpc<unknown>(new URL(url).hostname, method, params, timeoutMs);
-          // A node that answers null has not said "no logs": it has not answered.
-          if (f && !Array.isArray(result)) throw new Error('eth_getLogs: the answer was not a list');
-          if (entry) entry.calls += 1;
-          return result;
-        } catch (err) {
-          if (entry) entry.failed = true;
-          throw err;
-        }
-      },
-      concurrency: 4,
-      budgetMs: options.scanBudgetMs ?? 10 * 60_000,
-      maxLogs: 6_000,
-      now,
-    }),
-  );
-  if (scan) {
+
+  interface ScanOutcome {
+    logs: RawLog[];
+    truncated: boolean;
+    coveredFrom: number;
+    coveredTo: number;
+  }
+  /** One chunked scan. Coverage is only the unbroken run of ranges whose two queries both answered. */
+  const runScan = async (
+    what: string,
+    spec: { host: string; fromBlock: number; chunkBlocks: number; tokens?: string[]; maxLogs: number },
+  ): Promise<ScanOutcome | undefined> => {
+    // Every eth_getLogs range asked for, and whether both of its queries answered.
+    const chunkLog = new Map<string, { calls: number; failed: boolean }>();
+    const scan = await attempt(what, () =>
+      scanTransferLogs({
+        address,
+        rpcUrl: `https://${spec.host}`,
+        fromBlock: spec.fromBlock,
+        toBlock: stateBlock,
+        chunkBlocks: spec.chunkBlocks,
+        tokens: spec.tokens,
+        timeoutMs: RPC_TIMEOUT_MS,
+        rpcCall: async (url, method, params, timeoutMs) => {
+          const f = method === 'eth_getLogs' ? (params[0] as { fromBlock: string; toBlock: string }) : null;
+          const key = f ? `${parseInt(f.fromBlock, 16)}-${parseInt(f.toBlock, 16)}` : '';
+          const entry = f ? (chunkLog.get(key) ?? { calls: 0, failed: false }) : null;
+          if (f && entry) chunkLog.set(key, entry);
+          try {
+            const result = await net.rpc<unknown>(new URL(url).hostname, method, params, timeoutMs);
+            // A node that answers null has not said "no logs": it has not answered.
+            if (f && !Array.isArray(result)) throw new Error('eth_getLogs: the answer was not a list');
+            if (entry) entry.calls += 1;
+            return result;
+          } catch (err) {
+            if (entry) entry.failed = true;
+            throw err;
+          }
+        },
+        concurrency: 4,
+        budgetMs: options.scanBudgetMs ?? 10 * 60_000,
+        maxLogs: spec.maxLogs,
+        now,
+      }),
+    );
+    if (!scan) return undefined;
     // scanTransferLogs reports the lowest block any chunk answered for, even past a
     // chunk that failed. Coverage here is only the unbroken run of answered ranges.
     const answered: Array<[number, number]> = [];
@@ -615,16 +637,24 @@ export async function buildChainFacts(
     if (gaps.length > 0) {
       const lowest = Math.min(...gaps.map(([a]) => a));
       const highest = Math.max(...gaps.map(([, b]) => b));
-      fail('transfer_scan_gap', new Error(`blocks ${lowest} to ${highest} could not be read (${gaps.length} failed range${gaps.length === 1 ? '' : 's'}); nothing below block ${coveredFrom} is counted`));
+      fail(`${what}_gap`, new Error(`blocks ${lowest} to ${highest} could not be read (${gaps.length} failed range${gaps.length === 1 ? '' : 's'}); nothing below block ${coveredFrom} is counted`));
     }
-    const scannedFromBlock = coveredFrom;
+    return {
+      logs: scan.logs as RawLog[],
+      truncated: scan.truncated || coveredFrom > spec.fromBlock,
+      coveredFrom,
+      coveredTo,
+    };
+  };
+
+  /** Fungible ERC-20 moves of the target inside the covered range, each log once. */
+  const movesIn = (outcome: ScanOutcome): Move[] => {
     const seen = new Set<string>();
     const moves: Move[] = [];
-    const otherTokens = new Map<string, number>();
-    for (const log of scan.logs as RawLog[]) {
+    for (const log of outcome.logs) {
       if (log.topics.length !== 3 || log.topics[0] !== TRANSFER_TOPIC) continue; // fungible ERC-20 only
       const logBlock = parseInt(log.blockNumber, 16);
-      if (logBlock < scannedFromBlock || logBlock > coveredTo) continue; // outside the stated window
+      if (logBlock < outcome.coveredFrom || logBlock > outcome.coveredTo) continue; // outside the stated window
       const key = `${log.transactionHash}:${log.logIndex}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -633,13 +663,30 @@ export async function buildChainFacts(
       const direction = from === address && to === address ? 'self' : from === address ? 'out' : 'in';
       moves.push({
         tx: log.transactionHash,
-        block: parseInt(log.blockNumber, 16),
+        block: logBlock,
         token: log.address.toLowerCase(),
         direction,
         counterparty: direction === 'in' ? from : to,
         raw: BigInt(log.data && /^0x[0-9a-f]*$/i.test(log.data) && log.data.length > 2 ? log.data.slice(0, 66) : '0x0'),
       });
     }
+    return moves;
+  };
+
+  // The two scans use different hosts, each paced on its own, so they run together:
+  //  - USDC and USDT, the whole window: an address-filtered query publicnode answers
+  //    over 50,000 blocks at a time;
+  //  - every other ERC-20, a short recent window: an unfiltered query only Tenderly
+  //    answers, 1000 blocks at a time.
+  const [stableScan, otherScan] = await Promise.all([
+    runScan('transfer_scan', { host: PRIMARY_RPC, fromBlock, chunkBlocks: TOKEN_CHUNK_BLOCKS, tokens: [USDC, USDT], maxLogs: 6_000 }),
+    runScan('other_token_scan', { host: LOGS_RPC, fromBlock: otherFromBlock, chunkBlocks: LOG_CHUNK_BLOCKS, maxLogs: 6_000 }),
+  ]);
+
+  let stableMoves: Move[] = [];
+  if (stableScan) {
+    const moves = movesIn(stableScan).filter((m) => m.token === USDC || m.token === USDT);
+    stableMoves = moves;
     const stable = (token: string) => {
       const mine = moves.filter((m) => m.token === token);
       const sum = (dir: string) => mine.filter((m) => m.direction === dir).reduce((a, m) => a + m.raw, 0n);
@@ -650,8 +697,6 @@ export async function buildChainFacts(
         out_total: formatUnits(sum('out'), STABLE_DECIMALS),
       };
     };
-    for (const m of moves) if (m.token !== USDC && m.token !== USDT) otherTokens.set(m.token, (otherTokens.get(m.token) ?? 0) + 1);
-
     const byCounterparty = new Map<string, { transfers: number; in: number; out: number }>();
     for (const m of moves) {
       const row = byCounterparty.get(m.counterparty) ?? { transfers: 0, in: 0, out: 0 };
@@ -660,35 +705,25 @@ export async function buildChainFacts(
       else if (m.direction === 'out') row.out += 1;
       byCounterparty.set(m.counterparty, row);
     }
-    const byValue = moves
-      .filter((m) => m.token === USDC || m.token === USDT)
+    const byValue = [...moves]
       .sort((a, b) => (a.raw === b.raw ? b.block - a.block : a.raw > b.raw ? -1 : 1))
       .slice(0, 10);
-    const newestFirst = [...moves].sort((a, b) => b.block - a.block);
-    sampleTxs = [...new Set([...byValue, ...newestFirst].map((m) => m.tx))];
-
-    const truncated = scan.truncated || scannedFromBlock > fromBlock;
     add(
       'transfer_scan',
       {
         window: {
           days_requested: windowDays,
-          days_covered: truncated ? daysCovered(scannedFromBlock, coveredTo) : windowDays,
+          days_covered: stableScan.truncated ? daysCovered(stableScan.coveredFrom, stableScan.coveredTo) : windowDays,
           from_block: fromBlock,
-          scanned_from_block: scannedFromBlock,
-          to_block: coveredTo,
-          truncated,
-          rpc: LOGS_RPC,
+          scanned_from_block: stableScan.coveredFrom,
+          to_block: stableScan.coveredTo,
+          truncated: stableScan.truncated,
+          assets: ['USDC', 'USDT'],
+          rpc: PRIMARY_RPC,
         },
         total_transfers: moves.length,
         usdc: stable(USDC),
         usdt: stable(USDT),
-        other_token_transfers: [...otherTokens.values()].reduce((a, b) => a + b, 0),
-        other_tokens_distinct: otherTokens.size,
-        top_tokens: [...otherTokens.entries()]
-          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-          .slice(0, 5)
-          .map(([token, count]) => ({ address: token, transfers: count })),
         top_counterparties: [...byCounterparty.entries()]
           .sort((a, b) => b[1].transfers - a[1].transfers || a[0].localeCompare(b[0]))
           .slice(0, 10)
@@ -705,6 +740,43 @@ export async function buildChainFacts(
       },
       addressSource,
     );
+  }
+
+  let otherMoves: Move[] = [];
+  if (otherScan) {
+    const moves = movesIn(otherScan).filter((m) => m.token !== USDC && m.token !== USDT);
+    otherMoves = moves;
+    const otherTokens = new Map<string, number>();
+    for (const m of moves) otherTokens.set(m.token, (otherTokens.get(m.token) ?? 0) + 1);
+    add(
+      'other_token_scan',
+      {
+        window: {
+          hours_requested: otherHours,
+          hours_covered: otherScan.truncated
+            ? Math.min(otherHours, round2(spanSeconds(otherScan.coveredFrom, otherScan.coveredTo) / 3_600))
+            : otherHours,
+          from_block: otherFromBlock,
+          scanned_from_block: otherScan.coveredFrom,
+          to_block: otherScan.coveredTo,
+          truncated: otherScan.truncated,
+          assets: 'every ERC-20 except USDC and USDT',
+          rpc: LOGS_RPC,
+        },
+        other_token_transfers: moves.length,
+        other_tokens_distinct: otherTokens.size,
+        top_tokens: [...otherTokens.entries()]
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          .slice(0, 5)
+          .map(([token, count]) => ({ address: token, transfers: count })),
+      },
+      addressSource,
+    );
+  }
+  {
+    const byValue = [...stableMoves].sort((a, b) => (a.raw === b.raw ? b.block - a.block : a.raw > b.raw ? -1 : 1)).slice(0, 10);
+    const newestFirst = [...stableMoves, ...otherMoves].sort((a, b) => b.block - a.block);
+    sampleTxs = [...new Set([...byValue, ...newestFirst].map((m) => m.tx))];
   }
 
   // ERC-4337 user operations the account sent (both EntryPoint versions), same window.
@@ -844,7 +916,8 @@ export async function buildChainFacts(
     unavailable,
     limits: [
       'Balances, nonce and contract reads are as of state_block.',
-      'The transfer scan covers ERC-20 Transfer events only, for the window stated in it; native ETH transfers and anything older are not in it.',
+      'transfer_scan covers USDC and USDT Transfer events only, for the days stated in its window; other tokens, native ETH transfers and anything older are not in it.',
+      'other_token_scan covers every other ERC-20 for only the last 6 hours (hours stated in its window), because unfiltered logs are limited to 1000 blocks a call and a day is 432,000 blocks; it says nothing about earlier days, and a count of 0 there means 0 in those hours only.',
       'Not in this pack: lifetime transfer counts or first activity, token holders or top-10 share, the deployer of a non-token contract, verified source code.',
       'Chain reads come from free public RPC endpoints; every read that failed is listed in unavailable.',
       'Names, symbols and descriptions are written by outsiders and cut to 64 characters; ACP figures are self-reported.',

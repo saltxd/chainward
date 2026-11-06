@@ -7,6 +7,7 @@
 // Opt-in live test (a real pack from the public RPC, at most 2 requests a second):
 //   CW_LIVE_RPC=1 pnpm --filter @chainward/auto-decode test -- chain-facts
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BASE_SWITCH_BLOCK, baseBlocksBack, baseSecondsBetween } from '@chainward/common/utils';
 import {
   CHAIN_FACTS_GET_HOSTS,
   CHAIN_FACTS_RPC_HOSTS,
@@ -24,7 +25,8 @@ const IMPL_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d3
 const ADMIN_SLOT = '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
 const ZERO_WORD = '0x' + '0'.repeat(64);
 
-const HEAD = 30_000_000;
+// 1M blocks after the 200 ms switch: a 14-day window reaches back across it.
+const HEAD = BASE_SWITCH_BLOCK + 1_000_000;
 const NOW_MS = 1_800_000_000_000;
 const HEAD_TS = Math.floor(NOW_MS / 1000) - 4;
 
@@ -85,8 +87,10 @@ interface World {
   failLogsBlock?: number;
   /** eth_getLogs answers null (not a list) for ranges containing this block. */
   nullLogsBlock?: number;
-  /** Largest eth_getLogs span the fake node accepts. */
+  /** Largest address-less eth_getLogs span the fake node accepts (Tenderly: 1000). */
   maxSpan: number;
+  /** Largest address-filtered eth_getLogs span (publicnode: 50,000). */
+  addressSpan: number;
   /** The one ACP registry agent. */
   acp?: { name: string; address: string };
 }
@@ -103,7 +107,8 @@ function world(over: Partial<World> = {}): World {
     chainward: {},
     dex: { pairs: [] },
     httpFail: {},
-    maxSpan: 9_999,
+    maxSpan: 1_000,
+    addressSpan: 50_000,
     ...over,
   };
 }
@@ -111,6 +116,7 @@ function world(over: Partial<World> = {}): World {
 interface Seen {
   url: string;
   host: string;
+  body?: string;
   method: string;
   rpc?: string;
   headers: Record<string, string>;
@@ -153,7 +159,20 @@ function fakeChain(w: World): { fetch: typeof fetch; seen: Seen[] } {
         const f = p[0] as { fromBlock: string; toBlock: string; topics: (string | null)[]; address?: string | string[] };
         const from = parseInt(f.fromBlock, 16);
         const to = parseInt(f.toBlock, 16);
-        if (to - from > w.maxSpan) throw new Error('block range too large, limit 10000');
+        const filtered = f.address !== undefined;
+        if (to - from > (filtered ? w.addressSpan : w.maxSpan)) throw new Error('block range too large, limit 10000');
+        const tokens = ([] as string[]).concat(f.address ?? []).map((a) => a.toLowerCase());
+        if (filtered && tokens.includes(USDC)) {
+          const fromTopic = f.topics[1] ?? null;
+          const toTopic = f.topics[2] ?? null;
+          return w.transfers.filter((l) => {
+            const b = parseInt(l.blockNumber, 16);
+            if (b < from || b > to || !tokens.includes(l.address.toLowerCase())) return false;
+            if (fromTopic && l.topics[1] !== fromTopic) return false;
+            if (toTopic && l.topics[2] !== toTopic) return false;
+            return true;
+          });
+        }
         if (f.address) {
           const sender = f.topics[2]!.toLowerCase();
           const n = w.userOps[('0x' + sender.slice(-40)).toLowerCase()] ?? 0;
@@ -202,6 +221,7 @@ function fakeChain(w: World): { fetch: typeof fetch; seen: Seen[] } {
     if (method === 'POST' && (CHAIN_FACTS_RPC_HOSTS as readonly string[]).includes(url.hostname)) {
       const body = JSON.parse(String(init?.body)) as { method: string; params: unknown[]; id: number };
       entry.rpc = body.method;
+      entry.body = String(init?.body);
       if (body.method === 'eth_getLogs') {
         const f = (body.params as any[])[0] as { fromBlock: string; toBlock: string };
         const lo = parseInt(f.fromBlock, 16);
@@ -253,7 +273,7 @@ afterEach(() => {
 });
 
 describe('buildChainFacts: account and contract types', () => {
-  it('reads a plain EOA: head, nonce, balances and the 14-day transfer scan', async () => {
+  it('reads a plain EOA: head, nonce, balances and the 14-day stablecoin scan', async () => {
     const w = world({
       nonces: { [EOA]: 42 },
       balances: { [EOA]: 2_500_000_000_000_000_000n, [`${USDC}:${EOA}`]: 130_000_000n },
@@ -279,7 +299,8 @@ describe('buildChainFacts: account and contract types', () => {
     expect(flows.window.days_requested).toBe(14);
     expect(flows.window.truncated).toBe(false);
     expect(flows.usdc).toMatchObject({ in_count: 2, out_count: 1, in_total: '6', out_total: '125' });
-    expect(flows.other_token_transfers).toBe(1);
+    expect(flows.total_transfers).toBe(3); // USDC and USDT only
+    expect(value(pack, 'other_token_scan').other_token_transfers).toBe(1);
     expect(flows.largest_moves[0]).toMatchObject({ tx: TX_BIG, token: 'USDC', direction: 'out', counterparty: PEER_B, amount: '125' });
     expect(flows.top_counterparties[0].address).toBe(PEER_A);
     expect(fact(pack, 'transfer_scan').source).toContain('basescan.org/address/' + EOA);
@@ -446,40 +467,55 @@ describe('buildChainFacts: what it may contact', () => {
     const src = readFileSync(new URL('../chain-facts.ts', import.meta.url), 'utf8');
     const code = src.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
     expect(code).not.toMatch(/riskChainRpcs|SENTINEL_RPC|ALCHEMY_API_KEY|process\.env/);
-    expect(code).not.toMatch(/@chainward\/common/);
+    // Only the pure utils subpath (baseBlocks.ts); the root and constants hold the risk-chain RPC lists.
+    expect(code).not.toMatch(/@chainward\/common(?!\/utils')/);
   });
 });
 
 describe('buildChainFacts: which node gets which question', () => {
   // Measured 2026-11-05: publicnode refuses eth_getLogs with no address
-  // ("Please specify an address"), mainnet.base.org rate-limits getLogs, and
-  // base.gateway.tenderly.co answers topic-only logs up to 1000 blocks at a time.
-  it('sends wallet-wide Transfer log queries to the log host in chunks of at most 1000 blocks', async () => {
-    const w = world({ maxSpan: 1_000, transfers: [transferLog(USDC, PEER_A, EOA, 1n, HEAD - 5, TX_SMALL)] });
+  // ("Please specify an address") but answers address-filtered logs up to 50,000
+  // blocks a call; mainnet.base.org rate-limits getLogs; base.gateway.tenderly.co
+  // answers topic-only logs up to 1000 blocks at a time.
+  it('sends the wallet-wide all-token Transfer queries to the log host in chunks of at most 1000 blocks', async () => {
+    const w = world({ transfers: [transferLog(TOKEN, PEER_A, EOA, 1n, HEAD - 5, TX_SMALL)] });
     const { fetch, seen } = fakeChain(w);
-    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 1 });
-    const logCalls = seen.filter((s) => s.rpc === 'eth_getLogs');
-    expect(logCalls.length).toBeGreaterThan(80);
-    expect(logCalls.every((s) => s.host === 'base.gateway.tenderly.co')).toBe(true);
-    expect(value(pack, 'transfer_scan').window.truncated).toBe(false);
-    expect(value(pack, 'transfer_scan').usdc.in_count).toBe(1);
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 1, allTokenHours: 1 });
+    const logCalls = seen.filter((s) => s.rpc === 'eth_getLogs' && s.host === 'base.gateway.tenderly.co');
+    expect(logCalls.length).toBe(2 * 19); // 1 hour = 18,001 blocks (3,600 s / 0.2 s, ends inclusive), two queries a chunk
+    expect(value(pack, 'other_token_scan').window.truncated).toBe(false);
+    expect(value(pack, 'other_token_scan').other_token_transfers).toBe(1);
   });
 
-  it('asks publicnode for logs only with an address filter (the EntryPoint query)', async () => {
+  it('reads USDC and USDT from publicnode with an address filter and a topic on the target, 50,000 blocks at a time', async () => {
+    const w = world({ transfers: [transferLog(USDC, PEER_A, EOA, 1n, HEAD - 5, TX_SMALL)] });
+    const { fetch, seen } = fakeChain(w);
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 1 });
+    const stableCalls = seen.filter((s) => s.rpc === 'eth_getLogs' && s.host === 'base-rpc.publicnode.com');
+    expect(stableCalls.length).toBe(2 * Math.ceil(432_000 / 50_000));
+    expect(value(pack, 'transfer_scan').usdc.in_count).toBe(1);
+    expect(value(pack, 'transfer_scan').window.rpc).toBe('base-rpc.publicnode.com');
+  });
+
+  it('asks publicnode for EntryPoint logs 50,000 blocks at a time', async () => {
     const w = world({ code: { [ACCOUNT_4337]: '0x6080604052' }, userOps: { [ACCOUNT_4337]: 2 } });
     const { fetch, seen } = fakeChain(w);
     await buildChainFacts(addrTarget(ACCOUNT_4337), deps(fetch), { windowDays: 1 });
-    const onPublicnode = seen.filter((s) => s.rpc === 'eth_getLogs' && s.host === 'base-rpc.publicnode.com');
-    expect(onPublicnode.length).toBeGreaterThan(0);
-    expect(onPublicnode.length).toBeLessThan(20);
+    const entryPoint = seen.filter((s) => s.rpc === 'eth_getLogs' && s.host === 'base-rpc.publicnode.com' && /5ff137d4/i.test(s.body ?? ''));
+    expect(entryPoint.length).toBe(Math.ceil(432_000 / 50_000));
   });
 
   it('reads the node error detail, so a range-limit message halves the chunk instead of failing', async () => {
-    const w = world({ maxSpan: 499, transfers: [transferLog(USDC, PEER_A, EOA, 1n, HEAD - 5, TX_SMALL)] });
+    const w = world({
+      maxSpan: 499,
+      addressSpan: 20_000,
+      transfers: [transferLog(USDC, PEER_A, EOA, 1n, HEAD - 5, TX_SMALL), transferLog(TOKEN, PEER_A, EOA, 1n, HEAD - 6, TX_BIG)],
+    });
     const { fetch } = fakeChain(w);
     const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 1 });
     expect(pack.unavailable).toEqual([]);
     expect(value(pack, 'transfer_scan').usdc.in_count).toBe(1);
+    expect(value(pack, 'other_token_scan').other_token_transfers).toBe(1);
   });
 });
 
@@ -499,7 +535,9 @@ describe('buildChainFacts: failures are unavailable, never zero', () => {
     const { fetch } = fakeChain(w);
     const pack = await buildChainFacts(addrTarget(EOA), deps(fetch));
     expect(pack.facts.find((f) => f.label === 'transfer_scan')).toBeUndefined();
+    expect(pack.facts.find((f) => f.label === 'other_token_scan')).toBeUndefined();
     expect(pack.unavailable.map((u) => u.what)).toContain('transfer_scan');
+    expect(pack.unavailable.map((u) => u.what)).toContain('other_token_scan');
   });
 
   it('puts a ChainWard 500 in unavailable[] but a 404 is a real answer', async () => {
@@ -540,7 +578,7 @@ describe('buildChainFacts: failures are unavailable, never zero', () => {
 });
 
 describe('buildChainFacts: a failed scan chunk is a gap, not zero', () => {
-  const FAILED_AT = HEAD - 1_500; // the second 1000-block chunk from the head
+  const FAILED_AT = HEAD - 120_000; // the third 50,000-block chunk from the head
 
   it('reports only the unbroken run from the head as covered, and lists the failed range', async () => {
     const w = world({
@@ -548,7 +586,7 @@ describe('buildChainFacts: a failed scan chunk is a gap, not zero', () => {
       transfers: [
         transferLog(USDC, PEER_A, EOA, 5_000_000n, FAILED_AT, TX_BIG), // inside the failed chunk
         transferLog(USDC, PEER_A, EOA, 1_000_000n, HEAD - 100, TX_SMALL), // newest chunk, read
-        transferLog(USDC, PEER_B, EOA, 9_000_000n, HEAD - 3_500, '0x' + 'c3'.repeat(32)), // beyond the gap, read
+        transferLog(USDC, PEER_B, EOA, 9_000_000n, HEAD - 170_000, '0x' + 'c3'.repeat(32)), // beyond the gap, read
       ],
     });
     const { fetch } = fakeChain(w);
@@ -556,7 +594,7 @@ describe('buildChainFacts: a failed scan chunk is a gap, not zero', () => {
     const scan = value(pack, 'transfer_scan');
     expect(scan.window.truncated).toBe(true);
     expect(scan.window.scanned_from_block).toBeGreaterThan(FAILED_AT);
-    expect(scan.window.days_covered).toBeLessThan(0.1);
+    expect(scan.window.days_covered).toBeLessThan(0.3);
     // Only the transfer inside the stated window is counted; the one past the gap is not.
     expect(scan.usdc.in_count).toBe(1);
     expect(scan.total_transfers).toBe(1);
@@ -565,7 +603,7 @@ describe('buildChainFacts: a failed scan chunk is a gap, not zero', () => {
   });
 
   it('treats a null eth_getLogs result as a failed read, not an empty one', async () => {
-    const w = world({ nullLogsBlock: HEAD - 1_500, transfers: [transferLog(USDC, PEER_A, EOA, 1n, HEAD - 100, TX_SMALL)] });
+    const w = world({ nullLogsBlock: HEAD - 120_000, transfers: [transferLog(USDC, PEER_A, EOA, 1n, HEAD - 100, TX_SMALL)] });
     const { fetch } = fakeChain(w);
     const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 1 });
     expect(value(pack, 'transfer_scan').window.truncated).toBe(true);
@@ -600,6 +638,111 @@ describe('buildChainFacts: a stale head', () => {
     const { fetch } = fakeChain(world());
     const late = { ...deps(fetch), now: () => NOW_MS + 10 * 60_000 };
     await expect(buildChainFacts(addrTarget(EOA), late)).rejects.toThrow(/old/);
+  });
+});
+
+describe('buildChainFacts: Base 200 ms blocks', () => {
+  const STATE = HEAD - 2;
+  const DAY = 86_400;
+
+  it('starts a 14-day window at the true block, across the 2 s to 200 ms switch', async () => {
+    const { fetch } = fakeChain(world());
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch));
+    const win = value(pack, 'transfer_scan').window;
+    expect(win.from_block).toBe(baseBlocksBack(STATE, 14 * DAY));
+    // Independent arithmetic: 1M blocks of 0.2 s after the switch, the rest at 2 s.
+    const fastSeconds = (STATE - BASE_SWITCH_BLOCK) * 0.2;
+    const expected = BASE_SWITCH_BLOCK - Math.round((14 * DAY - fastSeconds) / 2);
+    expect(Math.abs(win.from_block - expected)).toBeLessThanOrEqual(1);
+    expect(win.from_block).toBeLessThan(BASE_SWITCH_BLOCK);
+    expect(win.from_block).not.toBe(STATE - 14 * 43_200); // the old 2 s constant
+    expect(win.from_block).not.toBe(STATE - 14 * 432_000); // a 200 ms constant
+    expect(baseSecondsBetween(win.from_block, STATE)).toBeCloseTo(14 * DAY, -1);
+  });
+
+  it('starts a window that is entirely after the switch at 432,000 blocks a day', async () => {
+    const { fetch } = fakeChain(world());
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 0.25 });
+    expect(value(pack, 'transfer_scan').window.from_block).toBe(STATE - 108_000);
+  });
+
+  it('dates a block by the head timestamp and the helper, not by 2 s a block', async () => {
+    const w = world({ transfers: [transferLog(USDC, EOA, PEER_B, 125_000_000n, HEAD - 5_000, TX_BIG)] });
+    const { fetch } = fakeChain(w);
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { windowDays: 1 });
+    const move = value(pack, 'transfer_scan').largest_moves[0];
+    const headMs = Date.parse(pack.as_of.head_time);
+    // 5,000 blocks of 200 ms is 1000 s.
+    expect(headMs - Date.parse(move.approx_time)).toBe(1_000_000);
+  });
+
+  it('states exactly which days and which assets each scan covered', async () => {
+    const { fetch } = fakeChain(world());
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch));
+    const stable = value(pack, 'transfer_scan').window;
+    expect(stable).toMatchObject({
+      days_requested: 14,
+      days_covered: 14,
+      truncated: false,
+      to_block: STATE,
+      scanned_from_block: stable.from_block,
+      assets: ['USDC', 'USDT'],
+      rpc: 'base-rpc.publicnode.com',
+    });
+    const other = value(pack, 'other_token_scan').window;
+    expect(other).toMatchObject({
+      hours_requested: 6,
+      hours_covered: 6,
+      truncated: false,
+      from_block: STATE - 108_000,
+      to_block: STATE,
+      assets: 'every ERC-20 except USDC and USDT',
+      rpc: 'base.gateway.tenderly.co',
+    });
+    const limits = pack.limits.join('\n');
+    expect(limits).toMatch(/USDC and USDT/);
+    expect(limits).toMatch(/last 6 hours/);
+    expect(limits).not.toMatch(/14 days of other tokens/);
+  });
+
+  it('states a shorter covered window when the budget stops either scan early', async () => {
+    const { fetch } = fakeChain(world());
+    const pack = await buildChainFacts(addrTarget(EOA), deps(fetch), { scanBudgetMs: -1 });
+    const stable = value(pack, 'transfer_scan').window;
+    expect(stable.truncated).toBe(true);
+    expect(stable.days_covered).toBeCloseTo(baseSecondsBetween(stable.scanned_from_block, STATE + 1) / DAY, 1);
+    expect(stable.days_covered).toBeLessThan(14);
+    const other = value(pack, 'other_token_scan').window;
+    expect(other.truncated).toBe(true);
+    expect(other.hours_covered).toBeLessThan(6);
+  });
+
+  it('keeps a 14-day brief to a call count that fits ten minutes at 2 requests a second', async () => {
+    const { fetch, seen } = fakeChain(world({ code: { [ACCOUNT_4337]: '0x6080604052' } }));
+    const pack = await buildChainFacts(addrTarget(ACCOUNT_4337), deps(fetch));
+    expect(pack.unavailable).toEqual([]);
+    const perHost = new Map<string, number>();
+    for (const s of seen.filter((x) => x.method === 'POST')) perHost.set(s.host, (perHost.get(s.host) ?? 0) + 1);
+    // Hosts are paced independently and the scans overlap: the busiest host sets the time.
+    const busiest = Math.max(...perHost.values());
+    expect(busiest * 500).toBeLessThanOrEqual(10 * 60_000);
+    expect(perHost.get('base-rpc.publicnode.com')).toBeLessThanOrEqual(400);
+    expect(perHost.get('base.gateway.tenderly.co')).toBeLessThanOrEqual(300);
+  });
+
+  it('keeps a 30-day decode inside ten minutes too', async () => {
+    const { fetch, seen } = fakeChain(world({ code: { [ACCOUNT_4337]: '0x6080604052' } }));
+    await buildChainFacts(addrTarget(ACCOUNT_4337), deps(fetch), { windowDays: 30 });
+    const perHost = new Map<string, number>();
+    for (const s of seen.filter((x) => x.method === 'POST')) perHost.set(s.host, (perHost.get(s.host) ?? 0) + 1);
+    expect(Math.max(...perHost.values()) * 500).toBeLessThanOrEqual(10 * 60_000);
+  });
+
+  it('has no block-time constant of its own', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../chain-facts.ts', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/BASE_BLOCK_SECONDS|BLOCKS_PER_DAY|\* 2\b.*block|86_400 \/ 2/);
+    expect(source).toMatch(/baseBlocksBack/);
   });
 });
 
@@ -711,10 +854,11 @@ describe.skipIf(!LIVE)('live: a real chain-facts pack', () => {
       calls.push({ host: new URL(String(input)).hostname, at: Date.now(), body: String(init?.body ?? '') });
       return fetch(input, init);
     };
+    const startedAt = Date.now();
     const pack = await buildChainFacts(
       addrTarget(process.env.CW_LIVE_RPC_TARGET ?? '0x4200000000000000000000000000000000000006'),
       { fetch: counting, minIntervalMs: 500, retryDelayMs: 2_000 },
-      { windowDays: 1 },
+      { windowDays: Number(process.env.CW_LIVE_RPC_DAYS ?? 1) },
     );
     const spans = calls
       .map((c) => (c.body.includes('eth_getLogs') ? JSON.parse(c.body).params[0] : null))
@@ -727,6 +871,11 @@ describe.skipIf(!LIVE)('live: a real chain-facts pack', () => {
           unavailable: pack.unavailable,
           window: (pack.facts.find((f) => f.label === 'transfer_scan')?.value as any)?.window,
           requests: calls.length,
+          requestsByHost: Object.fromEntries(
+            [...new Set(calls.map((c) => c.host))].map((h) => [h, calls.filter((c) => c.host === h).length]),
+          ),
+          elapsedSec: Math.round((Date.now() - startedAt) / 1000),
+          otherWindow: (pack.facts.find((f) => f.label === 'other_token_scan')?.value as any)?.window,
           getLogsSpans: [...new Set(spans)].sort((a, b) => b - a),
         },
         null,
@@ -736,10 +885,13 @@ describe.skipIf(!LIVE)('live: a real chain-facts pack', () => {
     expect(pack.as_of.head_age_sec).toBeLessThan(60);
     expect(JSON.stringify(pack)).not.toMatch(/alchemy/i);
     // The limit is for the public RPCs; ChainWard, ACP and DexScreener GETs are single calls.
-    const sorted = calls
-      .filter((c) => (CHAIN_FACTS_RPC_HOSTS as readonly string[]).includes(c.host))
-      .map((c) => c.at)
-      .sort((a, b) => a - b);
-    for (let i = 1; i < sorted.length; i++) expect(sorted[i]! - sorted[i - 1]!).toBeGreaterThanOrEqual(450);
+    // The two log scans run side by side, so the 2-a-second limit is per host.
+    for (const host of CHAIN_FACTS_RPC_HOSTS) {
+      const sorted = calls
+        .filter((c) => c.host === host)
+        .map((c) => c.at)
+        .sort((a, b) => a - b);
+      for (let i = 1; i < sorted.length; i++) expect(sorted[i]! - sorted[i - 1]!).toBeGreaterThanOrEqual(450);
+    }
   }, 900_000);
 });
