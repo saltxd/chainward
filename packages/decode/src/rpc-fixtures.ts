@@ -163,6 +163,8 @@ export interface ScanLogsInput {
   chunkBlocks: number;
   timeoutMs: number;
   rpcCall: RpcCall;
+  /** Only Transfer logs emitted by these token contracts (an `address` filter); omit for every token. */
+  tokens?: string[];
   concurrency?: number;
   budgetMs?: number;
   /** Stop scanning deeper once this many raw logs are in hand. */
@@ -184,11 +186,12 @@ async function getLogs(
   chunk: LogChunk,
   topics: (string | null)[],
   timeoutMs: number,
+  tokens?: string[],
 ): Promise<RpcLog[]> {
   const res = await rpcCall(
     rpcUrl,
     'eth_getLogs',
-    [{ fromBlock: '0x' + chunk.from.toString(16), toBlock: '0x' + chunk.to.toString(16), topics }],
+    [{ fromBlock: '0x' + chunk.from.toString(16), toBlock: '0x' + chunk.to.toString(16), ...(tokens?.length ? { address: tokens } : {}), topics }],
     timeoutMs,
   );
   return Array.isArray(res) ? (res as RpcLog[]) : [];
@@ -219,8 +222,8 @@ export async function scanTransferLogs(input: ScanLogsInput): Promise<ScanLogsRe
 
   const scanChunk = async (chunk: LogChunk): Promise<RpcLog[]> => {
     const [fromLogs, toLogs] = await Promise.all([
-      getLogs(input.rpcCall, input.rpcUrl, chunk, [TRANSFER_TOPIC, topic], input.timeoutMs),
-      getLogs(input.rpcCall, input.rpcUrl, chunk, [TRANSFER_TOPIC, null, topic], input.timeoutMs),
+      getLogs(input.rpcCall, input.rpcUrl, chunk, [TRANSFER_TOPIC, topic], input.timeoutMs, input.tokens),
+      getLogs(input.rpcCall, input.rpcUrl, chunk, [TRANSFER_TOPIC, null, topic], input.timeoutMs, input.tokens),
     ]);
     return [...fromLogs, ...toLogs];
   };
