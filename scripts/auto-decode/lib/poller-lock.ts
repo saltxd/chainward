@@ -11,6 +11,8 @@
 // reused, and the file's contents are never read. If python3 is missing the poll
 // fails (it does not run unlocked).
 import { spawn, type ChildProcess } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 const HELPER = [
   'import fcntl, sys',
@@ -34,8 +36,19 @@ export interface PollerLock {
 /** The lock, or null when another poller holds it. Throws if the helper cannot run. */
 export function acquirePollerLock(path: string): Promise<PollerLock | null> {
   return new Promise((resolve, reject) => {
-    const child: ChildProcess = spawn('python3', ['-I', '-c', HELPER, path], { stdio: ['pipe', 'pipe', 'ignore'] });
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+    } catch (err) {
+      reject(new Error(`poller lock: cannot create ${dirname(path)}: ${err instanceof Error ? err.message : String(err)}`));
+      return;
+    }
+    const child: ChildProcess = spawn('python3', ['-I', '-c', HELPER, path], { stdio: ['pipe', 'pipe', 'pipe'] });
     let answer = '';
+    let errText = '';
+    child.stderr!.setEncoding('utf8');
+    child.stderr!.on('data', (chunk: string) => {
+      errText += chunk;
+    });
     let settled = false;
     const exited = new Promise<void>((done) => child.once('close', () => done()));
     const finish = (result: PollerLock | null): void => {
@@ -67,6 +80,12 @@ export function acquirePollerLock(path: string): Promise<PollerLock | null> {
         finish(null);
       }
     });
-    child.once('close', () => finish(null));
+    // The helper ended without saying "held" or "busy": it failed (a path it cannot open, no python3 module), which is not another poller.
+    child.once('close', () => {
+      if (settled) return;
+      settled = true;
+      const last = errText.trim().split('\n').pop() ?? '';
+      reject(new Error(`poller lock: helper failed: ${last.slice(0, 200) || 'no answer'}`));
+    });
   });
 }

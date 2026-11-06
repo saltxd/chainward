@@ -145,26 +145,29 @@ const FORMAT_CHARS_RE = /\p{Cf}/gu;
 // ("0x bad0 0000 ..."), or joined by dashes, dots, markdown, is the same address,
 // so hex groups are redacted whatever separates them. Decimal numbers are not
 // hex: amounts, block numbers and dates stay.
-const SEP = '[\\s\\-_.:,·*`\\[\\]()~]';
-const PREFIXED_GROUPS_RE = new RegExp(String.raw`0x[0-9a-f]+(?:${SEP}+[0-9a-f]+(?![0-9a-z]))*`, 'gi');
+// Any run of up to four characters that are not letters or digits separates groups:
+// spaces, dashes, slashes, pipes, quotes, markdown, whatever a reader would skip over.
+const SEP = '[^0-9a-z]{1,4}';
+const PREFIXED_GROUPS_RE = new RegExp(String.raw`0x[0-9a-f]+(?:${SEP}[0-9a-f]+(?![0-9a-z]))*`, 'gi');
 const BARE_GROUPS_RE = new RegExp(
-  String.raw`(?<![0-9a-z])[0-9a-f]+(?![0-9a-z])(?:${SEP}+[0-9a-f]+(?![0-9a-z]))*`,
+  String.raw`(?<![0-9a-z])[0-9a-f]+(?![0-9a-z])(?:${SEP}[0-9a-f]+(?![0-9a-z]))*`,
   'gi',
 );
+const NON_HEX_RE = /[^0-9a-f]/gi;
 export const HEX_REDACTED = '0x…(redacted)';
 
 function redactHex(text: string): string {
-  const out = text.replace(PREFIXED_GROUPS_RE, (m) => (m.replace(/^0x/i, '').replace(new RegExp(SEP, 'g'), '').length >= 6 ? HEX_REDACTED : m));
+  const out = text.replace(PREFIXED_GROUPS_RE, (m) => (m.replace(/^0x/i, '').replace(NON_HEX_RE, '').length >= 6 ? HEX_REDACTED : m));
   return out.replace(BARE_GROUPS_RE, (m) => {
-    const joined = m.replace(new RegExp(SEP, 'g'), '');
+    const joined = m.replace(NON_HEX_RE, '');
     if (joined.length < 6 || /^[0-9]+$/.test(joined)) return m; // a decimal number
     return /[0-9]/.test(joined) || joined.length >= 16 ? HEX_REDACTED : m;
   });
 }
 
 /** Keys whose values are outsider text (never a structured address, never a source of grounding). */
-export const TEXT_KEYS: ReadonlySet<string> = new Set(['name', 'symbol', 'description', 'title', 'subtitle', 'label', 'labels', 'offerings']);
-const KEPT_LINK_RE = /^https:\/\/(?:basescan\.org|base\.easscan\.org|chainward\.ai)\/[^\s]*$/;
+export const TEXT_KEYS: ReadonlySet<string> = new Set(['name', 'symbol', 'description', 'title', 'subtitle', 'label', 'labels', 'offerings', 'acp', 'twitter_handle', 'twitterHandle']);
+const KEPT_LINK_RE = /^https:\/\/(?:basescan\.org|base\.easscan\.org|chainward\.ai)\/[^\s?#]*$/;
 const HEX_ID_RE = /^0x[0-9a-fA-F]{1,64}$/;
 
 /** One line of outside text, cut to 64 characters. */
@@ -184,21 +187,28 @@ export function clipText(text: string, max = MAX_TEXT): string {
  * its key, and a link to one of our own explorers; lists cut to 20 entries,
  * objects to 30 keys, depth to 5. Decimal strings pass untouched.
  */
-export function clipOutsideDeep(value: unknown, keepHex: (hex: string, key: string) => boolean = () => true, depth = 0, key = ''): unknown {
+export function clipOutsideDeep(
+  value: unknown,
+  keepHex: (hex: string, key: string) => boolean = () => true,
+  depth = 0,
+  key = '',
+  inText = false,
+): unknown {
   if (typeof value === 'string') {
-    if (HEX_ID_RE.test(value) && keepHex(value, key)) return value;
-    if (value.length <= 200 && KEPT_LINK_RE.test(value) && !TEXT_KEYS.has(key)) return value;
+    // Everything under a text key (an ACP record, an offering list) is outsider text, whatever its sub-keys are called.
+    if (!inText && HEX_ID_RE.test(value) && keepHex(value, key)) return value;
+    if (!inText && value.length <= 200 && KEPT_LINK_RE.test(value) && !TEXT_KEYS.has(key)) return value;
     return clipText(value);
   }
   if (value === null || typeof value === 'number' || typeof value === 'boolean') return value;
   if (depth >= 5) return null;
-  if (Array.isArray(value)) return value.slice(0, 20).map((v) => clipOutsideDeep(v, keepHex, depth + 1, key));
+  if (Array.isArray(value)) return value.slice(0, 20).map((v) => clipOutsideDeep(v, keepHex, depth + 1, key, inText));
   if (typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 30)) {
       // An address used as a map key (counterparties) stays whole, or two keys would collapse into one.
       const outKey = HEX_ID_RE.test(k) ? k : clipText(k, 40);
-      out[outKey] = clipOutsideDeep(v, keepHex, depth + 1, k);
+      out[outKey] = clipOutsideDeep(v, keepHex, depth + 1, k, inText || TEXT_KEYS.has(k));
     }
     return out;
   }

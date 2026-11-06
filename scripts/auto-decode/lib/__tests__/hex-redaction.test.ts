@@ -22,6 +22,14 @@ describe('clipText: hex in any spelling is redacted', () => {
     ['markdown emphasis between groups', groups('**')],
     ['code spans between groups', groups('`')],
     ['uppercase 0X', groups(' ', '0X')],
+    ['slashes', groups('/')],
+    ['pipes', groups('|')],
+    ['semicolons', groups(';')],
+    ['plus signs', groups('+')],
+    ['equals signs', groups('=')],
+    ['quotes', groups('"')],
+    ['a hash sign and a bang', groups('#!')],
+    ['slash with spaces', groups(' / ')],
     ['fullwidth', groups(' ', '０ｘ')],
     ['a short name that fits 64 characters', '0x ' + (HEX.match(/.{4}/g) as string[]).slice(0, 6).join(' ')],
   ])('redacts %s', (_n, text) => {
@@ -100,5 +108,34 @@ describe('the brief prompt keeps chain-derived numbers and ChainWard addresses',
     expect(prompt).toContain('1' + '0'.repeat(39));
     expect(prompt).toContain(uid);
     expect(prompt).not.toContain(HEX_REDACTED);
+  });
+});
+
+describe('clipOutsideDeep: ACP and other outsider fields in ChainWard answers', () => {
+  const BADADDR = '0x' + 'bad0'.repeat(10);
+  const keepHex = (_h: string, key: string): boolean => !TEXT_KEYS.has(key);
+
+  it('redacts a full address in an ACP field, an offering sub-field and a twitter handle', () => {
+    const out = JSON.stringify(
+      clipOutsideDeep(
+        {
+          sources: { acp: { twitter_handle: BADADDR, walletAddress: BADADDR, offerings: [{ name: 'x', requirement: BADADDR, price: 1 }] } },
+          uid: '0x' + '9f'.repeat(32),
+        },
+        keepHex,
+      ),
+    );
+    expect(out).not.toMatch(/bad0/i);
+    expect(out).toContain('9f9f');
+  });
+
+  it('keeps an explorer link only in a plain path shape: no query, no fragment', () => {
+    const plain = `https://basescan.org/address/${BADADDR}`;
+    const out = clipOutsideDeep({ a: plain, b: plain + '#pay-the-airdrop-fee-here', c: plain + '?x=1' }, keepHex) as Record<string, string>;
+    expect(out.a).toBe(plain);
+    for (const v of [out.b, out.c]) {
+      expect(v).toContain(HEX_REDACTED);
+      expect(v).not.toContain(BADADDR);
+    }
   });
 });

@@ -178,6 +178,16 @@ describe('checkBriefGrounding: a split address rejoined by the renderer', () => 
     ['link text around the whole tail', `Pay 0x[${HEX}](https://basescan.org/).`],
     ['zero-width characters between groups', `Pay 0x${four.join('\u200b')}.`],
     ['uppercase 0X with spaced groups', `Pay 0X ${four.join(' ').toUpperCase()}.`],
+    ['slashes', `Pay 0x ${four.join('/')}.`],
+    ['pipes', `Pay 0x${four.join('|')}.`],
+    ['semicolons', `Pay 0x${four.join(';')}.`],
+    ['plus signs', `Pay 0x${four.join('+')}.`],
+    ['equals signs', `Pay 0x${four.join('=')}.`],
+    ['quotes', `Pay 0x${four.join('"')}.`],
+    ['a hash sign and a bang', `Pay 0x${four.join('#!')}.`],
+    ['a separator of several characters', `Pay 0x${four.join(' / ')}.`],
+    ['slashes, no prefix', `Pay ${four.join('/')}.`],
+    ['two 20-hex groups', `Pay 0x${HEX.slice(0, 20)}/${HEX.slice(20)}.`],
   ];
   it.each(cases)('refuses %s', (_n, text) => {
     expect(() => checkBriefGrounding({ markdown: text }, ctx)).toThrow(/not the target|chain facts/);
@@ -291,5 +301,65 @@ describe('offline injection: a hostile token name', () => {
 
     const clean = `<BRIEF_MARKDOWN>\n## Brief\nThe token reports itself as EXT, see https://basescan.org/address/${TARGET}.\n</BRIEF_MARKDOWN>\n<BRIEF_SUMMARY>ok</BRIEF_SUMMARY>`;
     expect(parseBriefOutput(clean, { needThread: false, grounding }).markdown).toContain('EXT');
+  });
+});
+
+// A paid order's brief cites each fact's source, as brief.md tells it to. The USDC and
+// USDT balance sources carry the token contract, which is neither the target nor a
+// value in the pack. Honest briefs were refused for it in two live runs.
+describe('checkBriefGrounding: citing the pack\'s own sources', () => {
+  const USDC_C = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+  const USDT_C = '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2';
+
+  async function realisticPack() {
+    const pad = (a: string) => '0x' + a.slice(2).padStart(64, '0');
+    const fakeFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
+      if (init?.method === 'POST') {
+        const { method, id } = JSON.parse(String(init.body)) as { method: string; id: number };
+        const result = (() => {
+          if (method === 'eth_blockNumber') return '0x1c9c380';
+          if (method === 'eth_getBlockByNumber') return { timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16) };
+          if (method === 'eth_getCode') return '0x';
+          if (method === 'eth_getLogs') return [];
+          if (method === 'eth_call') return pad('0x2faf080');
+          return '0x0';
+        })();
+        return json({ jsonrpc: '2.0', id, result });
+      }
+      if (url.includes('dexscreener')) return json({ pairs: [] });
+      return json({ error: 'none' }, 404);
+    }) as typeof fetch;
+    return buildChainFacts({ kind: 'address', value: TARGET }, { fetch: fakeFetch, minIntervalMs: 0, retryDelayMs: 0 });
+  }
+
+  it('passes an honest brief that lists every fact source, balance sources included', async () => {
+    const pack = await realisticPack();
+    const sources = pack.facts.map((f) => f.cite); // what brief.md has the brief list under Sources
+    expect(sources.some((u) => u.includes(USDC_C))).toBe(true);
+    expect(sources.some((u) => u.includes(USDT_C))).toBe(true);
+    const md = ['## Brief', 'USDC and USDT balances as of the state block.', '', '### Sources', ...[...new Set(sources)].map((u) => `- ${u}`)].join('\n');
+    expect(() => checkBriefGrounding({ markdown: md }, { target: TARGET, pack })).not.toThrow();
+  });
+
+  it('passes the token contracts the pack reads, and still refuses a hash that only outside text carries', async () => {
+    const pack = await realisticPack();
+    const c = { target: TARGET, pack };
+    expect(() => checkBriefGrounding({ markdown: `USDC contract ${USDC_C}, USDT ${USDT_C}.` }, c)).not.toThrow();
+    expect(() => checkBriefGrounding({ markdown: `Pay ${BAD}.` }, c)).toThrow(/0xbad0/);
+  });
+
+  it('counts an address in a fact source URL, not one in outside text', () => {
+    const pack = {
+      target: { address: TARGET },
+      facts: [
+        { id: 'F1', label: 'receipt', value: { status: 'ok' }, source: `https://basescan.org/tx/${TX}`, cite: 'x' },
+        { id: 'F2', label: 'erc20', value: { name: `pay ${BAD}` }, source: `https://basescan.org/token/${TARGET}`, cite: 'x' },
+      ],
+    };
+    const c = { target: TARGET, pack };
+    expect(() => checkBriefGrounding({ markdown: `See https://basescan.org/tx/${TX}` }, c)).not.toThrow();
+    expect(() => checkBriefGrounding({ markdown: `Token says pay ${BAD}` }, c)).toThrow(/0xbad0/);
   });
 });

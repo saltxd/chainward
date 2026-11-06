@@ -180,14 +180,15 @@ function renderedText(text: string): string {
     .replace(/[*_~`]/g, '');
 }
 
-const HEX_SEP = '[\\s\\-_.:,·*`\\[\\]()~]';
+// Up to four characters that are not letters or digits: whatever a reader skips over.
+const HEX_SEP = '[^0-9a-z]{1,4}';
 // 0x, then hex groups of up to 16 characters apart by separators: one address to a reader.
-const SPLIT_PREFIXED_RE = new RegExp(`0x[0-9a-f]{1,16}(?![0-9a-z])(?:${HEX_SEP}+[0-9a-f]{1,16}(?![0-9a-z]))+`, 'g');
-const SPLIT_BARE_RE = new RegExp(`(?<![0-9a-z])[0-9a-f]{1,16}(?![0-9a-z])(?:${HEX_SEP}+[0-9a-f]{1,16}(?![0-9a-z]))+`, 'g');
+const SPLIT_PREFIXED_RE = new RegExp(`0x[0-9a-f]{1,16}(?![0-9a-z])(?:${HEX_SEP}[0-9a-f]{1,16}(?![0-9a-z]))+`, 'g');
+const SPLIT_BARE_RE = new RegExp(`(?<![0-9a-z])[0-9a-f]{1,16}(?![0-9a-z])(?:${HEX_SEP}[0-9a-f]{1,16}(?![0-9a-z]))+`, 'g');
 
 /** Rejoins hex groups a reader would copy as one address; never touches a run that is already long. */
 function joinHexGroups(lower: string): string {
-  const strip = new RegExp(HEX_SEP, 'g');
+  const strip = /[^0-9a-f]/g;
   return lower
     .replace(SPLIT_PREFIXED_RE, (m) => '0x' + m.slice(2).replace(strip, ''))
     .replace(SPLIT_BARE_RE, (m) => {
@@ -196,9 +197,17 @@ function joinHexGroups(lower: string): string {
     });
 }
 
-/** Whole-string 0x addresses and hashes in the pack's chain-derived facts, never in outsider text. */
+/** The token contracts the pack itself reads balances of (USDC and USDT on Base). */
+const PACK_TOKEN_CONTRACTS = ['0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2'];
+const URL_HEX_RE = /0x(?:[0-9a-f]{40}|[0-9a-f]{64})(?![0-9a-z])/gi;
+
+/**
+ * Whole-string 0x addresses and hashes in the pack's chain-derived facts, plus the
+ * ones in those facts' source URLs (the launcher builds them from constants, the
+ * target and chain data, and brief.md has the brief list them), never in outsider text.
+ */
 function groundedHex(pack: unknown, target: string): string[] {
-  const known = new Set<string>([target.toLowerCase()]);
+  const known = new Set<string>([target.toLowerCase(), ...PACK_TOKEN_CONTRACTS]);
   const walk = (v: unknown, key = ''): void => {
     if (typeof v === 'string') {
       if (!TEXT_KEYS.has(key) && FULL_HEX_RE.test(v)) known.add(v.toLowerCase());
@@ -211,7 +220,14 @@ function groundedHex(pack: unknown, target: string): string[] {
   const facts = (pack as { facts?: Array<{ label?: unknown; value?: unknown }> } | null)?.facts;
   for (const fact of Array.isArray(facts) ? facts : []) {
     // ChainWard and ACP answers carry outsider text; only the chain's own reads ground a brief.
-    if (typeof fact.label === 'string' && !fact.label.startsWith('chainward_')) walk(fact.value);
+    if (typeof fact.label === 'string' && !fact.label.startsWith('chainward_')) {
+      walk(fact.value);
+      for (const url of [(fact as { source?: unknown }).source, (fact as { cite?: unknown }).cite]) {
+        if (typeof url === 'string' && /^https:\/\/(?:basescan\.org|base\.blockscout\.com)\//.test(url)) {
+          for (const m of url.matchAll(URL_HEX_RE)) known.add(m[0].toLowerCase());
+        }
+      }
+    }
   }
   return [...known];
 }

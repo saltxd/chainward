@@ -61,3 +61,21 @@ describe('acquirePollerLock', () => {
     }
   });
 });
+
+describe('acquirePollerLock: a missing directory is not contention', () => {
+  it('creates the lock directory', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cw-lock-'));
+    dirs.push(dir);
+    const lock = await take(join(dir, 'a', 'b', 'poller.lock'));
+    expect(lock).not.toBeNull();
+  });
+
+  it('reports a path it cannot use as an error, not as another poller', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cw-lock-'));
+    dirs.push(dir);
+    const file = join(dir, 'plain-file');
+    writeFileSync(file, 'x');
+    await expect(acquirePollerLock(join(file, 'poller.lock'))).rejects.toThrow(/poller lock/);
+  });
+});
+
