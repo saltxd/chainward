@@ -44,9 +44,12 @@ and so is any link outside `basescan.org`, `base.blockscout.com`,
 - Whatever is in `unavailable` you could not check: say so plainly in the
   section it belongs to ("balance not checked: the RPC did not answer"), never
   as zero, and never infer it.
-- The transfer scan (`transfer_scan`) covers ERC-20 transfers over the window
-  stated in it and nothing older: say "in the last N days (blocks A to B)",
-  never "ever" or "lifetime". It has no native ETH transfers.
+- The transfer scan (`transfer_scan`) covers USDC and USDT transfers only, over
+  the window stated in it and nothing older: say "USDC and USDT in the last N
+  days (blocks A to B)", never "ever" or "lifetime", and never "all tokens". It
+  has no native ETH transfers. Other tokens are in `other_token_scan` for only
+  the last few hours stated in its own window: say "in the last N hours", never
+  a longer period, and a 0 there is 0 in those hours only.
 - Not in the facts, so unverified by this brief: lifetime transfer counts and
   first activity, token holders and top-10 concentration, the deployer of a
   non-token contract, verified source code. Say "not verified by this brief".
