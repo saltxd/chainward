@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { _resetHeadCache } from '@chainward/common';
+import { _resetHeadCache, baseBlocksBack } from '@chainward/common';
 import { fetchFixtures, mapAlchemyTransfers } from '../src/data-fetch.js';
 import { computeQuickDecodeData } from '../src/quick-decode.js';
 import { deriveRiskFlags } from '../src/risk-flags.js';
@@ -234,7 +234,7 @@ describe('transfer sources: Alchemy transfer index', () => {
         order: 'desc',
         withMetadata: true,
         excludeZeroValue: false,
-        fromBlock: '0x' + (HEAD - 1_300_000).toString(16),
+        fromBlock: '0x' + baseBlocksBack(HEAD, 30 * 86_400).toString(16),
       });
     }
   });

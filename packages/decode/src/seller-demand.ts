@@ -7,6 +7,7 @@
 // wallet is the first funder of most buyers. Method and cases:
 // chainward.ai/decodes/x402-on-base. Describes where money moved, never why.
 
+import { baseBlocksBack } from '@chainward/common';
 import { sellerVerdict, type SellerVerdictLabel, type Verdict } from './verdict.js';
 
 export const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -20,8 +21,18 @@ export const SELLER_STABLECOINS: Record<SellerChain, string[]> = {
   bsc: ['0x55d398326f99059fF775485246999027B3197955', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'],
 };
 
-/** Base 2 s blocks; BSC ~0.45 s after Maxwell (measured 2026-10-03, docs/BSC.md). */
-export const SELLER_BLOCKS_PER_DAY: Record<SellerChain, number> = { base: 43_200, bsc: 192_000 };
+/**
+ * Blocks per day on chains with a fixed rate. BSC ~0.45 s after Maxwell (measured 2026-10-03, docs/BSC.md).
+ * Base is not here: its block time changed from 2 s to 200 ms on 2026-11-05, so it has no single
+ * blocks-per-day. Use sellerWindowStartBlock.
+ */
+export const SELLER_BLOCKS_PER_DAY: Record<Exclude<SellerChain, 'base'>, number> = { bsc: 192_000 };
+
+/** The block a `days`-long look-back window starts at, counted back from `head`. */
+export function sellerWindowStartBlock(chain: SellerChain, head: bigint, days: number): bigint {
+  if (chain === 'base') return BigInt(baseBlocksBack(Number(head), days * 86_400));
+  return head - BigInt(days * SELLER_BLOCKS_PER_DAY[chain]);
+}
 
 /**
  * The Alchemy RPC the seller check, the hire check and the boards built from

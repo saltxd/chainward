@@ -1,5 +1,8 @@
 import {
   RISK_CHAINS,
+  baseBlockSecondsAt,
+  baseBlocksBack,
+  baseSecondsBetween,
   deriveNodeHead,
   getMaxHeadLagSec,
   riskChainExplorerApiKey,
@@ -410,22 +413,26 @@ async function headAndRate(
   timeoutMs: number,
   nowMs: number,
   blockSecondsEstimate: number,
+  fixedSchedule: boolean,
 ): Promise<{ number: number; hash: string; timestamp: number; ageSeconds: number; blockSeconds: number }> {
   const head = await rpcCall(rpcUrl, 'eth_getBlockByNumber', ['latest', false], timeoutMs);
   const h = head as { number?: string; hash?: string; timestamp?: string } | null;
   const derived = deriveNodeHead(h ? { number: h.number ?? '', timestamp: h.timestamp ?? '' } : null, nowMs);
-  let blockSeconds = blockSecondsEstimate;
-  try {
-    const sampleNum = Math.max(1, derived.headNumber - BLOCK_TIME_SAMPLE_SPAN);
-    const old = (await rpcCall(rpcUrl, 'eth_getBlockByNumber', ['0x' + sampleNum.toString(16), false], timeoutMs)) as {
-      timestamp?: string;
-    } | null;
-    if (old?.timestamp) {
-      const measured = (derived.headTimestamp - parseInt(old.timestamp, 16)) / (derived.headNumber - sampleNum);
-      if (Number.isFinite(measured) && measured > 0) blockSeconds = measured;
+  // Base follows a known two-piece schedule: a sampled average would be wrong across the 2026-11-05 switch.
+  let blockSeconds = fixedSchedule ? baseBlockSecondsAt(derived.headNumber) : blockSecondsEstimate;
+  if (!fixedSchedule) {
+    try {
+      const sampleNum = Math.max(1, derived.headNumber - BLOCK_TIME_SAMPLE_SPAN);
+      const old = (await rpcCall(rpcUrl, 'eth_getBlockByNumber', ['0x' + sampleNum.toString(16), false], timeoutMs)) as {
+        timestamp?: string;
+      } | null;
+      if (old?.timestamp) {
+        const measured = (derived.headTimestamp - parseInt(old.timestamp, 16)) / (derived.headNumber - sampleNum);
+        if (Number.isFinite(measured) && measured > 0) blockSeconds = measured;
+      }
+    } catch {
+      // keep the estimate
     }
-  } catch {
-    // keep the estimate
   }
   return {
     number: derived.headNumber,
@@ -455,7 +462,7 @@ async function fetchFromRpc(
   const log = opts.logger;
   const maxLag = opts.maxHeadLagSec ?? getMaxHeadLagSec();
 
-  const head = await headAndRate(rpcCall, rpc.url, t, nowMs, cfg.blockSecondsEstimate);
+  const head = await headAndRate(rpcCall, rpc.url, t, nowMs, cfg.blockSecondsEstimate, chain === 'base');
   if (head.ageSeconds > maxLag) {
     throw new Error(`rpc-fixtures: ${rpc.url} head is ${head.ageSeconds}s old (> ${maxLag}s)`);
   }
@@ -464,7 +471,13 @@ async function fetchFromRpc(
   const windowDays = windowDaysFor(opts);
   const toBlock = head.number - HEAD_SAFETY_LAG;
   const windowBlocks = Math.round((windowDays * 86_400) / head.blockSeconds);
-  const fromBlock = Math.max(0, toBlock - windowBlocks + 1);
+  const fromBlock =
+    chain === 'base'
+      ? Math.max(0, baseBlocksBack(toBlock, windowDays * 86_400) + 1)
+      : Math.max(0, toBlock - windowBlocks + 1);
+  /** Days spanned by blocks [from, to]. */
+  const daysBetween = (from: number, to: number) =>
+    chain === 'base' ? baseSecondsBetween(from - 1, to) / 86_400 : ((to - from + 1) * head.blockSeconds) / 86_400;
 
   let transfers: { items: NodeTransfer[]; truncated: boolean; source: 'explorer_api' | 'rpc_logs' };
   let window: ScanWindow;
@@ -518,11 +531,11 @@ async function fetchFromRpc(
       head.number,
       head.timestamp,
       opts.maxTransfers ?? DEFAULT_MAX_TRANSFERS,
-      head.blockSeconds,
+      chain === 'base' ? undefined : head.blockSeconds,
     );
     transfers = { items: mapped.items, truncated: scan.truncated || mapped.truncated, source: 'rpc_logs' };
     // What was actually covered: the scanned block span at the measured block rate.
-    const scannedDays = ((toBlock - scan.scannedFromBlock + 1) * head.blockSeconds) / 86_400;
+    const scannedDays = daysBetween(scan.scannedFromBlock, toBlock);
     window = {
       days: scan.truncated ? Math.min(windowDays, Math.max(0, scannedDays)) : windowDays,
       requested_days: windowDays,

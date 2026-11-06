@@ -1,3 +1,4 @@
+import { BASE_SWITCH_BLOCK, baseBlocksBack, baseSecondsBetween, baseTimeOfBlock } from '@chainward/common';
 import { decodeFunctionData, encodeFunctionResult, parseAbi } from 'viem';
 import { describe, expect, it } from 'vitest';
 import { OFAC_SNAPSHOT } from '../src/ofac-snapshot.js';
@@ -509,6 +510,7 @@ describe('checkToken', () => {
           { from: CREATOR, to: POOL, value: 6_416_006_425.89, hash: '0xsell', block: LAUNCH_BLOCK + 13, time: ts(LAUNCH_TIME, 26) },
         ],
         creatorFirstInbound: { from: POOL, time: LAUNCH_TIME, hash: LAUNCH_TX },
+        weekBefore: { nonce: 0 },
       }),
     );
     expect(r.launch).toMatchObject({ via: CLANKER_V4_FACTORY.toLowerCase(), launcher: 'clanker' });
@@ -648,7 +650,7 @@ describe('checkToken', () => {
   it('answers review for a creator first seen days before launch', async () => {
     const r = await checkToken(
       TOKEN,
-      deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorFirstInbound: { from: FUNDER, time: days(2), hash: '0xf2' } }),
+      deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorFirstInbound: { from: FUNDER, time: days(2), hash: '0xf2' }, weekBefore: { nonce: 0 } }),
     );
     expect(r.flags).toContain('new_creator');
     expect(r.creator?.age_days_at_launch).toBe(2);
@@ -659,7 +661,7 @@ describe('checkToken', () => {
   it('says less than a day, not the same day, for a launch wallet first seen hours before launch', async () => {
     const r = await checkToken(
       TOKEN,
-      deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorFirstInbound: { from: FUNDER, time: ts(LAUNCH_TIME, -36_000), hash: '0xf3' } }),
+      deps({ transfers: [mint(CREATOR, 1_000_000, LAUNCH_BLOCK, LAUNCH_TX)], creatorFirstInbound: { from: FUNDER, time: ts(LAUNCH_TIME, -36_000), hash: '0xf3' }, weekBefore: { nonce: 0 } }),
     );
     expect(r.flags).toContain('new_creator');
     expect(r.verdict.reason).toBe('The wallet that launched it was first seen less than a day before the launch.');
@@ -885,12 +887,9 @@ describe('checkToken', () => {
       const q = queries.find((x) => x.fromAddress === CREATOR && Array.isArray(x.category) && x.category.length === 1 && x.category[0] === 'external')!;
       expect(q).toMatchObject({ category: ['external'], excludeZeroValue: false, order: 'desc', withMetadata: true });
       expect(q.toAddress).toBeUndefined();
-      // Wide enough for a day at 5 blocks a second (Denim); the day itself is cut by block time.
-      expect(q.fromBlock).toBe(`0x${(LAUNCH_BLOCK - 432_000).toString(16)}`);
-      // A day after the launch at the pace since, which a later speed-up can only lengthen.
-      const launchSec = new Date(LAUNCH_TIME).getTime() / 1000;
-      const dayAfter = Math.ceil((86_400 * (HEAD - LAUNCH_BLOCK)) / (NOW.getTime() / 1000 - launchSec));
-      expect(q.toBlock).toBe(`0x${(LAUNCH_BLOCK + dayAfter).toString(16)}`);
+      // A day before and a day after the launch, by Base's block time schedule (2 s blocks at this launch).
+      expect(q.fromBlock).toBe(`0x${(LAUNCH_BLOCK - 43_200).toString(16)}`);
+      expect(q.toBlock).toBe(`0x${(LAUNCH_BLOCK + 43_200).toString(16)}`);
     });
 
     it('does not flag a launch wallet below the threshold', async () => {
@@ -1044,44 +1043,92 @@ describe('checkToken: reads placed by block time', () => {
     ...extra,
   });
 
-  it('reads 3,024,000 blocks back for the week and 18,000 on for the hour on 200 ms blocks', async () => {
-    const pastReads: string[] = [];
-    await checkToken(
-      TOKEN,
-      deps({
-        timestampOf: (b) => LAUNCH_SEC + (b - LAUNCH_BLOCK) * 0.2,
-        head: LAUNCH_BLOCK + 36_000,
-        now: new Date((LAUNCH_SEC + 7_200) * 1000),
-        transfers: buyAndSell(100, 20),
-        weekBefore: { nonce: 3 },
-        pastReads,
-      }),
-    );
-    expect(pastReads).toEqual(
-      expect.arrayContaining([
-        `eth_getTransactionCount:${CREATOR}:${at(-3_024_000)}`,
-        `eth_getCode:${CREATOR}:${at(-3_024_000)}`,
-        `balanceOf:${CREATOR}:${at(0)}`,
-        `balanceOf:${CREATOR}:${at(18_000)}`,
-      ]),
-    );
-  });
+  // Base's block time went from 2 s to 200 ms at block 53,556,127 (2026-11-05 18:00:01 UTC). Every read is placed
+  // by that schedule, whatever the pace since the launch or before it.
+  describe('across the 2 s to 200 ms switch', () => {
+    const SWITCH = BASE_SWITCH_BLOCK;
+    const run = async (launchBlock: number, headBlock: number) => {
+      const pastReads: string[] = [];
+      const queries: Array<Record<string, unknown>> = [];
+      // Headers carry the real schedule's timestamps, as a node's do.
+      const sec = Math.round(baseTimeOfBlock(launchBlock));
+      const iso = new Date(sec * 1000).toISOString();
+      const r = await checkToken(
+        TOKEN,
+        deps({
+          codeFromBlock: launchBlock,
+          head: headBlock,
+          timestampOf: baseTimeOfBlock,
+          now: new Date((sec + Math.round(baseSecondsBetween(launchBlock, headBlock))) * 1000),
+          transfers: [
+            { ...mint(POOL, 1_000_000, launchBlock, LAUNCH_TX), time: iso },
+            { from: POOL, to: CREATOR, value: 10_000, hash: LAUNCH_TX, block: launchBlock, time: iso },
+            { from: CREATOR, to: POOL, value: 10_000, hash: '0xsell', block: launchBlock + 100, time: ts(iso, 20) },
+          ],
+          creatorFirstInbound: null,
+          weekBefore: { nonce: 0 },
+          pastReads,
+          queries,
+        }),
+      );
+      const weekBlock = Number(BigInt(pastReads.find((x) => x.startsWith('eth_getTransactionCount'))!.split(':')[2]!));
+      const hourBlock = Math.max(...pastReads.filter((x) => x.startsWith('balanceOf')).map((x) => Number(BigInt(x.split(':')[2]!))));
+      const day = queries.find((q) => Array.isArray(q.category) && q.category[0] === 'external' && q.fromBlock !== undefined)!;
+      return { r, weekBlock, hourBlock, day, launchTime: baseTimeOfBlock(launchBlock) };
+    };
+    // A read lands on the last block at or before the target: never past it, and less than one block short.
+    const expectWeekBefore = (launchTime: number, weekBlock: number) => {
+      const back = launchTime - baseTimeOfBlock(weekBlock);
+      expect(back).toBeGreaterThanOrEqual(WEEK);
+      expect(back).toBeLessThan(WEEK + 2);
+    };
+    const expectHourAfter = (launchTime: number, hourBlock: number) => {
+      const on = baseTimeOfBlock(hourBlock) - launchTime;
+      expect(on).toBeLessThanOrEqual(3_600);
+      expect(on).toBeGreaterThan(3_600 - 2);
+    };
 
-  // Blocks went from 2 s to 200 ms a day before the launch: a week of 200 ms blocks reaches back 61 days.
-  it('never reads further back than a week, or further on than an hour, when the block time changed in between', async () => {
-    const FORK = LAUNCH_BLOCK - 432_000;
-    const FORK_SEC = LAUNCH_SEC - 86_400;
-    const timestampOf = (b: number) => (b >= FORK ? LAUNCH_SEC + (b - LAUNCH_BLOCK) * 0.2 : FORK_SEC - (FORK - b) * 2);
-    const pastReads: string[] = [];
-    await checkToken(
-      TOKEN,
-      deps({ timestampOf, head: LAUNCH_BLOCK + 36_000, now: new Date((LAUNCH_SEC + 7_200) * 1000), transfers: buyAndSell(100, 20), weekBefore: { nonce: 0 }, pastReads }),
-    );
-    const blockOf = (prefix: string) => Number(BigInt(pastReads.find((r) => r.startsWith(prefix))!.split(':')[2]!));
-    const weekRead = blockOf('eth_getTransactionCount');
-    expect(LAUNCH_SEC - timestampOf(weekRead)).toBeLessThanOrEqual(WEEK);
-    const hourRead = Math.max(...pastReads.filter((r) => r.startsWith('balanceOf')).map((r) => Number(BigInt(r.split(':')[2]!))));
-    expect(timestampOf(hourRead) - LAUNCH_SEC).toBeLessThanOrEqual(3_600);
+    it('a launch just after the switch: a week back is all 2 s blocks, an hour on is all 200 ms blocks', async () => {
+      const B = SWITCH + 5;
+      const { r, weekBlock, hourBlock, day, launchTime } = await run(B, B + 36_000);
+      expectWeekBefore(launchTime, weekBlock);
+      expect(weekBlock).toBeLessThan(SWITCH);
+      expectHourAfter(launchTime, hourBlock);
+      expect(hourBlock).toBe(B + 18_000);
+      expect(r.creator?.week_before_launch).toMatchObject({ block: weekBlock, sent_txs: 0 });
+      expect(r.flags).toContain('new_creator');
+      expect(r.creator?.launch_tokens).toMatchObject({ held_1h_after_sec: 3_600 });
+      expect(Number(BigInt(day.fromBlock as string))).toBe(baseBlocksBack(B, 86_400));
+      // a day on is past the head: read to now
+      expect(day.toBlock).toBe('latest');
+    });
+
+    it('a launch just before the switch: the hour on crosses it', async () => {
+      const B = SWITCH - 900; // 30 minutes before
+      const { r, weekBlock, hourBlock, launchTime } = await run(B, SWITCH + 36_000);
+      expectWeekBefore(launchTime, weekBlock);
+      expectHourAfter(launchTime, hourBlock);
+      expect(hourBlock).toBeGreaterThan(SWITCH);
+      expect(r.creator?.launch_tokens).toMatchObject({ held_1h_after_sec: 3_600 });
+    });
+
+    it('a launch a day after the switch: the week back spans it', async () => {
+      const B = SWITCH + 432_000;
+      const { r, weekBlock, hourBlock, day, launchTime } = await run(B, B + 36_000);
+      expectWeekBefore(launchTime, weekBlock);
+      expect(weekBlock).toBeLessThan(SWITCH); // 6 of the 7 days are 2 s blocks
+      expect(weekBlock).toBe(baseBlocksBack(B, WEEK));
+      expectHourAfter(launchTime, hourBlock);
+      expect(r.creator?.week_before_launch?.block).toBe(weekBlock);
+      expect(Number(BigInt(day.fromBlock as string))).toBe(B - 432_000);
+    });
+
+    it('a launch long before the switch is read at 2 s blocks: a week is 302,400 blocks', async () => {
+      const B = LAUNCH_BLOCK;
+      const { weekBlock, hourBlock } = await run(B, B + 3_600);
+      expect(weekBlock).toBe(B - 302_400);
+      expect(hourBlock).toBe(B + 1_800);
+    });
   });
 
   // An airdrop 200 days before the launch made the wallet look old; it had sent nothing a week before.

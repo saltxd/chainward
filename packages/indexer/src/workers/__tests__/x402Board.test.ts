@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { baseTimeOfBlock } from '@chainward/common';
+import { DEMAND_WINDOW_DAYS } from '@chainward/decode';
 
 // The weekly x402 board against a fake x402scan and a fake Base (Alchemy JSON-RPC),
 // with an in-memory Redis. The seller is a Meridian ring wallet: every payment it
 // receives or makes goes through Meridian's proxy, so the board must use the same
 // proxy-aware check as the paid route to see the loop.
+vi.mock('bullmq', () => ({ Queue: vi.fn(), Worker: vi.fn() }));
 vi.mock('../../lib/logger.js', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 const store = vi.hoisted(() => new Map<string, string>());
 vi.mock('../../lib/redis.js', () => ({
@@ -56,7 +59,7 @@ function ringChain() {
   return { legs, settled };
 }
 
-function stubNetwork(chain: ReturnType<typeof ringChain>) {
+function stubNetwork(chain: ReturnType<typeof ringChain>, head = 0x3000000, fromBlocks: string[] = []) {
   const trpc = (json: unknown) => new Response(JSON.stringify({ result: { data: { json } } }));
   vi.stubGlobal(
     'fetch',
@@ -79,9 +82,10 @@ function stubNetwork(chain: ReturnType<typeof ringChain>) {
       }
       const { method, params } = JSON.parse(init!.body!) as { method: string; params: Array<Record<string, string> | string> };
       const rpc = (result: unknown) => new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result }));
-      if (method === 'eth_blockNumber') return rpc('0x3000000');
+      if (method === 'eth_blockNumber') return rpc(`0x${head.toString(16)}`);
       if (method === 'alchemy_getAssetTransfers') {
         const q = params[0] as Record<string, string>;
+        fromBlocks.push(q.fromBlock ?? '');
         return rpc({ transfers: chain.legs.filter((l) => (q.toAddress ? l.to === q.toAddress : l.from === q.fromAddress)) });
       }
       if (method === 'eth_getTransactionReceipt') {
@@ -117,5 +121,18 @@ describe('buildX402Board', () => {
       { proxy: MERIDIAN, name: 'Meridian', payers_resolved: 2, coverage_share: 1, source: 'x402scan', payers_funded_by_seller: 2 },
     ]);
     expect(report.signals.map((s) => s.id)).toEqual(expect.arrayContaining(['buyers_funded_by_seller', 'money_flows_back']));
+  }, 15_000);
+
+  // The seller checks look back DEMAND_WINDOW_DAYS of real time on Base, whatever the block time is.
+  it('starts its window at the block that is truly DEMAND_WINDOW_DAYS back', async () => {
+    vi.stubEnv('SELLER_DEMAND_RPC_URL', 'https://base-mainnet.g.alchemy.com/v2/test-key');
+    const head = 60_000_000;
+    const fromBlocks: string[] = [];
+    stubNetwork(ringChain(), head, fromBlocks);
+    await buildX402Board();
+    expect(fromBlocks.length).toBeGreaterThan(0);
+    const span = baseTimeOfBlock(head) - baseTimeOfBlock(Number(BigInt(fromBlocks[0]!)));
+    expect(span).toBeGreaterThanOrEqual(DEMAND_WINDOW_DAYS * 86_400);
+    expect(span - DEMAND_WINDOW_DAYS * 86_400).toBeLessThan(2);
   }, 15_000);
 });
