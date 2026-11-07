@@ -476,16 +476,21 @@ export class ObservatoryService {
           LIMIT 1
         `),
 
-        // 3. 30-day daily balance series. balance_snapshots only stores raw +
-        // USD; we don't carry a separate native column. The chart uses USD.
+        // 3. 30-day daily balance series: total USD across ETH and every tracked
+        // token, per snapshot, then averaged per day. Snapshots taken before the
+        // observatory poll read tokens (2026-11-07) hold ETH only.
         this.db.execute(sql`
-          SELECT
-            time_bucket('1 day', timestamp) AS day,
-            AVG(CAST(balance_usd AS numeric))::float AS balance_usd
-          FROM balance_snapshots
-          WHERE LOWER(wallet_address) = LOWER(${wallet})
-            AND token_address IS NULL
-            AND timestamp >= NOW() - INTERVAL '30 days'
+          SELECT day, AVG(total)::float AS balance_usd
+          FROM (
+            SELECT
+              time_bucket('1 day', timestamp) AS day,
+              timestamp,
+              SUM(CAST(balance_usd AS numeric)) AS total
+            FROM balance_snapshots
+            WHERE LOWER(wallet_address) = LOWER(${wallet})
+              AND timestamp >= NOW() - INTERVAL '30 days'
+            GROUP BY day, timestamp
+          ) per_snapshot
           GROUP BY day
           ORDER BY day ASC
         `),
