@@ -5,7 +5,7 @@ import { TRACKED_TOKENS } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { getBaseClient } from '../lib/viem.js';
-import { getEthPrice, getUsdPrices } from '../processors/priceResolver.js';
+import { getUsdPrices } from '../processors/priceResolver.js';
 import { logger } from '../lib/logger.js';
 import { buildSnapshotRows } from '../lib/snapshotRows.js';
 
