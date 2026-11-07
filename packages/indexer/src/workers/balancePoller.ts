@@ -7,6 +7,7 @@ import { getDb } from '../lib/db.js';
 import { getBaseClient } from '../lib/viem.js';
 import { getEthPrice, getUsdPrices } from '../processors/priceResolver.js';
 import { logger } from '../lib/logger.js';
+import { buildSnapshotRows } from '../lib/snapshotRows.js';
 
 const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11' as const;
 const multicall3Abi = [{
@@ -177,7 +178,7 @@ async function batchGetTokenBalances(
   return result;
 }
 
-/** Poll observatory agents — ETH only, all batched via multicall */
+/** Poll observatory agents: ETH + tracked tokens, all batched via multicall */
 async function pollObservatoryBalances() {
   const db = getDb();
   const agents = await db.select().from(agentRegistry);
@@ -186,29 +187,17 @@ async function pollObservatoryBalances() {
   if (obsAgents.length === 0) return;
 
   const wallets = obsAgents.map((a) => a.walletAddress);
-  const ethPrice = await getEthPrice();
+  const tokens = TRACKED_TOKENS.base;
+  const prices = await getUsdPrices(['ETH', ...tokens.map((t) => t.symbol)]);
 
-  logger.info({ count: obsAgents.length, rpcCalls: Math.ceil(wallets.length / MULTICALL_CHUNK) },
+  logger.info({ count: obsAgents.length, calls: Math.ceil(wallets.length * (1 + tokens.length) / MULTICALL_CHUNK) },
     'Polling observatory balances via multicall');
 
-  const ethBalances = await batchGetEthBalances(wallets);
-  const now = new Date();
-
-  // Batch insert all snapshots
-  const rows: Array<typeof balanceSnapshots.$inferInsert> = [];
-  for (const [wallet, balance] of ethBalances) {
-    const ethAmount = parseFloat(formatEther(balance));
-    rows.push({
-      timestamp: now,
-      chain: 'base',
-      walletAddress: wallet,
-      tokenAddress: null,
-      tokenSymbol: 'ETH',
-      balanceRaw: balance.toString(),
-      balanceUsd: ethPrice ? (ethAmount * ethPrice).toFixed(6) : null,
-      snapshotType: 'periodic',
-    });
-  }
+  const [ethBalances, tokenBalances] = await Promise.all([
+    batchGetEthBalances(wallets),
+    batchGetTokenBalances(wallets, tokens),
+  ]);
+  const rows = buildSnapshotRows({ wallets, ethBalances, tokenBalances, tokens, prices, now: new Date() });
 
   if (rows.length > 0) {
     // Insert in batches to avoid hitting PG param limits (65535 / 8 columns ≈ 8191 rows max)
