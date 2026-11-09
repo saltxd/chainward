@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import type Redis from 'ioredis';
 import { RISK_CHAINS, riskChainRpcs, type RiskChainRpc } from '@chainward/common';
 import {
@@ -663,7 +664,7 @@ export function createSetAndEarnBoardWorker() {
 }
 
 export async function setupSetAndEarnBoardSchedule(redis: Redis) {
-  const queue = new Queue(QUEUE, { connection: redis });
+  const queue = createQueue(QUEUE, redis);
   for (const job of await queue.getRepeatableJobs()) {
     await queue.removeRepeatableByKey(job.key);
   }

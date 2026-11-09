@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import {
   alchemyTransferSource,
   analyzeSellerDemand,
@@ -142,7 +143,7 @@ export function createX402BoardWorker() {
 }
 
 export async function setupX402BoardSchedule(redis: import('ioredis').default) {
-  const queue = new Queue(QUEUE, { connection: redis });
+  const queue = createQueue(QUEUE, redis);
   for (const job of await queue.getRepeatableJobs()) {
     await queue.removeRepeatableByKey(job.key);
   }

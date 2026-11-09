@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { sql } from 'drizzle-orm';
 import { renderDigestDiscord, type DigestSummary } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
@@ -1141,7 +1142,7 @@ export function createDigestWorker() {
 }
 
 export async function setupDigestSchedule(redis: import('ioredis').default) {
-  const queue = new Queue('digest', { connection: redis });
+  const queue = createQueue('digest', redis);
 
   // Remove existing repeatable jobs
   const existing = await queue.getRepeatableJobs();

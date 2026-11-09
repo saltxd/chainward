@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { sql } from 'drizzle-orm';
 import { acpEcosystemMetrics, type Database } from '@chainward/db';
 import { agentSlug } from '@chainward/common';
@@ -429,7 +430,7 @@ export function createAcpSyncWorker() {
 }
 
 export async function setupAcpSyncSchedule(redis: import('ioredis').default) {
-  const queue = new Queue('acp-sync', { connection: redis });
+  const queue = createQueue('acp-sync', redis);
 
   // Remove existing repeatable jobs
   const existing = await queue.getRepeatableJobs();

@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { sql, eq, ne } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
@@ -53,7 +54,7 @@ export function createIntelligenceWorker() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function setupIntelligenceSchedule(redis: import('ioredis').default) {
-  const queue = new Queue('intelligence', { connection: redis });
+  const queue = createQueue('intelligence', redis);
 
   const existing = await queue.getRepeatableJobs();
   for (const job of existing) {

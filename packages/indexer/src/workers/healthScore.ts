@@ -6,7 +6,8 @@ import type { HealthInputs } from './healthScore-formula.js';
 
 // ─── Worker + DB integration ─────────────────────────────────────────────────
 
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
@@ -176,7 +177,7 @@ export function createHealthScoreWorker() {
 // ─── Schedule setup ───────────────────────────────────────────────────────────
 
 export async function setupHealthScoreSchedule(redis: import('ioredis').default) {
-  const queue = new Queue('health-score', { connection: redis });
+  const queue = createQueue('health-score', redis);
 
   const existing = await queue.getRepeatableJobs();
   for (const job of existing) {

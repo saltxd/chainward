@@ -1,4 +1,5 @@
-import { Queue, Worker } from 'bullmq';
+import { Worker } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import type Redis from 'ioredis';
 import { createPublicClient, createWalletClient, http, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -772,7 +773,7 @@ export function createTermixProviderWorker(env: Record<string, string | undefine
 }
 
 export async function setupTermixProviderSchedule(redis: Redis, env: Record<string, string | undefined> = process.env) {
-  const queue = new Queue(QUEUE, { connection: redis });
+  const queue = createQueue(QUEUE, redis);
   for (const job of await queue.getRepeatableJobs()) await queue.removeRepeatableByKey(job.key);
   const cfg = termixProviderConfig(env);
   if (cfg.enabled) {
