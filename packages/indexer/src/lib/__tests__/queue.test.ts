@@ -38,7 +38,7 @@ describe('indexer queues keep a bounded number of finished jobs', () => {
     const found: string[] = [];
     if (/new\s+(?:\w+\.)?Queue\s*(<[^>]*>)?\s*\(/.test(source)) found.push('new Queue');
     for (const m of source.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]bullmq['"]/g)) {
-      const names = m[1].split(',').map((n) => n.trim());
+      const names = (m[1] ?? '').split(',').map((n) => n.trim());
       if (names.some((n) => /^Queue\b/.test(n))) found.push('value import of Queue');
     }
     if (/import\s*\*\s*as\s+\w+\s+from\s*['"]bullmq['"]/.test(source)) found.push('namespace import of bullmq');
