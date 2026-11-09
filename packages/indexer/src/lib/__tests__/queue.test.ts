@@ -10,7 +10,7 @@ function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return name === '__tests__' ? [] : sourceFiles(path);
-    return path.endsWith('.ts') && !path.endsWith('.test.ts') ? [path] : [];
+    return /\.(c|m)?tsx?$/.test(path) && !/\.test\.(c|m)?tsx?$/.test(path) ? [path] : [];
   });
 }
 
@@ -31,11 +31,34 @@ describe('indexer queues keep a bounded number of finished jobs', () => {
     expect(opts.defaultJobOptions).toBe(QUEUE_DEFAULT_JOB_OPTIONS);
   });
 
+  // Anything outside lib/queue.ts that could build a Queue without the caps:
+  // a `new Queue(` (also `new bullmq.Queue(`), a value import of Queue (also
+  // aliased, `Queue as Q`), or a namespace import of bullmq. `type Queue` is fine.
+  function bypasses(source: string): string[] {
+    const found: string[] = [];
+    if (/new\s+(?:\w+\.)?Queue\s*(<[^>]*>)?\s*\(/.test(source)) found.push('new Queue');
+    for (const m of source.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]bullmq['"]/g)) {
+      const names = m[1].split(',').map((n) => n.trim());
+      if (names.some((n) => /^Queue\b/.test(n))) found.push('value import of Queue');
+    }
+    if (/import\s*\*\s*as\s+\w+\s+from\s*['"]bullmq['"]/.test(source)) found.push('namespace import of bullmq');
+    return found;
+  }
+
+  it('the bypass check flags every way around createQueue it knows', () => {
+    expect(bypasses("const q = new Queue('x', { connection });")).toContain('new Queue');
+    expect(bypasses("const q = new  Queue<Data>('x', { connection });")).toContain('new Queue');
+    expect(bypasses("const q = new bullmq.Queue('x', { connection });")).toContain('new Queue');
+    expect(bypasses("import { Worker, Queue as Q } from 'bullmq';")).toContain('value import of Queue');
+    expect(bypasses("import * as bullmq from 'bullmq';")).toContain('namespace import of bullmq');
+    expect(bypasses("import { Worker, type Queue, type Job } from 'bullmq';\nimport { createQueue } from '../lib/queue.js';")).toEqual([]);
+  });
+
   it('no indexer source builds a BullMQ Queue except through createQueue', () => {
     const offenders = sourceFiles(SRC)
       .filter((file) => !file.endsWith(join('lib', 'queue.ts')))
-      .filter((file) => /new Queue\s*(<[^>]*>)?\s*\(/.test(readFileSync(file, 'utf8')))
-      .map((file) => relative(SRC, file));
+      .map((file) => ({ file: relative(SRC, file), found: bypasses(readFileSync(file, 'utf8')) }))
+      .filter(({ found }) => found.length > 0);
     expect(offenders).toEqual([]);
   });
 });
