@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { sql } from 'drizzle-orm';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
@@ -233,7 +234,7 @@ export function createAcpWalletTracerWorker() {
 }
 
 export async function setupAcpWalletTracerSchedule(redis: import('ioredis').default) {
-  const queue = new Queue('acp-wallet-tracer', { connection: redis });
+  const queue = createQueue('acp-wallet-tracer', redis);
 
   const existing = await queue.getRepeatableJobs();
   for (const job of existing) {

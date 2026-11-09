@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { sql } from 'drizzle-orm';
 import { type Database } from '@chainward/db';
 import { agentSlug } from '@chainward/common';
@@ -77,7 +78,7 @@ export function createRegistryScoutWorker() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function setupRegistryScoutSchedule(redis: import('ioredis').default) {
-  const queue = new Queue('registry-scout', { connection: redis });
+  const queue = createQueue('registry-scout', redis);
 
   const existing = await queue.getRepeatableJobs();
   for (const job of existing) {

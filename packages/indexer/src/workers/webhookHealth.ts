@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../lib/db.js';
 import { getRedis } from '../lib/redis.js';
@@ -173,7 +174,7 @@ export function createWebhookHealthWorker() {
 // ─── Schedule setup ───────────────────────────────────────────────────────────
 
 export async function setupWebhookHealthSchedule(redis: import('ioredis').default) {
-  const queue = new Queue('webhook-health', { connection: redis });
+  const queue = createQueue('webhook-health', redis);
 
   const existing = await queue.getRepeatableJobs();
   for (const job of existing) {

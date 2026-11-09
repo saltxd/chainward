@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { eq, and, desc, sql, gt, lt, or } from 'drizzle-orm';
 import { alertConfigs, alertEvents, transactions, balanceSnapshots, agentRegistry } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
@@ -70,7 +71,7 @@ export function createAlertEvaluatorWorker() {
 
 /** Set up repeatable scheduled alert evaluation (every 5 minutes) */
 export async function setupAlertSchedule(redis: import('ioredis').default) {
-  const queue = new Queue('alert-evaluate', { connection: redis });
+  const queue = createQueue('alert-evaluate', redis);
 
   const existing = await queue.getRepeatableJobs();
   for (const job of existing) {
@@ -563,7 +564,7 @@ async function fireAlert(
     .limit(1);
 
   // Push to alert-deliver queue
-  const deliverQueue = new Queue('alert-deliver', { connection: redis });
+  const deliverQueue = createQueue('alert-deliver', redis);
   await deliverQueue.add('deliver', {
     alertConfigId: config.id,
     alertType: config.alertType,

@@ -1,4 +1,5 @@
 import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { erc20Abi, formatEther, formatUnits, type Address } from 'viem';
 import { agentRegistry, balanceSnapshots } from '@chainward/db';
 import { TRACKED_TOKENS } from '@chainward/common';
@@ -60,8 +61,7 @@ export function createBalancePollerWorker() {
 
 /** Set up repeatable balance polling jobs: user agents every 15 min, observatory once a day (its chart shows one point per day) */
 export async function setupBalancePolling(redis: import('ioredis').default) {
-  const { Queue } = await import('bullmq');
-  const queue = new Queue('balance-poll', { connection: redis });
+  const queue = createQueue('balance-poll', redis);
 
   const existing = await queue.getRepeatableJobs();
   for (const job of existing) {

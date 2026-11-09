@@ -1,4 +1,5 @@
-import { Worker, Queue, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
+import { createQueue } from '../lib/queue.js';
 import { eq } from 'drizzle-orm';
 import { agentRegistry } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
@@ -83,7 +84,7 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
 
   // Insert transactions and trigger alert evaluation
   const redis = getRedis();
-  const alertQueue = new Queue('alert-evaluate', { connection: redis });
+  const alertQueue = createQueue('alert-evaluate', redis);
   let insertedCount = 0;
 
   for (const tx of processed) {
@@ -115,7 +116,7 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
       const justPaused = outbound && (await recordAndCheck(redis, tx.walletAddress));
       if (justPaused) {
         // Send rate-limit alert to the user via the alert delivery queue
-        const alertDeliveryQueue = new Queue('alert-deliver', { connection: redis });
+        const alertDeliveryQueue = createQueue('alert-deliver', redis);
         await alertDeliveryQueue.add('rate-limit-warning', {
           type: 'rate-limit',
           walletAddress: tx.walletAddress,
