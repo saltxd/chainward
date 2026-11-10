@@ -12,6 +12,7 @@ import { getBaseClient } from '../lib/viem.js';
 import { alchemyBackfillAvailable, backfillWalletViaTransfers } from './transferBackfill.js';
 import { isAddressPaused, isOutbound, recordAndCheck } from '../lib/rateLimiter.js';
 import { insertTransactionIfNew } from '../lib/transactionStore.js';
+import { alertJobId } from '../lib/alertJobId.js';
 
 interface WebhookJobData {
   type: 'webhook' | 'backfill';
@@ -24,8 +25,8 @@ interface WebhookJobData {
   category?: string;
   rawContract?: {
     rawValue: string;
-    address: string;
-    decimals: number;
+    address?: string | null;
+    decimals?: number | null;
   };
   network?: string;
   // Backfill fields
@@ -125,10 +126,10 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
         await alertDeliveryQueue.close();
       }
 
-      // Dispatch alert evaluation for this transaction. The jobId ties the
-      // job to the (chain, wallet, tx) triple so a retry of the parent
-      // base-tx-process job can't double-fire alerts even if the dedupe in
-      // `insertTransactionIfNew` and BullMQ's outer jobId both miss.
+      // Dispatch alert evaluation for this leg. The jobId is built from the
+      // leg's content, so a retry of the parent base-tx-process job can't
+      // queue it twice, and a second leg of the same transaction (ETH out,
+      // token in) still gets evaluated on its own amount.
       await alertQueue.add(
         'tx-alert',
         {
@@ -143,7 +144,7 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
           direction: tx.direction,
           timestamp: tx.timestamp.toISOString(),
         },
-        { jobId: `alert-${tx.chain}-${tx.walletAddress}-${tx.txHash}` },
+        { jobId: alertJobId(tx) },
       );
     } catch (err) {
       logger.error({ err, txHash: tx.txHash }, 'Failed to insert transaction');

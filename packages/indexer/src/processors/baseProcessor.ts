@@ -46,8 +46,8 @@ interface WebhookJobData {
   category: string;
   rawContract?: {
     rawValue: string;
-    address: string;
-    decimals: number;
+    address?: string | null;
+    decimals?: number | null;
   };
   network: string;
 }
@@ -118,18 +118,23 @@ export async function processWebhookTx(
     let amountRaw: string | null = null;
     let amountUsd: string | null = null;
 
-    if ((data.category === 'erc20' || data.category === 'token') && data.rawContract) {
-      tokenAddress = data.rawContract.address;
-      tokenDecimals = data.rawContract.decimals;
+    const token = data.rawContract;
+    if (
+      (data.category === 'erc20' || data.category === 'token') &&
+      token?.address &&
+      typeof token.decimals === 'number'
+    ) {
+      tokenAddress = token.address;
+      tokenDecimals = token.decimals;
 
-      const tokenMeta = await resolveToken(data.rawContract.address);
+      const tokenMeta = await resolveToken(token.address);
       tokenSymbol = tokenMeta?.symbol ?? data.asset;
 
       // Alchemy rawValue is hex — convert to decimal string for numeric DB column
-      const rawBigInt = BigInt(data.rawContract.rawValue);
+      const rawBigInt = BigInt(token.rawValue);
       amountRaw = rawBigInt.toString();
-      const amount = parseFloat(formatUnits(rawBigInt, tokenDecimals));
-      const price = await getTokenUsdPrice(data.rawContract.address);
+      const amount = parseFloat(formatUnits(rawBigInt, token.decimals));
+      const price = await getTokenUsdPrice(token.address);
       if (price) amountUsd = (amount * price).toFixed(6);
     } else if (data.category === 'external' || data.category === 'internal') {
       tokenSymbol = 'ETH';

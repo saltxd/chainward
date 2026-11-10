@@ -11,12 +11,29 @@ const activitySchema = z.object({
   value: z.number(),
   asset: z.string(),
   category: z.string(),
+  // ETH activity (external/internal) carries rawContract with no `address`;
+  // only token transfers name a contract.
   rawContract: z.object({
     rawValue: z.string(),
-    address: z.string(),
-    decimals: z.number(),
+    address: z.string().nullish(),
+    decimals: z.number().nullish(),
   }).optional(),
 });
+
+// NFT transfers carry a token id instead of an amount (no `value`, `asset` or
+// `decimals`). We track balances and spend, so they are out of scope.
+function isNftActivity(raw: unknown): boolean {
+  if (typeof raw !== 'object' || raw === null) return false;
+  return 'erc721TokenId' in raw || 'erc1155Metadata' in raw;
+}
+
+// A zero-value ETH activity (a contract call, or an internal call) moves no
+// ETH. Any tokens the call moved arrive as their own activities, and those
+// rows already carry the transaction's gas: a second row for the same
+// transaction would count that gas twice in every total.
+function isZeroValueEthActivity(a: { category: string; value: number }): boolean {
+  return (a.category === 'external' || a.category === 'internal') && a.value === 0;
+}
 
 // Envelope is validated separately from activities so one malformed activity
 // can't discard the rest of the batch.
@@ -129,7 +146,12 @@ export class AlchemyWebhookProvider implements WebhookProvider {
 
     const normalized: NormalizedActivity[] = [];
     let skipped = 0;
+    let ignored = 0;
     for (const rawActivity of body.event.activity) {
+      if (isNftActivity(rawActivity)) {
+        ignored++;
+        continue;
+      }
       const activity = activitySchema.safeParse(rawActivity);
       if (!activity.success) {
         skipped++;
@@ -140,6 +162,10 @@ export class AlchemyWebhookProvider implements WebhookProvider {
         continue;
       }
       const a = activity.data;
+      if (isZeroValueEthActivity(a)) {
+        ignored++;
+        continue;
+      }
       normalized.push({
         txHash: a.hash,
         blockNumber: parseInt(a.blockNum, 16),
@@ -157,6 +183,12 @@ export class AlchemyWebhookProvider implements WebhookProvider {
       logger.warn(
         { skipped, kept: normalized.length, webhookEventId: body.id },
         'Alchemy webhook batch contained malformed activities',
+      );
+    }
+    if (ignored > 0) {
+      logger.debug(
+        { ignored, kept: normalized.length, webhookEventId: body.id },
+        'Ignored NFT transfers and zero-value ETH activity in Alchemy webhook batch',
       );
     }
     return normalized;

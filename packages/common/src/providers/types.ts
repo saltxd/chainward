@@ -10,10 +10,11 @@ export interface NormalizedActivity {
   value: number;
   asset: string;
   category: string;
+  /** `address` and `decimals` are absent on native-ETH activity. */
   rawContract?: {
     rawValue: string;
-    address: string;
-    decimals: number;
+    address?: string | null;
+    decimals?: number | null;
   };
   network: string;
 }
