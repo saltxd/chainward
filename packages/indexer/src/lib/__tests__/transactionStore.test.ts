@@ -8,6 +8,7 @@ const TEST_DB_URL = process.env.TEST_DB_URL;
 const WALLET = '0x1111111111111111111111111111111111111111';
 const OTHER_WALLET = '0x3333333333333333333333333333333333333333';
 const USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+const SPAM_TOKEN = '0x4444444444444444444444444444444444444444';
 const GAS = {
   gasUsed: 21_000,
   gasPriceGwei: '0.005000000',
@@ -172,6 +173,50 @@ describe.skipIf(!TEST_DB_URL)('insertTransactionIfNew', () => {
 
     expect((await gasRows(txHash))[0]?.gas_cost_native).toBe('0.000000105000000000');
     expect((await gasRows(txHash, OTHER_WALLET))[0]?.gas_cost_native).toBe('0.000000105000000000');
+  });
+
+  it('keeps the gas on a later leg when the first outbound leg was stored without any', async () => {
+    const txHash = newTxHash();
+
+    await insertTransactionIfNew(db, tokenLeg(txHash, NO_GAS));
+    await insertTransactionIfNew(db, leg(txHash));
+
+    const rows = await gasRows(txHash);
+    expect(rows.find((r) => r.token_symbol === 'ETH')).toMatchObject({
+      gas_used: '21000',
+      gas_cost_native: '0.000000105000000000',
+      gas_cost_usd: '0.000300',
+    });
+  });
+
+  // The first leg can be stored while the ETH price is unavailable: gas in ETH, no USD.
+  // Every gas total sums the USD column, so a later leg has to keep the USD figure.
+  it('keeps the USD gas on a later leg when the first leg has the gas without a USD price', async () => {
+    const txHash = newTxHash();
+
+    await insertTransactionIfNew(db, leg(txHash, { gasCostUsd: null }));
+    await insertTransactionIfNew(db, tokenLeg(txHash));
+
+    const rows = await gasRows(txHash);
+    expect(rows.filter((r) => r.gas_cost_usd !== null)).toHaveLength(1);
+    expect(rows.filter((r) => r.gas_cost_native !== null)).toHaveLength(1);
+    expect(rows.find((r) => r.token_symbol === 'USDC')).toMatchObject({
+      gas_used: null,
+      gas_cost_native: null,
+      gas_cost_usd: '0.000300',
+    });
+  });
+
+  // Gas totals leave spam-token rows out. If a spam leg held the only copy of the gas,
+  // the transaction's gas would vanish from every total.
+  it('keeps the gas on a real leg when the leg stored before it is a spam token', async () => {
+    const txHash = newTxHash();
+
+    await insertTransactionIfNew(db, tokenLeg(txHash, { tokenAddress: SPAM_TOKEN, tokenSymbol: 'ÚSDС' }));
+    await insertTransactionIfNew(db, leg(txHash));
+
+    const rows = await gasRows(txHash);
+    expect(rows.find((r) => r.token_symbol === 'ETH')?.gas_cost_usd).toBe('0.000300');
   });
 
   it('does not store the same leg twice', async () => {

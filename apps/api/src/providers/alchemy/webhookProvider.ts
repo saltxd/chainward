@@ -40,9 +40,10 @@ function isNftActivity(raw: unknown): boolean {
 // ETH, so there is no transfer to record. Tokens the call moved arrive as
 // their own activities.
 //
-// Known gap, unchanged by this filter: a call that sends no tokens out of the
-// wallet (an approval, a claim, a call that reverts) leaves no row at all, so
-// its gas is not counted and it cannot trigger an alert.
+// Known gap, unchanged by this filter: a call that sends nothing out of the
+// wallet (an approval, a claim, a call that reverts) leaves no outbound row, so
+// its gas is not counted. An approval or a revert leaves no row at all and
+// cannot trigger an alert.
 function isZeroValueEthActivity(a: { category: string; value: number }): boolean {
   return isEthCategory(a.category) && a.value === 0;
 }
