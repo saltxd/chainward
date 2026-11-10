@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { transactions, type Database } from '@chainward/db';
-import { spamExclusionSql } from '@chainward/observatory';
+import { isSpamExcluded, spamExclusionSql } from '@chainward/observatory';
 
 export type TransactionInsert = typeof transactions.$inferInsert;
 
@@ -70,10 +70,12 @@ function carriesGas(tx: TransactionInsert): boolean {
 
 /**
  * Which gas fields the stored rows of this transaction already hold for this
- * wallet. Spam-token rows do not count: gas totals leave them out, so gas held
- * only by a spam row would be missing from every total.
+ * wallet. For a real row, spam-token rows do not count: gas totals leave them
+ * out, so gas held only by a spam row would be missing from every total. For a
+ * spam row every stored row counts, so at most one spam row holds the gas.
  */
 async function recordedGas(trx: Trx, tx: TransactionInsert): Promise<Record<GasField, boolean>> {
+  const rowsThatCount = isSpamExcluded(tx) ? sql`` : spamExclusionSql;
   const rows = await trx.execute(sql`
     SELECT
       COALESCE(bool_or(gas_used IS NOT NULL), false) AS "gasUsed",
@@ -86,7 +88,7 @@ async function recordedGas(trx: Trx, tx: TransactionInsert): Promise<Record<GasF
       AND block_number = ${tx.blockNumber}
       AND wallet_address = ${tx.walletAddress}
       AND timestamp = ${tx.timestamp instanceof Date ? tx.timestamp.toISOString() : tx.timestamp}
-      ${spamExclusionSql}
+      ${rowsThatCount}
   `);
   return rows[0] as unknown as Record<GasField, boolean>;
 }

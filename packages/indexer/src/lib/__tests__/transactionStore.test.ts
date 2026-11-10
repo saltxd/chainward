@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { createDb, type Database } from '@chainward/db';
+import { SPAM_TOKENS } from '@chainward/common';
+import { isSpamExcluded, spamExclusionSql } from '@chainward/observatory';
 import { insertTransactionIfNew, type TransactionInsert } from '../transactionStore.js';
 
 const TEST_DB_URL = process.env.TEST_DB_URL;
@@ -8,7 +10,10 @@ const TEST_DB_URL = process.env.TEST_DB_URL;
 const WALLET = '0x1111111111111111111111111111111111111111';
 const OTHER_WALLET = '0x3333333333333333333333333333333333333333';
 const USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
-const SPAM_TOKEN = '0x4444444444444444444444444444444444444444';
+// Left out of gas totals because of the look-alike symbol it is stored with, not its address.
+const DUST_TOKEN = '0x4444444444444444444444444444444444444444';
+const DUST_SYMBOL = 'ÚSDС';
+const LISTED_SPAM_TOKEN = [...SPAM_TOKENS][0]!;
 const GAS = {
   gasUsed: 21_000,
   gasPriceGwei: '0.005000000',
@@ -212,11 +217,62 @@ describe.skipIf(!TEST_DB_URL)('insertTransactionIfNew', () => {
   it('keeps the gas on a real leg when the leg stored before it is a spam token', async () => {
     const txHash = newTxHash();
 
-    await insertTransactionIfNew(db, tokenLeg(txHash, { tokenAddress: SPAM_TOKEN, tokenSymbol: 'ÚSDС' }));
+    await insertTransactionIfNew(db, tokenLeg(txHash, { tokenAddress: DUST_TOKEN, tokenSymbol: DUST_SYMBOL }));
     await insertTransactionIfNew(db, leg(txHash));
 
     const rows = await gasRows(txHash);
     expect(rows.find((r) => r.token_symbol === 'ETH')?.gas_cost_usd).toBe('0.000300');
+  });
+
+  it('gives the gas to one spam leg only, however many are stored before the real leg', async () => {
+    const txHash = newTxHash();
+
+    await insertTransactionIfNew(db, tokenLeg(txHash, { tokenAddress: DUST_TOKEN, tokenSymbol: DUST_SYMBOL }));
+    await insertTransactionIfNew(
+      db,
+      tokenLeg(txHash, { tokenAddress: LISTED_SPAM_TOKEN, tokenSymbol: 'SDO', amountRaw: '1' }),
+    );
+    await insertTransactionIfNew(db, leg(txHash));
+
+    const rows = await gasRows(txHash);
+    expect(rows).toHaveLength(3);
+    const withGas = rows.filter((r) => r.gas_cost_usd !== null).map((r) => r.token_symbol);
+    expect(withGas.sort()).toEqual(['ETH', DUST_SYMBOL].sort());
+  });
+
+  it('gives a spam leg no gas when a real leg already holds it', async () => {
+    const txHash = newTxHash();
+
+    await insertTransactionIfNew(db, leg(txHash));
+    await insertTransactionIfNew(db, tokenLeg(txHash, { tokenAddress: DUST_TOKEN, tokenSymbol: DUST_SYMBOL }));
+
+    const rows = await gasRows(txHash);
+    expect(rows.filter((r) => r.gas_cost_usd !== null).map((r) => r.token_symbol)).toEqual(['ETH']);
+  });
+
+  it('judges a row not stored yet by the same rule the gas totals use', async () => {
+    const samples: Array<{ tokenAddress: string | null; tokenSymbol: string | null }> = [
+      { tokenAddress: null, tokenSymbol: 'ETH' },
+      { tokenAddress: null, tokenSymbol: null },
+      { tokenAddress: USDC, tokenSymbol: 'USDC' },
+      { tokenAddress: USDC, tokenSymbol: null },
+      { tokenAddress: USDC, tokenSymbol: '' },
+      { tokenAddress: USDC, tokenSymbol: 'US DC ~!' },
+      { tokenAddress: USDC, tokenSymbol: 'USDC\n' },
+      { tokenAddress: DUST_TOKEN, tokenSymbol: DUST_SYMBOL },
+      { tokenAddress: LISTED_SPAM_TOKEN, tokenSymbol: 'SDO' },
+      { tokenAddress: LISTED_SPAM_TOKEN, tokenSymbol: null },
+      { tokenAddress: LISTED_SPAM_TOKEN.toUpperCase(), tokenSymbol: 'SDO' },
+    ];
+
+    for (const sample of samples) {
+      const kept = await db.execute(sql`
+        SELECT 1
+        FROM (VALUES (${sample.tokenAddress}::text, ${sample.tokenSymbol}::text)) AS v(token_address, token_symbol)
+        WHERE true ${spamExclusionSql}
+      `);
+      expect(isSpamExcluded(sample), JSON.stringify(sample)).toBe(kept.length === 0);
+    }
   });
 
   it('does not store the same leg twice', async () => {
