@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { transactions, type Database } from '@chainward/db';
+import { isSpamExcluded, spamExclusionSql } from '@chainward/observatory';
 
 export type TransactionInsert = typeof transactions.$inferInsert;
 
@@ -7,6 +8,11 @@ export type TransactionInsert = typeof transactions.$inferInsert;
  * Serialize inserts for a single (txHash, wallet) pair so retries and
  * overlapping backfills do not race each other while the DB unique constraint
  * also guards against any duplicate rows that slip past application logic.
+ *
+ * A transaction can leave several rows for one wallet (ETH out and a token out,
+ * or several internal ETH sends). The wallet paid the gas once, and every gas
+ * total sums over rows, so each gas field is kept on one row only: the first
+ * row that has it. The lock above makes "first" well defined.
  */
 export async function insertTransactionIfNew(db: Database, tx: TransactionInsert): Promise<boolean> {
   return db.transaction(async (trx) => {
@@ -39,8 +45,10 @@ export async function insertTransactionIfNew(db: Database, tx: TransactionInsert
       return false;
     }
 
+    const row = carriesGas(tx) ? withoutRecordedGas(tx, await recordedGas(trx, tx)) : tx;
+
     try {
-      await trx.insert(transactions).values(tx);
+      await trx.insert(transactions).values(row);
       return true;
     } catch (err) {
       if (isUniqueViolation(err)) {
@@ -49,6 +57,49 @@ export async function insertTransactionIfNew(db: Database, tx: TransactionInsert
       throw err;
     }
   });
+}
+
+type Trx = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+const GAS_FIELDS = ['gasUsed', 'gasPriceGwei', 'gasCostNative', 'gasCostUsd'] as const;
+type GasField = (typeof GAS_FIELDS)[number];
+
+function carriesGas(tx: TransactionInsert): boolean {
+  return GAS_FIELDS.some((field) => tx[field] != null);
+}
+
+/**
+ * Which gas fields the stored rows of this transaction already hold for this
+ * wallet. For a real row, spam-token rows do not count: gas totals leave them
+ * out, so gas held only by a spam row would be missing from every total. For a
+ * spam row every stored row counts, so at most one spam row holds the gas.
+ */
+async function recordedGas(trx: Trx, tx: TransactionInsert): Promise<Record<GasField, boolean>> {
+  const rowsThatCount = isSpamExcluded(tx) ? sql`` : spamExclusionSql;
+  const rows = await trx.execute(sql`
+    SELECT
+      COALESCE(bool_or(gas_used IS NOT NULL), false) AS "gasUsed",
+      COALESCE(bool_or(gas_price_gwei IS NOT NULL), false) AS "gasPriceGwei",
+      COALESCE(bool_or(gas_cost_native IS NOT NULL), false) AS "gasCostNative",
+      COALESCE(bool_or(gas_cost_usd IS NOT NULL), false) AS "gasCostUsd"
+    FROM transactions
+    WHERE chain = ${tx.chain}
+      AND tx_hash = ${tx.txHash}
+      AND block_number = ${tx.blockNumber}
+      AND wallet_address = ${tx.walletAddress}
+      AND timestamp = ${tx.timestamp instanceof Date ? tx.timestamp.toISOString() : tx.timestamp}
+      ${rowsThatCount}
+  `);
+  return rows[0] as unknown as Record<GasField, boolean>;
+}
+
+/** The row to store: each gas field another row already holds is left empty. */
+function withoutRecordedGas(tx: TransactionInsert, recorded: Record<GasField, boolean>): TransactionInsert {
+  const row = { ...tx };
+  for (const field of GAS_FIELDS) {
+    if (recorded[field]) row[field] = null;
+  }
+  return row;
 }
 
 function isUniqueViolation(err: unknown): boolean {

@@ -32,3 +32,12 @@ export const spamExclusionSql =
         sql`, `,
       )})) AND (token_symbol IS NULL OR token_symbol ~ '^[ -~]+$')`
     : sql`AND (token_symbol IS NULL OR token_symbol ~ '^[ -~]+$')`;
+
+/**
+ * The same rule as `spamExclusionSql`, for a row that is not stored yet: true when
+ * the spam-filtered totals would leave this row out.
+ */
+export function isSpamExcluded(row: { tokenAddress?: string | null; tokenSymbol?: string | null }): boolean {
+  if (row.tokenAddress != null && SPAM_TOKENS.has(row.tokenAddress)) return true;
+  return row.tokenSymbol != null && !/^[ -~]+$/.test(row.tokenSymbol);
+}

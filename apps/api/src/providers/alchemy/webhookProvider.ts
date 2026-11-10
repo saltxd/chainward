@@ -3,6 +3,10 @@ import { z } from 'zod';
 import type { WebhookProvider, NormalizedActivity } from '@chainward/common';
 import { logger } from '../../lib/logger.js';
 
+function isEthCategory(category: string): boolean {
+  return category === 'external' || category === 'internal';
+}
+
 const activitySchema = z.object({
   fromAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/i),
   toAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/i),
@@ -11,12 +15,38 @@ const activitySchema = z.object({
   value: z.number(),
   asset: z.string(),
   category: z.string(),
+  // ETH activity (external/internal) carries rawContract with no `address`;
+  // only token transfers name a contract.
   rawContract: z.object({
     rawValue: z.string(),
-    address: z.string(),
-    decimals: z.number(),
+    address: z.string().nullish(),
+    decimals: z.number().nullish(),
   }).optional(),
-});
+}).refine(
+  // A token transfer we cannot attribute to a contract, or scale, is unusable.
+  (a) => isEthCategory(a.category) || (a.rawContract?.address != null && a.rawContract.decimals != null),
+  { path: ['rawContract'], message: 'token transfer without a contract address or decimals' },
+);
+
+// NFT transfers carry a token id instead of an amount (no `value`, `asset` or
+// `decimals`). We track balances and spend, so they are out of scope.
+function isNftActivity(raw: unknown): boolean {
+  if (typeof raw !== 'object' || raw === null) return false;
+  const a = raw as { erc721TokenId?: unknown; erc1155Metadata?: unknown };
+  return a.erc721TokenId != null || a.erc1155Metadata != null;
+}
+
+// A zero-value ETH activity (a contract call, or an internal call) moves no
+// ETH, so there is no transfer to record. Tokens the call moved arrive as
+// their own activities.
+//
+// Known gap, unchanged by this filter: a call that sends nothing out of the
+// wallet (an approval, a claim, a call that reverts) leaves no outbound row, so
+// its gas is not counted. An approval or a revert leaves no row at all and
+// cannot trigger an alert.
+function isZeroValueEthActivity(a: { category: string; value: number }): boolean {
+  return isEthCategory(a.category) && a.value === 0;
+}
 
 // Envelope is validated separately from activities so one malformed activity
 // can't discard the rest of the batch.
@@ -129,7 +159,12 @@ export class AlchemyWebhookProvider implements WebhookProvider {
 
     const normalized: NormalizedActivity[] = [];
     let skipped = 0;
+    let ignored = 0;
     for (const rawActivity of body.event.activity) {
+      if (isNftActivity(rawActivity)) {
+        ignored++;
+        continue;
+      }
       const activity = activitySchema.safeParse(rawActivity);
       if (!activity.success) {
         skipped++;
@@ -140,6 +175,10 @@ export class AlchemyWebhookProvider implements WebhookProvider {
         continue;
       }
       const a = activity.data;
+      if (isZeroValueEthActivity(a)) {
+        ignored++;
+        continue;
+      }
       normalized.push({
         txHash: a.hash,
         blockNumber: parseInt(a.blockNum, 16),
@@ -157,6 +196,12 @@ export class AlchemyWebhookProvider implements WebhookProvider {
       logger.warn(
         { skipped, kept: normalized.length, webhookEventId: body.id },
         'Alchemy webhook batch contained malformed activities',
+      );
+    }
+    if (ignored > 0) {
+      logger.debug(
+        { ignored, kept: normalized.length, webhookEventId: body.id },
+        'Ignored NFT transfers and zero-value ETH activity in Alchemy webhook batch',
       );
     }
     return normalized;
