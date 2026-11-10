@@ -71,10 +71,10 @@ jobs:
   # Images must boot, not just build: a Dockerfile that drops a runtime dep or an env var the config
   # schema requires still compiles. Each image runs against throwaway Postgres/Redis service containers
   # (host network) and must answer its liveness signal within 60 s. Same gha cache as the push job,
-  # so the push job only re-tags.
+  # so the push job only re-tags. Runs alongside `check` (it shares nothing with it); the push job
+  # still waits for both.
   smoke:
     name: Smoke (images boot)
-    needs: check
     runs-on: ubuntu-latest
     services:
       postgres:

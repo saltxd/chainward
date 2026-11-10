@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import { and, eq, sql } from 'drizzle-orm';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { paidFiles, paidFileClaims, datasetLookup } from '@chainward/db';
 import { getDb } from '../lib/db.js';
 import { getEnv } from '../config.js';
@@ -235,7 +235,7 @@ paid.get('/:slug/download', async (c) => {
   const slug = slugParam(c);
   refuseWithdrawn(slug);
   const token = c.req.query('token') ?? '';
-  let payload: { slug?: unknown };
+  let payload: JWTPayload;
   try {
     ({ payload } = await jwtVerify(token, tokenSecret(), { algorithms: ['HS256'] }));
   } catch {

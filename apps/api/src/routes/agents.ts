@@ -12,6 +12,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { getWebhookProvider } from '../providers/index.js';
 import { checkAddressType } from '../lib/contractCheck.js';
 import { logger } from '../lib/logger.js';
+import { safeLimit, safeOffset } from '../lib/queryParams.js';
 
 const agents = new Hono<{ Variables: AppVariables }>();
 
@@ -216,8 +217,8 @@ agents.get('/:id/events', async (c) => {
   const service = new AgentService(db);
   await service.getById(user.id, id); // validates ownership
 
-  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 200);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const limit = safeLimit(c.req.query('limit'));
+  const offset = safeOffset(c.req.query('offset'));
   const eventTypeFilter = c.req.query('eventType');
 
   const conditions = [eq(agentEvents.agentId, id)];
