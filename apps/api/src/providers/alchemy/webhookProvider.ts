@@ -3,6 +3,10 @@ import { z } from 'zod';
 import type { WebhookProvider, NormalizedActivity } from '@chainward/common';
 import { logger } from '../../lib/logger.js';
 
+function isEthCategory(category: string): boolean {
+  return category === 'external' || category === 'internal';
+}
+
 const activitySchema = z.object({
   fromAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/i),
   toAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/i),
@@ -18,21 +22,29 @@ const activitySchema = z.object({
     address: z.string().nullish(),
     decimals: z.number().nullish(),
   }).optional(),
-});
+}).refine(
+  // A token transfer we cannot attribute to a contract, or scale, is unusable.
+  (a) => isEthCategory(a.category) || (a.rawContract?.address != null && a.rawContract.decimals != null),
+  { path: ['rawContract'], message: 'token transfer without a contract address or decimals' },
+);
 
 // NFT transfers carry a token id instead of an amount (no `value`, `asset` or
 // `decimals`). We track balances and spend, so they are out of scope.
 function isNftActivity(raw: unknown): boolean {
   if (typeof raw !== 'object' || raw === null) return false;
-  return 'erc721TokenId' in raw || 'erc1155Metadata' in raw;
+  const a = raw as { erc721TokenId?: unknown; erc1155Metadata?: unknown };
+  return a.erc721TokenId != null || a.erc1155Metadata != null;
 }
 
 // A zero-value ETH activity (a contract call, or an internal call) moves no
-// ETH. Any tokens the call moved arrive as their own activities, and those
-// rows already carry the transaction's gas: a second row for the same
-// transaction would count that gas twice in every total.
+// ETH, so there is no transfer to record. Tokens the call moved arrive as
+// their own activities.
+//
+// Known gap, unchanged by this filter: a call that sends no tokens out of the
+// wallet (an approval, a claim, a call that reverts) leaves no row at all, so
+// its gas is not counted and it cannot trigger an alert.
 function isZeroValueEthActivity(a: { category: string; value: number }): boolean {
-  return (a.category === 'external' || a.category === 'internal') && a.value === 0;
+  return isEthCategory(a.category) && a.value === 0;
 }
 
 // Envelope is validated separately from activities so one malformed activity

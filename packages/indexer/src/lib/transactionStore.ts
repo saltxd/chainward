@@ -3,10 +3,22 @@ import { transactions, type Database } from '@chainward/db';
 
 export type TransactionInsert = typeof transactions.$inferInsert;
 
+const NO_GAS = {
+  gasUsed: null,
+  gasPriceGwei: null,
+  gasCostNative: null,
+  gasCostUsd: null,
+} as const;
+
 /**
  * Serialize inserts for a single (txHash, wallet) pair so retries and
  * overlapping backfills do not race each other while the DB unique constraint
  * also guards against any duplicate rows that slip past application logic.
+ *
+ * A transaction can leave several rows for one wallet (ETH out and a token out,
+ * or several internal ETH sends). The wallet paid the gas once, and every gas
+ * total sums over rows, so only the first of those rows keeps the gas fields.
+ * The lock above makes "first" well defined.
  */
 export async function insertTransactionIfNew(db: Database, tx: TransactionInsert): Promise<boolean> {
   return db.transaction(async (trx) => {
@@ -39,8 +51,11 @@ export async function insertTransactionIfNew(db: Database, tx: TransactionInsert
       return false;
     }
 
+    const carriesGas = tx.gasUsed != null || tx.gasCostNative != null || tx.gasCostUsd != null;
+    const row = carriesGas && (await gasAlreadyRecorded(trx, tx)) ? { ...tx, ...NO_GAS } : tx;
+
     try {
-      await trx.insert(transactions).values(tx);
+      await trx.insert(transactions).values(row);
       return true;
     } catch (err) {
       if (isUniqueViolation(err)) {
@@ -49,6 +64,24 @@ export async function insertTransactionIfNew(db: Database, tx: TransactionInsert
       throw err;
     }
   });
+}
+
+type Trx = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/** Whether another row of this transaction already holds this wallet's gas. */
+async function gasAlreadyRecorded(trx: Trx, tx: TransactionInsert): Promise<boolean> {
+  const rows = await trx.execute(sql`
+    SELECT 1
+    FROM transactions
+    WHERE chain = ${tx.chain}
+      AND tx_hash = ${tx.txHash}
+      AND block_number = ${tx.blockNumber}
+      AND wallet_address = ${tx.walletAddress}
+      AND timestamp = ${tx.timestamp instanceof Date ? tx.timestamp.toISOString() : tx.timestamp}
+      AND (gas_used IS NOT NULL OR gas_cost_native IS NOT NULL OR gas_cost_usd IS NOT NULL)
+    LIMIT 1
+  `);
+  return rows.length > 0;
 }
 
 function isUniqueViolation(err: unknown): boolean {

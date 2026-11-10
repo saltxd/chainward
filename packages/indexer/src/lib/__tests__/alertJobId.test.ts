@@ -27,7 +27,7 @@ describe('alertJobId', () => {
     expect(alertJobId(eth)).not.toBe(alertJobId(usdc));
   });
 
-  it('gives the same leg the same id, so a retried parent job cannot queue it twice', () => {
+  it('gives the same leg the same id', () => {
     expect(alertJobId(leg())).toBe(alertJobId(leg()));
   });
 

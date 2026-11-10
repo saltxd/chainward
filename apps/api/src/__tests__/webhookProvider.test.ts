@@ -85,9 +85,8 @@ describe('AlchemyWebhookProvider.parsePayload', () => {
     expect(result[0]?.rawContract?.address ?? null).toBeNull();
   });
 
-  // A zero-value call moves no ETH. Its token legs arrive as their own
-  // activities and already carry the gas, so a second row for the same
-  // transaction would count that gas twice.
+  // A zero-value call moves no ETH, so there is no transfer to record. Tokens
+  // it moved arrive as their own activities.
   it('drops a zero-value external call without a warning', () => {
     const warn = vi.spyOn(logger, 'warn');
     const result = provider.parsePayload(envelope([ethActivity(8, 0, '0x0'), validActivity(14)]));
@@ -147,6 +146,46 @@ describe('AlchemyWebhookProvider.parsePayload', () => {
       address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
       decimals: 6,
     });
+  });
+
+  const usdcActivity = (n: number, rawContract: Record<string, unknown>) => ({
+    ...validActivity(n),
+    value: 12.5,
+    asset: 'USDC',
+    category: 'token',
+    rawContract,
+  });
+  const USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+
+  it('skips a token transfer that names no token contract, with a warning', () => {
+    const warn = vi.spyOn(logger, 'warn');
+    const result = provider.parsePayload(
+      envelope([usdcActivity(15, { rawValue: '0xbebc20', decimals: 6 }), validActivity(16)]),
+    );
+    expect(result.map((a) => a.txHash)).toEqual([validActivity(16).hash]);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('skips a token transfer that carries no decimals, with a warning', () => {
+    const warn = vi.spyOn(logger, 'warn');
+    const result = provider.parsePayload(
+      envelope([
+        usdcActivity(17, { rawValue: '0xbebc20', address: USDC, decimals: null }),
+        validActivity(18),
+      ]),
+    );
+    expect(result.map((a) => a.txHash)).toEqual([validActivity(18).hash]);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('keeps a token transfer whose NFT fields are present but null', () => {
+    const erc20 = {
+      ...usdcActivity(19, { rawValue: '0xbebc20', address: USDC, decimals: 6 }),
+      erc721TokenId: null,
+      erc1155Metadata: null,
+    };
+    const result = provider.parsePayload(envelope([erc20]));
+    expect(result.map((a) => a.txHash)).toEqual([validActivity(19).hash]);
   });
 
   it('returns [] for an empty activity array', () => {

@@ -127,9 +127,10 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
       }
 
       // Dispatch alert evaluation for this leg. The jobId is built from the
-      // leg's content, so a retry of the parent base-tx-process job can't
-      // queue it twice, and a second leg of the same transaction (ETH out,
-      // token in) still gets evaluated on its own amount.
+      // leg's content, so a second leg of the same transaction (ETH out,
+      // token in) is evaluated on its own amount instead of being dropped as
+      // a duplicate of the first. A retried parent job does not get this far:
+      // the row is already stored, so the insert above returns false.
       await alertQueue.add(
         'tx-alert',
         {

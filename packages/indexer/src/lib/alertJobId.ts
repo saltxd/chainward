@@ -15,8 +15,10 @@ export interface AlertJobLeg {
  *
  * A transaction can reach a wallet as several legs (ETH out, token in), and
  * each is evaluated on its own amount. The id is built from the leg's content,
- * so a retry of the parent job yields the same id and queues nothing new,
- * while a second leg gets its own job. The evaluator's claim on
+ * so a second leg gets its own job instead of being dropped as a duplicate of
+ * the first. The same leg always maps to the same id, which BullMQ ignores
+ * while it still holds that job; the stored row (insertTransactionIfNew) is
+ * what stops a retry from queueing a leg again. The evaluator's claim on
  * (alert config, tx hash) still allows one alert per transaction.
  */
 export function alertJobId(leg: AlertJobLeg): string {
