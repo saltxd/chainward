@@ -20,7 +20,9 @@
       ]
     },
     "allowJs": true,
-    "incremental": true
+    "incremental": true,
+    "declaration": false,
+    "declarationMap": false
   },
   "include": [
     "src/**/*.ts",
