@@ -3,7 +3,7 @@ import type { AppVariables } from '../types.js';
 import { TxService } from '../services/txService.js';
 import { getDb } from '../lib/db.js';
 import { requireApiKeyOrSession } from '../middleware/apiKeyAuth.js';
-import { safeInt, safeDate } from '../lib/queryParams.js';
+import { safeDate, safeLimit, safeOffset } from '../lib/queryParams.js';
 
 const txRoutes = new Hono<{ Variables: AppVariables }>();
 txRoutes.use('*', requireApiKeyOrSession());
@@ -22,8 +22,8 @@ txRoutes.get('/', async (c) => {
     from: safeDate(query.from),
     to: safeDate(query.to),
     search: query.search,
-    limit: safeInt(query.limit),
-    offset: safeInt(query.offset, 0),
+    limit: safeLimit(query.limit),
+    offset: safeOffset(query.offset),
   });
 
   return c.json({ success: true, ...result });

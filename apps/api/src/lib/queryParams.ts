@@ -10,9 +10,14 @@ export function safeInt(value: string | undefined, fallback?: number): number | 
   return Math.floor(n);
 }
 
-/** Page size for a list route: the caller's `?limit=`, never above `max`. */
+/** Page size for a list route: the caller's `?limit=`, at least 1 and never above `max`. */
 export function safeLimit(value: string | undefined, max = 200, fallback = 50): number {
-  return Math.min(safeInt(value) ?? fallback, max);
+  return Math.max(1, Math.min(safeInt(value) ?? fallback, max));
+}
+
+/** Row offset for a list route: the caller's `?offset=`, never above `max`. */
+export function safeOffset(value: string | undefined, max = 1_000_000): number {
+  return Math.min(safeInt(value) ?? 0, max);
 }
 
 /** Parse a string to a Date, or return undefined if invalid. */
