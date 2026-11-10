@@ -10,6 +10,11 @@ export function safeInt(value: string | undefined, fallback?: number): number | 
   return Math.floor(n);
 }
 
+/** Page size for a list route: the caller's `?limit=`, never above `max`. */
+export function safeLimit(value: string | undefined, max = 200, fallback = 50): number {
+  return Math.min(safeInt(value) ?? fallback, max);
+}
+
 /** Parse a string to a Date, or return undefined if invalid. */
 export function safeDate(value: string | undefined): Date | undefined {
   if (!value) return undefined;
