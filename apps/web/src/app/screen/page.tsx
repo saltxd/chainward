@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
 
 // One offer, sold by email: check a list of wallets before paying them. Fulfilled
-// by hand with the funding-trace scripts behind the decodes; nothing is published.
+// with `pnpm payout:screen` (packages/decode/src/payout-screen.ts), the funding
+// trails behind the decodes; nothing is published.
 
 const TITLE = 'Check a payout list before you pay it';
 const DESCRIPTION =
