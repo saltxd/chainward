@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import { createDb, type Database } from '@chainward/db';
 import { SPAM_TOKENS } from '@chainward/common';
 import { isSpamExcluded, spamExclusionSql } from '@chainward/observatory';
-import { insertTransactionIfNew, type TransactionInsert } from '../transactionStore.js';
+import { insertTransactionIfNew, storeTransaction, type TransactionInsert } from '../transactionStore.js';
 
 const TEST_DB_URL = process.env.TEST_DB_URL;
 
@@ -282,5 +282,20 @@ describe.skipIf(!TEST_DB_URL)('insertTransactionIfNew', () => {
     expect(await insertTransactionIfNew(db, leg(txHash))).toBe(false);
 
     expect(await gasRows(txHash)).toHaveLength(1);
+  });
+
+  // A webhook job rerun queues the alert only for legs it stored itself, which
+  // it tells by when the row was written.
+  it('says when the stored row was written, on the insert and on a repeat', async () => {
+    const txHash = newTxHash();
+    const before = Date.now();
+
+    const first = await storeTransaction(db, leg(txHash));
+    expect(first.inserted).toBe(true);
+    expect(first.ingestedAt).toBeInstanceOf(Date);
+    expect(Math.abs(first.ingestedAt!.getTime() - before)).toBeLessThan(60_000);
+
+    const repeat = await storeTransaction(db, leg(txHash));
+    expect(repeat).toEqual({ inserted: false, ingestedAt: first.ingestedAt });
   });
 });

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Worker, type Job } from 'bullmq';
 import { createQueue } from '../lib/queue.js';
 import { eq, and, desc, sql, gt, lt, or } from 'drizzle-orm';
@@ -218,17 +219,26 @@ async function firedEvent(alertConfigId: number, txHash: string) {
 }
 
 /**
- * The delivery worker records every channel it sent to or failed on. A row
- * with nothing recorded was claimed but nothing was sent: its delivery is
- * still queued (re-adding it under its job id is a no-op) or was never queued
- * because the attempt that claimed it failed first.
+ * How long after its claim an alert's delivery may still be queued again.
+ * Longer than the alert-evaluate retry budget (about 5 minutes), short enough
+ * that an old alert is never re-sent: past this, a row with no outcome more
+ * likely lost its outcome write than its delivery.
  */
-function isAwaitingDelivery(event: {
-  delivered: boolean;
-  deliveryChannel: string | null;
-  deliveryError: string | null;
-}): boolean {
-  return !event.delivered && event.deliveryChannel === null && event.deliveryError === null;
+const REQUEUE_WINDOW_MS = 15 * 60_000;
+
+/**
+ * The delivery worker writes an outcome on every attempt (channels sent,
+ * errors, or "no destination configured"). A recent row with no outcome was
+ * claimed but nothing was tried: its delivery is still queued (re-adding it
+ * under its job id is a no-op) or was never queued because the attempt that
+ * claimed it failed first.
+ */
+function isAwaitingDelivery(
+  event: { timestamp: Date; delivered: boolean; deliveryChannel: string | null; deliveryError: string | null },
+  now = Date.now(),
+): boolean {
+  const noOutcome = !event.delivered && event.deliveryChannel === null && event.deliveryError === null;
+  return noOutcome && now - event.timestamp.getTime() < REQUEUE_WINDOW_MS;
 }
 
 /**
@@ -604,10 +614,13 @@ const DELIVERY_JOB_OPTIONS = {
 
 /**
  * One delivery job per alert event, so queueing the same alert twice adds
- * nothing while BullMQ still holds the first job.
+ * nothing while BullMQ still holds the first job. The trigger tx is part of
+ * the id: with a zero cooldown, two transactions can be claimed for one config
+ * in the same millisecond, and they must not share a job.
  */
-export function deliveryJobId(alertConfigId: number, eventTimestamp: string): string {
-  return `deliver-${alertConfigId}-${new Date(eventTimestamp).getTime()}`;
+export function deliveryJobId(alertConfigId: number, eventTimestamp: string, triggerTxHash: string | null): string {
+  const tx = triggerTxHash ? createHash('sha1').update(triggerTxHash).digest('hex').slice(0, 12) : 'none';
+  return `deliver-${alertConfigId}-${new Date(eventTimestamp).getTime()}-${tx}`;
 }
 
 interface ClaimedAlert {
@@ -689,7 +702,7 @@ async function queueDelivery(config: typeof alertConfigs.$inferSelect, alert: Cl
       discordWebhook: config.discordWebhook,
       timestamp: alert.eventTimestamp,
     }, {
-      jobId: deliveryJobId(config.id, alert.eventTimestamp),
+      jobId: deliveryJobId(config.id, alert.eventTimestamp, alert.triggerTxHash),
       ...DELIVERY_JOB_OPTIONS,
     });
   } finally {

@@ -11,7 +11,7 @@ import { BACKFILL_WINDOW_DAYS, baseLookbackStart } from '../lib/baseWindow.js';
 import { getBaseClient } from '../lib/viem.js';
 import { alchemyBackfillAvailable, backfillWalletViaTransfers } from './transferBackfill.js';
 import { isAddressPaused, isOutbound, recordAndCheck } from '../lib/rateLimiter.js';
-import { insertTransactionIfNew } from '../lib/transactionStore.js';
+import { storeTransaction } from '../lib/transactionStore.js';
 import { alertJobId } from '../lib/alertJobId.js';
 
 interface WebhookJobData {
@@ -66,13 +66,19 @@ export function createBaseIndexerWorker() {
 }
 
 /**
- * Retries for one leg's alert evaluation: about half a minute of backoff, enough
- * to ride out a Redis or Postgres blip without retrying forever.
+ * Retries for one leg's alert evaluation: 5 s doubling to 160 s, about 5
+ * minutes in all, enough to outlast a Postgres or Redis pod restart.
  */
 const ALERT_EVAL_JOB_OPTIONS = {
-  attempts: 5,
-  backoff: { type: 'exponential', delay: 2_000 },
+  attempts: 7,
+  backoff: { type: 'exponential', delay: 5_000 },
 } as const;
+
+/**
+ * Slack between the clock that stamped the job (the API pod) and the one that
+ * stamped the row (Postgres) when deciding whether this job stored a row.
+ */
+const CLOCK_SKEW_MS = 5_000;
 
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 
@@ -85,17 +91,22 @@ interface LegContext {
   db: ReturnType<typeof getDb>;
   redis: ReturnType<typeof getRedis>;
   alertQueue: ReturnType<typeof createQueue>;
-  /** This job ran before (a BullMQ retry, or a stalled job picked up again). */
-  rerun: boolean;
+  /**
+   * Set when this job ran before (a BullMQ retry, or a stalled job picked up
+   * again): rows stored at or after this time (ms) count as this job's own.
+   */
+  ownRowsSince: number | null;
 }
 
 /**
  * Any error fails the job so BullMQ retries it, and the retry is safe to
- * repeat: each leg is stored at most once (insertTransactionIfNew), and its
- * alert job id is built from the leg's content, so queueing it again collapses
- * into the job already queued.
+ * repeat: each leg is stored at most once (storeTransaction), and its alert
+ * job id is built from the leg's content, so queueing it again collapses into
+ * the job already queued.
  */
-export async function handleWebhookTx(job: Pick<Job<WebhookJobData>, 'data' | 'attemptsStarted'>) {
+export async function handleWebhookTx(
+  job: Pick<Job<WebhookJobData>, 'data' | 'attemptsStarted' | 'timestamp'>,
+) {
   if (!isWellFormedWebhook(job.data)) {
     logger.error({ jobData: job.data }, 'Invalid webhook job data, dropping');
     return;
@@ -121,7 +132,8 @@ export async function handleWebhookTx(job: Pick<Job<WebhookJobData>, 'data' | 'a
   // Insert transactions and trigger alert evaluation
   const redis = getRedis();
   const alertQueue = createQueue('alert-evaluate', redis);
-  const ctx: LegContext = { db, redis, alertQueue, rerun: job.attemptsStarted > 1 };
+  const ownRowsSince = job.attemptsStarted > 1 ? job.timestamp - CLOCK_SKEW_MS : null;
+  const ctx: LegContext = { db, redis, alertQueue, ownRowsSince };
   let insertedCount = 0;
   const failures: unknown[] = [];
 
@@ -148,7 +160,10 @@ export async function handleWebhookTx(job: Pick<Job<WebhookJobData>, 'data' | 'a
 }
 
 /** Store one leg and queue its alert evaluation. Returns whether a row was inserted. */
-async function storeLeg(tx: ProcessedTransaction, { db, redis, alertQueue, rerun }: LegContext): Promise<boolean> {
+async function storeLeg(
+  tx: ProcessedTransaction,
+  { db, redis, alertQueue, ownRowsSince }: LegContext,
+): Promise<boolean> {
   // A paused address only sheds INBOUND transfers. Outbound txs are always
   // inserted and evaluated — otherwise anyone could pause a wallet and
   // drain it unobserved (see lib/rateLimiter.ts).
@@ -161,11 +176,14 @@ async function storeLeg(tx: ProcessedTransaction, { db, redis, alertQueue, rerun
     return false;
   }
 
-  const inserted = await insertTransactionIfNew(db, tx);
-  // On a first run a stored leg is a duplicate webhook: its alert was queued
-  // when it was stored. On a rerun it may be this job's own row, stored just
-  // before the attempt failed, so its alert is queued again (same job id).
-  if (!inserted && !rerun) {
+  const { inserted, ingestedAt } = await storeTransaction(db, tx);
+  // A stored leg is normally a duplicate webhook: its alert was queued when it
+  // was stored. On a rerun, a row written since this job was created is this
+  // job's own, stored just before an attempt failed, so its alert is queued
+  // again (same job id). An older row belongs to an earlier job (a webhook
+  // re-sent after BullMQ dropped the original) and queues nothing.
+  const ownRow = ownRowsSince !== null && ingestedAt !== null && ingestedAt.getTime() >= ownRowsSince;
+  if (!inserted && !ownRow) {
     logger.debug(
       { walletAddress: tx.walletAddress, txHash: tx.txHash },
       'Skipping duplicate transaction insert',

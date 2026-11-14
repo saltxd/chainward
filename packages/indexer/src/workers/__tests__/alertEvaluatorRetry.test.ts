@@ -33,26 +33,34 @@ const queueAdd = vi.fn(async (name: string, data: Record<string, unknown>, opts?
   queued.push({ name, data, opts });
 });
 
-function rowsOf(table: unknown): unknown[] {
+function rowsOf(table: unknown, params: unknown[]): unknown[] {
   if (table === alertConfigs) return state.configs;
-  if (table === alertEvents) return state.events;
+  // The evaluator looks events up by (alert config, trigger tx hash).
+  if (table === alertEvents) {
+    return state.events.filter((e) => params.includes(e.alertConfigId) && params.includes(e.triggerTxHash));
+  }
   if (table === agentRegistry) return [{ agentName: 'Swap Agent' }];
   return [];
 }
 
 /**
  * Drizzle-shaped select: from(table).where(..).limit(n), awaitable at any step.
- * It ignores the WHERE clause, so each test holds only the rows of its own
- * transaction and its own configs.
+ * Events are filtered by the values bound in the WHERE clause; other tables
+ * return all their rows, so each test holds only its own configs.
  */
 function select() {
-  let rows: () => unknown[] = () => [];
+  let table: unknown;
+  let params: unknown[] = [];
+  const rows = () => rowsOf(table, params);
   const query = {
-    from(table: unknown) {
-      rows = () => rowsOf(table);
+    from(t: unknown) {
+      table = t;
       return query;
     },
-    where: () => query,
+    where(condition: unknown) {
+      params = sqlParams(condition);
+      return query;
+    },
     orderBy: () => query,
     limit: async () => rows(),
     then: (resolve: (v: unknown[]) => unknown, reject: (e: unknown) => unknown) =>
@@ -104,6 +112,7 @@ vi.mock('../../lib/queue.js', () => ({
 }));
 
 import { evaluateTxAlerts, deliveryJobId } from '../alertEvaluator.js';
+import { sqlParams } from './sqlParams.js';
 
 const TX_HASH = `0x${'cd'.repeat(32)}`;
 
@@ -167,7 +176,7 @@ describe('evaluateTxAlerts retries', () => {
     expect(state.events).toHaveLength(1);
     expect(queued).toHaveLength(1);
     const event = state.events[0]!;
-    expect(queued[0]!.opts?.jobId).toBe(deliveryJobId(1, event.timestamp.toISOString()));
+    expect(queued[0]!.opts?.jobId).toBe(deliveryJobId(1, event.timestamp.toISOString(), TX_HASH));
     expect(queued[0]!.data).toMatchObject({
       alertConfigId: 1,
       eventTimestamp: event.timestamp.toISOString(),
@@ -195,6 +204,44 @@ describe('evaluateTxAlerts retries', () => {
 
     await evaluateTxAlerts(job);
     expect(queued).toEqual([]);
+  });
+
+  it('does not queue a delivery again for an alert whose delivery failed with an error recorded', async () => {
+    await evaluateTxAlerts(job);
+    state.events[0]!.deliveryError = 'webhook: HTTP 404: Not Found';
+    queued.length = 0;
+
+    await evaluateTxAlerts(job);
+    expect(queued).toEqual([]);
+  });
+
+  it('does not queue a delivery again for an alert claimed more than 15 minutes ago', async () => {
+    queueAdd.mockRejectedValueOnce(new Error('Redis connection lost'));
+    await expect(evaluateTxAlerts(job)).rejects.toThrow();
+    state.events[0]!.timestamp = new Date(Date.now() - 16 * 60_000);
+
+    await evaluateTxAlerts(job);
+    expect(queued).toEqual([]);
+  });
+
+  it('gives two transactions claimed in the same millisecond their own delivery jobs', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-14T00:00:00.000Z'));
+    try {
+      state.configs = [config(1, { cooldown: '00:00:00' })];
+      const otherTx = `0x${'ef'.repeat(32)}`;
+      await evaluateTxAlerts(job);
+      await evaluateTxAlerts({ ...job, txHash: otherTx });
+
+      expect(state.events.map((e) => e.timestamp.getTime())).toEqual([
+        Date.parse('2026-11-14T00:00:00.000Z'),
+        Date.parse('2026-11-14T00:00:00.000Z'),
+      ]);
+      expect(queued.map((q) => q.data.triggerTxHash)).toEqual([TX_HASH, otherTx]);
+      expect(new Set(queued.map((q) => q.opts?.jobId)).size).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('queues the delivery with bounded exponential retries', async () => {

@@ -1,5 +1,5 @@
 import { Worker, type Job } from 'bullmq';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { alertEvents, alertConfigs, agentRegistry } from '@chainward/db';
 import { getExplorerTxUrl, type SupportedChain } from '@chainward/common';
 import { getRedis } from '../lib/redis.js';
@@ -48,6 +48,9 @@ export interface DeliveryJobData {
 
 /** The part of a BullMQ job deliverAlert uses. */
 export type DeliveryJob = Pick<Job<DeliveryJobData>, 'data' | 'updateData'>;
+
+/** Written to delivery_error when the alert lists no channel with a destination. */
+const NO_DESTINATION = 'no destination configured';
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
@@ -193,19 +196,25 @@ export async function deliverAlert(job: DeliveryJob) {
     await job.updateData({ ...job.data, sentChannels: [...sent], refusedChannels: { ...refused } });
   }
 
-  // Update the exact alert event row that was queued for delivery.
+  // Update the exact alert event row that was queued for delivery. Some outcome
+  // is always written: the evaluator re-queues only rows that have none.
   const errors = [...Object.values(refused), ...failed];
+  const nothingTried = sent.length === 0 && errors.length === 0;
   await getDb()
     .update(alertEvents)
     .set({
       delivered: sent.length > 0,
       deliveryChannel: sent.join(',') || null,
-      deliveryError: errors.length > 0 ? errors.join('; ') : null,
+      deliveryError: nothingTried ? NO_DESTINATION : errors.join('; ') || null,
     })
     .where(
       and(
         eq(alertEvents.alertConfigId, data.alertConfigId),
         eq(alertEvents.timestamp, new Date(data.eventTimestamp)),
+        // Two transactions can be claimed for one config in the same millisecond.
+        data.triggerTxHash === null
+          ? isNull(alertEvents.triggerTxHash)
+          : eq(alertEvents.triggerTxHash, data.triggerTxHash),
       ),
     );
 

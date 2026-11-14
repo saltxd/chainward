@@ -15,6 +15,18 @@ export type TransactionInsert = typeof transactions.$inferInsert;
  * row that has it. The lock above makes "first" well defined.
  */
 export async function insertTransactionIfNew(db: Database, tx: TransactionInsert): Promise<boolean> {
+  return (await storeTransaction(db, tx)).inserted;
+}
+
+export interface StoredTransaction {
+  /** This call inserted the row. */
+  inserted: boolean;
+  /** When the row was stored (Postgres clock); null if a concurrent insert won the unique constraint. */
+  ingestedAt: Date | null;
+}
+
+/** insertTransactionIfNew, also saying when the stored row was written. */
+export async function storeTransaction(db: Database, tx: TransactionInsert): Promise<StoredTransaction> {
   return db.transaction(async (trx) => {
     await trx.execute(sql`
       SELECT pg_advisory_xact_lock(
@@ -23,8 +35,8 @@ export async function insertTransactionIfNew(db: Database, tx: TransactionInsert
       )
     `);
 
-    const existing = await trx.execute(sql`
-      SELECT 1
+    const existing = await trx.execute<{ ingested_at: Date | string }>(sql`
+      SELECT ingested_at
       FROM transactions
       WHERE chain = ${tx.chain}
         AND tx_hash = ${tx.txHash}
@@ -41,18 +53,22 @@ export async function insertTransactionIfNew(db: Database, tx: TransactionInsert
       LIMIT 1
     `);
 
-    if (existing.length > 0) {
-      return false;
+    const stored = existing[0];
+    if (stored) {
+      return { inserted: false, ingestedAt: new Date(stored.ingested_at) };
     }
 
     const row = carriesGas(tx) ? withoutRecordedGas(tx, await recordedGas(trx, tx)) : tx;
 
     try {
-      await trx.insert(transactions).values(row);
-      return true;
+      const [created] = await trx
+        .insert(transactions)
+        .values(row)
+        .returning({ ingestedAt: transactions.ingestedAt });
+      return { inserted: true, ingestedAt: created?.ingestedAt ?? null };
     } catch (err) {
       if (isUniqueViolation(err)) {
-        return false;
+        return { inserted: false, ingestedAt: null };
       }
       throw err;
     }

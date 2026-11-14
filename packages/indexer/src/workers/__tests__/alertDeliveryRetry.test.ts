@@ -8,13 +8,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // good (a blocked address, a 4xx) is not tried again.
 
 const updates: Array<Record<string, unknown>> = [];
+const updateConditions: unknown[] = [];
 
 vi.mock('../../lib/db.js', () => ({
   getDb: () => ({
     update: () => ({
       set: (v: Record<string, unknown>) => ({
-        where: async () => {
+        where: async (condition: unknown) => {
           updates.push(v);
+          updateConditions.push(condition);
         },
       }),
     }),
@@ -29,6 +31,7 @@ vi.mock('../../lib/deliveryGuard.js', async (importOriginal) => {
 
 import { deliverAlert, type DeliveryJobData } from '../alertDelivery.js';
 import { BlockedDestinationError, DeliveryHttpError, deliveryFetch } from '../../lib/deliveryGuard.js';
+import { sqlParams } from './sqlParams.js';
 
 const DISCORD = 'https://discord.com/api/webhooks/1/abc';
 const WEBHOOK = 'https://hooks.example.com/alert';
@@ -82,6 +85,7 @@ describe('deliverAlert retries', () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     updates.length = 0;
+    updateConditions.length = 0;
     behaviour = {};
     fetchMock.mockImplementation(async (url: string) => behaviour[url]!());
   });
@@ -176,5 +180,26 @@ describe('deliverAlert retries', () => {
     expect(sentTo(DISCORD)).toBe(1);
     expect(updates.at(-1)).toMatchObject({ delivered: true, deliveryChannel: 'webhook' });
     expect(String(updates.at(-1)!.deliveryError)).toContain('HTTP 404');
+  });
+
+  // The evaluator re-queues only alerts with no outcome on their row, so every
+  // delivery writes one, even when there was nothing to send to.
+  it('records "no destination configured" when no listed channel has a destination', async () => {
+    const job = makeJob(['discord', 'telegram']);
+    job.data.discordWebhook = null; // telegram has no chat id either
+    expect(await attempt(job)).toBe('ok');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(updates.at(-1)).toEqual({ delivered: false, deliveryChannel: null, deliveryError: 'no destination configured' });
+  });
+
+  // Two transactions claimed for one config in the same millisecond share
+  // (config, timestamp); the row update must not mark the other one delivered.
+  it('updates only the alert row of its own transaction', async () => {
+    const job = makeJob(['discord']);
+    behaviour[DISCORD] = async () => undefined;
+    await attempt(job);
+    const params = sqlParams(updateConditions.at(-1));
+    expect(params).toContain(7);
+    expect(params).toContain(job.data.triggerTxHash);
   });
 });

@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 // The indexer now fails a webhook job on a transient error (RPC timeout,
 // database or Redis blip) so BullMQ retries it. The retry budget is set here,
 // where the job is added: bounded, exponential, and long enough to outlast a
-// short outage instead of 1 s + 2 s.
+// short outage (a Postgres pod restart) instead of 1 s + 2 s.
 
 const addBulk = vi.hoisted(() => vi.fn(async () => []));
 
@@ -42,7 +42,7 @@ describe('POST /api/webhooks/alchemy queues each activity with a bounded retry b
 
     const jobs = (addBulk.mock.calls[0] as unknown as [Array<{ opts: { attempts: number; backoff: unknown; jobId: string } }>])[0];
     expect(jobs).toHaveLength(1);
-    expect(jobs[0]!.opts).toMatchObject({ attempts: 5, backoff: { type: 'exponential', delay: 2_000 } });
+    expect(jobs[0]!.opts).toMatchObject({ attempts: 8, backoff: { type: 'exponential', delay: 5_000 } });
     expect(jobs[0]!.opts.jobId).toMatch(/^tx-0x(ab){32}-[0-9a-f]{16}$/);
   });
 });

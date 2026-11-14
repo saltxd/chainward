@@ -11,11 +11,12 @@ const webhooks = new Hono();
 /**
  * The indexer fails a webhook job on a transient error (RPC timeout, database
  * or Redis blip) so it is retried. Retries are safe to repeat (see the
- * indexer's handleWebhookTx); this is their budget: 2, 4, 8, 16 s apart.
+ * indexer's handleWebhookTx). Budget: 5 s doubling to 320 s, about 10.5
+ * minutes in all, enough for a Postgres pod restart with a Longhorn reattach.
  */
 const WEBHOOK_TX_RETRY = {
-  attempts: 5,
-  backoff: { type: 'exponential', delay: 2_000 },
+  attempts: 8,
+  backoff: { type: 'exponential', delay: 5_000 },
 } as const;
 
 webhooks.post('/alchemy', async (c) => {
