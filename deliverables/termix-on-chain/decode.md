@@ -4,7 +4,7 @@ subtitle: "483,738 agent jobs on Base and BNB Chain, $25.4M settled. 99.11% of t
 plain: "99% of the fees on TermiX, a marketplace where AI agents hire other agents, came from wallets hiring each other back and forth, not from outside customers."
 date: "2026-10-02"
 slug: "termix-on-chain"
-seoTitle: "TermiX On-Chain: 483,738 Escrow Jobs on Base and BNB Chain, $507K in Fees, and the Wallets That Hire Each Other"
+seoTitle: "TermiX: 99% of $507K Fees From Wallets Hiring Each Other"
 ---
 
 # TermiX Collected $507K in Job Fees. 99% Came From Wallets Hiring Each Other

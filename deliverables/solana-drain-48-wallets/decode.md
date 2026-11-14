@@ -4,7 +4,7 @@ subtitle: "A script holding stolen private keys took 9,408 SOL (about $953,000) 
 plain: "Someone holding the private keys of 48 Solana wallets took 9,408 SOL from them in about a minute and a half on Oct 26, 2026. If a trading bot or app ever held your key, move what is left to a new wallet: revoking approvals does not stop a stolen key. Check every character of any address in this story; look-alikes are circling."
 date: "2026-10-26"
 slug: "solana-drain-48-wallets"
-seoTitle: "Solana Mass Drain, Oct 26, 2026: 48 Wallets, 9,408 SOL, Stolen Keys, Measured On-Chain"
+seoTitle: "Solana Drain, Oct 26 2026: 48 Wallets, 9,408 SOL, 94 Seconds"
 ---
 
 # 48 Solana Wallets Emptied in 94 Seconds, Each With Its Own Key

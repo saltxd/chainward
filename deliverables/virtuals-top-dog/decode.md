@@ -4,7 +4,7 @@ subtitle: "VIRTUAL is still the #2 AI-agent token. On-chain, the agent-to-agent 
 plain: "Virtuals' big agent numbers mostly happened in one month. The fee its platform earned from agent jobs was $345,197 in March 2026 and $5.48 in September."
 date: "2026-09-30"
 slug: "virtuals-top-dog"
-seoTitle: "Virtuals Protocol On-Chain in 2026: ACP Fees, Revenue Network Payouts and Launchpad Activity"
+seoTitle: "Virtuals ACP Fees: $345,197 in March, $5.48 in September"
 ---
 
 # Virtuals' Agent Commerce Earned $345,197 in March. In September: $5.48

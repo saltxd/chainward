@@ -4,7 +4,7 @@ subtitle: "We checked all 677,593 of AX1 Console's x402 payments. About half wer
 plain: "AX1 Console has taken 677,593 paid agent runs on Base since Sep 7. About half (46% to 61%) were paid with USDC that AX1's own wallets had handed out as contest prizes and starter credit, both of which AX1 advertises. Those runs bring AX1 no new money. Before you trust an x402 ranking, ask whose money paid."
 date: "2026-10-30"
 slug: "ax1-console-x402-demand"
-seoTitle: "AX1 Console x402 Demand On-Chain: Who Paid for 677,593 Agent Runs on Base (Prizes, Starter Credit, Oct 2026)"
+seoTitle: "AX1 Console x402: About Half the Runs Paid With AX1's USDC"
 ---
 
 # About Half of AX1 Console's Agent Runs Were Paid With AX1's Own USDC

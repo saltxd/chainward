@@ -6,7 +6,7 @@ plainHref: "/x402/watch?ref=decode-x402-check"
 plainCta: "Sell over x402? Get a free first check of your endpoints →"
 date: "2026-10-28"
 slug: "x402-standard-buyer-check"
-seoTitle: "Why x402 Payments Fail: Six 402 Mistakes That Break a Standard @x402/fetch Buyer (1,391 Endpoints Tested, Oct 2026)"
+seoTitle: "Why x402 Payments Fail: Six 402 Mistakes, 1,391 Tested"
 ---
 
 # Six Ways a 402 Breaks a Standard x402 Buyer

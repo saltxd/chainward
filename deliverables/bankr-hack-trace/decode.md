@@ -4,7 +4,7 @@ subtitle: "Two AI-mediated drains in 15 days, same root cause, no smart contract
 plain: "In May an attacker got into 14 Bankr user wallets, using the same trick that drained a Bankr wallet tied to Grok two weeks earlier. We followed the money on-chain."
 date: "2026-05-21"
 slug: "bankr-hack-trace"
-seoTitle: "Bankr Hack Explained: How 14 Wallets Were Drained, Traced On-Chain"
+seoTitle: "Bankr Hack Explained: 14 Wallets Drained, Traced On-Chain"
 ---
 
 # Bankr's 14-Wallet Hack: Decoded On-Chain

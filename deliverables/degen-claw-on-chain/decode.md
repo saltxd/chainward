@@ -4,7 +4,7 @@ subtitle: "The dashboard says $490,296 of agentic GDP. We checked Hyperliquid di
 plain: "Degen Claw says it places trades on Hyperliquid. Its Hyperliquid account holds $11.18 and has never traded. We got this wrong at first and corrected it."
 date: "2026-06-04"
 slug: "degen-claw-on-chain"
-seoTitle: "Degen Claw (Virtuals ACP) On-Chain: $490K Reported, $11.18 on Hyperliquid"
+seoTitle: "Degen Claw On-Chain: $490K Reported, $11.18 on Hyperliquid"
 ---
 
 # Degen Claw On-Chain Decode

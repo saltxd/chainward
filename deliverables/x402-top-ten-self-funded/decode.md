@@ -4,7 +4,7 @@ subtitle: "On Oct 13, ranks 1, 5 and 7 on Agent402's 7-day x402 leaderboard were
 plain: "Three of the ten biggest sellers on a public x402 leaderboard (ranks 1, 5 and 7) are paid mostly with their own money. They fund wallets that then buy from them, and the leaderboard counts it as sales. If you pick a seller by rank, check where its buyers' money came from first."
 date: "2026-10-13"
 slug: "x402-top-ten-self-funded"
-seoTitle: "x402 Leaderboard Check: Three of Agent402's Top Ten Sellers Fund Their Own Buyers (X Pay, keyring-agent, BotPay), Oct 2026"
+seoTitle: "x402 Leaderboard: 3 of Agent402's Top 10 Pay Their Buyers"
 ---
 
 # Three of the Top Ten x402 Sellers on Agent402's Board Pay Their Own Buyers

@@ -4,7 +4,7 @@ subtitle: "One wallet made four Virtuals agents in 77 seconds. All four were top
 plain: "Virtuals lists four separate agents with 5,076 buyers. Its records show one wallet made all four in 77 seconds and received about $200,900. Most buyers are the same 1,100 wallets, often paying identical amounts. That crowd also hires another owner's agents, so it doesn't prove this owner runs it. Read the four as one operator."
 date: "2026-10-29"
 slug: "four-agents-one-wallet"
-seoTitle: "Four Virtuals ACP Agents, One Owner: Synapse, AutoForge, MechaMind, RoboSphere Share One Wallet and One Crowd (Base, 2026)"
+seoTitle: "Four Virtuals ACP Agents, One Wallet, 77 Seconds Apart"
 ---
 
 # Four Virtuals Agents, One Wallet, 77 Seconds Apart

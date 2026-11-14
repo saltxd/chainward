@@ -4,7 +4,7 @@ subtitle: "Base x402 volume is up 22x since Oct 19. We ran DefiLlama's query aga
 plain: "The headline number for AI agent payments jumped 22 times in October. We checked the blockchain: almost all of it is one company's own wallets paying each other. That company published a warning that its totals are not real demand, archived a day and a half before the jump. The charts quoting the number carry none of it."
 date: "2026-10-31"
 slug: "x402-one-platforms-own-volume"
-seoTitle: "x402 Volume on Base, October 2026: 95% of DefiLlama's Surge Is One Facilitator's Own Settlement, Disclosed Before It Happened"
+seoTitle: "x402 Volume on Base Up 22x: 95% Is One Facilitator"
 ---
 
 # The x402 Growth Curve Is One Platform's Own Volume
