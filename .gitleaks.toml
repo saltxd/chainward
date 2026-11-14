@@ -1,12 +1,33 @@
+# ChainWard gitleaks config. Read by the CI "Secret scan" job (gitleaks-action)
+# and by a local `gitleaks detect`.
+#
+# A config file replaces gitleaks' built-in rules unless it extends them. This
+# file used to hold only an allowlist, which left the scan with no rules at all:
+# it passed any key. `useDefault` keeps the full built-in rule set, and the
+# allowlist below only names what is public by construction.
+title = "ChainWard gitleaks config"
+
+[extend]
+useDefault = true
+
 [allowlist]
-description = "ChainWard gitleaks allowlist"
+description = "Build output, and values that are public by construction"
 paths = [
   '''\.next/''',
   '''node_modules/''',
   '''dist/''',
 ]
-
-[[allowlist.rules]]
-description = "Public on-chain contract addresses are not secrets"
-id = "generic-api-key"
-paths = ['''packages/common/src/constants/contracts\.ts''']
+# Matched against the detected secret. Do not widen this to any 32-byte hex:
+# that is the shape of a private key.
+regexTarget = "secret"
+regexes = [
+  # An EVM address (contract or wallet) is public on-chain, never a credential.
+  '''^0x[0-9a-fA-F]{40}$''',
+  # Event topics (keccak of a public event signature), by exact value.
+  '''^0x9299d1d1a88d8e1abdc591ae7a167a6bc63a8f17d695804e9091ee33aa89fb67$''',
+  '''^0x2ac6109326e720d1435c0db66f7e35eda7839f52b6f1f5520a60788e132b4e39$''',
+  # The API key placeholder in the docs and READMEs.
+  '''^ag_(YOUR_KEY|your_key)$''',
+  # The fake Alchemy key in the chain-facts tests.
+  '''^sekrit-''',
+]
