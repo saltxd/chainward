@@ -6,7 +6,15 @@ import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { PressShell, Masthead, PressDateline, Colophon, BriefOffer, FreeTools } from '@/components/press';
-import { getAllDecodes, getDecodeBySlug, plainCallout } from '@/lib/decodes';
+import {
+  DECODES_FEED_TYPES,
+  articleJsonLd,
+  getAllDecodes,
+  getDecodeBySlug,
+  jsonLdScript,
+  plainCallout,
+  searchDescription,
+} from '@/lib/decodes';
 
 // Some scrapers (notably X/Twitter) reliably fetch static OG assets but
 // silently fail on the @vercel/og dynamic Edge route. If a decode has a
@@ -37,8 +45,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: meta.seoTitle ?? meta.title,
-    description: meta.subtitle,
-    alternates: { canonical: `https://chainward.ai/decodes/${slug}` },
+    description: searchDescription(meta),
+    alternates: { canonical: `https://chainward.ai/decodes/${slug}`, types: DECODES_FEED_TYPES },
     openGraph: {
       title: meta.title,
       description: meta.subtitle,
@@ -75,9 +83,11 @@ export default async function DecodePage({ params }: PageProps) {
 
   const { meta, content } = decode;
   const plain = plainCallout(meta);
+  const jsonLd = jsonLdScript(articleJsonLd(meta, slug, resolveOgImageUrl(slug)));
 
   return (
     <PressShell>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
       <PressDateline />
       <div className="press-wrap">
         <Masthead />
