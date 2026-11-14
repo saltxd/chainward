@@ -4,7 +4,7 @@ subtitle: "One Base wallet copied about 439,000 payments in a week with look-ali
 plain: "A bot on Base copies about 1 in 9 plain USDC payments within minutes, putting an address that starts and ends like the real one into both wallets' histories. Before you pay, refund or pay out, get the address from the payee or your own records, never from your history, and paste it here before you send."
 date: "2026-10-22"
 slug: "address-poisoning-base"
-seoTitle: "Address Poisoning on Base, Measured: Look-Alike Addresses and Imitation USDC in Your Wallet History (Oct 2026)"
+seoTitle: "Address Poisoning on Base: ~439k Payments Copied in a Week"
 ---
 
 # A Look-Alike of Our Wallet Showed Up 104 Seconds After We Got Paid

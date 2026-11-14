@@ -4,7 +4,7 @@ subtitle: "An EIP-7702 delegation installed 3 minutes 24 seconds before the swee
 plain: "Binance's hot wallet was not just emptied. Its key had signed control of the wallet over to the attacker's contract, so anything landing in it could be taken without Binance signing again. That stayed true for 3 hours and 50 minutes, until Binance closed it at 00:10:35 UTC. We checked the Ethereum side only."
 date: "2026-10-30"
 slug: "binance-7702-delegation"
-seoTitle: "Binance Hot Wallet Incident, 29 Oct 2026: the EIP-7702 Delegation, Its 3h49m Window, the 50 Pre-Signed Authorizations and the $2.2B Ethereum Freeze"
+seoTitle: "Binance Hot Wallet, Oct 29: Signed Over via EIP-7702, 3h49m"
 ---
 
 # Binance's Hot Wallet Was Signed Over to the Attacker for 3 Hours, 49 Minutes and 36 Seconds

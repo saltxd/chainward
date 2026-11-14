@@ -4,7 +4,7 @@ subtitle: "Trackers showed $10.3M of liquidity and $55.7M of volume. The real US
 plain: "If you are about to buy a token because its chart shows millions in volume, read this first. On this Base token, one wallet was the trader on 99.99% of the volume, the real cashable USDC was about $220k and it belonged to the operator, and it was withdrawn on Nov 1. Outside buyers put in about $850."
 date: "2026-11-01"
 slug: "anthropic-token-220k-pool"
-seoTitle: "Anthropic Token on Base, Nov 1 2026: $10.3M Quoted Liquidity, $220k Real, 99.99% Wash Volume, Pulled On-Chain"
+seoTitle: "Anthropic Token on Base: $55.7M Volume, 99.99% One Wallet"
 ---
 
 # A Token Named "Anthropic" Showed $55.7M of Volume. One Wallet Was Behind 99.99% of It.

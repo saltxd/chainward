@@ -6,7 +6,7 @@ plainHref: "/set-and-earn"
 plainCta: "Look up a Set and Earn agent: real customers or its own circle →"
 date: "2026-10-06"
 slug: "bsc-erc8004-registry"
-seoTitle: "Where BNB Chain's New ERC-8004 Agents Come From: EvoEvo, Quack Q402 and an Ave.ai-Branded Template Card"
+seoTitle: "BNB Chain ERC-8004 Registry: 69% From Three Programs"
 ---
 
 # BNB Chain's ERC-8004 Registry Count Says Little About Set and Earn

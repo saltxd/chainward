@@ -4,7 +4,7 @@ subtitle: "All 608 carry nonce 0 at block 26,316,390. Nothing is derived from th
 plain: "The FBI published 628 addresses holding money stolen from Binance and asked node operators to block anything derived from them. We checked all 628. The Ethereum wallets have never sent anything, so nothing is derived from them yet. Blocking the list as written is cheap. The hard part starts the day one of them moves."
 date: "2026-11-01"
 slug: "fbi-608-wallets-that-never-spent"
-seoTitle: "FBI TraderTraitor Binance Address List, 31 Oct 2026: All 608 Ethereum Wallets Have Nonce 0, What 'Derived From' Actually Reaches, and the 18,270 BTC Leg"
+seoTitle: "FBI Binance Address List: None of 608 ETH Wallets Has Spent"
 ---
 
 # The FBI Listed 628 Addresses. Not One of the 608 Ethereum Wallets Has Ever Spent.

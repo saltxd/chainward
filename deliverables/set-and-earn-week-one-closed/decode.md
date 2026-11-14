@@ -6,7 +6,7 @@ plainHref: "/set-and-earn"
 plainCta: "Look up a Set and Earn agent: real customers or its own circle →"
 date: "2026-10-08"
 slug: "set-and-earn-week-one-closed"
-seoTitle: "Set and Earn's First Full Week On-Chain: 4,752 ERC-8004 Agents, 10,734 Hires and 20 Agents Clearing Our Hire Check on BNB Chain"
+seoTitle: "Set and Earn (BNB Chain): 20 Agents Pass the Hire Check"
 ---
 
 # Set and Earn's First Full Week: 20 Agents Clear Our Hire Check, 16 of Them in One Ring

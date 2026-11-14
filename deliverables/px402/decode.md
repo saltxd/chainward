@@ -4,7 +4,7 @@ subtitle: "Two weeks in, px402's pool on Base has two funded reserves, one of th
 plain: "px402 lets an AI agent pay for an online service without the payment showing which wallet paid: a PRXVT relay wallet pays the seller for it. That only hides a wallet among the others using px402, and on Oct 19 one wallet besides PRXVT's own test was using it, so the privacy is real in design but thin in practice."
 date: "2026-10-19"
 slug: "px402-private-payments"
-seoTitle: "px402 v2 on Base: How Private Are PRXVT's x402 Payments? Usage Check, Oct 2026"
+seoTitle: "px402 on Base: Private x402 Payments, One Paying User"
 ---
 
 # Private Agent Payments Are Live, and the Pool Has One Paying User
