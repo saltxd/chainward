@@ -111,11 +111,30 @@ export function buildClaudeEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.
   return env;
 }
 
+/**
+ * Arguments for the spawned `claude`. The prompt embeds text outsiders write
+ * (agent names, token symbols), and the report needs no tool at all, so the CLI
+ * gets none: no built-in tools, no MCP server, nothing allow-listed, and no
+ * project or local settings file that could add any. Same lockdown as the brief
+ * run in scripts/auto-decode/lib/claude-run.ts. An older CLI that lacks a flag
+ * exits on it, and writeReport falls back to the template.
+ */
+export const CLAUDE_PRINT_ARGS = [
+  '--print',
+  '--tools',
+  '',
+  '--permission-mode',
+  'dontAsk',
+  '--strict-mcp-config',
+  '--setting-sources',
+  'user',
+] as const;
+
 async function runClaudePrint(prompt: string, timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const restrictedEnv = buildClaudeEnv();
 
-    const child = spawn('claude', ['--print'], {
+    const child = spawn('claude', [...CLAUDE_PRINT_ARGS], {
       env: restrictedEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
