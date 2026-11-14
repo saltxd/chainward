@@ -1,11 +1,10 @@
-import { formatEther, formatUnits, type TransactionReceipt } from 'viem';
+import { formatEther, formatUnits } from 'viem';
 import { getBaseClient } from '../lib/viem.js';
 import { resolveToken } from './tokenResolver.js';
 import { resolveProtocol } from './protocolResolver.js';
 import { getEthPrice, getTokenUsdPrice } from './priceResolver.js';
 import { decodeMethod, classifyTxType } from './decoder.js';
 import { resolveAgentByAddress } from './agentResolver.js';
-import { logger } from '../lib/logger.js';
 
 export interface ProcessedTransaction {
   timestamp: Date;
@@ -63,20 +62,12 @@ export async function processWebhookTx(
   const client = getBaseClient();
   const results: ProcessedTransaction[] = [];
 
-  let receipt: TransactionReceipt | null = null;
-  let tx: Awaited<ReturnType<typeof client.getTransaction>> | null = null;
-
-  try {
-    [receipt, tx] = await Promise.all([
-      client.getTransactionReceipt({ hash: data.txHash as `0x${string}` }),
-      client.getTransaction({ hash: data.txHash as `0x${string}` }),
-    ]);
-  } catch (err) {
-    logger.warn({ err, txHash: data.txHash }, 'Failed to fetch tx receipt/details');
-    return results;
-  }
-
-  if (!receipt || !tx) return results;
+  // A failed fetch (RPC timeout, a node a block behind the webhook) throws to
+  // the worker, so BullMQ retries the job instead of completing it unstored.
+  const [receipt, tx] = await Promise.all([
+    client.getTransactionReceipt({ hash: data.txHash as `0x${string}` }),
+    client.getTransaction({ hash: data.txHash as `0x${string}` }),
+  ]);
 
   // Four independent lookups: block (for timestamp), method decode, ETH price,
   // and protocol resolution. None depend on each other so they can fan out.

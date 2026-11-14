@@ -8,6 +8,17 @@ import type { NormalizedActivity } from '@chainward/common';
 
 const webhooks = new Hono();
 
+/**
+ * The indexer fails a webhook job on a transient error (RPC timeout, database
+ * or Redis blip) so it is retried. Retries are safe to repeat (see the
+ * indexer's handleWebhookTx). Budget: 5 s doubling to 320 s, about 10.5
+ * minutes in all, enough for a Postgres pod restart with a Longhorn reattach.
+ */
+const WEBHOOK_TX_RETRY = {
+  attempts: 8,
+  backoff: { type: 'exponential', delay: 5_000 },
+} as const;
+
 webhooks.post('/alchemy', async (c) => {
   const provider = getWebhookProvider();
 
@@ -44,8 +55,7 @@ webhooks.post('/alchemy', async (c) => {
       },
       opts: {
         jobId: buildWebhookActivityJobId(activity, index),
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
+        ...WEBHOOK_TX_RETRY,
       },
     })),
   );

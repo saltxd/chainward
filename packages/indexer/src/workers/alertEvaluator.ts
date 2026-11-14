@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Worker, type Job } from 'bullmq';
 import { createQueue } from '../lib/queue.js';
 import { eq, and, desc, sql, gt, lt, or } from 'drizzle-orm';
@@ -91,11 +92,32 @@ export async function setupAlertSchedule(redis: import('ioredis').default) {
   await queue.close();
 }
 
+/** A payload no retry can fix: dropped with a log line instead of failing the job. */
+function isWellFormedTxAlert(data: TxAlertJobData): boolean {
+  return (
+    typeof data.walletAddress === 'string' &&
+    typeof data.chain === 'string' &&
+    typeof data.txHash === 'string' &&
+    data.txHash.length > 0 &&
+    !Number.isNaN(Date.parse(data.timestamp))
+  );
+}
+
 /**
  * Transaction-triggered alert evaluation.
  * Handles: large_transfer, gas_spike, failed_tx, new_contract
+ *
+ * A config that fails to evaluate fails the job after the others are done, so
+ * BullMQ retries it. A rerun is safe: an alert already claimed for this
+ * transaction is never claimed again, only its delivery is queued if it never
+ * was (see evaluateTxAlert).
  */
-async function evaluateTxAlerts(data: TxAlertJobData) {
+export async function evaluateTxAlerts(data: TxAlertJobData) {
+  if (!isWellFormedTxAlert(data)) {
+    logger.error({ jobData: data }, 'Invalid tx alert job data, dropping');
+    return;
+  }
+
   const db = getDb();
 
   // Load active alert configs for this wallet
@@ -115,55 +137,108 @@ async function evaluateTxAlerts(data: TxAlertJobData) {
   const txAlertTypes = ['large_transfer', 'gas_spike', 'failed_tx', 'new_contract'];
   const relevantConfigs = configs.filter((c) => txAlertTypes.includes(c.alertType));
 
+  const failures: unknown[] = [];
   for (const config of relevantConfigs) {
     try {
-      // Check cooldown
-      if (config.lastTriggered) {
-        const cooldownMs = parseCooldown(config.cooldown);
-        const elapsed = Date.now() - new Date(config.lastTriggered).getTime();
-        if (elapsed < cooldownMs) {
-          logger.debug(
-            { alertId: config.id, alertType: config.alertType },
-            'Alert in cooldown, skipping',
-          );
-          continue;
-        }
-      }
-
-      const result = await evaluateCondition(config, data);
-
-      if (result.triggered) {
-        // Deduplicate: skip if this exact (alertConfig, txHash) already fired
-        if (result.triggerTxHash) {
-          const existing = await db
-            .select({ alertConfigId: alertEvents.alertConfigId })
-            .from(alertEvents)
-            .where(
-              and(
-                eq(alertEvents.alertConfigId, config.id),
-                eq(alertEvents.triggerTxHash, result.triggerTxHash),
-              ),
-            )
-            .limit(1);
-
-          if (existing.length > 0) {
-            logger.debug(
-              { txHash: result.triggerTxHash, alertId: config.id },
-              'Duplicate alert prevented — already fired for this tx',
-            );
-            continue;
-          }
-        }
-
-        await fireAlert(config, result);
-      }
+      await evaluateTxAlert(config, data);
     } catch (err) {
+      failures.push(err);
       logger.error(
         { err, alertId: config.id, alertType: config.alertType },
         'Error evaluating alert condition',
       );
     }
   }
+
+  if (failures.length > 0) throw failures[0];
+}
+
+async function evaluateTxAlert(config: typeof alertConfigs.$inferSelect, data: TxAlertJobData) {
+  // Every tx alert type fires on data.txHash, and fires at most once per
+  // transaction. Checked before the cooldown: an alert claimed by an attempt
+  // that failed before queueing its delivery has set last_triggered itself.
+  const fired = await firedEvent(config.id, data.txHash);
+  if (fired) {
+    if (isAwaitingDelivery(fired)) {
+      await queueDelivery(config, {
+        severity: fired.severity,
+        title: fired.title,
+        description: fired.description,
+        triggerValue: fired.triggerValue === null ? null : Number(fired.triggerValue),
+        triggerTxHash: fired.triggerTxHash,
+        eventTimestamp: fired.timestamp.toISOString(),
+      });
+      logger.info(
+        { alertId: config.id, txHash: data.txHash },
+        'Queued delivery of an alert claimed by an earlier attempt',
+      );
+      return;
+    }
+    logger.debug(
+      { txHash: data.txHash, alertId: config.id },
+      'Duplicate alert prevented — already fired for this tx',
+    );
+    return;
+  }
+
+  // Check cooldown
+  if (config.lastTriggered) {
+    const cooldownMs = parseCooldown(config.cooldown);
+    const elapsed = Date.now() - new Date(config.lastTriggered).getTime();
+    if (elapsed < cooldownMs) {
+      logger.debug(
+        { alertId: config.id, alertType: config.alertType },
+        'Alert in cooldown, skipping',
+      );
+      return;
+    }
+  }
+
+  const result = await evaluateCondition(config, data);
+  if (result.triggered) await fireAlert(config, result);
+}
+
+/** The alert this config already fired for this transaction, if any. */
+async function firedEvent(alertConfigId: number, txHash: string) {
+  const [event] = await getDb()
+    .select({
+      timestamp: alertEvents.timestamp,
+      severity: alertEvents.severity,
+      title: alertEvents.title,
+      description: alertEvents.description,
+      triggerValue: alertEvents.triggerValue,
+      triggerTxHash: alertEvents.triggerTxHash,
+      delivered: alertEvents.delivered,
+      deliveryChannel: alertEvents.deliveryChannel,
+      deliveryError: alertEvents.deliveryError,
+    })
+    .from(alertEvents)
+    .where(and(eq(alertEvents.alertConfigId, alertConfigId), eq(alertEvents.triggerTxHash, txHash)))
+    .limit(1);
+  return event;
+}
+
+/**
+ * How long after its claim an alert's delivery may still be queued again.
+ * Longer than the alert-evaluate retry budget (about 5 minutes), short enough
+ * that an old alert is never re-sent: past this, a row with no outcome more
+ * likely lost its outcome write than its delivery.
+ */
+const REQUEUE_WINDOW_MS = 15 * 60_000;
+
+/**
+ * The delivery worker writes an outcome on every attempt (channels sent,
+ * errors, or "no destination configured"). A recent row with no outcome was
+ * claimed but nothing was tried: its delivery is still queued (re-adding it
+ * under its job id is a no-op) or was never queued because the attempt that
+ * claimed it failed first.
+ */
+function isAwaitingDelivery(
+  event: { timestamp: Date; delivered: boolean; deliveryChannel: string | null; deliveryError: string | null },
+  now = Date.now(),
+): boolean {
+  const noOutcome = !event.delivered && event.deliveryChannel === null && event.deliveryError === null;
+  return noOutcome && now - event.timestamp.getTime() < REQUEUE_WINDOW_MS;
 }
 
 /**
@@ -531,13 +606,37 @@ async function evaluateIdleBalance(
   };
 }
 
+/** Retries for one alert delivery: 30 s, 1 min, 2 min apart. */
+const DELIVERY_JOB_OPTIONS = {
+  attempts: 4,
+  backoff: { type: 'exponential', delay: 30_000 },
+} as const;
+
+/**
+ * One delivery job per alert event, so queueing the same alert twice adds
+ * nothing while BullMQ still holds the first job. The trigger tx is part of
+ * the id: with a zero cooldown, two transactions can be claimed for one config
+ * in the same millisecond, and they must not share a job.
+ */
+export function deliveryJobId(alertConfigId: number, eventTimestamp: string, triggerTxHash: string | null): string {
+  const tx = triggerTxHash ? createHash('sha1').update(triggerTxHash).digest('hex').slice(0, 12) : 'none';
+  return `deliver-${alertConfigId}-${new Date(eventTimestamp).getTime()}-${tx}`;
+}
+
+interface ClaimedAlert {
+  severity: string;
+  title: string;
+  description: string | null;
+  triggerValue: number | null;
+  triggerTxHash: string | null;
+  eventTimestamp: string;
+}
+
 /** Fire an alert: create event record and push to delivery queue */
 async function fireAlert(
   config: typeof alertConfigs.$inferSelect,
   result: AlertTriggerResult,
 ) {
-  const db = getDb();
-  const redis = getRedis();
   const claimed = await claimAlertEvent(config, result);
   if (!claimed) {
     logger.debug(
@@ -551,46 +650,7 @@ async function fireAlert(
     return;
   }
 
-  // Get agent name for the delivery payload
-  const agents = await db
-    .select({ agentName: agentRegistry.agentName })
-    .from(agentRegistry)
-    .where(
-      and(
-        eq(agentRegistry.walletAddress, config.walletAddress),
-        eq(agentRegistry.chain, config.chain),
-      ),
-    )
-    .limit(1);
-
-  // Push to alert-deliver queue
-  const deliverQueue = createQueue('alert-deliver', redis);
-  await deliverQueue.add('deliver', {
-    alertConfigId: config.id,
-    alertType: config.alertType,
-    severity: result.severity,
-    title: result.title,
-    description: result.description,
-    triggerValue: result.triggerValue,
-    triggerTxHash: result.triggerTxHash,
-    triggerUnit: triggerUnit(config.alertType),
-    triggerThreshold: triggerThreshold(config),
-    eventTimestamp: claimed.eventTimestamp,
-    agent: {
-      name: agents[0]?.agentName ?? null,
-      wallet: config.walletAddress,
-      chain: config.chain,
-    },
-    channels: config.channels,
-    webhookUrl: config.webhookUrl,
-    telegramChatId: config.telegramChatId,
-    discordWebhook: config.discordWebhook,
-    timestamp: claimed.eventTimestamp,
-  }, {
-    attempts: 4,
-    backoff: { type: 'exponential', delay: 30_000 },
-  });
-  await deliverQueue.close();
+  await queueDelivery(config, { ...result, eventTimestamp: claimed.eventTimestamp });
 
   logger.info(
     {
@@ -602,6 +662,52 @@ async function fireAlert(
     },
     'Alert fired',
   );
+}
+
+/** Push a claimed alert to the delivery queue, one job per alert event. */
+async function queueDelivery(config: typeof alertConfigs.$inferSelect, alert: ClaimedAlert) {
+  // Get agent name for the delivery payload
+  const agents = await getDb()
+    .select({ agentName: agentRegistry.agentName })
+    .from(agentRegistry)
+    .where(
+      and(
+        eq(agentRegistry.walletAddress, config.walletAddress),
+        eq(agentRegistry.chain, config.chain),
+      ),
+    )
+    .limit(1);
+
+  const deliverQueue = createQueue('alert-deliver', getRedis());
+  try {
+    await deliverQueue.add('deliver', {
+      alertConfigId: config.id,
+      alertType: config.alertType,
+      severity: alert.severity,
+      title: alert.title,
+      description: alert.description,
+      triggerValue: alert.triggerValue,
+      triggerTxHash: alert.triggerTxHash,
+      triggerUnit: triggerUnit(config.alertType),
+      triggerThreshold: triggerThreshold(config),
+      eventTimestamp: alert.eventTimestamp,
+      agent: {
+        name: agents[0]?.agentName ?? null,
+        wallet: config.walletAddress,
+        chain: config.chain,
+      },
+      channels: config.channels,
+      webhookUrl: config.webhookUrl,
+      telegramChatId: config.telegramChatId,
+      discordWebhook: config.discordWebhook,
+      timestamp: alert.eventTimestamp,
+    }, {
+      jobId: deliveryJobId(config.id, alert.eventTimestamp, alert.triggerTxHash),
+      ...DELIVERY_JOB_OPTIONS,
+    });
+  } finally {
+    await deliverQueue.close();
+  }
 }
 
 async function claimAlertEvent(
