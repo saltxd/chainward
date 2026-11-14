@@ -29,6 +29,17 @@ export class BlockedDestinationError extends Error {
   }
 }
 
+/** The destination answered with a non-2xx status. */
+export class DeliveryHttpError extends Error {
+  constructor(
+    readonly status: number,
+    statusText: string,
+  ) {
+    super(`HTTP ${status}: ${statusText}`);
+    this.name = 'DeliveryHttpError';
+  }
+}
+
 const BLOCKED_ADDRESSES = new BlockList();
 
 // IPv4. net.BlockList also matches the IPv4-mapped IPv6 forms of these
@@ -171,7 +182,7 @@ export async function deliveryFetch(url: string, request: DeliveryRequest): Prom
   await response.body?.cancel().catch(() => undefined);
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    throw new DeliveryHttpError(response.status, response.statusText);
   }
 }
 

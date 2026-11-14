@@ -7,6 +7,7 @@ import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import {
   BlockedDestinationError,
+  DeliveryHttpError,
   deliveryFetch,
   describeUrlForLog,
   validateDeliveryUrl,
@@ -14,7 +15,7 @@ import {
 } from '../lib/deliveryGuard.js';
 import { buildWebhookPayload, withConfigTrigger, type TriggerUnit } from '../lib/alertTrigger.js';
 
-interface DeliveryJobData {
+export interface DeliveryJobData {
   alertConfigId: number;
   alertType: string;
   severity: string;
@@ -36,7 +37,17 @@ interface DeliveryJobData {
   telegramChatId: string | null;
   discordWebhook: string | null;
   timestamp: string;
+  /**
+   * Written by earlier attempts of this job, so a retry sends only what is
+   * still owed: channels that received the alert, and channels that refused it
+   * for good (channel -> error), are never tried again.
+   */
+  sentChannels?: string[];
+  refusedChannels?: Record<string, string>;
 }
+
+/** The part of a BullMQ job deliverAlert uses. */
+export type DeliveryJob = Pick<Job<DeliveryJobData>, 'data' | 'updateData'>;
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
@@ -55,7 +66,7 @@ export function createAlertDeliveryWorker() {
         await handleRateLimitAlert(job.data as RateLimitJobData);
         return;
       }
-      await deliverAlert(job.data as DeliveryJobData);
+      await deliverAlert(job as Job<DeliveryJobData>);
     },
     {
       connection: getRedis(),
@@ -148,52 +159,48 @@ async function handleRateLimitAlert(data: RateLimitJobData) {
   }
 }
 
-async function deliverAlert(data: DeliveryJobData) {
-  const db = getDb();
-  const channels = data.channels;
-  const errors: string[] = [];
-  const deliveredChannels: string[] = [];
+type ChannelOutcome =
+  | { kind: 'sent' }
+  | { kind: 'skipped' }
+  | { kind: 'refused'; error: string }
+  | { kind: 'failed'; error: string };
 
-  for (const channel of channels) {
-    try {
-      switch (channel) {
-        case 'webhook':
-          if (data.webhookUrl) {
-            await deliverWebhook(data, data.webhookUrl);
-            deliveredChannels.push('webhook');
-          }
-          break;
-        case 'telegram':
-          if (data.telegramChatId) {
-            await deliverTelegram(data, data.telegramChatId);
-            deliveredChannels.push('telegram');
-          }
-          break;
-        case 'discord':
-          if (data.discordWebhook) {
-            await deliverDiscord(data, data.discordWebhook);
-            deliveredChannels.push('discord');
-          }
-          break;
-        default:
-          logger.warn({ channel }, 'Unknown delivery channel');
-      }
-    } catch (err) {
-      errors.push(`${channel}: ${errorMessage(err)}`);
-      logger.error({ err, channel, alertConfigId: data.alertConfigId }, 'Delivery failed for channel');
+/**
+ * Deliver one alert to every channel still owed. A channel that fails in a way
+ * that can pass (network, timeout, 429, 5xx) fails the job so BullMQ retries
+ * it; the retry skips every channel this job already settled, so no channel
+ * gets the alert twice.
+ */
+export async function deliverAlert(job: DeliveryJob) {
+  const data = job.data;
+  const sent = [...(data.sentChannels ?? [])];
+  const refused = { ...(data.refusedChannels ?? {}) };
+  const failed: string[] = [];
+
+  for (const channel of data.channels) {
+    if (sent.includes(channel) || channel in refused) continue;
+
+    const outcome = await deliverToChannel(data, channel);
+    if (outcome.kind === 'skipped') continue;
+    if (outcome.kind === 'failed') {
+      failed.push(outcome.error);
+      continue;
     }
+    if (outcome.kind === 'sent') sent.push(channel);
+    else refused[channel] = outcome.error;
+    // Saved before the next channel: a retry, or a stalled job picked up again,
+    // must know this channel is settled.
+    await job.updateData({ ...job.data, sentChannels: [...sent], refusedChannels: { ...refused } });
   }
 
   // Update the exact alert event row that was queued for delivery.
-  const delivered = deliveredChannels.length > 0;
-  const deliveryError = errors.length > 0 ? errors.join('; ') : null;
-
-  await db
+  const errors = [...Object.values(refused), ...failed];
+  await getDb()
     .update(alertEvents)
     .set({
-      delivered,
-      deliveryChannel: deliveredChannels.join(',') || null,
-      deliveryError,
+      delivered: sent.length > 0,
+      deliveryChannel: sent.join(',') || null,
+      deliveryError: errors.length > 0 ? errors.join('; ') : null,
     })
     .where(
       and(
@@ -206,15 +213,44 @@ async function deliverAlert(data: DeliveryJobData) {
     {
       alertConfigId: data.alertConfigId,
       eventTimestamp: data.eventTimestamp,
-      delivered: deliveredChannels,
+      delivered: sent,
       errors: errors.length > 0 ? errors : undefined,
     },
     'Alert delivery complete',
   );
 
-  // If ALL channels failed, throw so BullMQ retries the job
-  if (deliveredChannels.length === 0 && errors.length > 0) {
-    throw new Error(`All delivery channels failed: ${errors.join('; ')}`);
+  if (failed.length > 0) {
+    throw new Error(`Delivery failed, will retry: ${failed.join('; ')}`);
+  }
+}
+
+async function deliverToChannel(data: DeliveryJobData, channel: string): Promise<ChannelOutcome> {
+  try {
+    switch (channel) {
+      case 'webhook':
+        if (!data.webhookUrl) return { kind: 'skipped' };
+        await deliverWebhook(data, data.webhookUrl);
+        return { kind: 'sent' };
+      case 'telegram':
+        if (!data.telegramChatId) return { kind: 'skipped' };
+        await deliverTelegram(data, data.telegramChatId);
+        return { kind: 'sent' };
+      case 'discord':
+        if (!data.discordWebhook) return { kind: 'skipped' };
+        await deliverDiscord(data, data.discordWebhook);
+        return { kind: 'sent' };
+      default:
+        logger.warn({ channel }, 'Unknown delivery channel');
+        return { kind: 'skipped' };
+    }
+  } catch (err) {
+    const error = `${channel}: ${errorMessage(err)}`;
+    const permanent = isPermanentFailure(err);
+    logger.error(
+      { err, channel, alertConfigId: data.alertConfigId, retry: !permanent },
+      'Delivery failed for channel',
+    );
+    return permanent ? { kind: 'refused', error } : { kind: 'failed', error };
   }
 }
 
@@ -393,6 +429,17 @@ function isBlockedDestination(err: unknown): boolean {
 }
 
 /**
+ * A failure no retry can fix: a destination we refuse to deliver to, or a 4xx
+ * answer (bad or deleted webhook, wrong chat id). 408 and 429 are the 4xx
+ * statuses that mean "try again later".
+ */
+function isPermanentFailure(err: unknown): boolean {
+  if (isBlockedDestination(err)) return true;
+  if (!(err instanceof DeliveryHttpError)) return false;
+  return err.status >= 400 && err.status < 500 && err.status !== 408 && err.status !== 429;
+}
+
+/**
  * Deliver with retry and exponential backoff. Every attempt goes through
  * `deliveryFetch` (URL validation, guarded DNS, no redirects). Logs carry the
  * host only — Telegram and Discord URLs embed their credentials in the path.
@@ -401,7 +448,7 @@ async function retryFetch(url: string, request: DeliveryRequest, attempt = 1): P
   try {
     await deliveryFetch(url, request);
   } catch (err) {
-    if (attempt >= MAX_RETRIES || isBlockedDestination(err)) {
+    if (attempt >= MAX_RETRIES || isPermanentFailure(err)) {
       throw err;
     }
 

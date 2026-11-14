@@ -8,6 +8,16 @@ import type { NormalizedActivity } from '@chainward/common';
 
 const webhooks = new Hono();
 
+/**
+ * The indexer fails a webhook job on a transient error (RPC timeout, database
+ * or Redis blip) so it is retried. Retries are safe to repeat (see the
+ * indexer's handleWebhookTx); this is their budget: 2, 4, 8, 16 s apart.
+ */
+const WEBHOOK_TX_RETRY = {
+  attempts: 5,
+  backoff: { type: 'exponential', delay: 2_000 },
+} as const;
+
 webhooks.post('/alchemy', async (c) => {
   const provider = getWebhookProvider();
 
@@ -44,8 +54,7 @@ webhooks.post('/alchemy', async (c) => {
       },
       opts: {
         jobId: buildWebhookActivityJobId(activity, index),
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
+        ...WEBHOOK_TX_RETRY,
       },
     })),
   );

@@ -17,8 +17,9 @@ export interface AlertJobLeg {
  * each is evaluated on its own amount. The id is built from the leg's content,
  * so a second leg gets its own job instead of being dropped as a duplicate of
  * the first. The same leg always maps to the same id, which BullMQ ignores
- * while it still holds that job; the stored row (insertTransactionIfNew) is
- * what stops a retry from queueing a leg again. The evaluator's claim on
+ * while it still holds that job, so a retried webhook job that queues a leg
+ * again adds nothing. A duplicate webhook on its first run is stopped earlier,
+ * by the stored row (insertTransactionIfNew). The evaluator's claim on
  * (alert config, tx hash) still allows one alert per transaction.
  */
 export function alertJobId(leg: AlertJobLeg): string {

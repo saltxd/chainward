@@ -5,7 +5,7 @@ import { agentRegistry } from '@chainward/db';
 import { getRedis } from '../lib/redis.js';
 import { getDb } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
-import { processWebhookTx } from '../processors/baseProcessor.js';
+import { processWebhookTx, type ProcessedTransaction } from '../processors/baseProcessor.js';
 import { backfillAgent } from './backfill.js';
 import { BACKFILL_WINDOW_DAYS, baseLookbackStart } from '../lib/baseWindow.js';
 import { getBaseClient } from '../lib/viem.js';
@@ -65,7 +65,42 @@ export function createBaseIndexerWorker() {
   return worker;
 }
 
-async function handleWebhookTx(job: Job<WebhookJobData>) {
+/**
+ * Retries for one leg's alert evaluation: about half a minute of backoff, enough
+ * to ride out a Redis or Postgres blip without retrying forever.
+ */
+const ALERT_EVAL_JOB_OPTIONS = {
+  attempts: 5,
+  backoff: { type: 'exponential', delay: 2_000 },
+} as const;
+
+const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
+
+/** A payload no retry can fix: dropped with a log line, like an invalid backfill job. */
+function isWellFormedWebhook(data: WebhookJobData): boolean {
+  return typeof data.txHash === 'string' && TX_HASH.test(data.txHash) && Number.isSafeInteger(data.blockNumber);
+}
+
+interface LegContext {
+  db: ReturnType<typeof getDb>;
+  redis: ReturnType<typeof getRedis>;
+  alertQueue: ReturnType<typeof createQueue>;
+  /** This job ran before (a BullMQ retry, or a stalled job picked up again). */
+  rerun: boolean;
+}
+
+/**
+ * Any error fails the job so BullMQ retries it, and the retry is safe to
+ * repeat: each leg is stored at most once (insertTransactionIfNew), and its
+ * alert job id is built from the leg's content, so queueing it again collapses
+ * into the job already queued.
+ */
+export async function handleWebhookTx(job: Pick<Job<WebhookJobData>, 'data' | 'attemptsStarted'>) {
+  if (!isWellFormedWebhook(job.data)) {
+    logger.error({ jobData: job.data }, 'Invalid webhook job data, dropping');
+    return;
+  }
+
   const db = getDb();
 
   // Get all monitored addresses to check involvement
@@ -86,78 +121,96 @@ async function handleWebhookTx(job: Job<WebhookJobData>) {
   // Insert transactions and trigger alert evaluation
   const redis = getRedis();
   const alertQueue = createQueue('alert-evaluate', redis);
+  const ctx: LegContext = { db, redis, alertQueue, rerun: job.attemptsStarted > 1 };
   let insertedCount = 0;
+  const failures: unknown[] = [];
 
-  for (const tx of processed) {
+  try {
+    for (const tx of processed) {
+      try {
+        if (await storeLeg(tx, ctx)) insertedCount++;
+      } catch (err) {
+        failures.push(err);
+        logger.error({ err, txHash: tx.txHash, walletAddress: tx.walletAddress }, 'Failed to store transaction leg');
+      }
+    }
+  } finally {
+    await alertQueue.close();
+  }
+
+  logger.info(
+    { txHash: job.data.txHash, inserted: insertedCount, processed: processed.length, failed: failures.length },
+    'Processed webhook transaction',
+  );
+
+  // The other legs are handled; the retry redoes only what is missing.
+  if (failures.length > 0) throw failures[0];
+}
+
+/** Store one leg and queue its alert evaluation. Returns whether a row was inserted. */
+async function storeLeg(tx: ProcessedTransaction, { db, redis, alertQueue, rerun }: LegContext): Promise<boolean> {
+  // A paused address only sheds INBOUND transfers. Outbound txs are always
+  // inserted and evaluated — otherwise anyone could pause a wallet and
+  // drain it unobserved (see lib/rateLimiter.ts).
+  const outbound = isOutbound(tx.direction);
+  if (!outbound && (await isAddressPaused(redis, tx.walletAddress))) {
+    logger.debug(
+      { address: tx.walletAddress, txHash: tx.txHash },
+      'Skipping inbound tx for rate-limited address',
+    );
+    return false;
+  }
+
+  const inserted = await insertTransactionIfNew(db, tx);
+  // On a first run a stored leg is a duplicate webhook: its alert was queued
+  // when it was stored. On a rerun it may be this job's own row, stored just
+  // before the attempt failed, so its alert is queued again (same job id).
+  if (!inserted && !rerun) {
+    logger.debug(
+      { walletAddress: tx.walletAddress, txHash: tx.txHash },
+      'Skipping duplicate transaction insert',
+    );
+    return false;
+  }
+
+  // Dispatch alert evaluation for this leg, only once its row is stored. The
+  // jobId is built from the leg's content, so a second leg of the same
+  // transaction (ETH out, token in) is evaluated on its own amount instead of
+  // being dropped as a duplicate of the first.
+  await alertQueue.add(
+    'tx-alert',
+    {
+      type: 'tx-triggered',
+      walletAddress: tx.walletAddress,
+      chain: tx.chain,
+      txHash: tx.txHash,
+      amountUsd: tx.amountUsd,
+      gasCostUsd: tx.gasCostUsd,
+      status: tx.status,
+      contractAddress: tx.contractAddress ?? null,
+      direction: tx.direction,
+      timestamp: tx.timestamp.toISOString(),
+    },
+    { jobId: alertJobId(tx), ...ALERT_EVAL_JOB_OPTIONS },
+  );
+
+  // Only the wallet's own sends count toward the rate limit, once per stored row
+  const justPaused = inserted && outbound && (await recordAndCheck(redis, tx.walletAddress));
+  if (justPaused) {
+    // Send rate-limit alert to the user via the alert delivery queue
+    const alertDeliveryQueue = createQueue('alert-deliver', redis);
     try {
-      // A paused address only sheds INBOUND transfers. Outbound txs are always
-      // inserted and evaluated — otherwise anyone could pause a wallet and
-      // drain it unobserved (see lib/rateLimiter.ts).
-      const outbound = isOutbound(tx.direction);
-      if (!outbound && (await isAddressPaused(redis, tx.walletAddress))) {
-        logger.debug(
-          { address: tx.walletAddress, txHash: tx.txHash },
-          'Skipping inbound tx for rate-limited address',
-        );
-        continue;
-      }
-
-      const inserted = await insertTransactionIfNew(db, tx);
-      if (!inserted) {
-        logger.debug(
-          { walletAddress: tx.walletAddress, txHash: tx.txHash },
-          'Skipping duplicate transaction insert',
-        );
-        continue;
-      }
-
-      insertedCount++;
-
-      // Only the wallet's own sends count toward the rate limit
-      const justPaused = outbound && (await recordAndCheck(redis, tx.walletAddress));
-      if (justPaused) {
-        // Send rate-limit alert to the user via the alert delivery queue
-        const alertDeliveryQueue = createQueue('alert-deliver', redis);
-        await alertDeliveryQueue.add('rate-limit-warning', {
-          type: 'rate-limit',
-          walletAddress: tx.walletAddress,
-          chain: tx.chain,
-        });
-        await alertDeliveryQueue.close();
-      }
-
-      // Dispatch alert evaluation for this leg. The jobId is built from the
-      // leg's content, so a second leg of the same transaction (ETH out,
-      // token in) is evaluated on its own amount instead of being dropped as
-      // a duplicate of the first. A retried parent job does not get this far:
-      // the row is already stored, so the insert above returns false.
-      await alertQueue.add(
-        'tx-alert',
-        {
-          type: 'tx-triggered',
-          walletAddress: tx.walletAddress,
-          chain: tx.chain,
-          txHash: tx.txHash,
-          amountUsd: tx.amountUsd,
-          gasCostUsd: tx.gasCostUsd,
-          status: tx.status,
-          contractAddress: tx.contractAddress ?? null,
-          direction: tx.direction,
-          timestamp: tx.timestamp.toISOString(),
-        },
-        { jobId: alertJobId(tx) },
-      );
-    } catch (err) {
-      logger.error({ err, txHash: tx.txHash }, 'Failed to insert transaction');
+      await alertDeliveryQueue.add('rate-limit-warning', {
+        type: 'rate-limit',
+        walletAddress: tx.walletAddress,
+        chain: tx.chain,
+      });
+    } finally {
+      await alertDeliveryQueue.close();
     }
   }
 
-  await alertQueue.close();
-
-  logger.info(
-    { txHash: job.data.txHash, inserted: insertedCount, processed: processed.length },
-    'Processed webhook transaction',
-  );
+  return inserted;
 }
 
 async function handleBackfill(job: Job<WebhookJobData>) {
