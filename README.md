@@ -16,7 +16,7 @@
 
 ---
 
-ChainWard investigates what AI agents on Base actually do on-chain — and proves it. Its core is an automated pipeline that researches a target, writes a forensic report, and runs that report through a **verifier gauntlet** that re-checks every numeric claim against the chain before anything publishes. There is no human in the loop between the trigger and the published article. The data is read from a **self-hosted Base node**, so the ground truth has no third-party RPC dependency.
+ChainWard investigates what AI agents on Base actually do on-chain — and proves it. Its core is an automated pipeline that researches a target, writes a forensic report, and runs that report through a **verifier gauntlet** that re-checks every numeric claim against the chain before anything publishes. The pipeline ends at a local draft commit, and a person reviews the draft before it is published. Chain data comes from public, read-only sources (Blockscout and public Base RPC endpoints).
 
 The interesting engineering here isn't "an LLM writes crypto articles." It's the machinery that stops the LLM from being confidently wrong in public.
 
@@ -64,7 +64,7 @@ The Claude session has no shell, no MCP server and no secrets: it can fetch from
 
 The hard problem with LLM-generated analysis is **confident fabrication** — a plausible number with no basis. ChainWard's gauntlet is built on three rules, enforced by the orchestrator, that make unsupervised publishing safe:
 
-- **Verifiers re-fetch; they don't trust.** The citation verifier extracts every numeric and factual claim from the draft and re-fetches it independently from the source — transaction receipts off the self-hosted node, the ACP API, Blockscout — then compares within hard tolerances (USD ≤ $0.01, counts and tx hashes exact). *An uncited claim is an automatic FAIL, even if the value happens to be right.*
+- **Verifiers re-fetch; they don't trust.** The citation verifier extracts every numeric and factual claim from the draft and re-fetches it independently from the source (Blockscout for transactions and receipts, the ACP API), then compares within hard tolerances (USD ≤ $0.01, counts and tx hashes exact). *An uncited claim is an automatic FAIL, even if the value happens to be right.*
 - **Verifier output is read-only.** The orchestrator cannot litigate a FAIL or spawn a "re-check the verifier" agent. If the verifier says FAIL, it's FAIL.
 - **One retry, then stop.** The writer gets exactly one corrective pass against the failed claims. If anything still fails, the run **halts and publishes nothing**. There is no iterating to a green light — *convergence is rationalization*.
 
