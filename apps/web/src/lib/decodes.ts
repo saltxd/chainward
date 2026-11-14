@@ -35,6 +35,84 @@ export function plainCallout(meta: DecodeMeta): PlainCallout | null {
   return { text, href, cta: meta.plainCta?.trim() || DEFAULT_PLAIN_CTA };
 }
 
+export const SITE_URL = 'https://chainward.ai';
+export const DECODES_URL = `${SITE_URL}/decodes`;
+export const DECODES_FEED_URL = `${DECODES_URL}/feed.xml`;
+/** `alternates.types` that advertises the feed in a page's <head>. */
+export const DECODES_FEED_TYPES = {
+  'application/rss+xml': [{ url: DECODES_FEED_URL, title: 'ChainWard Decodes' }],
+};
+/** The decodes index's search description; the RSS channel reuses it. */
+export const DECODES_DESCRIPTION =
+  "Deep dives into AI agent on-chain activity. We check the chain so you don't have to.";
+
+export function decodeUrl(slug: string): string {
+  return `${DECODES_URL}/${slug}`;
+}
+
+const SNIPPET_MAX = 160;
+const SNIPPET_MIN_SENTENCE = 80;
+const HEADLINE_MAX = 110;
+
+/** Inline markdown reduced to the words a reader sees, on one line. */
+function markdownToText(md: string): string {
+  return md
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*?|~~)(?=\S)(.+?)(?<=\S)\1/g, '$2')
+    .replace(/(^|\W)(__?)(?=\S)(.+?)(?<=\S)\2(?!\w)/g, '$1$3')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** At most `max` characters, cut after the last whole word and marked with `…`. */
+function clipAtWord(text: string, max: number): string {
+  if (text.length <= max) return text;
+  // The `…` takes one character, so the cut has to fall at or before max - 1.
+  const space = text.lastIndexOf(' ', max - 1);
+  const head = space > 0 ? text.slice(0, space) : text.slice(0, max - 1);
+  return `${head.replace(/[\s,;:–—]+$/, '')}…`;
+}
+
+/** At most 160 characters: whole sentences when they fill at least half, else whole words. */
+function clipSnippet(text: string): string {
+  if (text.length <= SNIPPET_MAX) return text;
+  // Look one character past the limit so a sentence ending exactly at it still
+  // shows the space that follows.
+  const sentenceEnds = [...text.slice(0, SNIPPET_MAX + 1).matchAll(/[.!?]['"”’)\]]*(?=\s)/g)]
+    .map((m) => m.index + m[0].length)
+    .filter((end) => end >= SNIPPET_MIN_SENTENCE);
+  const end = sentenceEnds.at(-1);
+  return end ? text.slice(0, end) : clipAtWord(text, SNIPPET_MAX);
+}
+
+/** The search-result snippet: the plain summary when there is one, else the subtitle. */
+export function searchDescription(meta: Pick<DecodeMeta, 'plain' | 'subtitle'>): string {
+  return clipSnippet(markdownToText(meta.plain ?? '') || markdownToText(meta.subtitle ?? ''));
+}
+
+const CHAINWARD_ORG = { '@type': 'Organization', name: 'ChainWard', url: SITE_URL };
+
+/** schema.org Article for a decode page, so it can show as an article rich result. */
+export function articleJsonLd(meta: DecodeMeta, slug: string, imageUrl: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: clipAtWord(meta.title, HEADLINE_MAX),
+    description: searchDescription(meta),
+    datePublished: new Date(meta.date).toISOString(),
+    image: imageUrl,
+    mainEntityOfPage: decodeUrl(slug),
+    author: CHAINWARD_ORG,
+    publisher: CHAINWARD_ORG,
+  };
+}
+
+/** JSON for an inline <script>: with `<` escaped, no value can close the tag. */
+export function jsonLdScript(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
 export interface DecodeContent {
   meta: DecodeMeta;
   content: string;
@@ -90,6 +168,7 @@ export function getAllDecodes(): DecodeMeta[] {
         subtitle: data.subtitle ?? '',
         date: data.date,
         slug: data.slug,
+        plain: data.plain,
       });
     }
   }

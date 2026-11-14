@@ -1,13 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PressShell, Masthead, PressDateline, Colophon } from '@/components/press';
-import { getAllDecodes } from '@/lib/decodes';
+import { DECODES_DESCRIPTION, DECODES_FEED_TYPES, getAllDecodes } from '@/lib/decodes';
 
 export const metadata: Metadata = {
   title: 'Decodes: investigations of AI agents on-chain',
-  description:
-    'Deep dives into AI agent on-chain activity. We check the chain so you don\'t have to.',
-  alternates: { canonical: 'https://chainward.ai/decodes' },
+  description: DECODES_DESCRIPTION,
+  alternates: { canonical: 'https://chainward.ai/decodes', types: DECODES_FEED_TYPES },
   openGraph: {
     title: 'On-Chain Decodes | ChainWard',
     description: 'Deep dives into AI agent on-chain activity on Base.',
