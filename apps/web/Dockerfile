@@ -3,7 +3,7 @@ FROM node:22-alpine AS base
 # need python+make+g++ to compile when prebuilds aren't available for the
 # node/alpine combo. Without these, pnpm install fails at node-gyp-build.
 RUN apk add --no-cache python3 make g++ && \
-    corepack enable && corepack prepare pnpm@latest --activate
+    corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 FROM base AS deps
 WORKDIR /app

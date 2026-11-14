@@ -3,7 +3,7 @@ FROM node:22-alpine AS base
 # from source — prebuilds aren't always available for this node/alpine combo.
 # Install in base so both `deps` and `build` stages can run pnpm install.
 RUN apk add --no-cache python3 make g++ && \
-    corepack enable && corepack prepare pnpm@latest --activate
+    corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 FROM base AS deps
 WORKDIR /app
@@ -36,8 +36,9 @@ ENV NODE_ENV=production
 LABEL org.opencontainers.image.source=https://github.com/saltxd/chainward
 LABEL org.opencontainers.image.description="ChainWard ACP decoder agent"
 LABEL org.opencontainers.image.licenses=MIT
-# Install Claude Code CLI for OAuth-backed report-writer
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code CLI for OAuth-backed report-writer. Pinned: an unpinned
+# install put whatever npm published that day into every image. Bump on purpose.
+RUN npm install -g @anthropic-ai/claude-code@2.1.316
 COPY --from=build --chown=node:node /prod .
 # The CLI authenticates with CLAUDE_CODE_OAUTH_TOKEN from the env, not files
 # under /root, so it works unchanged from the unprivileged user's $HOME.
