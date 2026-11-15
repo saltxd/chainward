@@ -10,13 +10,13 @@ export function MastheadAccount() {
   if (address) {
     const short = `${address.slice(0, 6)}…${address.slice(-4)}`;
     return (
-      <Link href="/overview" className="ph-nav-signin" title="Dashboard">
+      <Link href="/overview" prefetch={false} className="ph-nav-signin" title="Dashboard">
         {short}
       </Link>
     );
   }
   return (
-    <Link href="/login" className="ph-nav-signin">
+    <Link href="/login" prefetch={false} className="ph-nav-signin">
       Connect Wallet
     </Link>
   );

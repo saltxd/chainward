@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { MastheadAccount } from './MastheadAccount';
+import { publicLinkPrefetch } from '@/lib/walletRoutes';
 
 export interface MastLink {
   href: string;
@@ -50,6 +51,7 @@ export function Masthead({ links = DEFAULT_LINKS, brandHref = '/' }: MastheadPro
               <Link
                 key={l.href}
                 href={l.href}
+                prefetch={publicLinkPrefetch(l.href)}
                 className={l.hideOnMobile ? 'ph-nav-hide' : undefined}
               >
                 {l.label}

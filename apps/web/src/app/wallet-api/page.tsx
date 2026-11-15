@@ -82,8 +82,8 @@ export default function WalletApiPage() {
 
               <h2>Get a key</h2>
               <p>
-                <Link href="/login">Sign in with your wallet</Link>, then create a key under{' '}
-                <Link href="/settings">Settings</Link>, API keys. Every account gets 1,000 lookups a month
+                <Link href="/login" prefetch={false}>Sign in with your wallet</Link>, then create a key under{' '}
+                <Link href="/settings" prefetch={false}>Settings</Link>, API keys. Every account gets 1,000 lookups a month
                 for free, cached answers included; the <code>X-Quota-Remaining</code> header counts down.
                 Need more? Email{' '}
                 <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
