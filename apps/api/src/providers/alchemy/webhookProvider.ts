@@ -36,22 +36,16 @@ function isNftActivity(raw: unknown): boolean {
   return a.erc721TokenId != null || a.erc1155Metadata != null;
 }
 
-// A zero-value internal call moves no ETH and is not the wallet's own
-// transaction, so there is nothing to record. Tokens it moved arrive as their
-// own activities.
+// A zero-value ETH activity (a contract call, or an internal call) moves no
+// ETH, so there is no transfer to record. Tokens the call moved arrive as
+// their own activities.
 //
-// A zero-value external activity is a contract call (an approval, a claim, a
-// call that reverts) and is kept: the indexer stores it as one row with its gas
-// and status, only for the monitored wallet that sent it, and only when the
-// wallet sent no tokens in it (those token legs already show the transaction
-// and carry its gas). See walletLegs and walletSentTokens in the indexer's
-// processors/baseProcessor.ts.
-//
-// Known gap: Alchemy does not document whether it sends reverted transactions.
-// A reverted call is recorded as failed when it arrives; one that never
-// arrives leaves no row.
-function isZeroValueInternalCall(a: { category: string; value: number }): boolean {
-  return a.category === 'internal' && a.value === 0;
+// Known gap, unchanged by this filter: a call that sends nothing out of the
+// wallet (an approval, a claim, a call that reverts) leaves no outbound row, so
+// its gas is not counted. An approval or a revert leaves no row at all and
+// cannot trigger an alert.
+function isZeroValueEthActivity(a: { category: string; value: number }): boolean {
+  return isEthCategory(a.category) && a.value === 0;
 }
 
 // Envelope is validated separately from activities so one malformed activity
@@ -181,7 +175,7 @@ export class AlchemyWebhookProvider implements WebhookProvider {
         continue;
       }
       const a = activity.data;
-      if (isZeroValueInternalCall(a)) {
+      if (isZeroValueEthActivity(a)) {
         ignored++;
         continue;
       }
@@ -207,7 +201,7 @@ export class AlchemyWebhookProvider implements WebhookProvider {
     if (ignored > 0) {
       logger.debug(
         { ignored, kept: normalized.length, webhookEventId: body.id },
-        'Ignored NFT transfers and zero-value internal calls in Alchemy webhook batch',
+        'Ignored NFT transfers and zero-value ETH activity in Alchemy webhook batch',
       );
     }
     return normalized;
