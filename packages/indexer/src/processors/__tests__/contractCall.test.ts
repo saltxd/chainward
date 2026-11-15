@@ -126,6 +126,10 @@ describe('processWebhookTx, contract calls the wallet sent', () => {
       receipt({ logs: [transferLog(WALLET, ROUTER), transferLog(ROUTER, WALLET)] }),
     );
     expect(await processWebhookTx(zeroValueCall(WALLET, ROUTER), new Set([WALLET]))).toEqual([]);
+    // One RPC call (the receipt) decides it; nothing else is fetched for a row that is not stored.
+    expect(client.getTransactionReceipt).toHaveBeenCalledTimes(1);
+    expect(client.getTransaction).not.toHaveBeenCalled();
+    expect(client.getBlock).not.toHaveBeenCalled();
   });
 
   it('still stores the call row when the wallet only sent an NFT (NFT activity is not stored)', async () => {

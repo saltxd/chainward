@@ -123,12 +123,23 @@ export async function processWebhookTx(
   const client = getBaseClient();
   const results: ProcessedTransaction[] = [];
 
+  const hash = data.txHash as `0x${string}`;
+  const zeroValueCall = isZeroValueCall(data);
+
   // A failed fetch (RPC timeout, a node a block behind the webhook) throws to
   // the worker, so BullMQ retries the job instead of completing it unstored.
-  const [receipt, tx] = await Promise.all([
-    client.getTransactionReceipt({ hash: data.txHash as `0x${string}` }),
-    client.getTransaction({ hash: data.txHash as `0x${string}` }),
-  ]);
+  // A zero-value call fetches the receipt alone first: in a swap it decides
+  // that no row is stored, and nothing else needs fetching.
+  const [receipt, prefetchedTx] = zeroValueCall
+    ? [await client.getTransactionReceipt({ hash }), null]
+    : await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
+
+  const legs = zeroValueCall
+    ? involved.filter(({ wallet }) => !walletSentTokens(receipt.logs, wallet))
+    : involved;
+  if (legs.length === 0) return [];
+
+  const tx = prefetchedTx ?? (await client.getTransaction({ hash }));
 
   // Four independent lookups: block (for timestamp), method decode, ETH price,
   // and protocol resolution. None depend on each other so they can fan out.
@@ -148,10 +159,6 @@ export async function processWebhookTx(
   const gasCostNative = formatEther(gasCostWei);
   const gasPriceGwei = formatUnits(effectiveGasPrice, 9);
   const gasCostUsd = ethPrice ? (parseFloat(gasCostNative) * ethPrice).toFixed(6) : null;
-
-  const legs = isZeroValueCall(data)
-    ? involved.filter(({ wallet }) => !walletSentTokens(receipt.logs, wallet))
-    : involved;
 
   for (const { wallet: addr, direction } of legs) {
     let tokenAddress: string | null = null;
