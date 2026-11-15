@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DigestClient, type DigestData } from './digest-client';
+import { plural } from '@/lib/plural';
 
 const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
 
@@ -48,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const fmtUsd = (n: number) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${Math.round(n)}`;
   const fmtCount = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n);
   const description = hasData
-    ? `${fmtUsd(headline.totalRevenue)} revenue, ${headline.activeAgents} active agents, ${fmtCount(headline.totalJobs)} jobs — Weekly intelligence on the Base agent economy`
+    ? `${fmtUsd(headline.totalRevenue)} revenue, ${headline.activeAgents} active ${plural(headline.activeAgents, 'agent')}, ${fmtCount(headline.totalJobs)} ${plural(headline.totalJobs, 'job')} — Weekly intelligence on the Base agent economy`
     : 'Weekly intelligence on the Base agent economy';
 
   return {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { plural } from '@/lib/plural';
 import {
   PageShell,
   NavBar,
@@ -672,7 +673,7 @@ function QuickStatsSection({
     cards.push({
       label: 'busiest.hour',
       value: hStr,
-      sub: `${data.busiestHour.txCount} txs · ${data.busiestHour.day}`,
+      sub: `${data.busiestHour.txCount} ${plural(data.busiestHour.txCount, 'tx', 'txs')} · ${data.busiestHour.day}`,
     });
   }
 

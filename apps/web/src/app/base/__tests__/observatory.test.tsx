@@ -102,6 +102,18 @@ describe('TopAgentsPanel', () => {
     expect(html).toContain('href="/x402"');
     expect(html).toContain('09 Oct 2026');
   });
+
+  it('says "1 buyer", not "1 buyers"', () => {
+    expect(html).toContain('25 buyers');
+    const one = renderToStaticMarkup(
+      <TopAgentsPanel
+        mostActive={initial.mostActive}
+        x402={{ ...initial.x402!, rows: [{ ...initial.x402!.rows[0]!, buyers: 1 }] }}
+      />,
+    );
+    expect(one).toContain('1 buyer<');
+    expect(one).not.toContain('1 buyers');
+  });
 });
 
 describe('WirePanel', () => {

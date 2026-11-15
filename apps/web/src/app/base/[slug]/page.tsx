@@ -2,6 +2,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { AgentDetailClient } from './agent-detail-client';
 import { isAgentSlug } from '@/lib/params';
+import { plural } from '@/lib/plural';
 import { agentFetchOutcome, type AgentFetchOutcome } from '@/lib/observatory';
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL || 'http://localhost:8000';
@@ -38,7 +39,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // The root layout's title template appends " | ChainWard".
   const title = `Should you pay ${name}? AI agent on Base`;
   const acp = agent.acp?.revenue
-    ? ` Virtuals reports ${agent.acp.jobs.toLocaleString('en-US')} jobs and $${Math.round(agent.acp.revenue).toLocaleString('en-US')} in revenue.`
+    ? ` Virtuals reports ${agent.acp.jobs.toLocaleString('en-US')} ${plural(agent.acp.jobs, 'job')} and $${Math.round(agent.acp.revenue).toLocaleString('en-US')} in revenue.`
     : '';
   const description = `${name} on Base: its wallet activity, read from the chain.${acp} Free check: Pay or Hold, and why.`;
 
