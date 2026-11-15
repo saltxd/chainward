@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { Database } from '@chainward/db';
 import type IORedis from 'ioredis';
 import { spamExclusionSql as spamExclusion } from './spamFilter.js';
+import { movedValueSql as movedValue } from './contractCalls.js';
 import { diversifyFeed, type FeedItem } from './feed.js';
 import { summarizeRoster, type RosterRow, type RosterSummary } from './roster.js';
 
@@ -31,7 +32,7 @@ export class ObservatoryService {
   // ── Private: the wallets the public pages count and list ──────────────
 
   /** Shown observatory wallets: named, or moved money in the last 30 days
-   * (spam-token dust doesn't count). See roster.ts. */
+   * (spam-token dust and contract calls don't count). See roster.ts. */
   private async getRoster(): Promise<RosterSummary> {
     // Versioned key: the old `obs:wallets` held a plain address list.
     return this.cached('obs:roster:v1', 300, async () => {
@@ -41,6 +42,7 @@ export class ObservatoryService {
           FROM transactions
           WHERE timestamp >= NOW() - INTERVAL '30 days'
             ${spamExclusion}
+            ${movedValue}
         )
         SELECT
           a.wallet_address,
@@ -187,6 +189,7 @@ export class ObservatoryService {
         WHERE t.wallet_address = ANY(${walletArray}::text[])
           AND (t.amount_usd IS NULL OR CAST(t.amount_usd AS numeric) >= 0)
           ${spamExclusion}
+          ${movedValue}
         ORDER BY t.timestamp DESC
         LIMIT 200
       `);
