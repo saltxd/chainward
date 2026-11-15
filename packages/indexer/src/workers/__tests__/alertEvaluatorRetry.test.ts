@@ -224,7 +224,7 @@ describe('evaluateTxAlerts retries', () => {
 
     await evaluateTxAlerts(job);
     expect(queued).toEqual([]);
-    // The alert is lost: leave a trace that names it.
+    // The alert may be lost: leave a trace that names it.
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         alertId: 1,
@@ -233,7 +233,7 @@ describe('evaluateTxAlerts retries', () => {
         txHash: TX_HASH,
         eventTimestamp: claimedAt.toISOString(),
       }),
-      expect.stringMatching(/never delivered/),
+      'Claimed alert has no delivery outcome past the re-queue window; not re-queued',
     );
   });
 

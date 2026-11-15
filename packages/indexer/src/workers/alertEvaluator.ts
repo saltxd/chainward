@@ -177,8 +177,9 @@ async function evaluateTxAlert(config: typeof alertConfigs.$inferSelect, data: T
       return;
     }
     if (hasNoOutcome(fired)) {
-      // Claimed, but its delivery was never tried and the window to queue it
-      // again has passed: the alert is lost. Leave a trace that names it.
+      // Claimed, no delivery outcome recorded, and the window to queue it again
+      // has passed. Most likely the outcome write was lost, but the delivery
+      // may have been. Leave a trace that names the alert.
       logger.warn(
         {
           alertId: config.id,
@@ -188,7 +189,7 @@ async function evaluateTxAlert(config: typeof alertConfigs.$inferSelect, data: T
           eventTimestamp: fired.timestamp.toISOString(),
           claimedAgoMs: Date.now() - fired.timestamp.getTime(),
         },
-        'Claimed alert never delivered, past the re-queue window; dropping it',
+        'Claimed alert has no delivery outcome past the re-queue window; not re-queued',
       );
       return;
     }
