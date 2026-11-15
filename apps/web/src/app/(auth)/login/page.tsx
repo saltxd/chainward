@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useSignMessage } from 'wagmi';
-import { siweSignIn } from '@/lib/auth-client';
+import { siweSignIn } from '@/lib/siwe-sign-in';
 import { postLoginPath } from '@/lib/nextPath';
 import { LOGIN_PITCH } from '@/lib/watch';
 import { Masthead, Colophon } from '@/components/press';

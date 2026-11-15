@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { SiweMessage } from 'siwe';
 
-interface User {
+export interface User {
   id: string;
   walletAddress: string;
   displayName: string | null;
@@ -29,50 +28,15 @@ export async function fetchSession(): Promise<SessionData> {
   return data;
 }
 
-/** Sign-in is to ChainWard on Base: the API checks smart-account signatures on Base and refuses other chains. */
-const SIGN_IN_CHAIN_ID = 8453;
-
-export async function siweSignIn(
-  address: string,
-  _connectedChainId: number,
-  signMessageAsync: (args: { message: string }) => Promise<string>,
-): Promise<{ user: User }> {
-  // 1. Fetch nonce
-  const nonceRes = await fetch('/api/auth/nonce', { credentials: 'include' });
-  const { nonce } = await nonceRes.json();
-
-  // 2. Construct SIWE message
-  const message = new SiweMessage({
-    domain: window.location.host,
-    address,
-    statement: 'Sign in to ChainWard',
-    uri: window.location.origin,
-    version: '1',
-    chainId: SIGN_IN_CHAIN_ID,
-    nonce,
-  });
-  const messageStr = message.prepareMessage();
-
-  // 3. Sign
-  const signature = await signMessageAsync({ message: messageStr });
-
-  // 4. Verify with API
-  const res = await fetch('/api/auth/verify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ message: messageStr, signature }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error ?? 'Verification failed');
-  }
-
-  const data = await res.json();
-  cachedSession = { user: data.user };
+/**
+ * Record a fresh sign-in so every useSession() hook on the page updates. Called
+ * by siweSignIn (lib/siwe-sign-in.ts), which lives apart from this file so the
+ * public pages that only read the session never download siwe (and the ethers
+ * library it pulls in).
+ */
+export function setSignedInUser(user: User): void {
+  cachedSession = { user };
   notifyListeners();
-  return data;
 }
 
 export async function logout(): Promise<void> {

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { publicLinkPrefetch } from '@/lib/walletRoutes';
 
 export interface NavLink {
   href: string;
@@ -62,13 +63,13 @@ export function NavBar({
               {l.label}
             </a>
           ) : (
-            <Link key={l.href} href={l.href} className="v2-nav-link">
+            <Link key={l.href} href={l.href} prefetch={publicLinkPrefetch(l.href)} className="v2-nav-link">
               {l.label}
             </Link>
           ),
         )}
         {ctaHref && ctaLabel && (
-          <Link href={ctaHref} className="v2-nav-cta">
+          <Link href={ctaHref} prefetch={publicLinkPrefetch(ctaHref)} className="v2-nav-cta">
             <span>{ctaLabel}</span>
             {!hideArrow && (
               <span className="v2-nav-cta-arrow" aria-hidden> →</span>

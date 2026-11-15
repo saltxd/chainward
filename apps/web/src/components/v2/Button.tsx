@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { publicLinkPrefetch } from '@/lib/walletRoutes';
 import { ReactNode, ButtonHTMLAttributes } from 'react';
 
 type Variant = 'primary' | 'ghost' | 'link' | 'danger';
@@ -51,7 +52,7 @@ export function Button(props: ButtonAsButton | ButtonAsLink) {
       );
     }
     return (
-      <Link href={href} className={cls}>
+      <Link href={href} prefetch={publicLinkPrefetch(href)} className={cls}>
         {children}
       </Link>
     );

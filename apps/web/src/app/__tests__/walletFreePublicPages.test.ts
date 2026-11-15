@@ -1,0 +1,147 @@
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { needsWallet } from '@/lib/walletRoutes';
+
+// The public pages (home, decodes, the observatory, the free tools, docs) are
+// where search traffic lands. None of them use a wallet, so none of them may
+// pull the wallet or sign-in libraries into their bundle through a static
+// import. Pay buttons load the wallet half with next/dynamic on first click,
+// which this walk does not follow (only `import ... from` / `export ... from`).
+
+const SRC = fileURLToPath(new URL('../..', import.meta.url));
+
+const WALLET_PACKAGES = ['siwe', 'ethers', 'wagmi', '@rainbow-me/rainbowkit', '@wagmi/', '@walletconnect/', '@metamask/'];
+const WALLET_FILES = ['providers/web3-provider', 'lib/wagmi', 'lib/walletConnectors', 'lib/siwe-sign-in'];
+
+const PUBLIC_ENTRIES = [
+  'app/layout.tsx',
+  'app/page.tsx',
+  'app/not-found.tsx',
+  'app/error.tsx',
+  'app/decodes/page.tsx',
+  'app/decodes/[slug]/page.tsx',
+  'app/base/page.tsx',
+  'app/base/[slug]/page.tsx',
+  'app/rugcheck/page.tsx',
+  'app/docs/layout.tsx',
+  'app/docs/page.tsx',
+  'app/report/[address]/page.tsx',
+  'app/x402/page.tsx',
+  'app/set-and-earn/page.tsx',
+  'components/press/index.ts',
+];
+
+// Value imports only: `import type` and `export type` vanish at build time.
+const IMPORT_RE = /^\s*(?:import|export)\s+(?!type\s)(?:[^'";]*?\sfrom\s+)?['"]([^'"]+)['"]/gm;
+
+function resolveLocal(spec: string, fromFile: string): string | null {
+  let base: string;
+  if (spec.startsWith('@/')) base = join(SRC, spec.slice(2));
+  else if (spec.startsWith('.')) base = resolve(dirname(fromFile), spec);
+  else return null;
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+}
+
+/** Every static import chain from `entry` that ends in a wallet package or file. */
+function walletChains(entry: string): string[] {
+  const hits: string[] = [];
+  const seen = new Set<string>();
+  const walk = (file: string, chain: string[]) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const rel = file.slice(SRC.length);
+    if (WALLET_FILES.some((w) => rel.replace(/\.tsx?$/, '') === w)) {
+      hits.push([...chain, rel].join(' -> '));
+      return;
+    }
+    for (const match of readFileSync(file, 'utf8').matchAll(IMPORT_RE)) {
+      const spec = match[1]!;
+      if (WALLET_PACKAGES.some((p) => spec === p || spec.startsWith(p.endsWith('/') ? p : `${p}/`))) {
+        hits.push([...chain, rel, spec].join(' -> '));
+        continue;
+      }
+      const next = resolveLocal(spec, file);
+      if (next) walk(next, [...chain, rel]);
+    }
+  };
+  walk(join(SRC, entry), []);
+  return hits;
+}
+
+// A Next <Link> prefetches its target's JavaScript when it scrolls into view,
+// so a public link to /login, /request-brief, /paid/* or the dashboard pulls
+// the wallet stack in after load unless it passes prefetch={false}.
+
+/** Every `<Link ...>` opening tag in a file, braces balanced (onClick={() => ...} has a '>'). */
+function linkTags(source: string): string[] {
+  const tags: string[] = [];
+  let from = 0;
+  for (;;) {
+    const start = source.indexOf('<Link', from);
+    if (start === -1) return tags;
+    let depth = 0;
+    let i = start;
+    for (; i < source.length; i++) {
+      const c = source[i];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (c === '>' && depth === 0) break;
+    }
+    tags.push(source.slice(start, i + 1));
+    from = i + 1;
+  }
+}
+
+function publicSourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    const rel = path.slice(SRC.length);
+    if (statSync(path).isDirectory()) {
+      if (name === '__tests__' || rel === 'app/(dashboard)' || rel === 'components/layout' || rel === 'components/dashboard') return [];
+      return publicSourceFiles(path);
+    }
+    return /\.tsx$/.test(name) ? [path] : [];
+  });
+}
+
+describe('needsWallet', () => {
+  it('matches sign-in, the pay flows and the dashboard, and nothing public', () => {
+    for (const href of ['/login', '/request-brief', '/paid/termix-wallets', '/overview', '/agents?register=true', '/alerts', '/settings', '/transactions']) {
+      expect(needsWallet(href), href).toBe(true);
+    }
+    for (const href of ['/', '/decodes', '/decodes/x', '/base', '/agent/0xabc', '/report/0xabc', '/rugcheck', '/docs/alerts', '/register', '/paidx']) {
+      expect(needsWallet(href), href).toBe(false);
+    }
+  });
+});
+
+describe('public links to wallet routes', () => {
+  it('pass prefetch={false} (or the publicLinkPrefetch helper)', () => {
+    const offenders = publicSourceFiles(SRC).flatMap((file) =>
+      linkTags(readFileSync(file, 'utf8'))
+        .filter((tag) => {
+          const literal = tag.match(/\bhref=(?:"([^"]+)"|\{['`]([^'`$]+)['`]\})/);
+          const href = literal?.[1] ?? literal?.[2];
+          return href !== undefined && needsWallet(href) && !/\bprefetch=/.test(tag);
+        })
+        .map((tag) => `${file.slice(SRC.length)}: ${tag.replace(/\s+/g, ' ')}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe('public pages stay wallet-free', () => {
+  it.each(PUBLIC_ENTRIES)('%s has no static import path to siwe, ethers, wagmi or RainbowKit', (entry) => {
+    expect(walletChains(entry)).toEqual([]);
+  });
+
+  it('the walk does find the wallet code where it belongs (/login)', () => {
+    // Guards the guard: a walk that found nothing anywhere would pass the list above.
+    expect(walletChains('app/(auth)/login/page.tsx').length).toBeGreaterThan(0);
+  });
+});

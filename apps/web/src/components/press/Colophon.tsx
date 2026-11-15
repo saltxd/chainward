@@ -18,7 +18,7 @@ export function Colophon() {
         <nav className="ph-colophon-links" aria-label="Footer">
           <Link href="/reports">Reports</Link>
           <Link href="/decodes">Decodes</Link>
-          <Link href="/request-brief">Brief</Link>
+          <Link href="/request-brief" prefetch={false}>Brief</Link>
           <Link href="/base">Observatory</Link>
           <Link href="/mcp">MCP</Link>
           <Link href="/attest">Attest</Link>

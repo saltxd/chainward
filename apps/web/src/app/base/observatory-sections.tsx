@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { plural } from '@/lib/plural';
 import {
   feedHref,
   observatoryLede,
@@ -154,7 +155,7 @@ export function TopAgentsPanel({
                 <span className="obs-agent">
                   <span className="obs-agent-name">{r.label ?? truncateAddress(r.seller)}</span>
                   <span className="obs-agent-addr mono">
-                    {truncateAddress(r.seller)} · {r.buyers.toLocaleString('en-US')} buyers
+                    {truncateAddress(r.seller)} · {r.buyers.toLocaleString('en-US')} {plural(r.buyers, 'buyer')}
                   </span>
                 </span>
                 <span className="obs-verdict">{r.verdict ?? 'check did not finish'}</span>

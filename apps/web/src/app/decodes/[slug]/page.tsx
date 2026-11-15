@@ -15,6 +15,7 @@ import {
   plainCallout,
   searchDescription,
 } from '@/lib/decodes';
+import { publicLinkPrefetch } from '@/lib/walletRoutes';
 
 // Some scrapers (notably X/Twitter) reliably fetch static OG assets but
 // silently fail on the @vercel/og dynamic Edge route. If a decode has a
@@ -113,7 +114,7 @@ export default async function DecodePage({ params }: PageProps) {
             <aside className="da-plain press-measure" aria-label="In plain English">
               <span className="da-plain-label">In plain English</span>
               <p className="da-plain-text">{plain.text}</p>
-              <Link href={plain.href} className="da-plain-cta">
+              <Link href={plain.href} prefetch={publicLinkPrefetch(plain.href)} className="da-plain-cta">
                 {plain.cta}
               </Link>
             </aside>

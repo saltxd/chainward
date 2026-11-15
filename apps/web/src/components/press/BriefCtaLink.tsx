@@ -18,6 +18,8 @@ export function BriefCtaLink({
   return (
     <Link
       href="/request-brief"
+      // The brief page loads the wallet stack (lib/walletRoutes.ts).
+      prefetch={false}
       className={className}
       onClick={() => track('brief_cta_click', { placement })}
     >
