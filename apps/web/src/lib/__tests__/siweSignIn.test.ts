@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SiweMessage } from 'siwe';
-import { siweSignIn } from '../auth-client';
+import { siweSignIn } from '../siwe-sign-in';
 
 // The API verifies smart-account signatures on Base and refuses other chains,
 // so the message must say Base even when the wallet is connected elsewhere.
