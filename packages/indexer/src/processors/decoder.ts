@@ -23,6 +23,8 @@ interface DecodedMethod {
 }
 
 const CACHE_TTL = 86400 * 7; // 7 days
+/** A hung 4byte request must not hold one of the indexer's worker slots. */
+const FOURBYTE_TIMEOUT_MS = 3_000;
 
 /** Decode transaction calldata to identify method name */
 export async function decodeMethod(input: string): Promise<DecodedMethod | null> {
@@ -64,6 +66,7 @@ async function lookup4byte(methodId: string): Promise<DecodedMethod | null> {
   try {
     const response = await fetch(
       `https://www.4byte.directory/api/v1/signatures/?hex_signature=${methodId}`,
+      { signal: AbortSignal.timeout(FOURBYTE_TIMEOUT_MS) },
     );
 
     if (!response.ok) return { methodId, methodName: 'unknown' };

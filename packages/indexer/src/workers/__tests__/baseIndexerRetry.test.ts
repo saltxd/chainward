@@ -26,8 +26,8 @@ vi.mock('../../lib/db.js', () => ({
   }),
 }));
 vi.mock('../../lib/transactionStore.js', () => ({ storeTransaction: vi.fn() }));
-vi.mock('../../lib/rateLimiter.js', () => ({
-  isOutbound: (direction: string) => direction !== 'in',
+vi.mock('../../lib/rateLimiter.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/rateLimiter.js')>()),
   isAddressPaused: vi.fn(async () => false),
   recordAndCheck: vi.fn(async () => false),
 }));

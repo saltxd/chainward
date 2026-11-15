@@ -28,6 +28,23 @@ export function isOutbound(direction: 'in' | 'out' | 'self'): boolean {
 }
 
 /**
+ * Whether a stored leg counts toward the rate limit: a send that moved
+ * something. A contract-call row (no token, zero amount: an approval, a claim,
+ * a reverted call) is outbound but does not count. It adds no inbound noise
+ * and only the wallet itself can cause it, so counting it would only pause a
+ * busy caller's inbound payments. A runaway caller still shows through
+ * failed_tx and gas_spike.
+ */
+export function countsTowardRateLimit(leg: {
+  direction: 'in' | 'out' | 'self';
+  tokenAddress: string | null;
+  amountRaw: string | null;
+}): boolean {
+  const contractCall = leg.tokenAddress === null && leg.amountRaw === '0';
+  return isOutbound(leg.direction) && !contractCall;
+}
+
+/**
  * Check if an address is currently rate-limited (paused). Callers may skip
  * INBOUND transactions for a paused address; never outbound ones.
  */

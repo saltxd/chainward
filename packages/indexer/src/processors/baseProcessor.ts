@@ -51,23 +51,95 @@ interface WebhookJobData {
   network: string;
 }
 
+type Direction = ProcessedTransaction['direction'];
+
+interface WalletLeg {
+  wallet: string;
+  direction: Direction;
+}
+
+/** A top-level transaction that sent no ETH: a contract call (an approval, a claim, a call that reverted). */
+function isZeroValueCall(data: WebhookJobData): boolean {
+  return data.category === 'external' && data.value === 0;
+}
+
+/**
+ * The monitored wallets this activity is a leg of. A zero-value call is a leg
+ * only of the wallet that sent it: a call someone else sent to the wallet is
+ * their transaction (and a known spam shape). A zero-value internal call moves
+ * nothing and is nobody's leg.
+ */
+function walletLegs(data: WebhookJobData, monitoredAddresses: Set<string>): WalletLeg[] {
+  if (data.category === 'internal' && data.value === 0) return [];
+  const fromLower = data.fromAddress?.toLowerCase();
+  const toLower = data.toAddress?.toLowerCase();
+  const senderOnly = isZeroValueCall(data);
+
+  const legs: WalletLeg[] = [];
+  for (const wallet of monitoredAddresses) {
+    const lower = wallet.toLowerCase();
+    const isFrom = fromLower === lower;
+    const isTo = toLower === lower;
+    if (!isFrom && !(isTo && !senderOnly)) continue;
+    legs.push({ wallet, direction: isFrom && isTo ? 'self' : isFrom ? 'out' : 'in' });
+  }
+  return legs;
+}
+
+const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+/**
+ * Whether the wallet sent an ERC-20 token in this transaction. Each such
+ * transfer arrives as its own token activity, stored as an outbound leg that
+ * carries the gas, so a contract-call row would only repeat the transaction.
+ * An ERC-721 Transfer has a fourth topic (the token id); NFT activity is not
+ * stored, so it does not count.
+ */
+function walletSentTokens(logs: ReadonlyArray<{ topics: readonly string[] }>, wallet: string): boolean {
+  const lower = wallet.toLowerCase();
+  return logs.some(
+    ({ topics }) =>
+      topics.length === 3 &&
+      topics[0]?.toLowerCase() === ERC20_TRANSFER_TOPIC &&
+      `0x${topics[1]?.slice(-40).toLowerCase()}` === lower,
+  );
+}
+
 /**
  * Process a transaction from an Alchemy webhook activity event.
  * Fetches receipt, decodes calldata, resolves tokens/prices, normalizes into ProcessedTransaction.
+ *
+ * A zero-value call becomes one row for the wallet that sent it, with its gas
+ * and status, unless the wallet sent tokens in it. The decision reads only the
+ * receipt, so it is the same whichever webhook batch the token legs arrive in.
  */
 export async function processWebhookTx(
   data: WebhookJobData,
   monitoredAddresses: Set<string>,
 ): Promise<ProcessedTransaction[]> {
+  const involved = walletLegs(data, monitoredAddresses);
+  if (involved.length === 0) return [];
+
   const client = getBaseClient();
   const results: ProcessedTransaction[] = [];
 
+  const hash = data.txHash as `0x${string}`;
+  const zeroValueCall = isZeroValueCall(data);
+
   // A failed fetch (RPC timeout, a node a block behind the webhook) throws to
   // the worker, so BullMQ retries the job instead of completing it unstored.
-  const [receipt, tx] = await Promise.all([
-    client.getTransactionReceipt({ hash: data.txHash as `0x${string}` }),
-    client.getTransaction({ hash: data.txHash as `0x${string}` }),
-  ]);
+  // A zero-value call fetches the receipt alone first: in a swap it decides
+  // that no row is stored, and nothing else needs fetching.
+  const [receipt, prefetchedTx] = zeroValueCall
+    ? [await client.getTransactionReceipt({ hash }), null]
+    : await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
+
+  const legs = zeroValueCall
+    ? involved.filter(({ wallet }) => !walletSentTokens(receipt.logs, wallet))
+    : involved;
+  if (legs.length === 0) return [];
+
+  const tx = prefetchedTx ?? (await client.getTransaction({ hash }));
 
   // Four independent lookups: block (for timestamp), method decode, ETH price,
   // and protocol resolution. None depend on each other so they can fan out.
@@ -88,21 +160,7 @@ export async function processWebhookTx(
   const gasPriceGwei = formatUnits(effectiveGasPrice, 9);
   const gasCostUsd = ethPrice ? (parseFloat(gasCostNative) * ethPrice).toFixed(6) : null;
 
-  // Determine which monitored addresses are involved
-  const fromLower = data.fromAddress?.toLowerCase();
-  const toLower = data.toAddress?.toLowerCase();
-
-  for (const addr of monitoredAddresses) {
-    const addrLower = addr.toLowerCase();
-    const isFrom = fromLower === addrLower;
-    const isTo = toLower === addrLower;
-
-    if (!isFrom && !isTo) continue;
-
-    let direction: 'in' | 'out' | 'self' = 'out';
-    if (isFrom && isTo) direction = 'self';
-    else if (isTo) direction = 'in';
-
+  for (const { wallet: addr, direction } of legs) {
     let tokenAddress: string | null = null;
     let tokenSymbol: string | null = null;
     let tokenDecimals: number | null = null;

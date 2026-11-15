@@ -10,7 +10,7 @@ import { backfillAgent } from './backfill.js';
 import { BACKFILL_WINDOW_DAYS, baseLookbackStart } from '../lib/baseWindow.js';
 import { getBaseClient } from '../lib/viem.js';
 import { alchemyBackfillAvailable, backfillWalletViaTransfers } from './transferBackfill.js';
-import { isAddressPaused, isOutbound, recordAndCheck } from '../lib/rateLimiter.js';
+import { countsTowardRateLimit, isAddressPaused, isOutbound, recordAndCheck } from '../lib/rateLimiter.js';
 import { storeTransaction } from '../lib/transactionStore.js';
 import { alertJobId } from '../lib/alertJobId.js';
 
@@ -203,6 +203,7 @@ async function storeLeg(
       chain: tx.chain,
       txHash: tx.txHash,
       amountUsd: tx.amountUsd,
+      amountRaw: tx.amountRaw,
       gasCostUsd: tx.gasCostUsd,
       status: tx.status,
       contractAddress: tx.contractAddress ?? null,
@@ -212,8 +213,9 @@ async function storeLeg(
     { jobId: alertJobId(tx), ...ALERT_EVAL_JOB_OPTIONS },
   );
 
-  // Only the wallet's own sends count toward the rate limit, once per stored row
-  const justPaused = inserted && outbound && (await recordAndCheck(redis, tx.walletAddress));
+  // Only the wallet's own sends that moved something count toward the rate
+  // limit, once per stored row
+  const justPaused = inserted && countsTowardRateLimit(tx) && (await recordAndCheck(redis, tx.walletAddress));
   if (justPaused) {
     // Send rate-limit alert to the user via the alert delivery queue
     const alertDeliveryQueue = createQueue('alert-deliver', redis);

@@ -15,6 +15,8 @@ interface TxAlertJobData {
   chain: string;
   txHash: string;
   amountUsd: string | null;
+  /** '0' for a leg that moved nothing (a contract call). Absent on jobs queued before it was added. */
+  amountRaw?: string | null;
   gasCostUsd: string | null;
   status: string;
   contractAddress: string | null;
@@ -174,6 +176,23 @@ async function evaluateTxAlert(config: typeof alertConfigs.$inferSelect, data: T
       );
       return;
     }
+    if (hasNoOutcome(fired)) {
+      // Claimed, no delivery outcome recorded, and the window to queue it again
+      // has passed. Most likely the outcome write was lost, but the delivery
+      // may have been. Leave a trace that names the alert.
+      logger.warn(
+        {
+          alertId: config.id,
+          alertType: config.alertType,
+          walletAddress: data.walletAddress,
+          txHash: data.txHash,
+          eventTimestamp: fired.timestamp.toISOString(),
+          claimedAgoMs: Date.now() - fired.timestamp.getTime(),
+        },
+        'Claimed alert has no delivery outcome past the re-queue window; not re-queued',
+      );
+      return;
+    }
     logger.debug(
       { txHash: data.txHash, alertId: config.id },
       'Duplicate alert prevented — already fired for this tx',
@@ -233,12 +252,20 @@ const REQUEUE_WINDOW_MS = 15 * 60_000;
  * under its job id is a no-op) or was never queued because the attempt that
  * claimed it failed first.
  */
-function isAwaitingDelivery(
-  event: { timestamp: Date; delivered: boolean; deliveryChannel: string | null; deliveryError: string | null },
-  now = Date.now(),
-): boolean {
-  const noOutcome = !event.delivered && event.deliveryChannel === null && event.deliveryError === null;
-  return noOutcome && now - event.timestamp.getTime() < REQUEUE_WINDOW_MS;
+function isAwaitingDelivery(event: ClaimedEventRow, now = Date.now()): boolean {
+  return hasNoOutcome(event) && now - event.timestamp.getTime() < REQUEUE_WINDOW_MS;
+}
+
+interface ClaimedEventRow {
+  timestamp: Date;
+  delivered: boolean;
+  deliveryChannel: string | null;
+  deliveryError: string | null;
+}
+
+/** The delivery worker never wrote an outcome for this alert. */
+function hasNoOutcome(event: ClaimedEventRow): boolean {
+  return !event.delivered && event.deliveryChannel === null && event.deliveryError === null;
 }
 
 /**
@@ -297,6 +324,15 @@ async function evaluateScheduledAlerts() {
   }
 }
 
+const NOT_TRIGGERED: AlertTriggerResult = {
+  triggered: false,
+  severity: 'info',
+  title: '',
+  description: '',
+  triggerValue: null,
+  triggerTxHash: null,
+};
+
 /** Evaluate a transaction-triggered alert condition */
 async function evaluateCondition(
   config: typeof alertConfigs.$inferSelect,
@@ -306,6 +342,8 @@ async function evaluateCondition(
 
   switch (config.alertType) {
     case 'large_transfer': {
+      // A contract call moved nothing; with no threshold set, 0 >= 0 would fire.
+      if (data.amountRaw === '0') return NOT_TRIGGERED;
       const amountUsd = data.amountUsd ? parseFloat(data.amountUsd) : 0;
       const triggered = amountUsd >= threshold;
       return {
