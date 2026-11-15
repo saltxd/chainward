@@ -15,6 +15,8 @@ interface TxAlertJobData {
   chain: string;
   txHash: string;
   amountUsd: string | null;
+  /** '0' for a leg that moved nothing (a contract call). Absent on jobs queued before it was added. */
+  amountRaw?: string | null;
   gasCostUsd: string | null;
   status: string;
   contractAddress: string | null;
@@ -321,6 +323,15 @@ async function evaluateScheduledAlerts() {
   }
 }
 
+const NOT_TRIGGERED: AlertTriggerResult = {
+  triggered: false,
+  severity: 'info',
+  title: '',
+  description: '',
+  triggerValue: null,
+  triggerTxHash: null,
+};
+
 /** Evaluate a transaction-triggered alert condition */
 async function evaluateCondition(
   config: typeof alertConfigs.$inferSelect,
@@ -330,6 +341,8 @@ async function evaluateCondition(
 
   switch (config.alertType) {
     case 'large_transfer': {
+      // A contract call moved nothing; with no threshold set, 0 >= 0 would fire.
+      if (data.amountRaw === '0') return NOT_TRIGGERED;
       const amountUsd = data.amountUsd ? parseFloat(data.amountUsd) : 0;
       const triggered = amountUsd >= threshold;
       return {

@@ -203,6 +203,7 @@ async function storeLeg(
       chain: tx.chain,
       txHash: tx.txHash,
       amountUsd: tx.amountUsd,
+      amountRaw: tx.amountRaw,
       gasCostUsd: tx.gasCostUsd,
       status: tx.status,
       contractAddress: tx.contractAddress ?? null,

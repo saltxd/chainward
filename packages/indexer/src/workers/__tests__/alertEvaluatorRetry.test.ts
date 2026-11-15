@@ -287,3 +287,46 @@ describe('evaluateTxAlerts retries', () => {
   });
 });
 
+// A contract call the wallet sent (an approval, a reverted call) is stored as
+// a row that moved nothing. Its alert job carries amountRaw '0'.
+describe('evaluateTxAlerts for a contract call row', () => {
+  const callJob = {
+    ...job,
+    amountUsd: '0.000000',
+    amountRaw: '0',
+    gasCostUsd: '0.0007',
+    status: 'failed',
+    contractAddress: '0xusdc',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    queued.length = 0;
+    state.events = [];
+    state.claimFailures = 0;
+  });
+
+  it.each([
+    ['failed_tx', null],
+    ['gas_spike', '0.0005'],
+    ['new_contract', null],
+  ])('fires %s', async (alertType, thresholdValue) => {
+    state.configs = [config(1, { alertType, thresholdValue })];
+    await evaluateTxAlerts(callJob);
+    expect(state.events).toHaveLength(1);
+    expect(queued.map((q) => q.data.alertType)).toEqual([alertType]);
+  });
+
+  it('does not fire large_transfer, even with no threshold set', async () => {
+    state.configs = [config(1, { thresholdValue: null }), config(2, { thresholdValue: '0' })];
+    await evaluateTxAlerts(callJob);
+    expect(state.events).toEqual([]);
+    expect(queued).toEqual([]);
+  });
+
+  it('still fires large_transfer with no threshold for a leg that moved value', async () => {
+    state.configs = [config(1, { thresholdValue: null })];
+    await evaluateTxAlerts({ ...job, amountRaw: '5000000' });
+    expect(state.events).toHaveLength(1);
+  });
+});

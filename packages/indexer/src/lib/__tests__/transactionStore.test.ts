@@ -298,4 +298,58 @@ describe.skipIf(!TEST_DB_URL)('insertTransactionIfNew', () => {
     const repeat = await storeTransaction(db, leg(txHash));
     expect(repeat).toEqual({ inserted: false, ingestedAt: first.ingestedAt });
   });
+
+  // A contract call the wallet sent that moved nothing out of it: zero ETH to
+  // the called contract, with the gas.
+  const callRow = (txHash: string, over: Partial<TransactionInsert> = {}) =>
+    leg(txHash, {
+      counterparty: USDC,
+      contractAddress: USDC,
+      amountRaw: '0',
+      amountUsd: '0.000000',
+      txType: 'approval',
+      methodId: '0x095ea7b3',
+      methodName: 'approve',
+      ...over,
+    });
+
+  it('stores a reverted contract call as failed, with its gas', async () => {
+    const txHash = newTxHash();
+
+    expect(await insertTransactionIfNew(db, callRow(txHash, { status: 'failed' }))).toBe(true);
+    expect(await insertTransactionIfNew(db, callRow(txHash, { status: 'failed' }))).toBe(false);
+
+    const rows = await gasRows(txHash);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.gas_cost_native).toBe('0.000000105000000000');
+  });
+
+  it('counts the gas of a claim once: on the call row, not on the tokens that came in', async () => {
+    for (const order of ['call first', 'token first']) {
+      const txHash = newTxHash();
+      const call = callRow(txHash, { txType: 'contract_call', methodName: 'claim', methodId: '0x4e71d92d' });
+      const tokenIn = tokenLeg(txHash, { direction: 'in', counterparty: USDC, ...NO_GAS });
+
+      for (const row of order === 'call first' ? [call, tokenIn] : [tokenIn, call]) {
+        expect(await insertTransactionIfNew(db, row)).toBe(true);
+      }
+
+      const rows = await gasRows(txHash);
+      expect(rows, order).toHaveLength(2);
+      expect(rows.filter((r) => r.gas_cost_native !== null).map((r) => r.direction), order).toEqual(['out']);
+    }
+  });
+
+  // Should a call row ever share a transaction with an outbound leg (an EIP-7702
+  // wallet sending ETH from its own code), the gas is still held once.
+  it('counts the gas once when a call row and an outbound leg share a transaction', async () => {
+    const txHash = newTxHash();
+
+    await insertTransactionIfNew(db, callRow(txHash));
+    await insertTransactionIfNew(db, leg(txHash));
+
+    const rows = await gasRows(txHash);
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.gas_cost_native !== null)).toHaveLength(1);
+  });
 });

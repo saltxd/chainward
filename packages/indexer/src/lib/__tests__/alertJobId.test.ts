@@ -43,4 +43,19 @@ describe('alertJobId', () => {
   it('tells an inbound leg from an outbound one', () => {
     expect(alertJobId(leg({ direction: 'in' }))).not.toBe(alertJobId(leg({ direction: 'out' })));
   });
+
+  // A contract call row (zero ETH to the called contract) shares its
+  // transaction with the inbound legs of a claim. It needs an id of its own,
+  // the same one on every retry.
+  it('gives a contract call row its own stable id beside the inbound legs of its transaction', () => {
+    const call = leg({ amountRaw: '0' });
+    const tokenIn = leg({
+      direction: 'in',
+      tokenAddress: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+      amountRaw: '1000000',
+    });
+    const ethIn = leg({ direction: 'in', amountRaw: '1000000000000000' });
+    expect(new Set([alertJobId(call), alertJobId(tokenIn), alertJobId(ethIn)]).size).toBe(3);
+    expect(alertJobId(leg({ amountRaw: '0' }))).toBe(alertJobId(call));
+  });
 });
