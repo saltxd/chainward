@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { useToast } from '@/components/ui/toast';
 import { AlertCard } from '@/components/dashboard/alert-card';
-import { deliveryChannelOptions } from '@/lib/alertChannels';
+import { alertEventStatus, deliveryChannelOptions, type AlertEventStatus } from '@/lib/alertChannels';
 import {
   SectionHead,
   Button,
@@ -27,6 +27,14 @@ const ALERT_TYPE_CONFIG: Record<string, { label: string; hasThreshold: boolean; 
   inactivity: { label: 'Inactivity', hasThreshold: false, defaultUnit: 'usd' },
   new_contract: { label: 'New Contract', hasThreshold: false, defaultUnit: 'usd' },
   idle_balance: { label: 'Idle Balance', hasThreshold: true, defaultUnit: 'usd', thresholdLabel: 'Min Balance (USD)' },
+};
+
+/** Delivery dot colour: a missing destination is amber like "pending", only a failed send is red. */
+const STATUS_COLOR: Record<AlertEventStatus, string> = {
+  delivered: 'var(--phosphor)',
+  failed: 'var(--danger)',
+  setup: 'var(--amber)',
+  pending: 'var(--amber)',
 };
 
 type AlertPresetKey = 'failed_tx' | 'gas_spike' | 'inactivity';
@@ -279,23 +287,19 @@ function AlertsContent() {
       key: 'status',
       header: '',
       width: '20px',
-      render: (event) => (
-        <span
-          className="v2-alerts-dot"
-          style={{
-            background: event.delivered
-              ? 'var(--phosphor)'
-              : event.deliveryError
-                ? 'var(--danger)'
-                : 'var(--amber)',
-            boxShadow: event.delivered
-              ? '0 0 6px var(--phosphor)'
-              : event.deliveryError
-                ? '0 0 6px var(--danger)'
-                : '0 0 6px var(--amber)',
-          }}
-        />
-      ),
+      render: (event) => {
+        const { status, label } = alertEventStatus(event);
+        const color = STATUS_COLOR[status];
+        return (
+          <span
+            className="v2-alerts-dot"
+            role="img"
+            aria-label={label}
+            title={label}
+            style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+          />
+        );
+      },
     },
     {
       key: 'time',
