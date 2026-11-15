@@ -113,6 +113,7 @@ vi.mock('../../lib/queue.js', () => ({
 
 import { evaluateTxAlerts, deliveryJobId } from '../alertEvaluator.js';
 import { sqlParams } from './sqlParams.js';
+import { logger } from '../../lib/logger.js';
 
 const TX_HASH = `0x${'cd'.repeat(32)}`;
 
@@ -215,13 +216,35 @@ describe('evaluateTxAlerts retries', () => {
     expect(queued).toEqual([]);
   });
 
-  it('does not queue a delivery again for an alert claimed more than 15 minutes ago', async () => {
+  it('does not queue a delivery again for an alert claimed more than 15 minutes ago, and says so at warn', async () => {
     queueAdd.mockRejectedValueOnce(new Error('Redis connection lost'));
     await expect(evaluateTxAlerts(job)).rejects.toThrow();
-    state.events[0]!.timestamp = new Date(Date.now() - 16 * 60_000);
+    const claimedAt = new Date(Date.now() - 16 * 60_000);
+    state.events[0]!.timestamp = claimedAt;
 
     await evaluateTxAlerts(job);
     expect(queued).toEqual([]);
+    // The alert is lost: leave a trace that names it.
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertId: 1,
+        alertType: 'large_transfer',
+        walletAddress: '0xagent',
+        txHash: TX_HASH,
+        eventTimestamp: claimedAt.toISOString(),
+      }),
+      expect.stringMatching(/never delivered/),
+    );
+  });
+
+  it('does not warn for an old alert that was delivered', async () => {
+    await evaluateTxAlerts(job);
+    state.events[0]!.timestamp = new Date(Date.now() - 16 * 60_000);
+    state.events[0]!.delivered = true;
+    state.events[0]!.deliveryChannel = 'discord';
+
+    await evaluateTxAlerts(job);
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 
   it('gives two transactions claimed in the same millisecond their own delivery jobs', async () => {
@@ -263,3 +286,4 @@ describe('evaluateTxAlerts retries', () => {
     expect(state.events).toEqual([]);
   });
 });
+

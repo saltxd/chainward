@@ -174,6 +174,22 @@ async function evaluateTxAlert(config: typeof alertConfigs.$inferSelect, data: T
       );
       return;
     }
+    if (hasNoOutcome(fired)) {
+      // Claimed, but its delivery was never tried and the window to queue it
+      // again has passed: the alert is lost. Leave a trace that names it.
+      logger.warn(
+        {
+          alertId: config.id,
+          alertType: config.alertType,
+          walletAddress: data.walletAddress,
+          txHash: data.txHash,
+          eventTimestamp: fired.timestamp.toISOString(),
+          claimedAgoMs: Date.now() - fired.timestamp.getTime(),
+        },
+        'Claimed alert never delivered, past the re-queue window; dropping it',
+      );
+      return;
+    }
     logger.debug(
       { txHash: data.txHash, alertId: config.id },
       'Duplicate alert prevented — already fired for this tx',
@@ -233,12 +249,20 @@ const REQUEUE_WINDOW_MS = 15 * 60_000;
  * under its job id is a no-op) or was never queued because the attempt that
  * claimed it failed first.
  */
-function isAwaitingDelivery(
-  event: { timestamp: Date; delivered: boolean; deliveryChannel: string | null; deliveryError: string | null },
-  now = Date.now(),
-): boolean {
-  const noOutcome = !event.delivered && event.deliveryChannel === null && event.deliveryError === null;
-  return noOutcome && now - event.timestamp.getTime() < REQUEUE_WINDOW_MS;
+function isAwaitingDelivery(event: ClaimedEventRow, now = Date.now()): boolean {
+  return hasNoOutcome(event) && now - event.timestamp.getTime() < REQUEUE_WINDOW_MS;
+}
+
+interface ClaimedEventRow {
+  timestamp: Date;
+  delivered: boolean;
+  deliveryChannel: string | null;
+  deliveryError: string | null;
+}
+
+/** The delivery worker never wrote an outcome for this alert. */
+function hasNoOutcome(event: ClaimedEventRow): boolean {
+  return !event.delivered && event.deliveryChannel === null && event.deliveryError === null;
 }
 
 /**
