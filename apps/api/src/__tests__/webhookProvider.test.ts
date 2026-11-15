@@ -85,12 +85,15 @@ describe('AlchemyWebhookProvider.parsePayload', () => {
     expect(result[0]?.rawContract?.address ?? null).toBeNull();
   });
 
-  // A zero-value call moves no ETH, so there is no transfer to record. Tokens
-  // it moved arrive as their own activities.
-  it('drops a zero-value external call without a warning', () => {
+  // A zero-value external activity is a contract call (an approval, a claim, a
+  // call that reverted). The parser cannot tell which side is the monitored
+  // wallet, so it keeps the call; the indexer stores it only for the wallet
+  // that sent it.
+  it('keeps a zero-value external call, without a warning', () => {
     const warn = vi.spyOn(logger, 'warn');
     const result = provider.parsePayload(envelope([ethActivity(8, 0, '0x0'), validActivity(14)]));
-    expect(result.map((a) => a.txHash)).toEqual([validActivity(14).hash]);
+    expect(result.map((a) => a.txHash)).toEqual([ethActivity(8, 0, '0x0').hash, validActivity(14).hash]);
+    expect(result[0]).toMatchObject({ category: 'external', value: 0 });
     expect(warn).not.toHaveBeenCalled();
   });
 
