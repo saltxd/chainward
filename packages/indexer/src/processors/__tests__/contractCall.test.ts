@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encodeFunctionData, pad, parseAbi } from 'viem';
 
 // A contract call that moves nothing out of the wallet (an approval, a claim,
@@ -16,13 +16,16 @@ const client = {
 vi.mock('../../lib/viem.js', () => ({ getBaseClient: () => client }));
 vi.mock('../../lib/logger.js', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
 // The 4byte cache, for a selector the decoder does not know.
-vi.mock('../../lib/redis.js', () => ({ getRedis: () => ({ get: async () => 'claimRewards', setex: async () => 'OK' }) }));
+const fourByteCache = vi.hoisted(() => ({ get: vi.fn(async () => 'claimRewards'), setex: vi.fn(async () => 'OK') }));
+vi.mock('../../lib/redis.js', () => ({ getRedis: () => fourByteCache }));
 vi.mock('../tokenResolver.js', () => ({ resolveToken: vi.fn(async () => null) }));
 vi.mock('../protocolResolver.js', () => ({ resolveProtocol: vi.fn(async () => null) }));
 vi.mock('../priceResolver.js', () => ({ getEthPrice: vi.fn(async () => 3000), getTokenUsdPrice: vi.fn(async () => null) }));
 vi.mock('../agentResolver.js', () => ({ resolveAgentByAddress: vi.fn(async () => null) }));
 
 import { processWebhookTx } from '../baseProcessor.js';
+import { getEthPrice } from '../priceResolver.js';
+import { resolveProtocol } from '../protocolResolver.js';
 
 const WALLET = '0x1111111111111111111111111111111111111111';
 const OTHER_WALLET = '0x3333333333333333333333333333333333333333';
@@ -73,11 +76,17 @@ const zeroValueCall = (from = WALLET, to = USDC, category = 'external') => ({
 });
 
 describe('processWebhookTx, contract calls the wallet sent', () => {
+  // No test may reach the network; the swap case asserts it is not even tried.
+  const fetchSpy = vi.fn(async () => new Response('{"results":[]}'));
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('fetch', fetchSpy);
     client.getTransaction.mockResolvedValue({ input: APPROVE_INPUT, to: USDC });
     client.getTransactionReceipt.mockResolvedValue(receipt());
     client.getBlock.mockResolvedValue({ timestamp: 1_700_000_000n });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('stores an approval with no transfer as one outbound approval row with its gas', async () => {
@@ -130,6 +139,10 @@ describe('processWebhookTx, contract calls the wallet sent', () => {
     expect(client.getTransactionReceipt).toHaveBeenCalledTimes(1);
     expect(client.getTransaction).not.toHaveBeenCalled();
     expect(client.getBlock).not.toHaveBeenCalled();
+    expect(getEthPrice).not.toHaveBeenCalled();
+    expect(resolveProtocol).not.toHaveBeenCalled();
+    expect(fourByteCache.get).not.toHaveBeenCalled(); // the 4byte decode
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('still stores the call row when the wallet only sent an NFT (NFT activity is not stored)', async () => {
