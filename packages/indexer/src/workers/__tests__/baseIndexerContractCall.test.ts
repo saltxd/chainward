@@ -46,8 +46,9 @@ vi.mock('../../lib/transactionStore.js', () => ({
     return { inserted: true, ingestedAt: row.ingestedAt };
   }),
 }));
-vi.mock('../../lib/rateLimiter.js', () => ({
-  isOutbound: (direction: string) => direction !== 'in',
+// The real decisions (which legs are sends, which count toward the limit); only Redis is faked.
+vi.mock('../../lib/rateLimiter.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/rateLimiter.js')>()),
   isAddressPaused: vi.fn(async () => false),
   recordAndCheck: vi.fn(async () => false),
 }));
@@ -64,6 +65,7 @@ vi.mock('../transferBackfill.js', () => ({ alchemyBackfillAvailable: () => false
 
 import { handleWebhookTx } from '../baseIndexer.js';
 import { alertJobId } from '../../lib/alertJobId.js';
+import { recordAndCheck } from '../../lib/rateLimiter.js';
 
 const WALLET = '0x1111111111111111111111111111111111111111';
 const STRANGER = '0x5555555555555555555555555555555555555555';
@@ -163,6 +165,16 @@ describe('handleWebhookTx, contract calls', () => {
     expect(alertJobs()[0]!.data).toMatchObject({ status: 'failed' });
   });
 
+  // A call row adds no inbound noise and cannot be caused by a third party, so
+  // counting it would only pause the inbound payments of a busy keeper bot.
+  it('does not count an approval or a reverted call toward the outbound rate limit', async () => {
+    await handleWebhookTx(job(callActivity()));
+    client.getTransactionReceipt.mockResolvedValue(receipt({ status: 'reverted' }));
+    await handleWebhookTx(job({ ...callActivity(), txHash: `0x${'cd'.repeat(32)}` }));
+    expect(stored).toHaveLength(2);
+    expect(recordAndCheck).not.toHaveBeenCalled();
+  });
+
   it('a retry of the call job stores nothing new and queues the alert under the same id', async () => {
     await handleWebhookTx(job(callActivity()));
     await handleWebhookTx(job(callActivity(), 2)); // its row was stored by this job, just now
@@ -182,6 +194,8 @@ describe('handleWebhookTx, contract calls', () => {
       expect(stored).toHaveLength(1);
       expect(stored[0]).toMatchObject({ tokenAddress: USDC, direction: 'out', txType: 'swap', gasUsed: 46_000 });
       expect(alertJobs()).toHaveLength(1);
+      // The token the wallet sent still counts as a send, once.
+      expect(recordAndCheck).toHaveBeenCalledTimes(1);
     };
 
     it('legs in the same batch: one row, the token leg, with the gas', async () => {
