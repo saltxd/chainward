@@ -35,7 +35,8 @@ imagePullSecrets:
   - name: ghcr-pull
 
 postgres:
-  image: timescale/timescaledb:2.25.1-pg16
+  # 2.32.1 on PG 16.16 since 2026-11-21. One-way after ALTER EXTENSION timescaledb UPDATE: never go back to 2.25.x.
+  image: timescale/timescaledb:2.32.1-pg16@sha256:5d7a2f9d9d593315368338aa6054fda37d7707b4a12a912e30dcb7523385e2b4
   storage: 10Gi  # live PVC (immutable); was 40Gi in the chart but never applied
   user: chainward
   database: chainward
