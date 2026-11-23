@@ -20,7 +20,7 @@
     "ioredis": "^5.4.0",
     "pino": "^9.5.0",
     "postgres": "^3.4.0",
-    "viem": "^2.57.16"
+    "viem": "^2.57.20"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
