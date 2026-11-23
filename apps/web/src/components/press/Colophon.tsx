@@ -23,6 +23,9 @@ export function Colophon() {
           <Link href="/mcp">MCP</Link>
           <Link href="/attest">Attest</Link>
           <Link href="/docs">Docs</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/dmca">DMCA</Link>
           <a href="https://x.com/chainwardai" target="_blank" rel="noopener noreferrer">
             X
           </a>
