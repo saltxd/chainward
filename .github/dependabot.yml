@@ -14,6 +14,9 @@ updates:
         update-types: ["version-update:semver-major"]
       # pnpm-patched (patches/); Dependabot cannot resolve it ("dependency_file_not_resolvable")
       - dependency-name: "@virtuals-protocol/acp-node-v2"
+      # RainbowKit (latest 2.2.11) peers on wagmi ^2.9.0 and imports connectors wagmi 3 removed; take wagmi 3 with a RainbowKit release that supports it
+      - dependency-name: wagmi
+        update-types: ["version-update:semver-major"]
     schedule: { interval: weekly, day: monday }
     groups: { node: { patterns: ["*"], update-types: ["minor", "patch"] } }   # majors arrive as their own PRs
     cooldown: { default-days: 7 }
