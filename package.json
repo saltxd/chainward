@@ -33,7 +33,7 @@
     "eslint-config-next": "^15.5.16",
     "globals": "^15",
     "tsx": "^4.23.15",
-    "turbo": "^2.11.10",
+    "turbo": "^2.11.11",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8"
   },
